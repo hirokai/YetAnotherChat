@@ -1,12 +1,12 @@
 const express = require("express");
 const app = express();
-const fs = require("fs");
 const bodyParser = require("body-parser");
 const emojis = require("./emojis.json").emojis;
 const _ = require('lodash');
 const path = require('path');
 const sqlite3 = require('sqlite3');
 const db = new sqlite3.Database(path.join(__dirname, './private/db.sqlite3'));
+const model = require('./model');
 
 const port = 3000;
 
@@ -29,11 +29,12 @@ app.use(function (req, res, next) {
 
 const emoji_dict = _.keyBy(emojis, 'shortname');
 
-app.get('/get_slack', (req, res) => {
+app.get('/comments', (req, res) => {
     db.serialize(() => {
-        db.all('select * from comments;', (err, rows) => {
+        db.all('select * from comments order by timestamp;', (err, rows) => {
             const messages = _.map(rows, (row) => {
-                return { text: row.comment, ts: row.timestamp, user: row.user_id };
+                console.log(row);
+                return { text: row.comment, ts: row.timestamp, user: row.user_id, original_url: row.url_original, sent_to: row.sent_to };
             });
             res.json(_.map(messages, (obj) => {
                 obj.text = obj.text.replace(/(:.+?:)/g, function (m, $1) {
@@ -46,7 +47,16 @@ app.get('/get_slack', (req, res) => {
     })
 });
 
-app.post('/comment', (req, res) => {
+
+app.get('/sent_email', (req, res) => {
+    model.get_sent_mail(req.query.q).then((data) => {
+        res.header("Content-Type", "application/json; charset=utf-8");
+        res.json(data);
+    });
+});
+
+
+app.post('/comments', (req, res) => {
     db.serialize(() => {
         const ts = new Date().getTime();
         db.run('insert into comments (user_id,comment,timestamp) values (?,?,?);', req.body.user, req.body.comment, ts)

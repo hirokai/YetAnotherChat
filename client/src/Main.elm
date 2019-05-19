@@ -11,20 +11,24 @@ import Maybe.Extra
 import Task
 
 
+type alias CommentTyp =
+    { user : String, comment : String, timestamp : String, originalUrl : String, sentTo : String }
+
+
 port getMessages : () -> Cmd msg
 
 
 port scrollToBottom : () -> Cmd msg
 
 
-port feedMessages : (List { user : String, comment : String, timestamp : String } -> msg) -> Sub msg
+port feedMessages : (List CommentTyp -> msg) -> Sub msg
 
 
 port sendCommentToServer : String -> Cmd msg
 
 
 type ChatEntry
-    = Comment { user : String, comment : String, timestamp : String }
+    = Comment CommentTyp
     | ChatFile { user : String, filename : String }
 
 
@@ -58,7 +62,7 @@ type Msg
     | SubmitComment
     | CommentBoxKeyDown Int
     | ToggleMember Member
-    | FeedMessages (List { user : String, comment : String, timestamp : String })
+    | FeedMessages (List CommentTyp)
 
 
 onKeyDown : (Int -> msg) -> Attribute msg
@@ -67,7 +71,7 @@ onKeyDown tagger =
 
 
 addComment model =
-    { model | messages = List.append model.messages [ Comment { user = "myself", comment = model.chatInput, timestamp = model.chatTimestamp } ], chatInput = "" }
+    { model | messages = List.append model.messages [ Comment { user = "myself", comment = model.chatInput, timestamp = model.chatTimestamp, originalUrl = "", sentTo = "all" } ], chatInput = "" }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -101,8 +105,8 @@ update msg model =
 
         FeedMessages ms ->
             let
-                f { user, comment, timestamp } =
-                    Comment { user = user, comment = comment, timestamp = timestamp }
+                f { user, comment, timestamp, originalUrl, sentTo } =
+                    Comment { user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo }
 
                 msgs =
                     List.map f ms
@@ -140,10 +144,19 @@ showItem model e =
                     [ div [ style "float" "left" ] [ img [ class "chat_user_icon", src (iconOfUser m.user) ] [] ]
                     , div [ class "chat_comment" ]
                         [ div [ class "chat_user_name" ]
-                            [ text m.user
+                            [ text
+                                (m.user
+                                    ++ (if m.sentTo /= "" then
+                                            " to " ++ m.sentTo
+
+                                        else
+                                            ""
+                                       )
+                                )
                             , span [ class "chat_timestamp" ]
                                 [ text m.timestamp
                                 ]
+                            , a [ href m.originalUrl ] [ text "Gmail" ]
                             ]
                         , div [ class "chat_comment_content" ] <| mkComment m.comment
                         ]
