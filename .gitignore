@@ -1,6 +1,6 @@
 .DS_Store
-elm-stuff
 server/private/*
-private/*
 node_modules
-dist/*
+client/private/*
+client/dist
+client/elm-stuff
