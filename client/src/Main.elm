@@ -20,6 +20,9 @@ port scrollToBottom : () -> Cmd msg
 port feedMessages : (List { user : String, comment : String, timestamp : String } -> msg) -> Sub msg
 
 
+port sendCommentToServer : String -> Cmd msg
+
+
 type ChatEntry
     = Comment { user : String, comment : String, timestamp : String }
     | ChatFile { user : String, filename : String }
@@ -80,11 +83,11 @@ update msg model =
             ( { model | chatInput = s }, Cmd.none )
 
         SubmitComment ->
-            ( addComment model, scrollToBottom () )
+            ( addComment model, Cmd.batch [ scrollToBottom (), sendCommentToServer model.chatInput ] )
 
         CommentBoxKeyDown code ->
             if code == 13 then
-                ( addComment model, scrollToBottom () )
+                ( addComment model, Cmd.batch [ scrollToBottom (), sendCommentToServer model.chatInput ] )
 
             else
                 ( model, Cmd.none )

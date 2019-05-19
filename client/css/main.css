@@ -1,4 +1,11 @@
-@import url('https://fonts.googleapis.com/css?family=Noto+Sans+JP:400&subset=japanese');
+/* @import url('https://fonts.googleapis.com/css?family=Noto+Sans+JP:400&subset=japanese'); */
+
+@media (prefers-color-scheme: dark) {
+    body {
+        background: black;
+        color: white;
+    }
+}
 
 .container {
 }
@@ -16,6 +23,12 @@ div.chat_entry_comment {
 
 div.chat_entry_comment:hover {
     background: #f8f8f8;
+}
+
+@media (prefers-color-scheme: dark) {
+    div.chat_entry_comment:hover {
+        background: #222;
+    }
 }
 
 img.chat_user_icon {
@@ -40,6 +53,11 @@ div.chat_comment_content {
     font-size: 15px;
 }
 
+@media (prefers-color-scheme: dark) {
+    div.chat_comment_content {
+        color: #ccc;
+    }
+}
 
 div.chat_comment {
     margin-left: 50px;
