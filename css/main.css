@@ -1,0 +1,56 @@
+@import url('https://fonts.googleapis.com/css?family=Noto+Sans+JP:400&subset=japanese');
+
+.container {
+}
+
+#chat-entries {
+    padding-bottom: 60px;
+}
+
+div.chat_entry_comment {
+    width: 100%;
+    /* border: 1px solid blue; */
+    padding: 5px;
+    margin: 0px 5px;
+}
+
+div.chat_entry_comment:hover {
+    background: #f8f8f8;
+}
+
+img.chat_user_icon {
+    width: 40px;
+    height: 40px;
+}
+
+div.chat_user_name {
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.chat_timestamp {
+    margin-left: 20px;
+    font-weight: lighter;
+    font-size: 12px;
+}
+
+div.chat_comment_content {
+    color: #005;
+    font-family: 'Noto Sans JP',Slack-Lato,appleLogo,sans-serif;
+    font-size: 15px;
+}
+
+
+div.chat_comment {
+    margin-left: 50px;
+}
+
+div#footer_wrapper {
+    height: 60px;
+    padding-top: 10px;
+    background: white;
+}
+
+div#footer {
+    margin-left: 40px;
+}
