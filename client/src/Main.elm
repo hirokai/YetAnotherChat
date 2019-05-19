@@ -51,9 +51,9 @@ main =
 type Msg
     = Msg1
     | Msg2
-    | Input String
-    | Submit
-    | KeyDown Int
+    | InputComment String
+    | SubmitComment
+    | CommentBoxKeyDown Int
     | ToggleMember Member
     | FeedMessages (List { user : String, comment : String, timestamp : String })
 
@@ -76,13 +76,13 @@ update msg model =
         Msg2 ->
             ( model, Cmd.none )
 
-        Input s ->
+        InputComment s ->
             ( { model | chatInput = s }, Cmd.none )
 
-        Submit ->
+        SubmitComment ->
             ( addComment model, scrollToBottom () )
 
-        KeyDown code ->
+        CommentBoxKeyDown code ->
             if code == 13 then
                 ( addComment model, scrollToBottom () )
 
@@ -197,11 +197,11 @@ view model =
                                 [ value model.chatInput
                                 , style "height" "30px"
                                 , style "width" "90vw"
-                                , onInput Input
-                                , onKeyDown KeyDown
+                                , onInput InputComment
+                                , onKeyDown CommentBoxKeyDown
                                 ]
                                 []
-                            , button [ class "btn btn-primary", onClick Submit ] [ text "送信" ]
+                            , button [ class "btn btn-primary", onClick SubmitComment ] [ text "送信" ]
                             ]
                         ]
                     ]
