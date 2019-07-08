@@ -2,9 +2,11 @@ const app = Elm.Main.init();
 
 function scrollToBottom() {
     window.setTimeout(() => {
-        console.log('scrollToBottom');
         const el = $('#chat-entries')[0];
+        // const el = $('#chat-wrapper')[0];
         el.scrollIntoView({ block: "end", inline: "nearest", behavior: "instant" });
+        el.scrollTop = el.height;
+        console.log('scrollToBottom', el.clientHeight);
     }, 10);
 }
 
@@ -20,12 +22,13 @@ app.ports.getMessages.subscribe(function () {
     console.log('getMessages called');
     $.get('http://localhost:3000/comments').then((res) => {
         app.ports.feedMessages.send(processData(res));
-        scrollToBottom();
+        // scrollToBottom();
     });
 });
 
 app.ports.sendCommentToServer.subscribe(function (comment) {
     $.post('http://localhost:3000/comments', { comment: comment, user: 'myself' }).then((res) => {
         console.log(res);
+        scrollToBottom();
     });
 });

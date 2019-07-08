@@ -36,13 +36,48 @@ type alias Member =
     String
 
 
+type alias RoomID =
+    String
+
+
+getUser : ChatEntry -> String
+getUser c =
+    case c of
+        Comment { user } ->
+            user
+
+        ChatFile { user } ->
+            user
+
+
 type alias Model =
     { messages : List ChatEntry
     , onlineUsers : List Member
     , chatInput : String
     , chatTimestamp : String
     , selected : Dict Member Bool
+    , room : RoomID
+    , rooms : List RoomID
     }
+
+
+init : Flags -> ( Model, Cmd Msg )
+init _ =
+    ( { messages = initialMessages
+      , chatInput = ""
+      , chatTimestamp = ""
+      , selected = showAll initialMessages
+      , onlineUsers = []
+      , room = "Home"
+      , rooms = [ "Home", "COI" ]
+      }
+    , getMessages ()
+    )
+
+
+people : Model -> List String
+people model =
+    List.Extra.unique <| List.map getUser model.messages
 
 
 main : Program Flags Model Msg
@@ -63,6 +98,7 @@ type Msg
     | CommentBoxKeyDown Int
     | ToggleMember Member
     | FeedMessages (List CommentTyp)
+    | EnterRoom RoomID
 
 
 onKeyDown : (Int -> msg) -> Attribute msg
@@ -72,6 +108,22 @@ onKeyDown tagger =
 
 addComment model =
     { model | messages = List.append model.messages [ Comment { user = "myself", comment = model.chatInput, timestamp = model.chatTimestamp, originalUrl = "", sentTo = "all" } ], chatInput = "" }
+
+
+messageFilter : RoomID -> List ChatEntry -> List ChatEntry
+messageFilter room msgs =
+    let
+        f m =
+            if room == "Home" then
+                True
+
+            else if room == "COI" then
+                Maybe.Extra.isJust <| List.Extra.elemIndex (getUser m) [ "matsubara", "yoshida" ]
+
+            else
+                getUser m == room
+    in
+    List.filter f msgs
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -112,6 +164,9 @@ update msg model =
                     List.map f ms
             in
             ( { model | messages = msgs, selected = showAll msgs }, Cmd.none )
+
+        EnterRoom r ->
+            ( { model | room = r }, Cmd.none )
 
 
 mkComment : String -> List (Html.Html msg)
@@ -179,13 +234,52 @@ isSelected model m =
     Dict.get m model.selected == Just True
 
 
+leftMenu : Model -> Html Msg
+leftMenu model =
+    div [ class "col-md-2 col-lg-2", id "menu-left" ]
+        [ p [] [ text "チャンネル" ]
+        , ul [ class "menu-list" ] <|
+            List.map
+                (\r ->
+                    li
+                        [ class
+                            (if model.room == r then
+                                "current-room"
+
+                             else
+                                ""
+                            )
+                        ]
+                        [ a [ onClick (EnterRoom r) ] [ text r ] ]
+                )
+                model.rooms
+        , ul [ class "menu-list" ] <|
+            List.map
+                (\p ->
+                    li
+                        [ class
+                            (if model.room == p then
+                                "current-room"
+
+                             else
+                                ""
+                            )
+                        ]
+                        [ a [ onClick (EnterRoom p) ] [ text p ] ]
+                )
+            <|
+                people model
+        ]
+
+
 view : Model -> Browser.Document Msg
 view model =
     { title = "Slack clone"
     , body =
         [ div [ class "container" ]
             [ div [ class "row" ]
-                [ div [ class "col-md" ]
+                [ leftMenu model
+                , div [ class "col-md-10 col-lg-10" ]
                     [ div [] <|
                         List.map
                             (\m ->
@@ -205,8 +299,10 @@ view model =
                                     [ text m ]
                             )
                             (getMembers model.messages)
-                    , div [ id "chat-entries" ] <|
-                        List.map (showItem model) model.messages
+                    , div [ id "chat-wrapper" ]
+                        [ div [ id "chat-entries" ] <|
+                            List.map (showItem model) (messageFilter model.room model.messages)
+                        ]
                     , div [ id "footer_wrapper", class "fixed-bottom" ]
                         [ div [ id "footer" ]
                             [ input
@@ -257,15 +353,3 @@ showAll messages =
 
 type alias Flags =
     ()
-
-
-init : Flags -> ( Model, Cmd Msg )
-init _ =
-    ( { messages = initialMessages
-      , chatInput = ""
-      , chatTimestamp = ""
-      , selected = showAll initialMessages
-      , onlineUsers = []
-      }
-    , getMessages ()
-    )

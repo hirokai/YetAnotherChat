@@ -7,15 +7,16 @@
     }
 }
 
-.container {
-}
+.container {}
 
 #chat-entries {
     padding-bottom: 60px;
+    overflow: auto;
+    height: 1000px;
 }
 
 div.chat_entry_comment {
-    width: 100%;
+    // width: 100%;
     /* border: 1px solid blue; */
     padding: 5px;
     margin: 0px 5px;
@@ -49,7 +50,7 @@ div.chat_user_name {
 
 div.chat_comment_content {
     color: #005;
-    font-family: 'Noto Sans JP',Slack-Lato,appleLogo,sans-serif;
+    font-family: 'Noto Sans JP', Slack-Lato, appleLogo, sans-serif;
     font-size: 15px;
 }
 
@@ -71,4 +72,45 @@ div#footer_wrapper {
 
 div#footer {
     margin-left: 40px;
+}
+
+@media (prefers-color-scheme: dark) {
+    div#footer_wrapper {
+        background: black;
+    }
+
+    div#footer input {
+        background: #222;
+        color: #ccc;
+    }
+}
+
+#menu-left {
+    // position: fixed;
+    // top: 10px;
+    // left: 10px;
+    // width: 120px;
+    // height: 100%;    background: rgb(140, 142, 196);
+}
+
+#chat-wrapper {
+    position: fixed;
+    overflow: auto;
+}
+
+#menu-left ul {
+    cursor: pointer;
+
+}
+
+.current-room {
+    font-weight: bold;
+}
+
+ul.menu-list {
+    padding-left: 0px;
+}
+
+ul.menu-list li {
+    list-style-type: none;
 }

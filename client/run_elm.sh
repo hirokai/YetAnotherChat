@@ -1,1 +1,1 @@
-elm-live src/Main.elm -s main.html -- --output dist/main.elm.js
+elm-live src/Main.elm -p 8000 -s main.html -- --output dist/main.elm.js
