@@ -23,11 +23,56 @@ img.chat_user_icon {
 
 
 .selection-active .activity-cell:not(.active) {
-    fill-opacity: 0.2;
+    fill-opacity: 0.4;
 }
 
 .selection-active .activity-cell.active {
     fill-opacity: 1;
     stroke: black;
     stroke-width: 2px;
+}
+
+#toolbar {
+    height: 80px;
+    padding: 10px 0px 5px 0px;
+    margin: 0px;
+}
+
+#toolbar p {
+    font-weight: bold;
+}
+
+#lefttop-space {
+    height: 80px;
+}
+
+.menu-list li {
+    cursor: pointer;
+}
+
+.menu-list li:hover {
+    background: rgb(149, 218, 233);
+    transition: background-color 0.3s;
+}
+
+.menu-list li {
+    background: inherit;
+    transition: background-color 0.3s;
+}
+
+.current-room {
+    font-weight: bold;
+}
+
+#toolbar .btn.active {
+    font-weight: bold;  
+}
+
+.clickable {
+    cursor: pointer;
+}
+
+.clickable:hover {
+    text-decoration: underline;
+    transition: text-decoration 0.2s;
 }

@@ -24,10 +24,10 @@ type alias User =
 port getUsers : () -> Cmd msg
 
 
-port getMessages : () -> Cmd msg
+port getMessages : { timespan : String } -> Cmd msg
 
 
-port getMessageAt : ( String, String ) -> Cmd msg
+port getMessageAt : ( String, String, String ) -> Cmd msg
 
 
 port scrollToBottom : () -> Cmd msg
@@ -85,6 +85,7 @@ type alias Model =
     , matrix : List (List Int)
     , dates : List String
     , selectedCell : Maybe ( Int, Int )
+    , timespan : Timespan
     }
 
 
@@ -96,20 +97,21 @@ init _ =
       , selected = showAll initialMessages
       , onlineUsers = []
       , room = "Home"
-      , rooms = [ "Home", "COI" ]
+      , rooms = []
       , users = []
       , userInfo = Dict.empty
       , matrix = []
       , dates = []
       , selectedCell = Nothing
+      , timespan = Day
       }
-    , Cmd.batch [ getMessages (), getUsers () ]
+    , Cmd.batch [ getMessages { timespan = "day" }, getUsers () ]
     )
 
 
-people : Model -> List String
+people : Model -> List ( String, Int )
 people model =
-    List.Extra.unique <| List.map getUser model.messages
+    List.sortBy (\( u, c ) -> 0 - c) <| List.map (\u -> ( u, List.Extra.count (\m -> getUser m == u) model.messages )) <| List.Extra.unique <| List.map getUser model.messages
 
 
 main : Program Flags Model Msg
@@ -122,6 +124,12 @@ main =
         }
 
 
+type Timespan
+    = Day
+    | Week
+    | Month
+
+
 type Msg
     = Msg1
     | Msg2
@@ -131,10 +139,11 @@ type Msg
     | ToggleMember Member
     | FeedMatrix { users : List String, matrix : List (List Int), dates : List String }
     | FeedMessages (List CommentTyp)
-    | EnterRoom RoomID
+    | ChoosePerson String
     | SelectCell Int Int
     | UnselectCell
     | FeedUsers (List { id : String, name : String, avatar : String })
+    | SelectSpan Timespan
 
 
 onKeyDown : (Int -> msg) -> Attribute msg
@@ -185,7 +194,7 @@ update msg model =
                 ( model, Cmd.none )
 
         UnselectCell ->
-            ( { model | selectedCell = Nothing, messages = [] }, Cmd.none )
+            ( { model | selectedCell = Nothing, room = "", messages = [] }, Cmd.none )
 
         SelectCell col row ->
             let
@@ -200,10 +209,10 @@ update msg model =
                 case ( getAt col model.dates, count ) of
                     ( Just d, Just count1 ) ->
                         if count1 > 0 then
-                            ( { model | selectedCell = Just ( col, row ) }, getMessageAt ( d, "__all" ) )
+                            ( { model | selectedCell = Just ( col, row ), room = Maybe.withDefault "" (getAt row model.users) }, getMessageAt ( d, "__all", printSpan model.timespan ) )
 
                         else
-                            ( { model | selectedCell = Just ( col, row ), messages = [] }, Cmd.none )
+                            ( { model | selectedCell = Just ( col, row ), room = Maybe.withDefault "" (getAt row model.users), messages = [] }, Cmd.none )
 
                     _ ->
                         ( model, Cmd.none )
@@ -212,10 +221,10 @@ update msg model =
                 case ( getAt col model.dates, getAt row model.users, count ) of
                     ( Just d, Just u, Just count1 ) ->
                         if count1 > 0 then
-                            ( { model | selectedCell = Just ( col, row ) }, getMessageAt ( d, u ) )
+                            ( { model | selectedCell = Just ( col, row ), room = Maybe.withDefault "" (getAt row model.users) }, getMessageAt ( d, u, printSpan model.timespan ) )
 
                         else
-                            ( { model | selectedCell = Just ( col, row ), messages = [] }, Cmd.none )
+                            ( { model | selectedCell = Just ( col, row ), room = Maybe.withDefault "" (getAt row model.users), messages = [] }, Cmd.none )
 
                     _ ->
                         ( model, Cmd.none )
@@ -243,8 +252,40 @@ update msg model =
         FeedUsers us ->
             ( { model | userInfo = Dict.fromList (List.map (\u -> ( u.id, u )) us) }, Cmd.none )
 
-        EnterRoom r ->
-            ( { model | room = r }, Cmd.none )
+        ChoosePerson user ->
+            let
+                ( d, _ ) =
+                    getCurrentDateAndUser model
+            in
+            ( { model | room = user, selectedCell = Maybe.map (\( date, _ ) -> ( date, getIndexFromUserId model user )) model.selectedCell }, getMessageAt ( d, user, printSpan model.timespan ) )
+
+        SelectSpan span ->
+            ( { model | timespan = span }, getMessages { timespan = printSpan span } )
+
+
+getCurrentDateAndUser model =
+    case model.selectedCell of
+        Just ( col, row ) ->
+            ( Maybe.withDefault "" <| getAt col model.dates, Maybe.withDefault "" <| getAt row model.users )
+
+        Nothing ->
+            ( "", "" )
+
+
+getIndexFromUserId model id =
+    Maybe.withDefault -1 (List.Extra.elemIndex id model.users)
+
+
+printSpan s =
+    case s of
+        Day ->
+            "day"
+
+        Week ->
+            "week"
+
+        Month ->
+            "month"
 
 
 mkComment : String -> List (Html.Html msg)
@@ -315,25 +356,24 @@ isSelected model m =
 leftMenu : Model -> Html Msg
 leftMenu model =
     div [ class "col-md-2 col-lg-2", id "menu-left" ]
-        [ p [] [ text "チャンネル" ]
-        , ul [ class "menu-list" ] <|
-            List.map
-                (\r ->
-                    li
-                        [ class
-                            (if model.room == r then
-                                "current-room"
+        [ div [ id "lefttop-space" ] []
+        , div [] <|
+            case model.selectedCell of
+                Just ( col, row ) ->
+                    case ( getAt col model.dates, getAt row model.users ) of
+                        ( Just d, _ ) ->
+                            [ text d, br [] [], span [ class "clickable", onClick (SelectCell col -1) ] [ text (Maybe.withDefault "(N/A)" (Maybe.map (\a -> String.fromInt (List.sum a)) (getAt col model.matrix)) ++ " messages") ] ]
 
-                             else
-                                ""
-                            )
-                        ]
-                        [ a [ onClick (EnterRoom r) ] [ text r ] ]
-                )
-                model.rooms
-        , ul [ class "menu-list" ] <|
+                        _ ->
+                            [ text " " ]
+
+                Nothing ->
+                    [ text "Not selected" ]
+        , ul
+            [ class "menu-list" ]
+          <|
             List.map
-                (\p ->
+                (\( p, count ) ->
                     li
                         [ class
                             (if model.room == p then
@@ -342,8 +382,9 @@ leftMenu model =
                              else
                                 ""
                             )
+                        , onClick (ChoosePerson p)
                         ]
-                        [ a [ onClick (EnterRoom p) ] [ text (getName model.userInfo p) ] ]
+                        [ a [] [ text <| getName model.userInfo p ++ "(" ++ String.fromInt count ++ ")" ] ]
                 )
             <|
                 people model
@@ -385,8 +426,8 @@ class_ =
     Svg.Attributes.class
 
 
-mkColumn : Maybe ( Int, Int ) -> Int -> ( String, List Int ) -> Svg.Svg Msg
-mkColumn selected i ( date, xs ) =
+mkColumn : Maybe ( Int, Int ) -> Int -> Int -> ( String, List Int ) -> Svg.Svg Msg
+mkColumn selected countMax i ( date, xs ) =
     let
         calcX xi yi =
             xi * cellSize
@@ -418,7 +459,7 @@ mkColumn selected i ( date, xs ) =
                     "#ddd"
 
                  else
-                    colormap (toFloat total / 30)
+                    colormap (toFloat total / toFloat countMax)
                 )
             ]
             []
@@ -445,7 +486,7 @@ mkColumn selected i ( date, xs ) =
                                 "#ddd"
 
                              else
-                                colormap (toFloat count / 30)
+                                colormap (toFloat count / toFloat countMax)
                             )
                         ]
                         []
@@ -476,6 +517,22 @@ getName info id =
             "N/A"
 
 
+cellsOffsetX =
+    130
+
+
+countNormalizeFactor span =
+    case span of
+        Day ->
+            25
+
+        Week ->
+            80
+
+        Month ->
+            200
+
+
 view : Model -> Browser.Document Msg
 view model =
     { title = "Matrix view"
@@ -484,33 +541,64 @@ view model =
             [ div [ class "row" ]
                 [ leftMenu model
                 , div [ class "col-md-10 col-lg-10" ]
-                    [ div []
-                        [ case model.selectedCell of
-                            Just ( col, row ) ->
-                                case ( getAt col model.dates, getAt row model.users ) of
-                                    ( Just d, Just u ) ->
-                                        text (d ++ ": " ++ getName model.userInfo u ++ " - " ++ Maybe.withDefault "(N/A)" (Maybe.map String.fromInt (Maybe.andThen (\a -> getAt row a) (getAt col model.matrix))) ++ " messages")
+                    [ div [ id "toolbar" ] <|
+                        [ button
+                            [ class
+                                ("btn btn-light"
+                                    ++ (if model.timespan == Day then
+                                            " active"
 
-                                    ( Just d, Nothing ) ->
-                                        text (d ++ " - " ++ Maybe.withDefault "(N/A)" (Maybe.map (\a -> String.fromInt (List.sum a)) (getAt col model.matrix)) ++ " messages")
+                                        else
+                                            ""
+                                       )
+                                )
+                            , onClick (SelectSpan Day)
+                            ]
+                            [ text "日" ]
+                        , button
+                            [ class
+                                ("btn btn-light"
+                                    ++ (if model.timespan == Week then
+                                            " active"
 
-                                    _ ->
-                                        text " "
+                                        else
+                                            ""
+                                       )
+                                )
+                            , onClick (SelectSpan Week)
+                            ]
+                            [ text "週" ]
+                        , button
+                            [ class
+                                ("btn btn-light"
+                                    ++ (if model.timespan == Month then
+                                            " active"
 
-                            Nothing ->
-                                text "Not selected"
+                                        else
+                                            ""
+                                       )
+                                )
+                            , onClick (SelectSpan Month)
+                            ]
+                            [ text "月" ]
+                        , span [] [ text " " ]
                         ]
-                    , div [ id "matrix-wrapper" ]
-                        [ svg [ onClick UnselectCell, id "matrix", width (List.length model.dates * cellSize + 100), height (List.length model.users * cellSize + 80) ]
+                            ++ [ p [] [ text "マスをクリックするとその日・人を選択。外をクリックすると選択解除。緑が明るいところが投稿が多い。" ] ]
+                    , div [ id "matrix-wrapper", onClick UnselectCell ]
+                        [ svg
+                            [ id "matrix"
+                            , width (List.length model.dates * cellSize + cellsOffsetX + 80)
+                            , height (List.length model.users * cellSize + 80)
+                            ]
                             [ g [ transform "translate(20,60)" ]
                                 [ g [ id "matrix-usernames" ]
-                                    ([ text_ [ x "0", y "-7" ] [ text "All" ] ]
+                                    ([ text_ [ x "0", y "-7" ] [ text "全員" ] ]
                                         ++ List.indexedMap (\i a -> text_ [ x "0", y (String.fromInt (i * 20 + 18)) ] [ text (getName model.userInfo a) ])
                                             model.users
                                     )
                                 , g
                                     [ id "matrix-cells"
-                                    , transform "translate(100,0)"
+                                    , transform ("translate(" ++ String.fromInt cellsOffsetX ++ ",0)")
                                     , class_
                                         (if Maybe.Extra.isJust model.selectedCell then
                                             "selection-active"
@@ -519,8 +607,8 @@ view model =
                                             ""
                                         )
                                     ]
-                                    (List.indexedMap (mkColumn model.selectedCell) (List.Extra.zip model.dates model.matrix))
-                                , g [ id "matrix-date-labels", transform "translate(100,-25)" ] (mkDateLabels model.dates)
+                                    (List.indexedMap (mkColumn model.selectedCell (countNormalizeFactor model.timespan)) (List.Extra.zip model.dates model.matrix))
+                                , g [ id "matrix-date-labels", transform ("translate(" ++ String.fromInt cellsOffsetX ++ ",-25)") ] (mkDateLabels model.dates)
                                 ]
                             ]
                         ]

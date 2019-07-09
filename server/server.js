@@ -8,6 +8,7 @@ const sqlite3 = require('sqlite3');
 const db = new sqlite3.Database(path.join(__dirname, './private/db.sqlite3'));
 const model = require('./model');
 const fs = require('fs');
+const moment = require('moment');
 
 const port = 3000;
 
@@ -31,8 +32,10 @@ app.use(function (req, res, next) {
 const emoji_dict = _.keyBy(emojis, 'shortname');
 
 app.get('/matrix', (req, res) => {
+    const span = req.query.timespan;
+    console.log(span);
     res.set('Content-Type', 'application/json')
-    res.send(fs.readFileSync('private/slack_matrix.json', 'utf8'));
+    res.send(fs.readFileSync('private/slack_count_' + span + '.json', 'utf8'));
 });
 
 app.get('/users', (req, res) => {
@@ -47,22 +50,50 @@ app.get('/users', (req, res) => {
 
 const glob = require("glob");
 
+function expandSpan(date, span) {
+    console.log('expandSpan', span);
+    if (span == "day") {
+        return [date];
+    } else if (span == "week") {
+        const m = moment(date, "YYYYMMDD");
+        return _.map(_.range(1, 8), (i) => {
+            const m1 = _.clone(m);
+            m1.isoWeekday(i);
+            return m1.format("YYYYMMDD");
+        });
+    } else if (span == "month") {
+        const m = moment(date, "YYYYMMDD");
+        const daysList = [31, m.isLeapYear() ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        return _.map(_.range(1, daysList[m.month()] + 1), (i) => {
+            const m1 = _.clone(m);
+            m1.date(i);
+            return m1.format("YYYYMMDD");
+        });
+    }
+}
+
 app.get('/comments_by_date_user', (req, res) => {
-    const date = req.query.date;
+    const date_ = req.query.date;
     const user = req.query.user;
+    const span = req.query.timespan;
     try {
-        var files;
-        if (user == "__all") {
-            files = glob.sync('private/slack_matrix/' + date + "-*.json");
-            console.log(files);
-        } else {
-            const filename = "private/slack_matrix/" + date + "-" + user + ".json";
-            files = [path.join(__dirname, filename)];
-        }
-        const comments = _.sortBy(_.flatMap(files, (filename) => {
-            console.log('Reading: ' + filename);
-            return JSON.parse(fs.readFileSync(filename, 'utf8'));
-        }), 'ts');
+        const dates = expandSpan(date_, span);
+        const all_files = _.flatMap(dates, (date) => {
+            if (user == "__all") {
+                files = glob.sync('private/slack_matrix/' + date + "-*.json");
+            } else {
+                const filename = "private/slack_matrix/" + date + "-" + user + ".json";
+                files = [path.join(__dirname, filename)];
+            }
+            return files;
+        });
+        const comments = _.sortBy(_.compact(_.flatMap(all_files, (filename) => {
+            if (fs.existsSync(filename)) {
+                return JSON.parse(fs.readFileSync(filename, 'utf8'));
+            } else {
+                return null;
+            }
+        })), (e) => { return parseFloat(e.ts); });
         res.json(_.map(comments, (c) => {
             const ts_str = "" + (c.ts * 1000000)
             return _.extend({ source: "Slack" }, c)
@@ -99,6 +130,7 @@ app.get('/sent_email', (req, res) => {
         res.header("Content-Type", "application/json; charset=utf-8");
         res.json(data);
     });
+    return [date];
 });
 
 
