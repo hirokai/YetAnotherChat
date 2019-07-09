@@ -32,6 +32,10 @@ app.use(function (req, res, next) {
 const emoji_dict = _.keyBy(emojis, 'shortname');
 
 app.get('/matrix', (req, res) => {
+    res.send(fs.readFileSync('public/html/matrix.html', 'utf8'));
+});
+
+app.get('/api/matrix', (req, res) => {
     const span = req.query.timespan;
     console.log(span);
     res.set('Content-Type', 'application/json')

@@ -9,7 +9,7 @@ import Json.Decode as Json
 import List.Extra exposing (getAt)
 import Maybe.Extra
 import Svg exposing (g, rect, svg, text_)
-import Svg.Attributes exposing (fill, fillOpacity, stroke, strokeWidth, transform, x, y)
+import Svg.Attributes exposing (fill, fillOpacity, fontSize, stroke, strokeWidth, transform, x, y)
 import Task
 
 
@@ -500,7 +500,7 @@ mkDateLabels dates =
         (\i ds ->
             case List.head ds of
                 Just d ->
-                    text_ [ x (String.fromInt (i * cellSize * 7)), y "0" ] [ text d ]
+                    text_ [ x (String.fromInt (i * cellSize * 7)), y "0", fontSize "14" ] [ text d ]
 
                 Nothing ->
                     text_ [] []
@@ -521,16 +521,8 @@ cellsOffsetX =
     130
 
 
-countNormalizeFactor span =
-    case span of
-        Day ->
-            25
-
-        Week ->
-            80
-
-        Month ->
-            200
+countNormalizeFactor xss =
+    Maybe.withDefault 0 <| List.maximum <| List.map (\xs -> Maybe.withDefault 0 (List.maximum xs)) xss
 
 
 view : Model -> Browser.Document Msg
@@ -607,8 +599,8 @@ view model =
                                             ""
                                         )
                                     ]
-                                    (List.indexedMap (mkColumn model.selectedCell (countNormalizeFactor model.timespan)) (List.Extra.zip model.dates model.matrix))
-                                , g [ id "matrix-date-labels", transform ("translate(" ++ String.fromInt cellsOffsetX ++ ",-25)") ] (mkDateLabels model.dates)
+                                    (List.indexedMap (mkColumn model.selectedCell (countNormalizeFactor model.matrix)) (List.Extra.zip model.dates model.matrix))
+                                , g [ id "matrix-date-labels", transform ("translate(" ++ String.fromInt cellsOffsetX ++ ",-28)") ] (mkDateLabels model.dates)
                                 ]
                             ]
                         ]

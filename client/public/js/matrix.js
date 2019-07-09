@@ -12,7 +12,7 @@ function scrollToBottom() {
 app.ports.scrollToBottom.subscribe(scrollToBottom);
 
 app.ports.getMessages.subscribe(function (obj) {
-    $.get('http://localhost:3000/matrix', { timespan: obj.timespan }).then((res) => {
+    $.get('http://localhost:3000/api/matrix', { timespan: obj.timespan }).then((res) => {
         app.ports.feedMatrix.send(res);
     });
 });

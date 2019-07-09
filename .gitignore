@@ -4,3 +4,4 @@ node_modules
 client/private/*
 client/dist
 client/elm-stuff
+server/public/**/*
