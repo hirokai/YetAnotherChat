@@ -7,6 +7,7 @@ const path = require('path');
 const sqlite3 = require('sqlite3');
 const db = new sqlite3.Database(path.join(__dirname, './private/db.sqlite3'));
 const model = require('./model');
+const fs = require('fs');
 
 const port = 3000;
 
@@ -14,9 +15,9 @@ const pretty = require('express-prettify');
 
 app.use(pretty({ query: 'pretty' }));
 
-
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+app.use('/public', express.static(path.join(__dirname, 'public')))
 
 // db.run('drop table if exists comments;')
 db.run('create table  if not exists comments (user_id text, comment text, timestamp integer);')
@@ -28,6 +29,39 @@ app.use(function (req, res, next) {
 });
 
 const emoji_dict = _.keyBy(emojis, 'shortname');
+
+app.get('/matrix', (req, res) => {
+    res.set('Content-Type', 'application/json')
+    res.send(fs.readFileSync('private/slack_matrix.json', 'utf8'));
+});
+
+app.get('/users', (req, res) => {
+    // res.set('Content-Type', 'application/json');
+    const users = JSON.parse(fs.readFileSync('private/slack_users.json', 'utf8'));
+    res.json(_.map(users, (u) => {
+        const ts = u.real_name.split(" ");
+        const letter = ts[ts.length - 1][0].toLowerCase();
+        return { id: u.id, name: u.real_name, username: u.name, avatar: '/public/img/letter/' + letter + '.png' };
+    }));
+});
+
+app.get('/comments_by_date_user', (req, res) => {
+    const date = req.query.date;
+    const user = req.query.user;
+    try {
+        const filename = "private/slack_matrix/" + date + "-" + user + ".json";
+        console.log('Reading: ' + filename);
+        const comments = JSON.parse(fs.readFileSync(filename, 'utf8'));
+        res.send(_.map(comments, (c) => {
+            const ts_str = "" + (c.ts * 1000000)
+            return _.extend({ source: "Slack", original_url: "https://coi-tohoku.slack.com/archives/C66HX38F9/p" + ts_str }, c)
+        }));
+    } catch (e) {
+        res.status(404);
+        res.json({ error: "File not found" })
+    }
+});
+
 
 app.get('/comments', (req, res) => {
     db.serialize(() => {

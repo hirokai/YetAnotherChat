@@ -1,0 +1,19 @@
+.activity-cell {
+    cursor: pointer;
+}
+
+#matrix-wrapper {
+    height: 250px;
+    overflow: scroll;
+    background: #ececec;
+}
+
+svg {
+    overflow: scroll;
+}
+
+
+img.chat_user_icon {
+    width: 40px;
+    height: 40px;
+}

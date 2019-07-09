@@ -6,6 +6,10 @@
     "express-prettify": "^0.1.1",
     "googleapis": "39",
     "lodash": "^4.17.11",
+    "moment": "^2.24.0",
     "sqlite3": "^4.0.8"
+  },
+  "scripts": {
+    "watch": "node-dev --no-notify server.js"
   }
 }
