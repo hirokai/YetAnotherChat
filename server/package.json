@@ -7,6 +7,7 @@
     "glob": "^7.1.4",
     "googleapis": "39",
     "lodash": "^4.17.11",
+    "mailgun-js": "^0.22.0",
     "moment": "^2.24.0",
     "moment-timezone": "^0.5.26",
     "sqlite3": "^4.0.8"
