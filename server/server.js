@@ -45,16 +45,27 @@ app.get('/users', (req, res) => {
     }));
 });
 
+const glob = require("glob");
+
 app.get('/comments_by_date_user', (req, res) => {
     const date = req.query.date;
     const user = req.query.user;
     try {
-        const filename = "private/slack_matrix/" + date + "-" + user + ".json";
-        console.log('Reading: ' + filename);
-        const comments = JSON.parse(fs.readFileSync(filename, 'utf8'));
-        res.send(_.map(comments, (c) => {
+        var files;
+        if (user == "__all") {
+            files = glob.sync('private/slack_matrix/' + date + "-*.json");
+            console.log(files);
+        } else {
+            const filename = "private/slack_matrix/" + date + "-" + user + ".json";
+            files = [path.join(__dirname, filename)];
+        }
+        const comments = _.flatMap(files, (filename) => {
+            console.log('Reading: ' + filename);
+            return JSON.parse(fs.readFileSync(filename, 'utf8'));
+        });
+        res.json(_.map(comments, (c) => {
             const ts_str = "" + (c.ts * 1000000)
-            return _.extend({ source: "Slack", original_url: "https://coi-tohoku.slack.com/archives/C66HX38F9/p" + ts_str }, c)
+            return _.extend({ source: "Slack" }, c)
         }));
     } catch (e) {
         res.status(404);

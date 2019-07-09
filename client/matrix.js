@@ -38,7 +38,7 @@ app.ports.getUsers.subscribe(function () {
 });
 
 app.ports.getMessageAt.subscribe(function (obj) {
-    $.get('http://localhost:3000/comments_by_date_user', { date: obj[0], user: obj[1] }).done((res) => {
+    $.get('http://localhost:3000/comments_by_date_user', { date: obj[0], user: obj[1] != "" ? obj[1] : null }).done((res) => {
         console.log(processData(res));
         app.ports.feedMessages.send(processData(res))
     }).fail(() => {

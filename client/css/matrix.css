@@ -17,3 +17,15 @@ img.chat_user_icon {
     width: 40px;
     height: 40px;
 }
+
+body    {overflow-y:scroll;}
+
+.selection-active .activity-cell:not(.active) {
+    fill-opacity: 0.2;
+}
+
+.selection-active .activity-cell.active {
+    fill-opacity: 1;
+    stroke: black;
+    stroke-width: 2px;
+}
