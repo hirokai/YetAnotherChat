@@ -8,8 +8,11 @@
     background: #ececec;
 }
 
+body    {overflow-y:scroll;}
+
 svg {
     overflow: scroll;
+    overflow-y: hidden;
 }
 
 
@@ -18,7 +21,6 @@ img.chat_user_icon {
     height: 40px;
 }
 
-body    {overflow-y:scroll;}
 
 .selection-active .activity-cell:not(.active) {
     fill-opacity: 0.2;

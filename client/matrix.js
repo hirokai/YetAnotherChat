@@ -19,9 +19,16 @@ app.ports.getMessages.subscribe(function () {
     });
 });
 
-const processData = (res) => {
+const processComment = (comment) => {
+    return comment.replace(/<@(.+?)>/g, (all, m1) => {
+        const n = (users[m1] ? users[m1].name : null) || m1;
+        return "@" + n + " "
+    });
+};
+
+const processMessages = (res) => {
     return _.map(res, (m, i) => {
-        return { user: m.user || 'myself', comment: m.text || "", timestamp: moment(m.ts * 1000).format('YYYY/M/D HH:mm:ss'), originalUrl: m.original_url || "", sentTo: m.sent_to || "", source: m.source || "unknown" };
+        return { user: m.user || 'myself', comment: processComment(m.text || ""), timestamp: moment(m.ts * 1000).format('YYYY/M/D HH:mm:ss'), originalUrl: m.original_url || "", sentTo: m.sent_to || "", source: m.source || "unknown" };
     });
 };
 
@@ -39,8 +46,7 @@ app.ports.getUsers.subscribe(function () {
 
 app.ports.getMessageAt.subscribe(function (obj) {
     $.get('http://localhost:3000/comments_by_date_user', { date: obj[0], user: obj[1] != "" ? obj[1] : null }).done((res) => {
-        console.log(processData(res));
-        app.ports.feedMessages.send(processData(res))
+        app.ports.feedMessages.send(processMessages(res))
     }).fail(() => {
         app.ports.feedMessages.send([]);
     });

@@ -8,6 +8,7 @@
     "googleapis": "39",
     "lodash": "^4.17.11",
     "moment": "^2.24.0",
+    "moment-timezone": "^0.5.26",
     "sqlite3": "^4.0.8"
   },
   "scripts": {

@@ -59,15 +59,16 @@ app.get('/comments_by_date_user', (req, res) => {
             const filename = "private/slack_matrix/" + date + "-" + user + ".json";
             files = [path.join(__dirname, filename)];
         }
-        const comments = _.flatMap(files, (filename) => {
+        const comments = _.sortBy(_.flatMap(files, (filename) => {
             console.log('Reading: ' + filename);
             return JSON.parse(fs.readFileSync(filename, 'utf8'));
-        });
+        }), 'ts');
         res.json(_.map(comments, (c) => {
             const ts_str = "" + (c.ts * 1000000)
             return _.extend({ source: "Slack" }, c)
         }));
     } catch (e) {
+        console.log(e);
         res.status(404);
         res.json({ error: "File not found" })
     }
