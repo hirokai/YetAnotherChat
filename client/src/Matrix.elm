@@ -304,7 +304,7 @@ mkComment s =
 iconOfUser userInfo id =
     case Dict.get id userInfo of
         Just info ->
-            "http://localhost:3000" ++ info.avatar
+            "" ++ info.avatar
 
         Nothing ->
             ""
