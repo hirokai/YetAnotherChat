@@ -8,6 +8,7 @@ import Html.Events exposing (..)
 import Json.Decode as Json
 import List.Extra
 import Maybe.Extra
+import Set
 import Task
 
 
@@ -21,7 +22,13 @@ port getMessages : () -> Cmd msg
 port scrollToBottom : () -> Cmd msg
 
 
+port createNewSession : ( String, List Member ) -> Cmd msg
+
+
 port feedMessages : (List CommentTyp -> msg) -> Sub msg
+
+
+port receiveNewRoomInfo : ({ name : String, id : RoomID, timestamp : Int } -> msg) -> Sub msg
 
 
 port sendCommentToServer : String -> Cmd msg
@@ -40,6 +47,12 @@ type alias RoomID =
     String
 
 
+type Mode
+    = NewSession
+    | ChatRoom
+    | BrowseHistory
+
+
 getUser : ChatEntry -> String
 getUser c =
     case c of
@@ -50,6 +63,10 @@ getUser c =
             user
 
 
+type alias NewSessionStatus =
+    { selected : Set.Set Member }
+
+
 type alias Model =
     { messages : List ChatEntry
     , onlineUsers : List Member
@@ -57,7 +74,11 @@ type alias Model =
     , chatTimestamp : String
     , selected : Dict Member Bool
     , room : RoomID
+    , roomInfo : Maybe { name : String, timestamp : Int }
     , rooms : List RoomID
+    , mode : Mode
+    , users : List Member
+    , newSessionStatus : NewSessionStatus
     }
 
 
@@ -69,7 +90,11 @@ init _ =
       , selected = showAll initialMessages
       , onlineUsers = []
       , room = "Home"
+      , roomInfo = Nothing
       , rooms = [ "Home", "COI" ]
+      , mode = NewSession
+      , users = [ "Tanaka", "Yoshida", "Saito", "Kimura", "Abe" ]
+      , newSessionStatus = { selected = Set.empty }
       }
     , getMessages ()
     )
@@ -99,6 +124,13 @@ type Msg
     | ToggleMember Member
     | FeedMessages (List CommentTyp)
     | EnterRoom RoomID
+    | NewSessionMsg NewSessionMsg
+    | StartSession (Set.Set Member)
+    | ReceiveNewSessionId { timestamp : Int, name : String, id : RoomID }
+
+
+type NewSessionMsg
+    = TogglePersonInNew Member
 
 
 onKeyDown : (Int -> msg) -> Attribute msg
@@ -167,6 +199,39 @@ update msg model =
 
         EnterRoom r ->
             ( { model | room = r }, Cmd.none )
+
+        NewSessionMsg msg1 ->
+            let
+                ( m, c ) =
+                    updateNewSessionStatus msg1 model.newSessionStatus
+            in
+            ( { model | newSessionStatus = m }, c )
+
+        StartSession users ->
+            let
+                user_list =
+                    Set.toList users
+            in
+            ( { model | mode = ChatRoom, users = user_list }, createNewSession ( "New session", user_list ) )
+
+        ReceiveNewSessionId { name, timestamp, id } ->
+            ( { model | room = id, roomInfo = Just { name = name, timestamp = timestamp } }, Cmd.none )
+
+
+toggleSet : comparable -> Set.Set comparable -> Set.Set comparable
+toggleSet a xs =
+    if Set.member a xs then
+        Set.remove a xs
+
+    else
+        Set.insert a xs
+
+
+updateNewSessionStatus : NewSessionMsg -> NewSessionStatus -> ( NewSessionStatus, Cmd msg )
+updateNewSessionStatus msg model =
+    case msg of
+        TogglePersonInNew user ->
+            ( { model | selected = toggleSet user model.selected }, Cmd.none )
 
 
 mkComment : String -> List (Html.Html msg)
@@ -272,8 +337,115 @@ leftMenu model =
         ]
 
 
+leftMenuChat : Model -> Html Msg
+leftMenuChat model =
+    div [ class "col-md-2 col-lg-2", id "menu-left" ]
+        [ p [] [ text "チャンネル" ]
+        , ul [ class "menu-list" ] <|
+            List.map
+                (\r ->
+                    li
+                        [ class
+                            (if model.room == r then
+                                "current-room"
+
+                             else
+                                ""
+                            )
+                        ]
+                        [ a [ onClick (EnterRoom r) ] [ text r ] ]
+                )
+                model.rooms
+        , ul [ class "menu-list" ] <|
+            List.map (\u -> li [] [ text u ]) model.users
+        ]
+
+
 view : Model -> Browser.Document Msg
 view model =
+    case model.mode of
+        NewSession ->
+            newSessionView model
+
+        ChatRoom ->
+            chatRoomView model
+
+        BrowseHistory ->
+            historyView model
+
+
+mkPeoplePanel selected user =
+    div
+        [ class <|
+            "person-panel"
+                ++ (if Set.member user selected then
+                        " active"
+
+                    else
+                        ""
+                   )
+        , onClick (NewSessionMsg (TogglePersonInNew user))
+        ]
+        [ h3 [ class "name" ] [ text user ] ]
+
+
+newSessionView model =
+    { title = "Slack clone"
+    , body =
+        [ div [ class "container" ]
+            [ div [ class "row" ]
+                [ leftMenu model
+                , div [ class "col-md-10 col-lg-10" ]
+                    [ h1 [] [ text "新しい会話を開始" ]
+                    , div [ id "people-wrapper" ] <|
+                        List.map (mkPeoplePanel model.newSessionStatus.selected)
+                            model.users
+                    , div
+                        [ style "clear" "both" ]
+                        []
+                    , div [] [ button [ class "btn btn-primary btn-lg", onClick (StartSession model.newSessionStatus.selected) ] [ text "開始" ] ]
+                    ]
+                ]
+            ]
+        ]
+    }
+
+
+chatRoomView : Model -> { title : String, body : List (Html Msg) }
+chatRoomView model =
+    { title = "Slack clone"
+    , body =
+        [ div [ class "container" ]
+            [ div [ class "row" ]
+                [ leftMenuChat model
+                , div [ class "col-md-10 col-lg-10" ]
+                    [ h1 [] [ text <| Maybe.withDefault "(N/A)" (Maybe.map (\a -> a.name) model.roomInfo) ++ " - " ++ String.join ", " model.users ]
+                    , div [] [ text ("Session ID: " ++ model.room) ]
+                    , div [ id "chat-wrapper" ]
+                        [ div [ id "chat-entries" ] <|
+                            List.map (showItem model) (messageFilter model.room model.messages)
+                        ]
+                    ]
+                , div [ id "footer_wrapper", class "fixed-bottom" ]
+                    [ div [ id "footer" ]
+                        [ input
+                            [ value model.chatInput
+                            , style "height" "30px"
+                            , style "width" "90vw"
+                            , onInput InputComment
+                            , onKeyDown CommentBoxKeyDown
+                            ]
+                            []
+                        , button [ class "btn btn-primary", onClick SubmitComment ] [ text "送信" ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    }
+
+
+historyView model =
     { title = "Slack clone"
     , body =
         [ div [ class "container" ]
@@ -325,7 +497,7 @@ view model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch [ feedMessages FeedMessages ]
+    Sub.batch [ feedMessages FeedMessages, receiveNewRoomInfo ReceiveNewSessionId ]
 
 
 initialMessages =

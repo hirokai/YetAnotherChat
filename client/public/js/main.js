@@ -18,6 +18,15 @@ const processData = (res) => {
     });
 };
 
+app.ports.createNewSession.subscribe(function (args) {
+    const name = args[0];
+    const members = args[1];
+    $.post('http://localhost:3000/sessions', { name, members }).then((res) => {
+        console.log(res.data);
+        app.ports.receiveNewRoomInfo.send(res.data);
+    });
+});
+
 app.ports.getMessages.subscribe(function () {
     console.log('getMessages called');
     $.get('http://localhost:3000/comments').then((res) => {

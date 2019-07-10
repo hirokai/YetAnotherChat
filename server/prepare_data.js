@@ -10,6 +10,10 @@ function initialize() {
     db.serialize(() => {
         db.run('drop table if exists comments;');
         db.run('create table comments (comment text, timestamp integer not null, user_id text not null, sent_to text, url_original text);');
+        db.run('drop table if exists sessions;')
+        db.run('create table sessions (id text, timestamp integer not null, name text not null);');
+        db.run('drop table if exists session_members;')
+        db.run('create table session_members (session_id text, member_name text not null);');
     });
 }
 
@@ -47,5 +51,5 @@ function import_from_gmail() {
 }
 
 initialize();
-import_from_gmail();
+// import_from_gmail();
 

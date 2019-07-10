@@ -10,7 +10,8 @@
     "mailgun-js": "^0.22.0",
     "moment": "^2.24.0",
     "moment-timezone": "^0.5.26",
-    "sqlite3": "^4.0.8"
+    "sqlite3": "^4.0.8",
+    "ulid": "^2.3.0"
   },
   "scripts": {
     "watch": "node-dev --no-notify server.js"

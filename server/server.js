@@ -109,6 +109,26 @@ app.get('/comments_by_date_user', (req, res) => {
     }
 });
 
+app.get('/sessions', (req, res) => {
+    model.get_session_info(req.query.id).then((r) => {
+        res.json(r);
+    })
+});
+
+app.post('/sessions', (req, res) => {
+    const members = req.body.members;
+    const name = req.body.name;
+    if (name && members) {
+        console.log(members);
+        model.create_new_session(name, members).then((data) => {
+            res.json({ ok: true, data });
+        }).catch((error) => {
+            res.json({ ok: false, error });
+        });
+    } else {
+        res.json({ ok: false, error: 'Name and members are necessary' });
+    }
+});
 
 app.get('/comments', (req, res) => {
     db.serialize(() => {
