@@ -246,7 +246,7 @@ update msg model =
                 st =
                     model.newSessionStatus
             in
-            ( { model | mode = NewSession, newSessionStatus = { st | selected = Set.empty } }, Cmd.none )
+            ( { model | mode = NewSession, newSessionStatus = { selected = Set.empty, sessions_same_members = [] } }, Cmd.none )
 
 
 toggleSet : comparable -> Set.Set comparable -> Set.Set comparable
