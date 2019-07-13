@@ -15,6 +15,7 @@
     "ulid": "^2.3.0"
   },
   "scripts": {
-    "watch": "node-dev --no-notify server.js"
+    "watch": "node-dev --no-notify server.js",
+    "db": "sqlite3 private/db.sqlite3"
   }
 }

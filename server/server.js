@@ -116,7 +116,10 @@ app.get('/sessions/:id', (req, res) => {
 });
 
 app.get('/sessions', (req, res) => {
-    model.get_session_list().then((r) => {
+    console.log(req.query, req.query.is_all);
+    const of_members = req.query.of_members.split(",");
+    const is_all = !(typeof req.query.is_all === 'undefined');
+    model.get_session_list({ of_members,is_all }).then((r) => {
         res.json(r);
     })
 });
@@ -141,7 +144,6 @@ app.get('/comments', (req, res) => {
     db.serialize(() => {
         db.all('select * from comments where session_id=? order by timestamp;', session_id, (err, rows) => {
             const messages = _.map(rows, (row) => {
-                console.log(row);
                 return { text: row.comment, ts: row.timestamp, user: row.user_id, original_url: row.url_original, sent_to: row.sent_to };
             });
             res.json(_.map(messages, (obj) => {

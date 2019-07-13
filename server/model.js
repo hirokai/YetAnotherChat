@@ -66,21 +66,34 @@ const get_session_info = (session_id) => {
     });
 };
 
-const get_session_list = () => {
+const get_session_list = ({ of_members, is_all }) => {
+    console.log(of_members);
+    if (of_members) {
+        return get_session_of_members(of_members, is_all);
+    }
     return new Promise((resolve, reject) => {
         db.serialize(() => {
-            db.all('select * from sessions order by timestamp desc;', (err, sessions) => {
+            db.all('select s.id,s.name,s.timestamp,group_concat(m.member_name) as members from sessions as s join session_members as m on s.id=m.session_id group by s.id order by s.timestamp desc;', (err, sessions) => {
                 console.log(sessions);
-                const ss = _.map(sessions, (session) => {
-                    return new Promise((resolve1, reject1) => {
-                        db.all('select * from session_members where session_id=?', session.id, (err, r2) => {
-                            const members = _.map(r2, 'member_name');
-                            resolve1({ id: session.id, name: session.name, timestamp: session.timestamp, members });
-                        })
-                    });
+                const ss = _.map(sessions, (s) => {
+                    return { id: s.id, name: s.name, timestamp: s.timestamp, members: s.members.split(",") };
                 });
-                Promise.all(ss).then((sessions_info) => resolve(sessions_info));
+                resolve(ss);
             });
+        });
+    });
+};
+
+const get_session_of_members = (members, is_all) => {
+    var s = _.sortBy(members).join(",");
+    if (!is_all) {
+        s = '%' + s + '%';
+    }
+    return new Promise((resolve, reject) => {
+        // https://stackoverflow.com/questions/1897352/sqlite-group-concat-ordering
+        const q = "select id,name,timestamp,group_concat(distinct member_name) as members from (select s.id,s.name,s.timestamp,m.member_name from sessions as s join session_members as m on s.id=m.session_id order by s.timestamp,m.member_name) group by id having members like ? order by timestamp desc;"
+        db.all(q, s, (err, sessions) => {
+            resolve(sessions);
         });
     });
 }
