@@ -109,8 +109,14 @@ app.get('/comments_by_date_user', (req, res) => {
     }
 });
 
+app.get('/sessions/:id', (req, res) => {
+    model.get_session_info(req.params.id).then((r) => {
+        res.json(r);
+    })
+});
+
 app.get('/sessions', (req, res) => {
-    model.get_session_info(req.query.id).then((r) => {
+    model.get_session_list().then((r) => {
         res.json(r);
     })
 });
@@ -131,8 +137,9 @@ app.post('/sessions', (req, res) => {
 });
 
 app.get('/comments', (req, res) => {
+    const session_id = req.query.session;
     db.serialize(() => {
-        db.all('select * from comments order by timestamp;', (err, rows) => {
+        db.all('select * from comments where session_id=? order by timestamp;', session_id, (err, rows) => {
             const messages = _.map(rows, (row) => {
                 console.log(row);
                 return { text: row.comment, ts: row.timestamp, user: row.user_id, original_url: row.url_original, sent_to: row.sent_to };
@@ -161,7 +168,7 @@ app.get('/sent_email', (req, res) => {
 app.post('/comments', (req, res) => {
     db.serialize(() => {
         const ts = new Date().getTime();
-        db.run('insert into comments (user_id,comment,timestamp) values (?,?,?);', req.body.user, req.body.comment, ts)
+        db.run('insert into comments (user_id,comment,timestamp,session_id) values (?,?,?,?);', req.body.user, req.body.comment, ts, req.body.session)
     });
     res.json({ ok: true });
 });

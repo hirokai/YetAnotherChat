@@ -19,24 +19,45 @@ const processData = (res) => {
 };
 
 app.ports.createNewSession.subscribe(function (args) {
-    const name = args[0];
+    var name = args[0];
     const members = args[1];
+    if (name == "") {
+        name = "会話: " + moment().format('MM/DD HH:mm')
+    }
     $.post('http://localhost:3000/sessions', { name, members }).then((res) => {
         console.log(res.data);
         app.ports.receiveNewRoomInfo.send(res.data);
+        $.get('http://localhost:3000/sessions').then((res) => {
+            app.ports.feedRoomInfo.send(_.map(res, (r) => {
+                return [r.id, r];
+            }));
+            // scrollToBottom();
+        });
+        $.get('http://localhost:3000/comments', { session: res.data.id }).then((res) => {
+            app.ports.feedMessages.send(processData(res));
+            // scrollToBottom();
+        });
     });
 });
 
-app.ports.getMessages.subscribe(function () {
-    console.log('getMessages called');
-    $.get('http://localhost:3000/comments').then((res) => {
+app.ports.getMessages.subscribe(function (session) {
+    $.get('http://localhost:3000/comments', { session }).then((res) => {
         app.ports.feedMessages.send(processData(res));
         // scrollToBottom();
     });
 });
+app.ports.getRoomInfo.subscribe(function () {
+    $.get('http://localhost:3000/sessions').then((res) => {
+        app.ports.feedRoomInfo.send(_.map(res, (r) => {
+            return [r.id, r];
+        }));
+        // scrollToBottom();
+    });
+});
 
-app.ports.sendCommentToServer.subscribe(function (comment) {
-    $.post('http://localhost:3000/comments', { comment: comment, user: 'myself' }).then((res) => {
+
+app.ports.sendCommentToServer.subscribe(function ({ comment, user, session }) {
+    $.post('http://localhost:3000/comments', { comment, user, session }).then((res) => {
         console.log(res);
         scrollToBottom();
     });

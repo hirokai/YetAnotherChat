@@ -4,6 +4,7 @@ const _ = require('lodash');
 const sqlite3 = require('sqlite3');
 const db = new sqlite3.Database(path.join(__dirname, './private/db.sqlite3'));
 const ulid = require('ulid').ulid;
+const shortid = require('shortid').generate;
 
 const get_sent_mail = (q) => {
     return new Promise((resolve, reject) => {
@@ -38,7 +39,7 @@ const get_mail_to = (q) => {
 const create_new_session = (name, members) => {
     return new Promise((resolve, reject) => {
         const ts = new Date().getTime();
-        const session_id = ulid();
+        const session_id = shortid();
         db.serialize(() => {
             db.run('insert into sessions (id, name, timestamp) values (?,?,?);', session_id, name, ts);
             _.each(members, (member) => {
@@ -65,10 +66,30 @@ const get_session_info = (session_id) => {
     });
 };
 
+const get_session_list = () => {
+    return new Promise((resolve, reject) => {
+        db.serialize(() => {
+            db.all('select * from sessions order by timestamp desc;', (err, sessions) => {
+                console.log(sessions);
+                const ss = _.map(sessions, (session) => {
+                    return new Promise((resolve1, reject1) => {
+                        db.all('select * from session_members where session_id=?', session.id, (err, r2) => {
+                            const members = _.map(r2, 'member_name');
+                            resolve1({ id: session.id, name: session.name, timestamp: session.timestamp, members });
+                        })
+                    });
+                });
+                Promise.all(ss).then((sessions_info) => resolve(sessions_info));
+            });
+        });
+    });
+}
+
 module.exports = {
     get_sent_mail,
     get_mail_from,
     get_mail_to,
     create_new_session,
-    get_session_info
+    get_session_info,
+    get_session_list
 };

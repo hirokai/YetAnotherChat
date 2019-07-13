@@ -80,3 +80,17 @@ ul.menu-list li {
     font-size: 20px;
     display: inline-block;
 }
+
+#username-top {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+#room-memberlist {
+    min-height: 100px;
+}
+
+#newroom-button {
+    cursor: pointer;
+
+}

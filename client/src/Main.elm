@@ -16,7 +16,10 @@ type alias CommentTyp =
     { user : String, comment : String, timestamp : String, originalUrl : String, sentTo : String }
 
 
-port getMessages : () -> Cmd msg
+port getMessages : RoomID -> Cmd msg
+
+
+port getRoomInfo : () -> Cmd msg
 
 
 port scrollToBottom : () -> Cmd msg
@@ -28,10 +31,13 @@ port createNewSession : ( String, List Member ) -> Cmd msg
 port feedMessages : (List CommentTyp -> msg) -> Sub msg
 
 
+port feedRoomInfo : (List ( RoomID, RoomInfo ) -> msg) -> Sub msg
+
+
 port receiveNewRoomInfo : ({ name : String, id : RoomID, timestamp : Int } -> msg) -> Sub msg
 
 
-port sendCommentToServer : String -> Cmd msg
+port sendCommentToServer : { user : String, comment : String, session : String } -> Cmd msg
 
 
 type ChatEntry
@@ -45,6 +51,10 @@ type alias Member =
 
 type alias RoomID =
     String
+
+
+type alias RoomInfo =
+    { id : String, name : String, timestamp : Int, members : List Member }
 
 
 type Mode
@@ -71,10 +81,11 @@ type alias Model =
     { messages : List ChatEntry
     , onlineUsers : List Member
     , chatInput : String
+    , myself : Member
     , chatTimestamp : String
     , selected : Dict Member Bool
     , room : RoomID
-    , roomInfo : Maybe { name : String, timestamp : Int }
+    , roomInfo : Dict RoomID RoomInfo
     , rooms : List RoomID
     , mode : Mode
     , users : List Member
@@ -89,14 +100,15 @@ init _ =
       , chatTimestamp = ""
       , selected = showAll initialMessages
       , onlineUsers = []
+      , myself = "Tanaka"
       , room = "Home"
-      , roomInfo = Nothing
+      , roomInfo = Dict.empty
       , rooms = [ "Home", "COI" ]
       , mode = NewSession
       , users = [ "Tanaka", "Yoshida", "Saito", "Kimura", "Abe" ]
       , newSessionStatus = { selected = Set.empty }
       }
-    , getMessages ()
+    , Cmd.batch [ getRoomInfo () ]
     )
 
 
@@ -127,6 +139,8 @@ type Msg
     | NewSessionMsg NewSessionMsg
     | StartSession (Set.Set Member)
     | ReceiveNewSessionId { timestamp : Int, name : String, id : RoomID }
+    | FeedRoomInfo (List ( RoomID, RoomInfo ))
+    | EnterNewSessionScreen
 
 
 type NewSessionMsg
@@ -139,7 +153,7 @@ onKeyDown tagger =
 
 
 addComment model =
-    { model | messages = List.append model.messages [ Comment { user = "myself", comment = model.chatInput, timestamp = model.chatTimestamp, originalUrl = "", sentTo = "all" } ], chatInput = "" }
+    { model | messages = List.append model.messages [ Comment { user = model.myself, comment = model.chatInput, timestamp = model.chatTimestamp, originalUrl = "", sentTo = "all" } ], chatInput = "" }
 
 
 messageFilter : RoomID -> List ChatEntry -> List ChatEntry
@@ -171,11 +185,11 @@ update msg model =
             ( { model | chatInput = s }, Cmd.none )
 
         SubmitComment ->
-            ( addComment model, Cmd.batch [ scrollToBottom (), sendCommentToServer model.chatInput ] )
+            ( addComment model, Cmd.batch [ scrollToBottom (), sendCommentToServer { comment = model.chatInput, user = model.myself, session = model.room } ] )
 
         CommentBoxKeyDown code ->
             if code == 13 then
-                ( addComment model, Cmd.batch [ scrollToBottom (), sendCommentToServer model.chatInput ] )
+                ( addComment model, Cmd.batch [ scrollToBottom (), sendCommentToServer { comment = model.chatInput, user = model.myself, session = model.room } ] )
 
             else
                 ( model, Cmd.none )
@@ -186,6 +200,9 @@ update msg model =
                     not (Dict.get m model.selected == Just True)
             in
             ( { model | selected = Dict.insert m v model.selected }, Cmd.none )
+
+        FeedRoomInfo rs ->
+            ( { model | roomInfo = Dict.fromList rs, rooms = List.map Tuple.first rs }, Cmd.none )
 
         FeedMessages ms ->
             let
@@ -198,7 +215,7 @@ update msg model =
             ( { model | messages = msgs, selected = showAll msgs }, Cmd.none )
 
         EnterRoom r ->
-            ( { model | room = r }, Cmd.none )
+            ( { model | room = r, mode = ChatRoom }, getMessages r )
 
         NewSessionMsg msg1 ->
             let
@@ -212,10 +229,17 @@ update msg model =
                 user_list =
                     Set.toList users
             in
-            ( { model | mode = ChatRoom, users = user_list }, createNewSession ( "New session", user_list ) )
+            ( { model | mode = ChatRoom }, createNewSession ( "", user_list ) )
 
         ReceiveNewSessionId { name, timestamp, id } ->
-            ( { model | room = id, roomInfo = Just { name = name, timestamp = timestamp } }, Cmd.none )
+            ( { model | room = id, roomInfo = Dict.insert id { id = id, name = name, timestamp = timestamp, members = [] } model.roomInfo }, Cmd.none )
+
+        EnterNewSessionScreen ->
+            let
+                st =
+                    model.newSessionStatus
+            in
+            ( { model | mode = NewSession, newSessionStatus = { st | selected = Set.empty } }, Cmd.none )
 
 
 toggleSet : comparable -> Set.Set comparable -> Set.Set comparable
@@ -259,32 +283,28 @@ iconOfUser name =
 showItem model e =
     case e of
         Comment m ->
-            if isSelected model m.user then
-                div [ class "chat_entry_comment" ]
-                    [ div [ style "float" "left" ] [ img [ class "chat_user_icon", src (iconOfUser m.user) ] [] ]
-                    , div [ class "chat_comment" ]
-                        [ div [ class "chat_user_name" ]
-                            [ text
-                                (m.user
-                                    ++ (if m.sentTo /= "" then
-                                            " to " ++ m.sentTo
+            div [ class "chat_entry_comment" ]
+                [ div [ style "float" "left" ] [ img [ class "chat_user_icon", src (iconOfUser m.user) ] [] ]
+                , div [ class "chat_comment" ]
+                    [ div [ class "chat_user_name" ]
+                        [ text
+                            (m.user
+                                ++ (if m.sentTo /= "" then
+                                        " to " ++ m.sentTo
 
-                                        else
-                                            ""
-                                       )
-                                )
-                            , span [ class "chat_timestamp" ]
-                                [ text m.timestamp
-                                ]
-                            , a [ href m.originalUrl ] [ text "Gmail" ]
+                                    else
+                                        ""
+                                   )
+                            )
+                        , span [ class "chat_timestamp" ]
+                            [ text m.timestamp
                             ]
-                        , div [ class "chat_comment_content" ] <| mkComment m.comment
+                        , a [ href m.originalUrl ] [ text "Gmail" ]
                         ]
-                    , div [ style "clear" "both" ] [ text "" ]
+                    , div [ class "chat_comment_content" ] <| mkComment m.comment
                     ]
-
-            else
-                text ""
+                , div [ style "clear" "both" ] [ text "" ]
+                ]
 
         ChatFile f ->
             if isSelected model f.user then
@@ -302,63 +322,38 @@ isSelected model m =
 leftMenu : Model -> Html Msg
 leftMenu model =
     div [ class "col-md-2 col-lg-2", id "menu-left" ]
-        [ p [] [ text "チャンネル" ]
+        [ div [ id "username-top" ]
+            [ text model.myself ]
+        , p [] [ text "チャンネル" ]
+        , ul [ class "menu-list", id "room-memberlist" ] <|
+            List.map (\u -> li [] [ text u ]) (roomUsers model)
         , ul [ class "menu-list" ] <|
-            List.map
-                (\r ->
-                    li
-                        [ class
-                            (if model.room == r then
-                                "current-room"
-
-                             else
-                                ""
-                            )
-                        ]
-                        [ a [ onClick (EnterRoom r) ] [ text r ] ]
-                )
-                model.rooms
-        , ul [ class "menu-list" ] <|
-            List.map
-                (\p ->
-                    li
-                        [ class
-                            (if model.room == p then
-                                "current-room"
-
-                             else
-                                ""
-                            )
-                        ]
-                        [ a [ onClick (EnterRoom p) ] [ text p ] ]
-                )
-            <|
-                people model
+            List.map (\r -> li [] [ a [ onClick (EnterRoom r) ] [ text (roomName r model) ] ]) model.rooms
         ]
+
+
+roomUsers model =
+    Maybe.withDefault [] <| Maybe.map (\a -> a.members) <| Dict.get model.room model.roomInfo
 
 
 leftMenuChat : Model -> Html Msg
 leftMenuChat model =
     div [ class "col-md-2 col-lg-2", id "menu-left" ]
-        [ p [] [ text "チャンネル" ]
+        [ div [ id "username-top" ]
+            [ text model.myself ]
+        , div []
+            [ a [ class "btn btn-light", id "newroom-button", onClick EnterNewSessionScreen ] [ text "新しい会話" ]
+            ]
+        , p [] [ text "チャンネル" ]
+        , ul [ class "menu-list", id "room-memberlist" ] <|
+            List.map (\u -> li [] [ text u ]) (roomUsers model)
         , ul [ class "menu-list" ] <|
-            List.map
-                (\r ->
-                    li
-                        [ class
-                            (if model.room == r then
-                                "current-room"
-
-                             else
-                                ""
-                            )
-                        ]
-                        [ a [ onClick (EnterRoom r) ] [ text r ] ]
-                )
-                model.rooms
-        , ul [ class "menu-list" ] <|
-            List.map (\u -> li [] [ text u ]) model.users
+            List.map (\r -> li [] [ a [ onClick (EnterRoom r) ] [ text (roomName r model) ] ]) model.rooms
         ]
+
+
+roomName id model =
+    Maybe.withDefault "" <| Maybe.map .name (Dict.get id model.roomInfo)
 
 
 view : Model -> Browser.Document Msg
@@ -419,11 +414,13 @@ chatRoomView model =
             [ div [ class "row" ]
                 [ leftMenuChat model
                 , div [ class "col-md-10 col-lg-10" ]
-                    [ h1 [] [ text <| Maybe.withDefault "(N/A)" (Maybe.map (\a -> a.name) model.roomInfo) ++ " - " ++ String.join ", " model.users ]
+                    [ h1 [] [ text <| Maybe.withDefault "(N/A)" (Maybe.map (\a -> a.name) (Dict.get model.room model.roomInfo)) ]
+                    , div [] [ text <| "参加者：" ++ String.join ", " (roomUsers model) ]
                     , div [] [ text ("Session ID: " ++ model.room) ]
+                    , div [] [ text (String.fromInt (List.length model.messages) ++ " messages.") ]
                     , div [ id "chat-wrapper" ]
                         [ div [ id "chat-entries" ] <|
-                            List.map (showItem model) (messageFilter model.room model.messages)
+                            List.map (showItem model) model.messages
                         ]
                     ]
                 , div [ id "footer_wrapper", class "fixed-bottom" ]
@@ -497,7 +494,7 @@ historyView model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch [ feedMessages FeedMessages, receiveNewRoomInfo ReceiveNewSessionId ]
+    Sub.batch [ feedMessages FeedMessages, receiveNewRoomInfo ReceiveNewSessionId, feedRoomInfo FeedRoomInfo ]
 
 
 initialMessages =

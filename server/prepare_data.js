@@ -9,7 +9,7 @@ const user_list = require('./private/user_list');
 function initialize() {
     db.serialize(() => {
         db.run('drop table if exists comments;');
-        db.run('create table comments (comment text, timestamp integer not null, user_id text not null, sent_to text, url_original text);');
+        db.run('create table comments (comment text, timestamp integer not null, user_id text not null, session_id text, url_original text);');
         db.run('drop table if exists sessions;')
         db.run('create table sessions (id text, timestamp integer not null, name text not null);');
         db.run('drop table if exists session_members;')
