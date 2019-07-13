@@ -94,3 +94,18 @@ ul.menu-list li {
     cursor: pointer;
 
 }
+
+.clickable {
+    cursor: pointer;
+}
+
+.chatlist-name {
+    margin-bottom: 0px;
+    line-height: 10px;
+}
+
+.chatlist-members {
+    font-size: 12px;
+    margin-top: 0px;
+    line-height: 10px;
+}

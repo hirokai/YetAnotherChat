@@ -346,14 +346,14 @@ leftMenu model =
             [ text model.myself ]
         , p [] [ text "チャンネル" ]
         , ul [ class "menu-list", id "room-memberlist" ] <|
-            List.map (\u -> li [] [ text u ]) (roomUsers model)
+            List.map (\u -> li [] [ text u ]) (roomUsers model.room model)
         , ul [ class "menu-list" ] <|
-            List.map (\r -> li [] [ a [ onClick (EnterRoom r) ] [ text (roomName r model) ] ]) model.rooms
+            List.map (\r -> li [] [ a [ onClick (EnterRoom r) ] [ span [ class "chatlist-name" ] [ text (roomName r model) ], br [] [], span [ class "chatlist-members" ] [ text (String.join "," <| roomUsers r model) ] ] ]) model.rooms
         ]
 
 
-roomUsers model =
-    Maybe.withDefault [] <| Maybe.map (\a -> a.members) <| Dict.get model.room model.roomInfo
+roomUsers room model =
+    Maybe.withDefault [] <| Maybe.map (\a -> a.members) <| Dict.get room model.roomInfo
 
 
 leftMenuChat : Model -> Html Msg
@@ -366,9 +366,9 @@ leftMenuChat model =
             ]
         , p [] [ text "チャンネル" ]
         , ul [ class "menu-list", id "room-memberlist" ] <|
-            List.map (\u -> li [] [ text u ]) (roomUsers model)
+            List.map (\u -> li [] [ text u ]) (roomUsers model.room model)
         , ul [ class "menu-list" ] <|
-            List.map (\r -> li [] [ a [ onClick (EnterRoom r) ] [ text (roomName r model) ] ]) model.rooms
+            List.map (\r -> li [] [ a [ onClick (EnterRoom r) ] [ span [ class "chatlist-name" ] [ text (roomName r model) ], br [] [], span [ class "chatlist-members" ] [ text (String.join "," <| roomUsers r model) ] ] ]) model.rooms
         ]
 
 
@@ -419,7 +419,7 @@ newSessionView model =
                         [ style "clear" "both" ]
                         []
                     , div [] [ button [ class "btn btn-primary btn-lg", onClick (StartSession model.newSessionStatus.selected) ] [ text "開始" ] ]
-                    , ul [] (List.map (\s -> li [] [ text (roomName s model) ]) model.newSessionStatus.sessions_same_members)
+                    , ul [] (List.map (\s -> li [] [ a [ class "clickable", onClick (EnterRoom s) ] [ text (roomName s model) ] ]) model.newSessionStatus.sessions_same_members)
                     ]
                 ]
             ]
@@ -436,7 +436,7 @@ chatRoomView model =
                 [ leftMenuChat model
                 , div [ class "col-md-10 col-lg-10" ]
                     [ h1 [] [ text <| Maybe.withDefault "(N/A)" (Maybe.map (\a -> a.name) (Dict.get model.room model.roomInfo)) ]
-                    , div [] [ text <| "参加者：" ++ String.join ", " (roomUsers model) ]
+                    , div [] [ text <| "参加者：" ++ String.join ", " (roomUsers model.room model) ]
                     , div [] [ text ("Session ID: " ++ model.room) ]
                     , div [] [ text (String.fromInt (List.length model.messages) ++ " messages.") ]
                     , div [ id "chat-wrapper" ]
