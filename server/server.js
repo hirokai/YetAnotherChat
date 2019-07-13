@@ -117,9 +117,10 @@ app.get('/sessions/:id', (req, res) => {
 
 app.get('/sessions', (req, res) => {
     console.log(req.query, req.query.is_all);
-    const of_members = req.query.of_members.split(",");
+    const ms = req.query.of_members;
+    const of_members = ms ? ms.split(",") : undefined;
     const is_all = !(typeof req.query.is_all === 'undefined');
-    model.get_session_list({ of_members,is_all }).then((r) => {
+    model.get_session_list({ of_members, is_all }).then((r) => {
         res.json(r);
     })
 });
