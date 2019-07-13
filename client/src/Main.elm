@@ -22,6 +22,12 @@ port getMessages : RoomID -> Cmd msg
 port getRoomInfo : () -> Cmd msg
 
 
+port getSessionsWithSameMembers : List String -> Cmd msg
+
+
+port feedSessionsWithSameMembers : (List String -> msg) -> Sub msg
+
+
 port scrollToBottom : () -> Cmd msg
 
 
@@ -74,7 +80,7 @@ getUser c =
 
 
 type alias NewSessionStatus =
-    { selected : Set.Set Member }
+    { selected : Set.Set Member, sessions_same_members : List RoomID }
 
 
 type alias Model =
@@ -106,7 +112,7 @@ init _ =
       , rooms = [ "Home", "COI" ]
       , mode = NewSession
       , users = [ "Tanaka", "Yoshida", "Saito", "Kimura", "Abe" ]
-      , newSessionStatus = { selected = Set.empty }
+      , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
       }
     , Cmd.batch [ getRoomInfo () ]
     )
@@ -145,6 +151,7 @@ type Msg
 
 type NewSessionMsg
     = TogglePersonInNew Member
+    | FeedSessionsWithSameMembers (List String)
 
 
 onKeyDown : (Int -> msg) -> Attribute msg
@@ -255,7 +262,14 @@ updateNewSessionStatus : NewSessionMsg -> NewSessionStatus -> ( NewSessionStatus
 updateNewSessionStatus msg model =
     case msg of
         TogglePersonInNew user ->
-            ( { model | selected = toggleSet user model.selected }, Cmd.none )
+            let
+                newSelected =
+                    toggleSet user model.selected
+            in
+            ( { model | selected = newSelected }, getSessionsWithSameMembers (Set.toList newSelected) )
+
+        FeedSessionsWithSameMembers ss ->
+            ( { model | sessions_same_members = ss }, Cmd.none )
 
 
 mkComment : String -> List (Html.Html msg)
@@ -399,6 +413,7 @@ newSessionView model =
                         [ style "clear" "both" ]
                         []
                     , div [] [ button [ class "btn btn-primary btn-lg", onClick (StartSession model.newSessionStatus.selected) ] [ text "開始" ] ]
+                    , ul [] (List.map (\s -> li [] [ text (roomName s model) ]) model.newSessionStatus.sessions_same_members)
                     ]
                 ]
             ]
@@ -494,7 +509,12 @@ historyView model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.batch [ feedMessages FeedMessages, receiveNewRoomInfo ReceiveNewSessionId, feedRoomInfo FeedRoomInfo ]
+    Sub.batch
+        [ feedMessages FeedMessages
+        , receiveNewRoomInfo ReceiveNewSessionId
+        , feedRoomInfo FeedRoomInfo
+        , feedSessionsWithSameMembers (\s -> NewSessionMsg (FeedSessionsWithSameMembers s))
+        ]
 
 
 initialMessages =

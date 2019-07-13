@@ -46,6 +46,15 @@ app.ports.getMessages.subscribe(function (session) {
         // scrollToBottom();
     });
 });
+
+app.ports.getSessionsWithSameMembers.subscribe(function (members) {
+    $.get('http://localhost:3000/sessions', { of_members: members.join(','), is_all: true }).then((res) => {
+        app.ports.feedSessionsWithSameMembers.send(_.map(res, (r) => {
+            return r.id;
+        }));
+    });
+});
+
 app.ports.getRoomInfo.subscribe(function () {
     $.get('http://localhost:3000/sessions').then((res) => {
         app.ports.feedRoomInfo.send(_.map(res, (r) => {
