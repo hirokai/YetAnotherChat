@@ -266,7 +266,13 @@ updateNewSessionStatus msg model =
                 newSelected =
                     toggleSet user model.selected
             in
-            ( { model | selected = newSelected }, getSessionsWithSameMembers (Set.toList newSelected) )
+            ( { model | selected = newSelected }
+            , if Set.isEmpty newSelected then
+                Cmd.none
+
+              else
+                getSessionsWithSameMembers (Set.toList newSelected)
+            )
 
         FeedSessionsWithSameMembers ss ->
             ( { model | sessions_same_members = ss }, Cmd.none )
