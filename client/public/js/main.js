@@ -71,3 +71,9 @@ app.ports.sendCommentToServer.subscribe(function ({ comment, user, session }) {
         scrollToBottom();
     });
 });
+
+app.ports.sendRoomName.subscribe(({ id, new_name }) => {
+    axios.patch('http://localhost:3000/sessions/'+id, { name: new_name }).then((res) => {
+        console.log(res, id, new_name);
+    })
+});

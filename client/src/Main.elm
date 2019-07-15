@@ -46,6 +46,9 @@ port receiveNewRoomInfo : ({ name : String, id : RoomID, timestamp : Int } -> ms
 port sendCommentToServer : { user : String, comment : String, session : String } -> Cmd msg
 
 
+port sendRoomName : { id : String, new_name : String } -> Cmd msg
+
+
 type ChatEntry
     = Comment CommentTyp
     | ChatFile { user : String, filename : String }
@@ -86,7 +89,6 @@ type alias NewSessionStatus =
 type alias Model =
     { messages : List ChatEntry
     , onlineUsers : List Member
-    , chatInput : String
     , myself : Member
     , chatTimestamp : String
     , selected : Dict Member Bool
@@ -96,13 +98,14 @@ type alias Model =
     , mode : Mode
     , users : List Member
     , newSessionStatus : NewSessionStatus
+    , editing : Set.Set String
+    , editingValue : Dict String String
     }
 
 
 init : Flags -> ( Model, Cmd Msg )
 init _ =
     ( { messages = initialMessages
-      , chatInput = ""
       , chatTimestamp = ""
       , selected = showAll initialMessages
       , onlineUsers = []
@@ -113,6 +116,8 @@ init _ =
       , mode = NewSession
       , users = [ "Tanaka", "Yoshida", "Saito", "Kimura", "Abe" ]
       , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
+      , editing = Set.empty
+      , editingValue = Dict.empty
       }
     , Cmd.batch [ getRoomInfo () ]
     )
@@ -134,12 +139,7 @@ main =
 
 
 type Msg
-    = Msg1
-    | Msg2
-    | InputComment String
-    | SubmitComment
-    | CommentBoxKeyDown Int
-    | ToggleMember Member
+    = ToggleMember Member
     | FeedMessages (List CommentTyp)
     | EnterRoom RoomID
     | NewSessionMsg NewSessionMsg
@@ -147,6 +147,13 @@ type Msg
     | ReceiveNewSessionId { timestamp : Int, name : String, id : RoomID }
     | FeedRoomInfo (List ( RoomID, RoomInfo ))
     | EnterNewSessionScreen
+    | StartEditing String
+    | UpdateEditingValue String String
+    | FinishEditing String (Model -> Model) (Cmd Msg)
+    | AbortEditing String
+    | EditingKeyDown String (Model -> Model) (Cmd Msg) Int
+    | SubmitComment
+    | NoOp
 
 
 type NewSessionMsg
@@ -159,8 +166,9 @@ onKeyDown tagger =
     on "keydown" (Json.map tagger keyCode)
 
 
-addComment model =
-    { model | messages = List.append model.messages [ Comment { user = model.myself, comment = model.chatInput, timestamp = model.chatTimestamp, originalUrl = "", sentTo = "all" } ], chatInput = "" }
+addComment : String -> Model -> Model
+addComment comment model =
+    { model | messages = List.append model.messages [ Comment { user = model.myself, comment = comment, timestamp = model.chatTimestamp, originalUrl = "", sentTo = "all" } ] }
 
 
 messageFilter : RoomID -> List ChatEntry -> List ChatEntry
@@ -182,24 +190,8 @@ messageFilter room msgs =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Msg1 ->
+        NoOp ->
             ( model, Cmd.none )
-
-        Msg2 ->
-            ( model, Cmd.none )
-
-        InputComment s ->
-            ( { model | chatInput = s }, Cmd.none )
-
-        SubmitComment ->
-            ( addComment model, Cmd.batch [ scrollToBottom (), sendCommentToServer { comment = model.chatInput, user = model.myself, session = model.room } ] )
-
-        CommentBoxKeyDown code ->
-            if code == 13 then
-                ( addComment model, Cmd.batch [ scrollToBottom (), sendCommentToServer { comment = model.chatInput, user = model.myself, session = model.room } ] )
-
-            else
-                ( model, Cmd.none )
 
         ToggleMember m ->
             let
@@ -247,6 +239,37 @@ update msg model =
                     model.newSessionStatus
             in
             ( { model | mode = NewSession, newSessionStatus = { selected = Set.empty, sessions_same_members = [] } }, Cmd.none )
+
+        StartEditing id ->
+            ( { model | editing = Set.insert id model.editing, editingValue = Dict.insert id (roomName model.room model) model.editingValue }, Cmd.none )
+
+        FinishEditing id updateFunc updatePort ->
+            finishEditing id updateFunc updatePort model
+
+        AbortEditing id ->
+            ( { model | editing = Set.remove id model.editing }, Cmd.none )
+
+        UpdateEditingValue id newValue ->
+            ( { model | editingValue = Dict.insert id newValue model.editingValue }, Cmd.none )
+
+        EditingKeyDown id updateFunc updatePort code ->
+            if code == 13 then
+                finishEditing id updateFunc updatePort model
+
+            else
+                ( model, Cmd.none )
+
+        SubmitComment ->
+            case Dict.get "chat" model.editingValue of
+                Just comment ->
+                    ( addComment comment model, Cmd.batch [ scrollToBottom (), sendCommentToServer { comment = comment, user = model.myself, session = model.room } ] )
+
+                Nothing ->
+                    ( model, Cmd.none )
+
+
+finishEditing id updateFunc updatePort model =
+    ( updateFunc { model | editing = Set.remove id model.editing }, updatePort )
 
 
 toggleSet : comparable -> Set.Set comparable -> Set.Set comparable
@@ -341,15 +364,11 @@ isSelected model m =
 
 leftMenu : Model -> Html Msg
 leftMenu model =
-    div [ class "col-md-2 col-lg-2", id "menu-left" ]
+    div [ class "col-md-2 col-lg-2", id "menu-left" ] <|
         [ div [ id "username-top" ]
             [ text model.myself ]
-        , p [] [ text "チャンネル" ]
-        , ul [ class "menu-list", id "room-memberlist" ] <|
-            List.map (\u -> li [] [ text u ]) (roomUsers model.room model)
-        , ul [ class "menu-list" ] <|
-            List.map (\r -> li [] [ a [ onClick (EnterRoom r) ] [ span [ class "chatlist-name" ] [ text (roomName r model) ], br [] [], span [ class "chatlist-members" ] [ text (String.join "," <| roomUsers r model) ] ] ]) model.rooms
         ]
+            ++ showChannels model
 
 
 roomUsers room model =
@@ -359,17 +378,23 @@ roomUsers room model =
 leftMenuChat : Model -> Html Msg
 leftMenuChat model =
     div [ class "col-md-2 col-lg-2", id "menu-left" ]
-        [ div [ id "username-top" ]
+        ([ div [ id "username-top" ]
             [ text model.myself ]
-        , div []
+         , div []
             [ a [ class "btn btn-light", id "newroom-button", onClick EnterNewSessionScreen ] [ text "新しい会話" ]
             ]
-        , p [] [ text "チャンネル" ]
-        , ul [ class "menu-list", id "room-memberlist" ] <|
-            List.map (\u -> li [] [ text u ]) (roomUsers model.room model)
-        , ul [ class "menu-list" ] <|
-            List.map (\r -> li [] [ a [ onClick (EnterRoom r) ] [ span [ class "chatlist-name" ] [ text (roomName r model) ], br [] [], span [ class "chatlist-members" ] [ text (String.join "," <| roomUsers r model) ] ] ]) model.rooms
-        ]
+         ]
+            ++ showChannels model
+        )
+
+
+showChannels model =
+    [ p [] [ text "チャンネル" ]
+    , ul [ class "menu-list", id "room-memberlist" ] <|
+        List.map (\u -> li [] [ text u ]) (roomUsers model.room model)
+    , ul [ class "menu-list" ] <|
+        List.map (\r -> li [] [ a [ onClick (EnterRoom r) ] [ div [ class "chatlist-name" ] [ text (roomName r model) ], div [ class "chatlist-members" ] [ text (String.join "," <| roomUsers r model) ] ] ]) model.rooms
+    ]
 
 
 roomName id model =
@@ -427,6 +452,29 @@ newSessionView model =
     }
 
 
+
+-- inputComponent : (Model -> String) -> (String -> Msg) -> (Int -> Msg) -> Model -> Html Msg
+-- inputComponent valueFunc onInputMsg onKeyDownMsg model =
+--     (input [ value (valueFunc model), onInput onInputMsg, onKeyDown onKeyDownMsg ] [],
+--         \id -> if id ==
+-- sessionEditInput : Html Msg
+-- sessionEditInput =
+--     inputComponent (\m -> m.editingSessionNameValue) UpdateEditingSessionName
+
+
+updateRoomName : RoomID -> String -> Model -> Model
+updateRoomName id newName m =
+    let
+        f k v =
+            if v.id == m.room then
+                { v | name = newName }
+
+            else
+                v
+    in
+    { m | roomInfo = Dict.map f m.roomInfo }
+
+
 chatRoomView : Model -> { title : String, body : List (Html Msg) }
 chatRoomView model =
     { title = "Slack clone"
@@ -435,7 +483,25 @@ chatRoomView model =
             [ div [ class "row" ]
                 [ leftMenuChat model
                 , div [ class "col-md-10 col-lg-10" ]
-                    [ h1 [] [ text <| Maybe.withDefault "(N/A)" (Maybe.map (\a -> a.name) (Dict.get model.room model.roomInfo)) ]
+                    [ h1 []
+                        [ if Set.member "room-title" model.editing then
+                            input
+                                [ value (Maybe.withDefault "(N/A)" <| Dict.get "room-title" model.editingValue)
+                                , onKeyDown
+                                    (let
+                                        nv =
+                                            Maybe.withDefault "" <| Dict.get "room-title" model.editingValue
+                                     in
+                                     EditingKeyDown "room-title" (updateRoomName model.room nv) (sendRoomName { id = model.room, new_name = nv })
+                                    )
+                                , onInput (UpdateEditingValue "room-title")
+                                ]
+                                []
+
+                          else
+                            text <| Maybe.withDefault "(N/A)" (Maybe.map (\a -> a.name) (Dict.get model.room model.roomInfo))
+                        , a [ id "edit-roomname", class "clickable", onClick (StartEditing "room-title") ] [ text "Edit" ]
+                        ]
                     , div [] [ text <| "参加者：" ++ String.join ", " (roomUsers model.room model) ]
                     , div [] [ text ("Session ID: " ++ model.room) ]
                     , div [] [ text (String.fromInt (List.length model.messages) ++ " messages.") ]
@@ -447,11 +513,22 @@ chatRoomView model =
                 , div [ id "footer_wrapper", class "fixed-bottom" ]
                     [ div [ id "footer" ]
                         [ input
-                            [ value model.chatInput
+                            [ value (Maybe.withDefault "" <| Dict.get "chat" model.editingValue)
                             , style "height" "30px"
                             , style "width" "90vw"
-                            , onInput InputComment
-                            , onKeyDown CommentBoxKeyDown
+                            , onInput (UpdateEditingValue "chat")
+                            , onKeyDown
+                                (case Dict.get "chat" model.editingValue of
+                                    Just c ->
+                                        EditingKeyDown "chat"
+                                            (addComment c)
+                                            (sendCommentToServer
+                                                { comment = c, user = model.myself, session = model.room }
+                                            )
+
+                                    Nothing ->
+                                        \code -> NoOp
+                                )
                             ]
                             []
                         , button [ class "btn btn-primary", onClick SubmitComment ] [ text "送信" ]
@@ -461,6 +538,19 @@ chatRoomView model =
             ]
         ]
     }
+
+
+
+{--
+
+
+        CommentBoxKeyDown code ->
+            case ( code, Dict.get "chat" model.editingValue ) of
+                ( 13, Just comment ) ->
+                    ( addComment comment model, Cmd.batch [ scrollToBottom (), sendCommentToServer { comment = comment, user = model.myself, session = model.room } ] )
+
+                _ ->
+                    ( model, Cmd.none ) --}
 
 
 historyView model =
@@ -496,11 +586,11 @@ historyView model =
                     , div [ id "footer_wrapper", class "fixed-bottom" ]
                         [ div [ id "footer" ]
                             [ input
-                                [ value model.chatInput
+                                [ value (Maybe.withDefault "(N/A)" <| Dict.get "chat" model.editingValue)
                                 , style "height" "30px"
                                 , style "width" "90vw"
-                                , onInput InputComment
-                                , onKeyDown CommentBoxKeyDown
+                                , onInput (UpdateEditingValue "chat")
+                                , onKeyDown (EditingKeyDown "chat" identity Cmd.none)
                                 ]
                                 []
                             , button [ class "btn btn-primary", onClick SubmitComment ] [ text "送信" ]

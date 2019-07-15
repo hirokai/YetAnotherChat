@@ -26,6 +26,7 @@ db.run('create table  if not exists comments (user_id text, comment text, timest
 app.use(function (req, res, next) {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    res.header('Access-Control-Allow-Methods', 'PUT, POST, GET, DELETE, PATCH, OPTIONS');
     next();
 });
 
@@ -115,6 +116,17 @@ app.get('/sessions/:id', (req, res) => {
     })
 });
 
+
+app.patch('/sessions/:id', (req, res) => {
+    const id = req.params.id;
+    const {name, members} = req.body;
+    console.log(name,members);
+    db.run('update sessions set name=? where id=?;',name,id,(err) =>{
+        res.json({ok: true});
+    });
+});
+
+
 app.get('/sessions', (req, res) => {
     console.log(req.query, req.query.is_all);
     const ms = req.query.of_members;
@@ -171,9 +183,13 @@ app.get('/sent_email', (req, res) => {
 app.post('/comments', (req, res) => {
     db.serialize(() => {
         const ts = new Date().getTime();
-        db.run('insert into comments (user_id,comment,timestamp,session_id) values (?,?,?,?);', req.body.user, req.body.comment, ts, req.body.session)
+        const user = req.body.user;
+        const comment = req.body.comment;
+        db.run('insert into comments (user_id,comment,timestamp,session_id) values (?,?,?,?);', user, comment, ts, req.body.session, (err) => {
+            console.log(err);
+            res.json({ ok: err === null, data: { timestamp: ts, user_id: user, comment: comment } });
+        });
     });
-    res.json({ ok: true });
 });
 
 app.listen(port, () => {
