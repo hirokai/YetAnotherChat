@@ -171,9 +171,13 @@ app.get('/sent_email', (req, res) => {
 app.post('/comments', (req, res) => {
     db.serialize(() => {
         const ts = new Date().getTime();
-        db.run('insert into comments (user_id,comment,timestamp,session_id) values (?,?,?,?);', req.body.user, req.body.comment, ts, req.body.session)
+        const user = req.body.user;
+        const comment = req.body.comment;
+        db.run('insert into comments (user_id,comment,timestamp,session_id) values (?,?,?,?);', user, comment, ts, req.body.session, (err) => {
+            console.log(err);
+            res.json({ ok: err === null, data: { timestamp: ts, user_id: user, comment: comment } });
+        });
     });
-    res.json({ ok: true });
 });
 
 app.listen(port, () => {

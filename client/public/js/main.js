@@ -71,3 +71,7 @@ app.ports.sendCommentToServer.subscribe(function ({ comment, user, session }) {
         scrollToBottom();
     });
 });
+
+app.ports.sendRoomName.subscribe(({ id, newName }) => {
+    console.log(id, newName);
+})

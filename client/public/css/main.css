@@ -109,3 +109,7 @@ ul.menu-list li {
     margin-top: 0px;
     line-height: 10px;
 }
+
+#edit-roomname {
+    font-size: 14px;
+}
