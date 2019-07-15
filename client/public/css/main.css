@@ -100,14 +100,14 @@ ul.menu-list li {
 }
 
 .chatlist-name {
-    margin-bottom: 0px;
-    line-height: 10px;
+    margin-top: 5px;
+    /* line-height: 10px; */
 }
 
 .chatlist-members {
     font-size: 12px;
     margin-top: 0px;
-    line-height: 10px;
+    /* line-height: 10px; */
 }
 
 #edit-roomname {

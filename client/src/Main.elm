@@ -364,15 +364,11 @@ isSelected model m =
 
 leftMenu : Model -> Html Msg
 leftMenu model =
-    div [ class "col-md-2 col-lg-2", id "menu-left" ]
+    div [ class "col-md-2 col-lg-2", id "menu-left" ] <|
         [ div [ id "username-top" ]
             [ text model.myself ]
-        , p [] [ text "チャンネル" ]
-        , ul [ class "menu-list", id "room-memberlist" ] <|
-            List.map (\u -> li [] [ text u ]) (roomUsers model.room model)
-        , ul [ class "menu-list" ] <|
-            List.map (\r -> li [] [ a [ onClick (EnterRoom r) ] [ span [ class "chatlist-name" ] [ text (roomName r model) ], br [] [], span [ class "chatlist-members" ] [ text (String.join "," <| roomUsers r model) ] ] ]) model.rooms
         ]
+            ++ showChannels model
 
 
 roomUsers room model =
@@ -382,17 +378,23 @@ roomUsers room model =
 leftMenuChat : Model -> Html Msg
 leftMenuChat model =
     div [ class "col-md-2 col-lg-2", id "menu-left" ]
-        [ div [ id "username-top" ]
+        ([ div [ id "username-top" ]
             [ text model.myself ]
-        , div []
+         , div []
             [ a [ class "btn btn-light", id "newroom-button", onClick EnterNewSessionScreen ] [ text "新しい会話" ]
             ]
-        , p [] [ text "チャンネル" ]
-        , ul [ class "menu-list", id "room-memberlist" ] <|
-            List.map (\u -> li [] [ text u ]) (roomUsers model.room model)
-        , ul [ class "menu-list" ] <|
-            List.map (\r -> li [] [ a [ onClick (EnterRoom r) ] [ span [ class "chatlist-name" ] [ text (roomName r model) ], br [] [], span [ class "chatlist-members" ] [ text (String.join "," <| roomUsers r model) ] ] ]) model.rooms
-        ]
+         ]
+            ++ showChannels model
+        )
+
+
+showChannels model =
+    [ p [] [ text "チャンネル" ]
+    , ul [ class "menu-list", id "room-memberlist" ] <|
+        List.map (\u -> li [] [ text u ]) (roomUsers model.room model)
+    , ul [ class "menu-list" ] <|
+        List.map (\r -> li [] [ a [ onClick (EnterRoom r) ] [ div [ class "chatlist-name" ] [ text (roomName r model) ], div [ class "chatlist-members" ] [ text (String.join "," <| roomUsers r model) ] ] ]) model.rooms
+    ]
 
 
 roomName id model =
