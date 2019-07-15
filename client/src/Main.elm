@@ -46,7 +46,7 @@ port receiveNewRoomInfo : ({ name : String, id : RoomID, timestamp : Int } -> ms
 port sendCommentToServer : { user : String, comment : String, session : String } -> Cmd msg
 
 
-port sendRoomName : { id : String, newName : String } -> Cmd msg
+port sendRoomName : { id : String, new_name : String } -> Cmd msg
 
 
 type ChatEntry
@@ -490,7 +490,7 @@ chatRoomView model =
                                         nv =
                                             Maybe.withDefault "" <| Dict.get "room-title" model.editingValue
                                      in
-                                     EditingKeyDown "room-title" (updateRoomName model.room nv) (sendRoomName { id = model.room, newName = nv })
+                                     EditingKeyDown "room-title" (updateRoomName model.room nv) (sendRoomName { id = model.room, new_name = nv })
                                     )
                                 , onInput (UpdateEditingValue "room-title")
                                 ]

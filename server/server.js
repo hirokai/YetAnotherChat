@@ -26,6 +26,7 @@ db.run('create table  if not exists comments (user_id text, comment text, timest
 app.use(function (req, res, next) {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    res.header('Access-Control-Allow-Methods', 'PUT, POST, GET, DELETE, PATCH, OPTIONS');
     next();
 });
 
@@ -114,6 +115,17 @@ app.get('/sessions/:id', (req, res) => {
         res.json(r);
     })
 });
+
+
+app.patch('/sessions/:id', (req, res) => {
+    const id = req.params.id;
+    const {name, members} = req.body;
+    console.log(name,members);
+    db.run('update sessions set name=? where id=?;',name,id,(err) =>{
+        res.json({ok: true});
+    });
+});
+
 
 app.get('/sessions', (req, res) => {
     console.log(req.query, req.query.is_all);

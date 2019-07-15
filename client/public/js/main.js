@@ -72,6 +72,8 @@ app.ports.sendCommentToServer.subscribe(function ({ comment, user, session }) {
     });
 });
 
-app.ports.sendRoomName.subscribe(({ id, newName }) => {
-    console.log(id, newName);
-})
+app.ports.sendRoomName.subscribe(({ id, new_name }) => {
+    axios.patch('http://localhost:3000/sessions/'+id, { name: new_name }).then((res) => {
+        console.log(res, id, new_name);
+    })
+});
