@@ -87,7 +87,7 @@ type alias NewSessionStatus =
 
 
 type alias Model =
-    { messages : List ChatEntry
+    { messages : Maybe (List ChatEntry)
     , onlineUsers : List Member
     , myself : Member
     , chatTimestamp : String
@@ -105,7 +105,7 @@ type alias Model =
 
 init : Flags -> ( Model, Cmd Msg )
 init _ =
-    ( { messages = initialMessages
+    ( { messages = Nothing
       , chatTimestamp = ""
       , selected = showAll initialMessages
       , onlineUsers = []
@@ -121,11 +121,6 @@ init _ =
       }
     , Cmd.batch [ getRoomInfo () ]
     )
-
-
-people : Model -> List String
-people model =
-    List.Extra.unique <| List.map getUser model.messages
 
 
 main : Program Flags Model Msg
@@ -168,7 +163,12 @@ onKeyDown tagger =
 
 addComment : String -> Model -> Model
 addComment comment model =
-    { model | messages = List.append model.messages [ Comment { user = model.myself, comment = comment, timestamp = model.chatTimestamp, originalUrl = "", sentTo = "all" } ] }
+    case model.messages of
+        Just messages ->
+            { model | messages = Just <| List.append messages [ Comment { user = model.myself, comment = comment, timestamp = model.chatTimestamp, originalUrl = "", sentTo = "all" } ] }
+
+        Nothing ->
+            model
 
 
 messageFilter : RoomID -> List ChatEntry -> List ChatEntry
@@ -211,10 +211,10 @@ update msg model =
                 msgs =
                     List.map f ms
             in
-            ( { model | messages = msgs, selected = showAll msgs }, Cmd.none )
+            ( { model | messages = Just msgs, selected = showAll msgs }, Cmd.none )
 
         EnterRoom r ->
-            ( { model | room = r, mode = ChatRoom }, getMessages r )
+            ( { model | room = r, mode = ChatRoom, messages = Nothing }, getMessages r )
 
         NewSessionMsg msg1 ->
             let
@@ -503,12 +503,23 @@ chatRoomView model =
                         , a [ id "edit-roomname", class "clickable", onClick (StartEditing "room-title") ] [ text "Edit" ]
                         ]
                     , div [] [ text <| "参加者：" ++ String.join ", " (roomUsers model.room model) ]
-                    , div [] [ text ("Session ID: " ++ model.room) ]
-                    , div [] [ text (String.fromInt (List.length model.messages) ++ " messages.") ]
-                    , div [ id "chat-wrapper" ]
-                        [ div [ id "chat-entries" ] <|
-                            List.map (showItem model) model.messages
-                        ]
+                    , div []
+                        ([ text ("Session ID: " ++ model.room) ]
+                            ++ (case model.messages of
+                                    Just messages ->
+                                        [ div [ id "message-count" ] [ text (String.fromInt (List.length messages) ++ " messages.") ]
+                                        , div [ id "chat-wrapper" ]
+                                            [ div
+                                                [ id "chat-entries" ]
+                                              <|
+                                                List.map (showItem model) messages
+                                            ]
+                                        ]
+
+                                    Nothing ->
+                                        []
+                               )
+                        )
                     ]
                 , div [ id "footer_wrapper", class "fixed-bottom" ]
                     [ div [ id "footer" ]
@@ -578,10 +589,10 @@ historyView model =
                                     ]
                                     [ text m ]
                             )
-                            (getMembers model.messages)
+                            (getMembers (Maybe.withDefault [] model.messages))
                     , div [ id "chat-wrapper" ]
                         [ div [ id "chat-entries" ] <|
-                            List.map (showItem model) (messageFilter model.room model.messages)
+                            List.map (showItem model) (messageFilter model.room (Maybe.withDefault [] model.messages))
                         ]
                     , div [ id "footer_wrapper", class "fixed-bottom" ]
                         [ div [ id "footer" ]
