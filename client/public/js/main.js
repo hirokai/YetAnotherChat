@@ -28,28 +28,28 @@ app.ports.createNewSession.subscribe(function (args) {
     if (name == "") {
         name = "会話: " + moment().format('MM/DD HH:mm')
     }
-    $.post('http://localhost:3000/sessions', { name, members, token }).then(({ data }) => {
+    $.post('http://localhost:3000/api/sessions', { name, members, token }).then(({ data }) => {
         app.ports.receiveNewRoomInfo.send(data);
-        axios.get('http://localhost:3000/sessions', { params: { token } }).then(({ data }) => {
+        axios.get('http://localhost:3000/api/sessions', { params: { token } }).then(({ data }) => {
             app.ports.feedRoomInfo.send(_.map(data, (r) => {
                 return [r.id, r];
             }));
         });
-        axios.get('http://localhost:3000/comments', { params: { session: res.data.id, token } }).then(({ data }) => {
+        axios.get('http://localhost:3000/api/comments', { params: { session: res.data.id, token } }).then(({ data }) => {
             app.ports.feedMessages.send(processData(data));
         });
     });
 });
 
 app.ports.getMessages.subscribe(function (session) {
-    axios.get('http://localhost:3000/comments', { params: { session, token } }).then(({ data }) => {
+    axios.get('http://localhost:3000/api/comments', { params: { session, token } }).then(({ data }) => {
         app.ports.feedMessages.send(processData(data));
         // scrollToBottom();
     });
 });
 
 app.ports.getSessionsWithSameMembers.subscribe(function ({ members, is_all }) {
-    axios.get('http://localhost:3000/sessions', { params: { of_members: members.join(','), is_all, token } }).then(({ data }) => {
+    axios.get('http://localhost:3000/api/sessions', { params: { of_members: members.join(','), is_all, token } }).then(({ data }) => {
         app.ports.feedSessionsWithSameMembers.send(_.map(data, (r) => {
             return r.id;
         }));
@@ -57,7 +57,7 @@ app.ports.getSessionsWithSameMembers.subscribe(function ({ members, is_all }) {
 });
 
 app.ports.getSessionsOf.subscribe(function (user) {
-    axios.get('http://localhost:3000/sessions', { params: { of_members: user, token } }).then(({ data }) => {
+    axios.get('http://localhost:3000/api/sessions', { params: { of_members: user, token } }).then(({ data }) => {
         console.log(data);
         app.ports.feedSessionsOf.send(_.map(data, (r) => {
             return r.id;
@@ -68,7 +68,7 @@ app.ports.getSessionsOf.subscribe(function (user) {
 });
 
 app.ports.getRoomInfo.subscribe(function () {
-    axios.get('http://localhost:3000/sessions', { params: { token } }).then(({ data }) => {
+    axios.get('http://localhost:3000/api/sessions', { params: { token } }).then(({ data }) => {
         app.ports.feedRoomInfo.send(_.map(data, (r) => {
             return [r.id, r];
         }));
@@ -78,13 +78,13 @@ app.ports.getRoomInfo.subscribe(function () {
 
 
 app.ports.sendCommentToServer.subscribe(function ({ comment, user, session }) {
-    $.post('http://localhost:3000/comments', { comment, user, session, token }).then(({ data }) => {
+    $.post('http://localhost:3000/api/comments', { comment, user, session, token }).then(({ data }) => {
         scrollToBottom();
     });
 });
 
 app.ports.sendRoomName.subscribe(({ id, new_name }) => {
-    axios.patch('http://localhost:3000/sessions/' + id, { name: new_name, token }).then(({ data }) => {
+    axios.patch('http://localhost:3000/api/sessions/' + id, { name: new_name, token }).then(({ data }) => {
         console.log(data, id, new_name);
     })
 });

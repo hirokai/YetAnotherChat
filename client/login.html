@@ -1,13 +1,53 @@
-<form action="http://localhost:3000/login" method="post">
-    <div>
-        <label>ユーザーID：</label>
-        <input type="text" name="username" />
-    </div>
-    <div>
-        <label>パスワード：</label>
-        <input type="password" name="password" />
-    </div>
-    <div>
-        <input type="submit" value="ログイン" />
-    </div>
-</form>
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=
+    , initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js" crossorigin="anonymous"></script>
+
+</head>
+
+<body>
+
+
+    <form onsubmit='return false;'>
+        <div>
+            <label>ユーザーID：</label>
+            <input id='username' type="text" name="username" />
+        </div>
+        <div>
+            <label>パスワード：</label>
+            <input id='password' type="password" name="password" />
+        </div>
+        <div>
+            <input id='submit' type="submit" value="ログイン" />
+        </div>
+    </form>
+
+    <script>
+        function submit(a) {
+        }
+        $(() => {
+            $('#submit').click(() => {
+                const username = $('#username').val();
+                const password = $('#password').val();
+                console.log(username, password);
+                $.post('http://localhost:3000/api/login', { username, password }).then((res) => {
+                    if (res.ok && res.token) {
+                        localStorage.setItem("yacht.token", res.token);
+                        location.href = 'http://localhost:3000/main';
+                    } else {
+                        console.log(res);
+                    }
+                });
+            })
+        });
+    </script>
+
+</body>
+
+</html>
