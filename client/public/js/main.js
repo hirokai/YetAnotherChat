@@ -1,5 +1,9 @@
 const app = Elm.Main.init();
 
+
+const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IlRhbmFrYSIsImlhdCI6MTU2MzI4MTk3NCwiZXhwIjoxNTYzODg2Nzc0fQ.2nGathlOGZM9Zd2UVZ0b8nAoZJN4YZwrlpbSEudZn8I";
+
+
 function scrollToBottom() {
     window.setTimeout(() => {
         const el = $('#chat-entries')[0];
@@ -24,40 +28,48 @@ app.ports.createNewSession.subscribe(function (args) {
     if (name == "") {
         name = "会話: " + moment().format('MM/DD HH:mm')
     }
-    $.post('http://localhost:3000/sessions', { name, members }).then((res) => {
-        console.log(res.data);
-        app.ports.receiveNewRoomInfo.send(res.data);
-        $.get('http://localhost:3000/sessions').then((res) => {
-            app.ports.feedRoomInfo.send(_.map(res, (r) => {
+    $.post('http://localhost:3000/api/sessions', { name, members, token }).then(({ data }) => {
+        app.ports.receiveNewRoomInfo.send(data);
+        axios.get('http://localhost:3000/api/sessions', { params: { token } }).then(({ data }) => {
+            app.ports.feedRoomInfo.send(_.map(data, (r) => {
                 return [r.id, r];
             }));
-            // scrollToBottom();
         });
-        $.get('http://localhost:3000/comments', { session: res.data.id }).then((res) => {
-            app.ports.feedMessages.send(processData(res));
-            // scrollToBottom();
+        axios.get('http://localhost:3000/api/comments', { params: { session: res.data.id, token } }).then(({ data }) => {
+            app.ports.feedMessages.send(processData(data));
         });
     });
 });
 
 app.ports.getMessages.subscribe(function (session) {
-    $.get('http://localhost:3000/comments', { session }).then((res) => {
-        app.ports.feedMessages.send(processData(res));
+    axios.get('http://localhost:3000/api/comments', { params: { session, token } }).then(({ data }) => {
+        app.ports.feedMessages.send(processData(data));
         // scrollToBottom();
     });
 });
 
-app.ports.getSessionsWithSameMembers.subscribe(function (members) {
-    $.get('http://localhost:3000/sessions', { of_members: members.join(','), is_all: true }).then((res) => {
-        app.ports.feedSessionsWithSameMembers.send(_.map(res, (r) => {
+app.ports.getSessionsWithSameMembers.subscribe(function ({ members, is_all }) {
+    axios.get('http://localhost:3000/api/sessions', { params: { of_members: members.join(','), is_all, token } }).then(({ data }) => {
+        app.ports.feedSessionsWithSameMembers.send(_.map(data, (r) => {
             return r.id;
         }));
     });
 });
 
+app.ports.getSessionsOf.subscribe(function (user) {
+    axios.get('http://localhost:3000/api/sessions', { params: { of_members: user, token } }).then(({ data }) => {
+        console.log(data);
+        app.ports.feedSessionsOf.send(_.map(data, (r) => {
+            return r.id;
+        }));
+    }).catch(() => {
+        app.ports.feedSessionsOf.send([]);
+    });
+});
+
 app.ports.getRoomInfo.subscribe(function () {
-    $.get('http://localhost:3000/sessions').then((res) => {
-        app.ports.feedRoomInfo.send(_.map(res, (r) => {
+    axios.get('http://localhost:3000/api/sessions', { params: { token } }).then(({ data }) => {
+        app.ports.feedRoomInfo.send(_.map(data, (r) => {
             return [r.id, r];
         }));
         // scrollToBottom();
@@ -66,14 +78,13 @@ app.ports.getRoomInfo.subscribe(function () {
 
 
 app.ports.sendCommentToServer.subscribe(function ({ comment, user, session }) {
-    $.post('http://localhost:3000/comments', { comment, user, session }).then((res) => {
-        console.log(res);
+    $.post('http://localhost:3000/api/comments', { comment, user, session, token }).then(({ data }) => {
         scrollToBottom();
     });
 });
 
 app.ports.sendRoomName.subscribe(({ id, new_name }) => {
-    axios.patch('http://localhost:3000/sessions/'+id, { name: new_name }).then((res) => {
-        console.log(res, id, new_name);
+    axios.patch('http://localhost:3000/api/sessions/' + id, { name: new_name, token }).then(({ data }) => {
+        console.log(data, id, new_name);
     })
 });

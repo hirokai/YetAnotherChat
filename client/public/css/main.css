@@ -43,10 +43,6 @@ div#footer {
     overflow: auto;
 }
 
-#menu-left ul {
-    cursor: pointer;
-
-}
 
 .current-room {
     font-weight: bold;
@@ -99,17 +95,33 @@ ul.menu-list li {
     cursor: pointer;
 }
 
+.clickable:hover {
+    color: red ! important;
+}
+
 .chatlist-name {
     margin-top: 5px;
+    cursor: pointer;
     /* line-height: 10px; */
 }
 
 .chatlist-members {
     font-size: 12px;
     margin-top: 0px;
+
     /* line-height: 10px; */
+}
+
+.chatlist-member {
+    cursor: pointer;
+
 }
 
 #edit-roomname {
     font-size: 14px;
+}
+
+#path {
+    font-size: 14px;
+    font-family: 'Courier New', Courier, monospace
 }

@@ -56,7 +56,6 @@ const get_session_info = (session_id) => {
         const ts = new Date().getTime();
         db.serialize(() => {
             db.get('select * from sessions where id=?;', session_id, (err, session) => {
-                console.log(session);
                 db.all('select * from session_members where session_id=?', session_id, (err, r2) => {
                     const members = _.map(r2, 'member_name');
                     resolve({ name: session.name, timestamp: session.timestamp, members });
@@ -67,14 +66,12 @@ const get_session_info = (session_id) => {
 };
 
 const get_session_list = ({ of_members, is_all }) => {
-    console.log(of_members);
     if (of_members) {
         return get_session_of_members(of_members, is_all);
     }
     return new Promise((resolve, reject) => {
         db.serialize(() => {
             db.all('select s.id,s.name,s.timestamp,group_concat(m.member_name) as members from sessions as s join session_members as m on s.id=m.session_id group by s.id order by s.timestamp desc;', (err, sessions) => {
-                console.log(sessions);
                 const ss = _.map(sessions, (s) => {
                     return { id: s.id, name: s.name, timestamp: s.timestamp, members: s.members.split(",") };
                 });
