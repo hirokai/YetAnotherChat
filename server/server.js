@@ -9,6 +9,8 @@ const db = new sqlite3.Database(path.join(__dirname, './private/db.sqlite3'));
 const model = require('./model');
 const fs = require('fs');
 const moment = require('moment');
+const passport = require('passport');
+const jwt = require('jsonwebtoken');
 
 const port = 3000;
 
@@ -25,12 +27,62 @@ db.run('create table  if not exists comments (user_id text, comment text, timest
 
 app.use(function (req, res, next) {
     res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, X-Access-Token");
     res.header('Access-Control-Allow-Methods', 'PUT, POST, GET, DELETE, PATCH, OPTIONS');
     next();
 });
 
 const emoji_dict = _.keyBy(emojis, 'shortname');
+
+app.post('/login', (req, res) => {
+    const { username, password } = req.body;
+    if (username == "Tanaka" && password == "1234") {
+        console.log("login ok", req.user);
+        const token = jwt.sign({ username }, "hogehuga", { expiresIn: 604800 });
+        res.json({ ok: true, token });
+    } else {
+        res.json({ ok: false });
+
+    }
+});
+
+app.get('/verify_token', (req, res) => {
+    var token = req.body.token || req.query.token || req.headers['x-access-token'];
+    jwt.verify(token, "hogehuga", function (err, decoded) {
+        if (err) {
+            //. 正当な値ではなかった場合はエラーメッセージを返す
+            res.status(200).json({ valid: false, error: 'Invalid token.' });
+        } else {
+            //. 正当な値が設定されていた場合は処理を続ける
+            req.decoded = decoded;
+            res.status(200).json({ valid: true, decoded });
+        }
+    });
+});
+
+// http://dotnsf.blog.jp/archives/1067083257.html
+app.use(function (req, res, next) {
+    //. ポスト本体、URLパラメータ、HTTPヘッダいずれかにトークンがセットされているか調べる
+    var token = req.body.token || req.query.token || req.headers['x-access-token'];
+    console.log("app.use", token, req.body, req.query)
+    if (!token) {
+        //. トークンが設定されていなかった場合は無条件に 403 エラー
+        return res.status(403).send({ ok: false, message: 'No token provided.' });
+    }
+
+    //. 設定されていたトークンの値の正当性を確認
+    jwt.verify(token, "hogehuga", function (err, decoded) {
+        if (err) {
+            //. 正当な値ではなかった場合はエラーメッセージを返す
+            console.log("auth failed")
+            return res.status(403).json({ ok: false, error: 'Invalid token.' });
+        } else {
+            //. 正当な値が設定されていた場合は処理を続ける
+            req.decoded = decoded;
+            next();
+        }
+    });
+});
 
 app.get('/matrix', (req, res) => {
     res.send(fs.readFileSync('public/html/matrix.html', 'utf8'));
@@ -128,7 +180,6 @@ app.patch('/sessions/:id', (req, res) => {
 
 
 app.get('/sessions', (req, res) => {
-    console.log(req.query, req.query.is_all);
     const ms = req.query.of_members;
     const of_members = ms ? ms.split(",") : undefined;
     const is_all = !(typeof req.query.is_all === 'undefined');
