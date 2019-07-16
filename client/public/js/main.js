@@ -47,9 +47,17 @@ app.ports.getMessages.subscribe(function (session) {
     });
 });
 
-app.ports.getSessionsWithSameMembers.subscribe(function (members) {
-    $.get('http://localhost:3000/sessions', { of_members: members.join(','), is_all: true }).then((res) => {
+app.ports.getSessionsWithSameMembers.subscribe(function ({ members, is_all }) {
+    $.get('http://localhost:3000/sessions', { of_members: members.join(','), is_all }).then((res) => {
         app.ports.feedSessionsWithSameMembers.send(_.map(res, (r) => {
+            return r.id;
+        }));
+    });
+});
+
+app.ports.getSessionsOf.subscribe(function (user) {
+    $.get('http://localhost:3000/sessions', { of_members: user }).then((res) => {
+        app.ports.feedSessionsOf.send(_.map(res, (r) => {
             return r.id;
         }));
     });
@@ -73,7 +81,7 @@ app.ports.sendCommentToServer.subscribe(function ({ comment, user, session }) {
 });
 
 app.ports.sendRoomName.subscribe(({ id, new_name }) => {
-    axios.patch('http://localhost:3000/sessions/'+id, { name: new_name }).then((res) => {
+    axios.patch('http://localhost:3000/sessions/' + id, { name: new_name }).then((res) => {
         console.log(res, id, new_name);
     })
 });

@@ -1,6 +1,7 @@
-port module Main exposing (ChatEntry(..), Flags, Member, Model, Msg(..), addComment, feedMessages, getMembers, getMessages, iconOfUser, init, initialMessages, isSelected, main, mkComment, onKeyDown, scrollToBottom, showAll, showItem, subscriptions, update, view)
+port module Main exposing (ChatEntry(..), Flags, Member, Model, Msg(..), addComment, feedMessages, getMembers, getMessages, iconOfUser, init, isSelected, main, mkComment, onKeyDown, scrollToBottom, showAll, showItem, subscriptions, update, view)
 
 import Browser
+import Browser.Navigation as Nav
 import Dict exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -10,6 +11,7 @@ import List.Extra
 import Maybe.Extra
 import Set
 import Task
+import Url
 
 
 type alias CommentTyp =
@@ -22,10 +24,16 @@ port getMessages : RoomID -> Cmd msg
 port getRoomInfo : () -> Cmd msg
 
 
-port getSessionsWithSameMembers : List String -> Cmd msg
+port getSessionsWithSameMembers : { members : List String, is_all : Bool } -> Cmd msg
+
+
+port getSessionsOf : String -> Cmd msg
 
 
 port feedSessionsWithSameMembers : (List String -> msg) -> Sub msg
+
+
+port feedSessionsOf : (List String -> msg) -> Sub msg
 
 
 port scrollToBottom : () -> Cmd msg
@@ -66,12 +74,6 @@ type alias RoomInfo =
     { id : String, name : String, timestamp : Int, members : List Member }
 
 
-type Mode
-    = NewSession
-    | ChatRoom
-    | BrowseHistory
-
-
 getUser : ChatEntry -> String
 getUser c =
     case c of
@@ -86,36 +88,71 @@ type alias NewSessionStatus =
     { selected : Set.Set Member, sessions_same_members : List RoomID }
 
 
+type alias UserPageStatus =
+    { sessions : List RoomID }
+
+
+type Page
+    = RoomPage RoomID
+    | UserPage String
+    | HomePage
+    | NewSession
+
+
+pageToPath : Page -> String
+pageToPath page =
+    case page of
+        RoomPage r ->
+            "/sessions/" ++ r
+
+        UserPage u ->
+            "/users/" ++ u
+
+        HomePage ->
+            "/"
+
+        NewSession ->
+            "/sessions/new"
+
+
 type alias Model =
-    { messages : Maybe (List ChatEntry)
+    { page : Page
+    , rooms : List RoomID
+    , users : List Member
+    , messages : Maybe (List ChatEntry)
     , onlineUsers : List Member
     , myself : Member
-    , chatTimestamp : String
     , selected : Dict Member Bool
-    , room : RoomID
     , roomInfo : Dict RoomID RoomInfo
-    , rooms : List RoomID
-    , mode : Mode
-    , users : List Member
     , newSessionStatus : NewSessionStatus
+    , userPageStatus : UserPageStatus
     , editing : Set.Set String
     , editingValue : Dict String String
     }
 
 
+getRoomID : Model -> Maybe RoomID
+getRoomID model =
+    case model.page of
+        RoomPage r ->
+            Just r
+
+        _ ->
+            Nothing
+
+
 init : Flags -> ( Model, Cmd Msg )
 init _ =
     ( { messages = Nothing
-      , chatTimestamp = ""
-      , selected = showAll initialMessages
+      , selected = showAll []
       , onlineUsers = []
       , myself = "Tanaka"
-      , room = "Home"
       , roomInfo = Dict.empty
       , rooms = [ "Home", "COI" ]
-      , mode = NewSession
+      , page = NewSession
       , users = [ "Tanaka", "Yoshida", "Saito", "Kimura", "Abe" ]
       , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
+      , userPageStatus = { sessions = [] }
       , editing = Set.empty
       , editingValue = Dict.empty
       }
@@ -137,12 +174,14 @@ type Msg
     = ToggleMember Member
     | FeedMessages (List CommentTyp)
     | EnterRoom RoomID
+    | EnterUser String
     | NewSessionMsg NewSessionMsg
+    | UserPageMsg UserPageMsg
     | StartSession (Set.Set Member)
     | ReceiveNewSessionId { timestamp : Int, name : String, id : RoomID }
     | FeedRoomInfo (List ( RoomID, RoomInfo ))
     | EnterNewSessionScreen
-    | StartEditing String
+    | StartEditing String String
     | UpdateEditingValue String String
     | FinishEditing String (Model -> Model) (Cmd Msg)
     | AbortEditing String
@@ -156,6 +195,10 @@ type NewSessionMsg
     | FeedSessionsWithSameMembers (List String)
 
 
+type UserPageMsg
+    = FeedSessions (List String)
+
+
 onKeyDown : (Int -> msg) -> Attribute msg
 onKeyDown tagger =
     on "keydown" (Json.map tagger keyCode)
@@ -165,26 +208,10 @@ addComment : String -> Model -> Model
 addComment comment model =
     case model.messages of
         Just messages ->
-            { model | messages = Just <| List.append messages [ Comment { user = model.myself, comment = comment, timestamp = model.chatTimestamp, originalUrl = "", sentTo = "all" } ] }
+            { model | messages = Just <| List.append messages [ Comment { user = model.myself, comment = comment, originalUrl = "", sentTo = "all", timestamp = "" } ] }
 
         Nothing ->
             model
-
-
-messageFilter : RoomID -> List ChatEntry -> List ChatEntry
-messageFilter room msgs =
-    let
-        f m =
-            if room == "Home" then
-                True
-
-            else if room == "COI" then
-                Maybe.Extra.isJust <| List.Extra.elemIndex (getUser m) [ "matsubara", "yoshida" ]
-
-            else
-                getUser m == room
-    in
-    List.filter f msgs
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -214,7 +241,10 @@ update msg model =
             ( { model | messages = Just msgs, selected = showAll msgs }, Cmd.none )
 
         EnterRoom r ->
-            ( { model | room = r, mode = ChatRoom, messages = Nothing }, getMessages r )
+            ( { model | page = RoomPage r, messages = Nothing }, getMessages r )
+
+        EnterUser u ->
+            ( { model | page = UserPage u, messages = Nothing }, getSessionsOf u )
 
         NewSessionMsg msg1 ->
             let
@@ -223,25 +253,32 @@ update msg model =
             in
             ( { model | newSessionStatus = m }, c )
 
+        UserPageMsg msg1 ->
+            let
+                ( m, c ) =
+                    updateUserPageStatus msg1 model.userPageStatus
+            in
+            ( { model | userPageStatus = m }, c )
+
         StartSession users ->
             let
                 user_list =
                     Set.toList users
             in
-            ( { model | mode = ChatRoom }, createNewSession ( "", user_list ) )
+            ( { model | page = RoomPage "" }, createNewSession ( "", user_list ) )
 
         ReceiveNewSessionId { name, timestamp, id } ->
-            ( { model | room = id, roomInfo = Dict.insert id { id = id, name = name, timestamp = timestamp, members = [] } model.roomInfo }, Cmd.none )
+            ( { model | page = RoomPage id, roomInfo = Dict.insert id { id = id, name = name, timestamp = timestamp, members = [] } model.roomInfo }, Cmd.none )
 
         EnterNewSessionScreen ->
             let
                 st =
                     model.newSessionStatus
             in
-            ( { model | mode = NewSession, newSessionStatus = { selected = Set.empty, sessions_same_members = [] } }, Cmd.none )
+            ( { model | page = NewSession, newSessionStatus = { selected = Set.empty, sessions_same_members = [] } }, Cmd.none )
 
-        StartEditing id ->
-            ( { model | editing = Set.insert id model.editing, editingValue = Dict.insert id (roomName model.room model) model.editingValue }, Cmd.none )
+        StartEditing id initialValue ->
+            ( { model | editing = Set.insert id model.editing, editingValue = Dict.insert id initialValue model.editingValue }, Cmd.none )
 
         FinishEditing id updateFunc updatePort ->
             finishEditing id updateFunc updatePort model
@@ -260,11 +297,11 @@ update msg model =
                 ( model, Cmd.none )
 
         SubmitComment ->
-            case Dict.get "chat" model.editingValue of
-                Just comment ->
-                    ( addComment comment model, Cmd.batch [ scrollToBottom (), sendCommentToServer { comment = comment, user = model.myself, session = model.room } ] )
+            case ( Dict.get "chat" model.editingValue, getRoomID model ) of
+                ( Just comment, Just room ) ->
+                    ( addComment comment model, Cmd.batch [ scrollToBottom (), sendCommentToServer { comment = comment, user = model.myself, session = room } ] )
 
-                Nothing ->
+                _ ->
                     ( model, Cmd.none )
 
 
@@ -294,11 +331,18 @@ updateNewSessionStatus msg model =
                 Cmd.none
 
               else
-                getSessionsWithSameMembers (Set.toList newSelected)
+                getSessionsWithSameMembers { members = Set.toList newSelected, is_all = True }
             )
 
         FeedSessionsWithSameMembers ss ->
             ( { model | sessions_same_members = ss }, Cmd.none )
+
+
+updateUserPageStatus : UserPageMsg -> UserPageStatus -> ( UserPageStatus, Cmd msg )
+updateUserPageStatus msg model =
+    case msg of
+        FeedSessions ss ->
+            ( { model | sessions = ss }, Cmd.none )
 
 
 mkComment : String -> List (Html.Html msg)
@@ -362,24 +406,16 @@ isSelected model m =
     Dict.get m model.selected == Just True
 
 
-leftMenu : Model -> Html Msg
-leftMenu model =
-    div [ class "col-md-2 col-lg-2", id "menu-left" ] <|
-        [ div [ id "username-top" ]
-            [ text model.myself ]
-        ]
-            ++ showChannels model
-
-
 roomUsers room model =
     Maybe.withDefault [] <| Maybe.map (\a -> a.members) <| Dict.get room model.roomInfo
 
 
-leftMenuChat : Model -> Html Msg
-leftMenuChat model =
+leftMenu : Model -> Html Msg
+leftMenu model =
     div [ class "col-md-2 col-lg-2", id "menu-left" ]
         ([ div [ id "username-top" ]
             [ text model.myself ]
+         , div [id "path"] [ text (pageToPath model.page) ]
          , div []
             [ a [ class "btn btn-light", id "newroom-button", onClick EnterNewSessionScreen ] [ text "新しい会話" ]
             ]
@@ -388,13 +424,36 @@ leftMenuChat model =
         )
 
 
+showChannels : Model -> List (Html Msg)
 showChannels model =
-    [ p [] [ text "チャンネル" ]
-    , ul [ class "menu-list", id "room-memberlist" ] <|
-        List.map (\u -> li [] [ text u ]) (roomUsers model.room model)
-    , ul [ class "menu-list" ] <|
-        List.map (\r -> li [] [ a [ onClick (EnterRoom r) ] [ div [ class "chatlist-name" ] [ text (roomName r model) ], div [ class "chatlist-members" ] [ text (String.join "," <| roomUsers r model) ] ] ]) model.rooms
-    ]
+    case model.page of
+        RoomPage room ->
+            [ p [] [ text "チャンネル" ]
+            , ul [ class "menu-list", id "room-memberlist" ] <|
+                List.map (\u -> li [] [ a [ class "clickable", onClick (EnterUser u) ] [ text u ] ]) (roomUsers room model)
+            , ul [ class "menu-list" ] <|
+                List.map
+                    (\r ->
+                        li []
+                            [ div [ class "chatlist-name clickable" ] [ a [ onClick (EnterRoom r) ] [ text (roomName r model) ] ]
+                            , div [ class "chatlist-members" ] (List.intersperse (text ",") <| List.map (\u -> a [ class "chatlist-member clickable", onClick (EnterUser u) ] [ text u ]) <| roomUsers r model)
+                            ]
+                    )
+                    model.rooms
+            ]
+
+        _ ->
+            [ p [] [ text "チャンネル" ]
+            , ul [ class "menu-list" ] <|
+                List.map
+                    (\r ->
+                        li []
+                            [ div [ class "chatlist-name clickable" ] [ a [ onClick (EnterRoom r) ] [ text (roomName r model) ] ]
+                            , div [ class "chatlist-members" ] (List.intersperse (text ",") <| List.map (\u -> a [ class "chatlist-member clickable", onClick (EnterUser u) ] [ text u ]) <| roomUsers r model)
+                            ]
+                    )
+                    model.rooms
+            ]
 
 
 roomName id model =
@@ -403,15 +462,41 @@ roomName id model =
 
 view : Model -> Browser.Document Msg
 view model =
-    case model.mode of
+    case model.page of
         NewSession ->
             newSessionView model
 
-        ChatRoom ->
-            chatRoomView model
+        RoomPage room ->
+            chatRoomView room model
 
-        BrowseHistory ->
-            historyView model
+        UserPage user ->
+            userPageView user model
+
+        HomePage ->
+            homeView model
+
+
+homeView model =
+    { title = "Slack clone"
+    , body =
+        [ div [ class "container" ]
+            [ div [ class "row" ]
+                [ leftMenu model
+                , div [ class "col-md-10 col-lg-10" ]
+                    [ h1 [] [ text "新しい会話を開始" ]
+                    , div [ id "people-wrapper" ] <|
+                        List.map (mkPeoplePanel model.newSessionStatus.selected)
+                            model.users
+                    , div
+                        [ style "clear" "both" ]
+                        []
+                    , div [] [ button [ class "btn btn-primary btn-lg", onClick (StartSession model.newSessionStatus.selected) ] [ text "開始" ] ]
+                    , ul [] (List.map (\s -> li [] [ a [ class "clickable", onClick (EnterRoom s) ] [ text (roomName s model) ] ]) model.newSessionStatus.sessions_same_members)
+                    ]
+                ]
+            ]
+        ]
+    }
 
 
 mkPeoplePanel selected user =
@@ -463,25 +548,30 @@ newSessionView model =
 
 
 updateRoomName : RoomID -> String -> Model -> Model
-updateRoomName id newName m =
-    let
-        f k v =
-            if v.id == m.room then
-                { v | name = newName }
+updateRoomName id newName model =
+    case model.page of
+        RoomPage room ->
+            let
+                f k v =
+                    if v.id == room then
+                        { v | name = newName }
 
-            else
-                v
-    in
-    { m | roomInfo = Dict.map f m.roomInfo }
+                    else
+                        v
+            in
+            { model | roomInfo = Dict.map f model.roomInfo }
+
+        _ ->
+            model
 
 
-chatRoomView : Model -> { title : String, body : List (Html Msg) }
-chatRoomView model =
+chatRoomView : RoomID -> Model -> { title : String, body : List (Html Msg) }
+chatRoomView room model =
     { title = "Slack clone"
     , body =
         [ div [ class "container" ]
             [ div [ class "row" ]
-                [ leftMenuChat model
+                [ leftMenu model
                 , div [ class "col-md-10 col-lg-10" ]
                     [ h1 []
                         [ if Set.member "room-title" model.editing then
@@ -492,19 +582,19 @@ chatRoomView model =
                                         nv =
                                             Maybe.withDefault "" <| Dict.get "room-title" model.editingValue
                                      in
-                                     EditingKeyDown "room-title" (updateRoomName model.room nv) (sendRoomName { id = model.room, new_name = nv })
+                                     EditingKeyDown "room-title" (updateRoomName room nv) (sendRoomName { id = room, new_name = nv })
                                     )
                                 , onInput (UpdateEditingValue "room-title")
                                 ]
                                 []
 
                           else
-                            text <| Maybe.withDefault "(N/A)" (Maybe.map (\a -> a.name) (Dict.get model.room model.roomInfo))
-                        , a [ id "edit-roomname", class "clickable", onClick (StartEditing "room-title") ] [ text "Edit" ]
+                            text <| Maybe.withDefault "(N/A)" (Maybe.map (\a -> a.name) (Dict.get room model.roomInfo))
+                        , a [ id "edit-roomname", class "clickable", onClick (StartEditing "room-title" (roomName room model)) ] [ text "Edit" ]
                         ]
-                    , div [] [ text <| "参加者：" ++ String.join ", " (roomUsers model.room model) ]
+                    , div [] [ text <| "参加者：" ++ String.join ", " (roomUsers room model) ]
                     , div []
-                        ([ text ("Session ID: " ++ model.room) ]
+                        ([ text ("Session ID: " ++ room) ]
                             ++ (case model.messages of
                                     Just messages ->
                                         [ div [ id "message-count" ] [ text (String.fromInt (List.length messages) ++ " messages.") ]
@@ -534,7 +624,7 @@ chatRoomView model =
                                         EditingKeyDown "chat"
                                             (addComment c)
                                             (sendCommentToServer
-                                                { comment = c, user = model.myself, session = model.room }
+                                                { comment = c, user = model.myself, session = room }
                                             )
 
                                     Nothing ->
@@ -551,67 +641,27 @@ chatRoomView model =
     }
 
 
-
-{--
-
-
-        CommentBoxKeyDown code ->
-            case ( code, Dict.get "chat" model.editingValue ) of
-                ( 13, Just comment ) ->
-                    ( addComment comment model, Cmd.batch [ scrollToBottom (), sendCommentToServer { comment = comment, user = model.myself, session = model.room } ] )
-
-                _ ->
-                    ( model, Cmd.none ) --}
-
-
-historyView model =
+userPageView : String -> Model -> { title : String, body : List (Html Msg) }
+userPageView user model =
     { title = "Slack clone"
     , body =
         [ div [ class "container" ]
             [ div [ class "row" ]
                 [ leftMenu model
                 , div [ class "col-md-10 col-lg-10" ]
-                    [ div [] <|
-                        List.map
-                            (\m ->
-                                button
-                                    [ type_ "button"
-                                    , class
-                                        ("btn btn-"
-                                            ++ (if isSelected model m then
-                                                    "primary"
-
-                                                else
-                                                    "secondary"
-                                               )
-                                        )
-                                    , onClick (ToggleMember m)
-                                    ]
-                                    [ text m ]
-                            )
-                            (getMembers (Maybe.withDefault [] model.messages))
-                    , div [ id "chat-wrapper" ]
-                        [ div [ id "chat-entries" ] <|
-                            List.map (showItem model) (messageFilter model.room (Maybe.withDefault [] model.messages))
-                        ]
-                    , div [ id "footer_wrapper", class "fixed-bottom" ]
-                        [ div [ id "footer" ]
-                            [ input
-                                [ value (Maybe.withDefault "(N/A)" <| Dict.get "chat" model.editingValue)
-                                , style "height" "30px"
-                                , style "width" "90vw"
-                                , onInput (UpdateEditingValue "chat")
-                                , onKeyDown (EditingKeyDown "chat" identity Cmd.none)
-                                ]
-                                []
-                            , button [ class "btn btn-primary", onClick SubmitComment ] [ text "送信" ]
-                            ]
+                    [ h1 [] [ text user ]
+                    , div []
+                        [ ul [] (List.map (\s -> li [] [ a [ class "clickable", onClick (EnterRoom s) ] [ text <| roomName s model ] ]) model.userPageStatus.sessions)
                         ]
                     ]
                 ]
             ]
         ]
     }
+
+
+messageFilter =
+    identity
 
 
 subscriptions : Model -> Sub Msg
@@ -621,12 +671,8 @@ subscriptions model =
         , receiveNewRoomInfo ReceiveNewSessionId
         , feedRoomInfo FeedRoomInfo
         , feedSessionsWithSameMembers (\s -> NewSessionMsg (FeedSessionsWithSameMembers s))
+        , feedSessionsOf (\s -> UserPageMsg (FeedSessions s))
         ]
-
-
-initialMessages =
-    [-- Comment {comment = "昨日の論文の件はどうなりましたか？\n明日作業できればと思っています\nいかがでしょうか？", user = "fuga"}
-    ]
 
 
 getMembers : List ChatEntry -> List String

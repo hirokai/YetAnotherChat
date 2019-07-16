@@ -119,10 +119,10 @@ app.get('/sessions/:id', (req, res) => {
 
 app.patch('/sessions/:id', (req, res) => {
     const id = req.params.id;
-    const {name, members} = req.body;
-    console.log(name,members);
-    db.run('update sessions set name=? where id=?;',name,id,(err) =>{
-        res.json({ok: true});
+    const { name, members } = req.body;
+    console.log(name, members);
+    db.run('update sessions set name=? where id=?;', name, id, (err) => {
+        res.json({ ok: true });
     });
 });
 
@@ -141,7 +141,6 @@ app.post('/sessions', (req, res) => {
     const members = req.body.members;
     const name = req.body.name;
     if (name && members) {
-        console.log(members);
         model.create_new_session(name, members).then((data) => {
             res.json({ ok: true, data });
         }).catch((error) => {
