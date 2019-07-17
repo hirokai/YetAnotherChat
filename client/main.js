@@ -1,5 +1,5 @@
+const { Elm } = require('./dist/main.elm.js');
 const app = Elm.Main.init();
-
 
 const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IlRhbmFrYSIsImlhdCI6MTU2MzI4MTk3NCwiZXhwIjoxNTYzODg2Nzc0fQ.2nGathlOGZM9Zd2UVZ0b8nAoZJN4YZwrlpbSEudZn8I";
 
