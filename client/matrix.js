@@ -1,4 +1,4 @@
-const { Elm } = require('./dist/main.elm.js');
+const { Elm } = require('./dist/matrix.elm.js');
 const app = Elm.Main.init();
 
 function scrollToBottom() {
