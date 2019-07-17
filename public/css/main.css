@@ -39,7 +39,6 @@ div#footer {
 }
 
 #chat-wrapper {
-    position: fixed;
     overflow: auto;
 }
 
