@@ -1,7 +1,7 @@
-port module Main exposing (ChatEntry(..), Flags, Member, Model, Msg(..), addComment, feedMatrix, feedMessages, getMembers, getMessages, iconOfUser, init, initialMessages, isSelected, main, mkComment, onKeyDown, scrollToBottom, showAll, showItem, subscriptions, update, view)
+port module Main exposing (ChatEntry(..), Flags, Member, Model, Msg(..), addComment, feedMatrix, feedMessages, getMembers, getMessages, iconOfUser, init, isSelected, main, mkComment, onKeyDown, scrollToBottom, showAll, showItem, subscriptions, update, view)
 
 import Browser
-import Dict exposing (..)
+import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
@@ -9,16 +9,24 @@ import Json.Decode as Json
 import List.Extra exposing (getAt)
 import Maybe.Extra
 import Svg exposing (g, rect, svg, text_)
-import Svg.Attributes exposing (fill, fillOpacity, fontSize, stroke, strokeWidth, transform, x, y)
-import Task
+import Svg.Attributes exposing (fill, fontSize, transform, x, y)
 
 
 type alias CommentTyp =
-    { user : String, comment : String, timestamp : String, originalUrl : String, sentTo : String, source : String }
+    { user : String
+    , comment : String
+    , timestamp : String
+    , originalUrl : String
+    , sentTo : String
+    , source : String
+    }
 
 
 type alias User =
-    { id : String, name : String, avatar : String }
+    { id : String
+    , name : String
+    , avatar : String
+    }
 
 
 port getUsers : () -> Cmd msg
@@ -45,6 +53,7 @@ port feedMatrix : ({ users : List String, matrix : List (List Int), dates : List
 port sendCommentToServer : String -> Cmd msg
 
 
+onClickNoBubble : Msg -> Attribute Msg
 onClickNoBubble message =
     Html.Events.custom "click" (Json.succeed { message = message, stopPropagation = True, preventDefault = True })
 
@@ -91,10 +100,10 @@ type alias Model =
 
 init : Flags -> ( Model, Cmd Msg )
 init _ =
-    ( { messages = initialMessages
+    ( { messages = []
       , chatInput = ""
       , chatTimestamp = ""
-      , selected = showAll initialMessages
+      , selected = showAll []
       , onlineUsers = []
       , room = "Home"
       , rooms = []
@@ -111,7 +120,7 @@ init _ =
 
 people : Model -> List ( String, Int )
 people model =
-    List.sortBy (\( u, c ) -> 0 - c) <| List.map (\u -> ( u, List.Extra.count (\m -> getUser m == u) model.messages )) <| List.Extra.unique <| List.map getUser model.messages
+    List.sortBy (\( _, c ) -> 0 - c) <| List.map (\u -> ( u, List.Extra.count (\m -> getUser m == u) model.messages )) <| List.Extra.unique <| List.map getUser model.messages
 
 
 main : Program Flags Model Msg
@@ -151,6 +160,7 @@ onKeyDown tagger =
     on "keydown" (Json.map tagger keyCode)
 
 
+addComment : Model -> Model
 addComment model =
     { model | messages = List.append model.messages [ Comment { user = "myself", comment = model.chatInput, timestamp = model.chatTimestamp, originalUrl = "", sentTo = "all", source = "self" } ], chatInput = "" }
 
@@ -263,6 +273,7 @@ update msg model =
             ( { model | timespan = span }, getMessages { timespan = printSpan span } )
 
 
+getCurrentDateAndUser : Model -> ( String, String )
 getCurrentDateAndUser model =
     case model.selectedCell of
         Just ( col, row ) ->
@@ -272,10 +283,12 @@ getCurrentDateAndUser model =
             ( "", "" )
 
 
+getIndexFromUserId : Model -> String -> Int
 getIndexFromUserId model id =
     Maybe.withDefault -1 (List.Extra.elemIndex id model.users)
 
 
+printSpan : Timespan -> String
 printSpan s =
     case s of
         Day ->
@@ -301,6 +314,7 @@ mkComment s =
     List.map f <| List.intersperse "\n" <| String.split "\n" s
 
 
+iconOfUser : Dict String User -> String -> String
 iconOfUser userInfo id =
     case Dict.get id userInfo of
         Just info ->
@@ -310,6 +324,7 @@ iconOfUser userInfo id =
             ""
 
 
+mkLink : CommentTyp -> Html Msg
 mkLink m =
     if m.originalUrl == "" then
         text m.source
@@ -318,6 +333,7 @@ mkLink m =
         a [ href m.originalUrl ] [ text m.source ]
 
 
+showItem : Model -> ChatEntry -> Html Msg
 showItem model e =
     case e of
         Comment m ->
@@ -391,10 +407,12 @@ leftMenu model =
         ]
 
 
+hsl : Int -> Float -> Float -> String
 hsl h s l =
     "hsl(" ++ String.fromInt h ++ "," ++ String.fromInt (round (s * 100)) ++ "%," ++ String.fromInt (round (l * 100)) ++ "%)"
 
 
+colormap : Float -> String
 colormap value =
     let
         v1 =
@@ -403,6 +421,7 @@ colormap value =
     hsl 120 v1 0.5
 
 
+heat : Float -> String
 heat value =
     let
         v1 =
@@ -414,14 +433,17 @@ heat value =
     hsl h 1 0.5
 
 
+cellSize : Int
 cellSize =
     20
 
 
+columnsPerBlock : Int
 columnsPerBlock =
     50
 
 
+class_ : String -> Attribute Msg
 class_ =
     Svg.Attributes.class
 
@@ -429,17 +451,17 @@ class_ =
 mkColumn : Maybe ( Int, Int ) -> Int -> Int -> ( String, List Int ) -> Svg.Svg Msg
 mkColumn selected countMax i ( date, xs ) =
     let
-        calcX xi yi =
+        calcX xi _ =
             xi * cellSize
 
-        calcY xi yi =
+        calcY _ yi =
             yi * cellSize
 
         total =
             List.sum xs
     in
     g [ class_ "column", attribute "data-date" date ] <|
-        ([ rect
+        (rect
             [ onClickNoBubble (SelectCell i -1)
             , Svg.Attributes.class
                 ("activity-cell"
@@ -463,8 +485,7 @@ mkColumn selected countMax i ( date, xs ) =
                 )
             ]
             []
-         ]
-            ++ List.indexedMap
+            :: List.indexedMap
                 (\j count ->
                     rect
                         [ onClickNoBubble (SelectCell i j)
@@ -495,6 +516,7 @@ mkColumn selected countMax i ( date, xs ) =
         )
 
 
+mkDateLabels : List String -> List (Svg.Svg Msg)
 mkDateLabels dates =
     List.indexedMap
         (\i ds ->
@@ -508,6 +530,7 @@ mkDateLabels dates =
         (List.Extra.groupsOf 7 dates)
 
 
+getName : Dict String User -> String -> String
 getName info id =
     case Dict.get id info of
         Just u ->
@@ -517,10 +540,12 @@ getName info id =
             "N/A"
 
 
+cellsOffsetX : Int
 cellsOffsetX =
     130
 
 
+countNormalizeFactor : List (List Int) -> Int
 countNormalizeFactor xss =
     Maybe.withDefault 0 <| List.maximum <| List.map (\xs -> Maybe.withDefault 0 (List.maximum xs)) xss
 
@@ -584,8 +609,8 @@ view model =
                             ]
                             [ g [ transform "translate(20,60)" ]
                                 [ g [ id "matrix-usernames" ]
-                                    ([ text_ [ x "0", y "-7" ] [ text "全員" ] ]
-                                        ++ List.indexedMap (\i a -> text_ [ x "0", y (String.fromInt (i * 20 + 18)) ] [ text (getName model.userInfo a) ])
+                                    (text_ [ x "0", y "-7" ] [ text "全員" ]
+                                        :: List.indexedMap (\i a -> text_ [ x "0", y (String.fromInt (i * 20 + 18)) ] [ text (getName model.userInfo a) ])
                                             model.users
                                     )
                                 , g
@@ -616,12 +641,8 @@ view model =
 
 
 subscriptions : Model -> Sub Msg
-subscriptions model =
+subscriptions _ =
     Sub.batch [ feedMatrix FeedMatrix, feedMessages FeedMessages, feedUsers FeedUsers ]
-
-
-initialMessages =
-    []
 
 
 getMembers : List ChatEntry -> List String
@@ -638,6 +659,7 @@ getMembers entries =
     List.Extra.unique <| List.map f entries
 
 
+showAll : List ChatEntry -> Dict String Bool
 showAll messages =
     Dict.fromList <| List.map (\m -> ( m, True )) (getMembers messages)
 
