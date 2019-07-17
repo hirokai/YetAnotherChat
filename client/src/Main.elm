@@ -1,21 +1,22 @@
 port module Main exposing (ChatEntry(..), Flags, Member, Model, Msg(..), addComment, feedMessages, getMembers, getMessages, iconOfUser, init, isSelected, main, mkComment, onKeyDown, scrollToBottom, showAll, showItem, subscriptions, update, view)
 
 import Browser
-import Browser.Navigation as Nav
-import Dict exposing (..)
+import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Json.Decode as Json
 import List.Extra
-import Maybe.Extra
 import Set
-import Task
-import Url
 
 
 type alias CommentTyp =
-    { user : String, comment : String, timestamp : String, originalUrl : String, sentTo : String }
+    { user : String
+    , comment : String
+    , timestamp : String
+    , originalUrl : String
+    , sentTo : String
+    }
 
 
 port getMessages : RoomID -> Cmd msg
@@ -71,7 +72,11 @@ type alias RoomID =
 
 
 type alias RoomInfo =
-    { id : String, name : String, timestamp : Int, members : List Member }
+    { id : String
+    , name : String
+    , timestamp : Int
+    , members : List Member
+    }
 
 
 getUser : ChatEntry -> String
@@ -85,7 +90,9 @@ getUser c =
 
 
 type alias NewSessionStatus =
-    { selected : Set.Set Member, sessions_same_members : List RoomID }
+    { selected : Set.Set Member
+    , sessions_same_members : List RoomID
+    }
 
 
 type alias UserPageStatus =
@@ -271,10 +278,6 @@ update msg model =
             ( { model | page = RoomPage id, roomInfo = Dict.insert id { id = id, name = name, timestamp = timestamp, members = [] } model.roomInfo }, Cmd.none )
 
         EnterNewSessionScreen ->
-            let
-                st =
-                    model.newSessionStatus
-            in
             ( { model | page = NewSession, newSessionStatus = { selected = Set.empty, sessions_same_members = [] } }, Cmd.none )
 
         StartEditing id initialValue ->
@@ -305,6 +308,7 @@ update msg model =
                     ( model, Cmd.none )
 
 
+finishEditing : String -> (Model -> Model) -> Cmd Msg -> Model -> ( Model, Cmd Msg )
 finishEditing id updateFunc updatePort model =
     ( updateFunc { model | editing = Set.remove id model.editing }, updatePort )
 
@@ -358,15 +362,17 @@ mkComment s =
     List.map f <| List.intersperse "\n" <| String.split "\n" s
 
 
+iconOfUser : String -> String
 iconOfUser name =
     case name of
         "myself" ->
             "img/myself_icon.jpg"
 
-        otherwise ->
+        _ ->
             "img/user_icon.png"
 
 
+showItem : Model -> ChatEntry -> Html Msg
 showItem model e =
     case e of
         Comment m ->
@@ -406,6 +412,7 @@ isSelected model m =
     Dict.get m model.selected == Just True
 
 
+roomUsers : String -> Model -> List String
 roomUsers room model =
     Maybe.withDefault [] <| Maybe.map (\a -> a.members) <| Dict.get room model.roomInfo
 
@@ -415,7 +422,7 @@ leftMenu model =
     div [ class "col-md-2 col-lg-2", id "menu-left" ]
         ([ div [ id "username-top" ]
             [ text model.myself ]
-         , div [id "path"] [ text (pageToPath model.page) ]
+         , div [ id "path" ] [ text (pageToPath model.page) ]
          , div []
             [ a [ class "btn btn-light", id "newroom-button", onClick EnterNewSessionScreen ] [ text "新しい会話" ]
             ]
@@ -456,6 +463,7 @@ showChannels model =
             ]
 
 
+roomName : String -> Model -> String
 roomName id model =
     Maybe.withDefault "" <| Maybe.map .name (Dict.get id model.roomInfo)
 
@@ -476,6 +484,7 @@ view model =
             homeView model
 
 
+homeView : Model -> { title : String, body : List (Html Msg) }
 homeView model =
     { title = "Slack clone"
     , body =
@@ -499,6 +508,7 @@ homeView model =
     }
 
 
+mkPeoplePanel : Set.Set String -> String -> Html Msg
 mkPeoplePanel selected user =
     div
         [ class <|
@@ -514,6 +524,7 @@ mkPeoplePanel selected user =
         [ h3 [ class "name" ] [ text user ] ]
 
 
+newSessionView : Model -> { title : String, body : List (Html Msg) }
 newSessionView model =
     { title = "Slack clone"
     , body =
@@ -548,21 +559,16 @@ newSessionView model =
 
 
 updateRoomName : RoomID -> String -> Model -> Model
-updateRoomName id newName model =
-    case model.page of
-        RoomPage room ->
-            let
-                f k v =
-                    if v.id == room then
-                        { v | name = newName }
+updateRoomName room newName model =
+    let
+        f _ v =
+            if v.id == room then
+                { v | name = newName }
 
-                    else
-                        v
-            in
-            { model | roomInfo = Dict.map f model.roomInfo }
-
-        _ ->
-            model
+            else
+                v
+    in
+    { model | roomInfo = Dict.map f model.roomInfo }
 
 
 chatRoomView : RoomID -> Model -> { title : String, body : List (Html Msg) }
@@ -594,8 +600,8 @@ chatRoomView room model =
                         ]
                     , div [] [ text <| "参加者：" ++ String.join ", " (roomUsers room model) ]
                     , div []
-                        ([ text ("Session ID: " ++ room) ]
-                            ++ (case model.messages of
+                        (text ("Session ID: " ++ room)
+                            :: (case model.messages of
                                     Just messages ->
                                         [ div [ id "message-count" ] [ text (String.fromInt (List.length messages) ++ " messages.") ]
                                         , div [ id "chat-wrapper" ]
@@ -628,7 +634,7 @@ chatRoomView room model =
                                             )
 
                                     Nothing ->
-                                        \code -> NoOp
+                                        \_ -> NoOp
                                 )
                             ]
                             []
@@ -660,12 +666,13 @@ userPageView user model =
     }
 
 
+messageFilter : ChatEntry -> ChatEntry
 messageFilter =
     identity
 
 
 subscriptions : Model -> Sub Msg
-subscriptions model =
+subscriptions _ =
     Sub.batch
         [ feedMessages FeedMessages
         , receiveNewRoomInfo ReceiveNewSessionId
@@ -689,6 +696,7 @@ getMembers entries =
     List.Extra.unique <| List.map f entries
 
 
+showAll : List ChatEntry -> Dict String Bool
 showAll messages =
     Dict.fromList <| List.map (\m -> ( m, True )) (getMembers messages)
 
