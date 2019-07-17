@@ -149,11 +149,11 @@ getRoomID model =
 
 
 init : Flags -> ( Model, Cmd Msg )
-init _ =
+init { username } =
     ( { messages = Nothing
       , selected = showAll []
       , onlineUsers = []
-      , myself = "Tanaka"
+      , myself = username
       , roomInfo = Dict.empty
       , rooms = [ "Home", "COI" ]
       , page = NewSession
@@ -702,4 +702,4 @@ showAll messages =
 
 
 type alias Flags =
-    ()
+    { username : String }

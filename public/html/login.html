@@ -38,7 +38,9 @@
                 console.log(username, password);
                 $.post('http://localhost:3000/api/login', { username, password }).then((res) => {
                     if (res.ok && res.token) {
+                        console.log(res);
                         localStorage.setItem("yacht.token", res.token);
+                        localStorage.setItem("yacht.username", res.decoded.username);
                         location.href = 'http://localhost:3000/main';
                     } else {
                         console.log(res);
