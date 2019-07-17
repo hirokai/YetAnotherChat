@@ -1,3 +1,4 @@
+const { Elm } = require('./dist/main.elm.js');
 const app = Elm.Main.init();
 
 function scrollToBottom() {
@@ -32,6 +33,7 @@ const processMessages = (res) => {
 
 var users = {};
 
+console.log(app.ports);
 app.ports.getUsers.subscribe(function () {
     $.get('http://localhost:3000/users').done((res) => {
         users = _.keyBy(res, 'id');

@@ -40,6 +40,7 @@ app.get('/login', (req, res) => {
 });
 
 app.get('/main', (req, res) => {
+    // res.sendFile(path.join(__dirname, './dist/main2.html'));
     res.sendFile(path.join(__dirname, './public/html/main.html'));
 });
 
