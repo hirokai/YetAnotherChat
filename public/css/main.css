@@ -7,8 +7,6 @@
     }
 }
 
-.container {}
-
 div#footer_wrapper {
     height: 60px;
     padding-top: 10px;
@@ -31,11 +29,7 @@ div#footer {
 }
 
 #menu-left {
-    // position: fixed;
-    // top: 10px;
-    // left: 10px;
-    // width: 120px;
-    // height: 100%;    background: rgb(140, 142, 196);
+    background: rgb(140, 142, 196);
 }
 
 #chat-wrapper {

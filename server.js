@@ -1,7 +1,6 @@
 const express = require("express");
 const app = express();
 const bodyParser = require("body-parser");
-const emojis = require("./emojis.json").emojis;
 const _ = require('lodash');
 const path = require('path');
 const sqlite3 = require('sqlite3');
@@ -9,7 +8,6 @@ const db = new sqlite3.Database(path.join(__dirname, './private/db.sqlite3'));
 const model = require('./model');
 const fs = require('fs');
 const moment = require('moment');
-const passport = require('passport');
 const jwt = require('jsonwebtoken');
 
 const port = 3000;
@@ -33,7 +31,6 @@ app.use(function (req, res, next) {
     next();
 });
 
-const emoji_dict = _.keyBy(emojis, 'shortname');
 
 app.get('/login', (req, res) => {
     res.sendFile(path.join(__dirname, './public/html/login.html'));
@@ -93,7 +90,7 @@ app.use(function (req, res, next) {
     jwt.verify(token, "hogehuga", function (err, decoded) {
         if (err) {
             //. 正当な値ではなかった場合はエラーメッセージを返す
-            console.log("auth failed", decoded,err)
+            console.log("auth failed", decoded, err)
             res.status(403).json({ ok: false, error: 'Invalid token.' });
         } else {
             //. 正当な値が設定されていた場合は処理を続ける
@@ -153,12 +150,11 @@ app.get('/api/comments_by_date_user', (req, res) => {
         const dates = expandSpan(date_, span);
         const all_files = _.flatMap(dates, (date) => {
             if (user == "__all") {
-                files = glob.sync('private/slack_matrix/' + date + "-*.json");
+                return glob.sync('private/slack_matrix/' + date + "-*.json");
             } else {
                 const filename = "private/slack_matrix/" + date + "-" + user + ".json";
-                files = [path.join(__dirname, filename)];
+                return [path.join(__dirname, filename)];
             }
-            return files;
         });
         const comments = _.sortBy(_.compact(_.flatMap(all_files, (filename) => {
             if (fs.existsSync(filename)) {
@@ -168,7 +164,7 @@ app.get('/api/comments_by_date_user', (req, res) => {
             }
         })), (e) => { return parseFloat(e.ts); });
         res.json(_.map(comments, (c) => {
-            const ts_str = "" + (c.ts * 1000000)
+            const _ts_str = "" + (c.ts * 1000000)
             return _.extend({ source: "Slack" }, c)
         }));
     } catch (e) {
@@ -189,7 +185,7 @@ app.patch('/api/sessions/:id', (req, res) => {
     const id = req.params.id;
     const { name, members } = req.body;
     console.log(name, members);
-    db.run('update sessions set name=? where id=?;', name, id, (err) => {
+    db.run('update sessions set name=? where id=?;', name, id, () => {
         res.json({ ok: true });
     });
 });
@@ -232,7 +228,6 @@ app.get('/api/sent_email', (req, res) => {
         res.header("Content-Type", "application/json; charset=utf-8");
         res.json(data);
     });
-    return [date];
 });
 
 

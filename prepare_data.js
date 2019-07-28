@@ -17,7 +17,7 @@ function initialize() {
     });
 }
 
-function import_from_slack() {
+function _import_from_slack() {
     db.serialize(() => {
         _.map(messages_stub, (obj) => {
             obj.ts = Math.floor(obj.ts * 1000);
@@ -27,7 +27,7 @@ function import_from_slack() {
     });
 }
 
-function import_from_gmail() {
+function _import_from_gmail() {
     _.map(user_list.gmail_list, (from_user_email, from_user) => {
         model.get_mail_from(from_user_email).then((list) => {
             console.log('' + list.length + ' emails from: ' + from_user);
