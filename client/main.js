@@ -1,8 +1,7 @@
 const { Elm } = require('client/dist/main.elm.js');
 const app = Elm.Main.init({ flags: { username: localStorage['yacht.username'] || "" } });
 
-const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IlRhbmFrYSIsImlhdCI6MTU2MzI4MTk3NCwiZXhwIjoxNTYzODg2Nzc0fQ.2nGathlOGZM9Zd2UVZ0b8nAoZJN4YZwrlpbSEudZn8I";
-
+const token = localStorage.getItem('yacht.token');
 
 function scrollToBottom() {
     window.setTimeout(() => {
@@ -44,6 +43,13 @@ app.ports.createNewSession.subscribe(function (args) {
 app.ports.getMessages.subscribe(function (session) {
     axios.get('http://localhost:3000/api/comments', { params: { session, token } }).then(({ data }) => {
         app.ports.feedMessages.send(processData(data));
+        // scrollToBottom();
+    });
+});
+
+app.ports.getUserMessages.subscribe(function (user) {
+    axios.get('http://localhost:3000/api/comments', { params: { user, token } }).then(({ data }) => {
+        app.ports.feedUserMessages.send(processData(data));
         // scrollToBottom();
     });
 });

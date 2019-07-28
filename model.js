@@ -93,7 +93,42 @@ const get_session_of_members = (members, is_all) => {
             resolve(sessions);
         });
     });
-}
+};
+
+const get_comments_list = ({ session_id, user_id }) => {
+    const processRow = (row) => {
+        const text = row.comment.replace(/(:.+?:)/g, function (m, $1) {
+            const r = emoji_dict[$1];
+            return r ? r.emoji : $1;
+        });
+        return { text, ts: row.timestamp, user: row.user_id, original_url: row.url_original, sent_to: row.sent_to };
+    };
+    return new Promise((resolve, reject) => {
+        if (session_id && !user_id) {
+            db.serialize(() => {
+                db.all('select * from comments where session_id=? order by timestamp;', session_id, (err, rows) => {
+                    resolve(_.map(rows, processRow));
+                });
+            });
+        } else if (!session_id && user_id) {
+            db.serialize(() => {
+                db.all('select * from comments where user_id=? order by timestamp;', user_id, (err, rows) => {
+                    resolve(_.map(rows, processRow));
+                });
+            });
+        } else if (session_id && user_id) {
+            db.serialize(() => {
+                db.all('select * from comments where session_id=? and user_id=? order by timestamp;', session_id, user_id, (err, rows) => {
+                    resolve(_.map(rows, processRow));
+                });
+            });
+        } else {
+            db.all('select * from comments order by timestamp;', (err, rows) => {
+                resolve(_.map(rows, processRow));
+            });
+        }
+    });
+};
 
 module.exports = {
     get_sent_mail,
@@ -101,5 +136,6 @@ module.exports = {
     get_mail_to,
     create_new_session,
     get_session_info,
-    get_session_list
+    get_session_list,
+    get_comments_list
 };

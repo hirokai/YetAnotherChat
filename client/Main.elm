@@ -1,4 +1,4 @@
-port module Main exposing (ChatEntry(..), Flags, Member, Model, Msg(..), addComment, feedMessages, getMembers, getMessages, iconOfUser, init, isSelected, main, mkComment, onKeyDown, scrollToBottom, showAll, showItem, subscriptions, update, view)
+port module Main exposing (ChatEntry(..), Flags, Member, Model, Msg(..), addComment, feedMessages, feedUserMessages, getMembers, getMessages, getUserMessages, iconOfUser, init, isSelected, main, mkComment, onKeyDown, scrollToBottom, showAll, showItem, subscriptions, update, view)
 
 import Browser
 import Dict exposing (Dict)
@@ -20,6 +20,9 @@ type alias CommentTyp =
 
 
 port getMessages : RoomID -> Cmd msg
+
+
+port getUserMessages : String -> Cmd msg
 
 
 port getRoomInfo : () -> Cmd msg
@@ -44,6 +47,9 @@ port createNewSession : ( String, List Member ) -> Cmd msg
 
 
 port feedMessages : (List CommentTyp -> msg) -> Sub msg
+
+
+port feedUserMessages : (List CommentTyp -> msg) -> Sub msg
 
 
 port feedRoomInfo : (List ( RoomID, RoomInfo ) -> msg) -> Sub msg
@@ -95,8 +101,8 @@ type alias NewSessionStatus =
     }
 
 
-type alias UserPageStatus =
-    { sessions : List RoomID }
+type alias UserPageModel =
+    { sessions : List RoomID, messages : List ChatEntry }
 
 
 type Page
@@ -132,7 +138,7 @@ type alias Model =
     , selected : Dict Member Bool
     , roomInfo : Dict RoomID RoomInfo
     , newSessionStatus : NewSessionStatus
-    , userPageStatus : UserPageStatus
+    , userPageStatus : UserPageModel
     , editing : Set.Set String
     , editingValue : Dict String String
     }
@@ -159,7 +165,7 @@ init { username } =
       , page = NewSession
       , users = [ "Tanaka", "Yoshida", "Saito", "Kimura", "Abe" ]
       , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
-      , userPageStatus = { sessions = [] }
+      , userPageStatus = { sessions = [], messages = [] }
       , editing = Set.empty
       , editingValue = Dict.empty
       }
@@ -204,6 +210,7 @@ type NewSessionMsg
 
 type UserPageMsg
     = FeedSessions (List String)
+    | FeedUserMessages (List CommentTyp)
 
 
 onKeyDown : (Int -> msg) -> Attribute msg
@@ -251,7 +258,7 @@ update msg model =
             ( { model | page = RoomPage r, messages = Nothing }, getMessages r )
 
         EnterUser u ->
-            ( { model | page = UserPage u, messages = Nothing }, getSessionsOf u )
+            ( { model | page = UserPage u, messages = Nothing }, Cmd.batch [ getSessionsOf u, getUserMessages u ] )
 
         NewSessionMsg msg1 ->
             let
@@ -342,11 +349,21 @@ updateNewSessionStatus msg model =
             ( { model | sessions_same_members = ss }, Cmd.none )
 
 
-updateUserPageStatus : UserPageMsg -> UserPageStatus -> ( UserPageStatus, Cmd msg )
+updateUserPageStatus : UserPageMsg -> UserPageModel -> ( UserPageModel, Cmd msg )
 updateUserPageStatus msg model =
     case msg of
         FeedSessions ss ->
             ( { model | sessions = ss }, Cmd.none )
+
+        FeedUserMessages ms ->
+            let
+                f { user, comment, timestamp, originalUrl, sentTo } =
+                    Comment { user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo }
+
+                msgs =
+                    List.map f ms
+            in
+            ( { model | messages = msgs }, Cmd.none )
 
 
 mkComment : String -> List (Html.Html msg)
@@ -656,6 +673,7 @@ userPageView user model =
                 [ leftMenu model
                 , div [ class "col-md-10 col-lg-10" ]
                     [ h1 [] [ text user ]
+                    , div [] [ text <| String.fromInt (List.length model.userPageStatus.messages) ++ " messages." ]
                     , div []
                         [ ul [] (List.map (\s -> li [] [ a [ class "clickable", onClick (EnterRoom s) ] [ text <| roomName s model ] ]) model.userPageStatus.sessions)
                         ]
@@ -675,6 +693,7 @@ subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.batch
         [ feedMessages FeedMessages
+        , feedUserMessages (\s -> UserPageMsg <| FeedUserMessages s)
         , receiveNewRoomInfo ReceiveNewSessionId
         , feedRoomInfo FeedRoomInfo
         , feedSessionsWithSameMembers (\s -> NewSessionMsg (FeedSessionsWithSameMembers s))
