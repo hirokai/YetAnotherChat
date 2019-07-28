@@ -2,33 +2,39 @@
   "dependencies": {
     "axios": "^0.19.0",
     "body-parser": "^1.19.0",
+    "bootstrap": "^4.3.1",
     "express": "^4.16.4",
     "express-prettify": "^0.1.1",
     "glob": "^7.1.4",
     "googleapis": "39",
+    "jquery": "^3.4.1",
     "jsonwebtoken": "^8.5.1",
     "lodash": "^4.17.14",
+    "lodash-es": "^4.17.15",
     "mailgun-js": "^0.22.0",
     "moment": "^2.24.0",
     "moment-timezone": "^0.5.26",
     "passport": "^0.4.0",
     "passport-local": "^1.0.0",
+    "popper.js": "^1.15.0",
     "shortid": "^2.2.14",
     "sqlite3": "^4.0.9",
     "ulid": "^2.3.0"
   },
   "scripts": {
     "watch": "node-dev --no-notify server.js",
-    "db": "sqlite3 private/db.sqlite3"
+    "db": "sqlite3 private/db.sqlite3",
+    "webpack:watch": "webpack -w --env.development",
+    "webpack": "webpack --env.production"
   },
   "devDependencies": {
-    "elm": "^0.19.0-no-deps",
-    "fuse-box": "^3.7.1",
-    "nice-try": "^2.0.0",
-    "path-key": "^3.1.0",
-    "shebang-command": "^1.2.0",
-    "terser": "^4.1.2",
+    "css-loader": "^3.1.0",
+    "elm": "^0.19.0-bugfix6",
+    "style-loader": "^0.23.1",
     "typescript": "^3.5.3",
-    "uglify-js": "^3.6.0"
+    "uglify-js": "^3.6.0",
+    "webpack": "^4.38.0",
+    "webpack-bundle-analyzer": "^3.3.2",
+    "webpack-cli": "^3.3.6"
   }
 }

@@ -3,23 +3,6 @@
 <head>
   <meta charset="utf-8">
   <script src="https://code.jquery.com/jquery-3.3.1.min.js" crossorigin="anonymous"></script>
-  <script src='https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js'></script>
-  <script src="https://www.gstatic.com/firebasejs/5.9.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/5.9.1/firebase-database.js"></script>
-  <script>
-    // Initialize Firebase
-    var config = {
-      apiKey: "AIzaSyCgfywI6M2Bh5VQtFO4viwtihfo3taU56E",
-      authDomain: "slack-clone-46c6b.firebaseapp.com",
-      databaseURL: "https://slack-clone-46c6b.firebaseio.com",
-      projectId: "slack-clone-46c6b",
-      storageBucket: "slack-clone-46c6b.appspot.com",
-      messagingSenderId: "995762872304"
-    };
-    firebase.initializeApp(config);
-    const database = firebase.database();
-
-  </script>
   <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
     integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"
@@ -30,11 +13,11 @@
     crossorigin="anonymous"></script>
   <link rel="stylesheet" href="/public/css/chat_common.css">
   <link rel="stylesheet" href="/public/css/matrix.css">
-  <script src='https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.11/lodash.min.js'></script>
 </head>
 
 <body>
   <div id='elm'></div>
+  <script src="/public/js/vendor.bundle.js"></script>
   <script src="/public/js/matrix.bundle.js"></script>
 
 </body>

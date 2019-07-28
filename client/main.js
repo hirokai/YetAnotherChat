@@ -1,4 +1,12 @@
-const { Elm } = require('client/dist/main.elm.js');
+import { Elm } from './dist/main.elm.js';
+import { map } from 'lodash-es';
+import axios from 'axios';
+import $ from 'jquery';
+import moment from 'moment';
+import 'bootstrap';
+require('moment/locale/ja');
+moment.locale('ja');
+
 const app = Elm.Main.init({ flags: { username: localStorage['yacht.username'] || "" } });
 
 const token = localStorage.getItem('yacht.token');
@@ -16,7 +24,7 @@ function scrollToBottom() {
 app.ports.scrollToBottom.subscribe(scrollToBottom);
 
 const processData = (res) => {
-    return _.map(res, (m, i) => {
+    return map(res, (m) => {
         return { user: m.user || 'myself', comment: m.text, timestamp: moment(parseInt(m.ts)).format('YYYY/M/D HH:mm:ss'), originalUrl: m.original_url || "", sentTo: m.sent_to || "" };
     });
 };
@@ -30,11 +38,11 @@ app.ports.createNewSession.subscribe(function (args) {
     $.post('http://localhost:3000/api/sessions', { name, members, token }).then(({ data }) => {
         app.ports.receiveNewRoomInfo.send(data);
         axios.get('http://localhost:3000/api/sessions', { params: { token } }).then(({ data }) => {
-            app.ports.feedRoomInfo.send(_.map(data, (r) => {
+            app.ports.feedRoomInfo.send(map(data, (r) => {
                 return [r.id, r];
             }));
         });
-        axios.get('http://localhost:3000/api/comments', { params: { session: res.data.id, token } }).then(({ data }) => {
+        axios.get('http://localhost:3000/api/comments', { params: { session: data.id, token } }).then(({ data }) => {
             app.ports.feedMessages.send(processData(data));
         });
     });
@@ -56,7 +64,7 @@ app.ports.getUserMessages.subscribe(function (user) {
 
 app.ports.getSessionsWithSameMembers.subscribe(function ({ members, is_all }) {
     axios.get('http://localhost:3000/api/sessions', { params: { of_members: members.join(','), is_all, token } }).then(({ data }) => {
-        app.ports.feedSessionsWithSameMembers.send(_.map(data, (r) => {
+        app.ports.feedSessionsWithSameMembers.send(map(data, (r) => {
             return r.id;
         }));
     });
@@ -65,7 +73,7 @@ app.ports.getSessionsWithSameMembers.subscribe(function ({ members, is_all }) {
 app.ports.getSessionsOf.subscribe(function (user) {
     axios.get('http://localhost:3000/api/sessions', { params: { of_members: user, token } }).then(({ data }) => {
         console.log(data);
-        app.ports.feedSessionsOf.send(_.map(data, (r) => {
+        app.ports.feedSessionsOf.send(map(data, (r) => {
             return r.id;
         }));
     }).catch(() => {
@@ -75,7 +83,7 @@ app.ports.getSessionsOf.subscribe(function (user) {
 
 app.ports.getRoomInfo.subscribe(function () {
     axios.get('http://localhost:3000/api/sessions', { params: { token } }).then(({ data }) => {
-        app.ports.feedRoomInfo.send(_.map(data, (r) => {
+        app.ports.feedRoomInfo.send(map(data, (r) => {
             return [r.id, r];
         }));
         // scrollToBottom();
@@ -84,7 +92,7 @@ app.ports.getRoomInfo.subscribe(function () {
 
 
 app.ports.sendCommentToServer.subscribe(function ({ comment, user, session }) {
-    $.post('http://localhost:3000/api/comments', { comment, user, session, token }).then(({ data }) => {
+    $.post('http://localhost:3000/api/comments', { comment, user, session, token }).then(() => {
         scrollToBottom();
     });
 });

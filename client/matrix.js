@@ -1,3 +1,6 @@
+import { map, keyBy } from 'lodash-es';
+const moment = require('moment');
+import $ from 'jquery';
 const { Elm } = require('./dist/matrix.elm.js');
 const app = Elm.Main.init();
 
@@ -26,7 +29,7 @@ const processComment = (comment) => {
 };
 
 const processMessages = (res) => {
-    return _.map(res, (m, i) => {
+    return map(res, (m) => {
         return { user: m.user || 'myself', comment: processComment(m.text || ""), timestamp: moment(m.ts * 1000).format('YYYY/M/D HH:mm:ss'), originalUrl: m.original_url || "", sentTo: m.sent_to || "", source: m.source || "unknown" };
     });
 };
@@ -36,7 +39,7 @@ var users = {};
 console.log(app.ports);
 app.ports.getUsers.subscribe(function () {
     $.get('http://localhost:3000/users').done((res) => {
-        users = _.keyBy(res, 'id');
+        users = keyBy(res, 'id');
         app.ports.feedUsers.send(res);
     }).fail(() => {
         app.ports.feedUsers.send([]);
@@ -52,13 +55,13 @@ app.ports.getMessageAt.subscribe(function (obj) {
 });
 
 app.ports.sendCommentToServer.subscribe(function (comment) {
-    $.post('http://localhost:3000/comments', { comment: comment, user: 'myself' }).then((res) => {
+    $.post('http://localhost:3000/comments', { comment: comment, user: 'myself' }).then(() => {
         scrollToBottom();
     });
 });
 
 // https://stackoverflow.com/questions/11700927/horizontal-scrolling-with-mouse-wheel-in-a-div
-$.fn.hScroll = function (options) {
+$.fn.hScroll = function () {
     function scroll(obj, e) {
         var evt = e.originalEvent;
         var direction = evt.detail ? evt.detail * (-120) : evt.wheelDelta;

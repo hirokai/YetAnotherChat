@@ -3,11 +3,14 @@ const path = require('path');
 const _ = require('lodash');
 const sqlite3 = require('sqlite3');
 const db = new sqlite3.Database(path.join(__dirname, './private/db.sqlite3'));
-const ulid = require('ulid').ulid;
+// const ulid = require('ulid').ulid;
 const shortid = require('shortid').generate;
 
+const emojis = require("./emojis.json").emojis;
+const emoji_dict = _.keyBy(emojis, 'shortname');
+
 const get_sent_mail = (q) => {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         fs.readFile(path.join(process.env.HOME, 'repos/gmail-import/sent_gmail_list.json'), 'utf8', (err, data) => {
             const list = JSON.parse(data);
             const res = _.filter(list, (a) => { return a.to.indexOf(q) != -1; });
@@ -17,7 +20,7 @@ const get_sent_mail = (q) => {
 };
 
 const get_mail_from = (q) => {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         fs.readFile(path.join(process.env.HOME, 'repos/gmail-import/all_mail_summary.json'), 'utf8', (err, data) => {
             const list = JSON.parse(data);
             const res = _.filter(list, (a) => { return a.to && (a.to.indexOf("kai@biomems.mech.tohoku.ac.jp") != -1 || a.to.indexOf("kai@tohoku.ac.jp") != -1 || a.to.indexOf("hk.biomems@gmail.com") != -1) && a.from && a.from.indexOf(q) != -1; });
@@ -27,7 +30,7 @@ const get_mail_from = (q) => {
 };
 
 const get_mail_to = (q) => {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         fs.readFile(path.join(process.env.HOME, 'repos/gmail-import/all_mail_summary.json'), 'utf8', (err, data) => {
             const list = JSON.parse(data);
             const res = _.filter(list, (a) => { return a.from && (a.from.indexOf("kai@biomems.mech.tohoku.ac.jp") != -1 || a.from.indexOf("kai@tohoku.ac.jp") != -1 || a.from.indexOf("hk.biomems@gmail.com") != -1) && a.to && a.to.indexOf(q) != -1; });
@@ -37,7 +40,7 @@ const get_mail_to = (q) => {
 };
 
 const create_new_session = (name, members) => {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         const ts = new Date().getTime();
         const session_id = shortid();
         db.serialize(() => {
@@ -52,8 +55,8 @@ const create_new_session = (name, members) => {
 
 const get_session_info = (session_id) => {
     console.log('get_session_info', session_id);
-    return new Promise((resolve, reject) => {
-        const ts = new Date().getTime();
+    return new Promise((resolve) => {
+        // const ts = new Date().getTime();
         db.serialize(() => {
             db.get('select * from sessions where id=?;', session_id, (err, session) => {
                 db.all('select * from session_members where session_id=?', session_id, (err, r2) => {
@@ -69,7 +72,7 @@ const get_session_list = ({ of_members, is_all }) => {
     if (of_members) {
         return get_session_of_members(of_members, is_all);
     }
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         db.serialize(() => {
             db.all('select s.id,s.name,s.timestamp,group_concat(m.member_name) as members from sessions as s join session_members as m on s.id=m.session_id group by s.id order by s.timestamp desc;', (err, sessions) => {
                 const ss = _.map(sessions, (s) => {
@@ -86,7 +89,7 @@ const get_session_of_members = (members, is_all) => {
     if (!is_all) {
         s = '%' + s + '%';
     }
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         // https://stackoverflow.com/questions/1897352/sqlite-group-concat-ordering
         const q = "select id,name,timestamp,group_concat(distinct member_name) as members from (select s.id,s.name,s.timestamp,m.member_name from sessions as s join session_members as m on s.id=m.session_id order by s.timestamp,m.member_name) group by id having members like ? order by timestamp desc;"
         db.all(q, s, (err, sessions) => {
@@ -103,7 +106,7 @@ const get_comments_list = ({ session_id, user_id }) => {
         });
         return { text, ts: row.timestamp, user: row.user_id, original_url: row.url_original, sent_to: row.sent_to };
     };
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         if (session_id && !user_id) {
             db.serialize(() => {
                 db.all('select * from comments where session_id=? order by timestamp;', session_id, (err, rows) => {
