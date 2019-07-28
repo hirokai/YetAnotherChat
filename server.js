@@ -93,7 +93,7 @@ app.use(function (req, res, next) {
     jwt.verify(token, "hogehuga", function (err, decoded) {
         if (err) {
             //. 正当な値ではなかった場合はエラーメッセージを返す
-            console.log("auth failed")
+            console.log("auth failed", decoded,err)
             res.status(403).json({ ok: false, error: 'Invalid token.' });
         } else {
             //. 正当な値が設定されていた場合は処理を続ける
@@ -220,20 +220,10 @@ app.post('/api/sessions', (req, res) => {
 
 app.get('/api/comments', (req, res) => {
     const session_id = req.query.session;
-    db.serialize(() => {
-        db.all('select * from comments where session_id=? order by timestamp;', session_id, (err, rows) => {
-            const messages = _.map(rows, (row) => {
-                return { text: row.comment, ts: row.timestamp, user: row.user_id, original_url: row.url_original, sent_to: row.sent_to };
-            });
-            res.json(_.map(messages, (obj) => {
-                obj.text = obj.text.replace(/(:.+?:)/g, function (m, $1) {
-                    const r = emoji_dict[$1];
-                    return r ? r.emoji : $1;
-                });
-                return obj;
-            }));
-        });
-    })
+    const user_id = req.query.user;
+    model.get_comments_list({ session_id, user_id }).then((comments) => {
+        res.json(comments);
+    });
 });
 
 
