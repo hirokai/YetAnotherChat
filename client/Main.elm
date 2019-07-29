@@ -688,7 +688,7 @@ userPageView user model =
                     [ h1 [] [ text user ]
                     , div [] [ text <| String.fromInt (List.length model.userPageStatus.messages) ++ " messages." ]
                     , div []
-                        [ ul [] (List.map (\s -> li [] [ a [ class "clickable", onClick (EnterRoom s) ] [ text <| roomName s model ++ "(" ++ String.fromInt (numSessionMessages s model) ++ ")" ] ]) model.userPageStatus.sessions)
+                        [ ul [] (List.map (\s -> li [] [ a [ class "clickable", onClick (EnterRoom s) ] [ text <| s ++ ": " ++ roomName s model ++ "(" ++ String.fromInt (numSessionMessages s model) ++ ")" ] ]) model.userPageStatus.sessions)
                         ]
                     ]
                 ]
