@@ -13,10 +13,11 @@ const token = localStorage.getItem('yacht.token');
 
 function scrollToBottom() {
     window.setTimeout(() => {
-        const el = $('#chat-entries')[0];
+        const el = <HTMLDivElement>$('#chat-entries')[0];
         // const el = $('#chat-wrapper')[0];
-        el.scrollIntoView({ block: "end", inline: "nearest", behavior: "instant" });
-        el.scrollTop = el.height;
+        // el.scrollIntoView({ block: "end", inline: "nearest", behavior: "instant" });
+        el.scrollTop = el.offsetHeight;
+        const a = 1;
         console.log('scrollToBottom', el.clientHeight);
     }, 10);
 }
@@ -81,9 +82,21 @@ app.ports.getSessionsOf.subscribe(function (user) {
     });
 });
 
+interface RoomInfo {
+    numMessages: number,
+    firstMsgTime: string,
+    lastMsgTime: string,
+    id: string,
+    timestamp: number,
+    members: Array<string>
+}
+
 app.ports.getRoomInfo.subscribe(function () {
     axios.get('http://localhost:3000/api/sessions', { params: { token } }).then(({ data }) => {
-        app.ports.feedRoomInfo.send(map(data, (r) => {
+        app.ports.feedRoomInfo.send(map(data, function (r: RoomInfo): (string | RoomInfo)[] {
+            r.numMessages = Math.floor(100 * Math.random());
+            r.firstMsgTime = "";
+            r.lastMsgTime = "";
             return [r.id, r];
         }));
         // scrollToBottom();

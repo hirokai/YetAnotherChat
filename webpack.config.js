@@ -1,13 +1,14 @@
 // const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin
 const webpack = require('webpack');
+const path = require('path');
 
 module.exports = env => {
     return {
         mode: (env.production ? 'production' : 'development'),
         // mode: 'development',
         entry: {
-            main: './client/main.js',
-            matrix: './client/matrix.js'
+            main: './client/main.ts',
+            matrix: './client/matrix.ts',
         },
         output: {
             filename: '[name].bundle.js',
@@ -37,8 +38,23 @@ module.exports = env => {
                 use: {
                     loader: 'elm-webpack-loader',
                     options: {}
-                }
+                },
+            }, {
+                // 拡張子 .ts の場合
+                test: /\.ts$/,
+                // TypeScript をコンパイルする
+                use: "ts-loader"
             }]
+        },
+        resolve: {
+            alias: {
+                'axios': path.resolve(__dirname, 'node_modules/axios/'),
+                'moment': path.resolve(__dirname, 'node_modules/moment/'),
+                'lodash-es': path.resolve(__dirname, 'node_modules/lodash-es/'),
+                'jquery': path.resolve(__dirname, 'node_modules/jquery/')
+            },
+            modules: ['node_modules'],
+            extensions: [".ts", ".js"]
         }
     }
 };

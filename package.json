@@ -22,15 +22,20 @@
     "ulid": "^2.3.0"
   },
   "scripts": {
-    "watch": "node-dev --no-notify server.js",
+    "server": "npx ts-node-dev server.ts",
     "db": "sqlite3 private/db.sqlite3",
     "webpack:watch": "webpack -w --env.development",
     "webpack": "webpack --env.production"
   },
   "devDependencies": {
+    "@types/axios": "^0.14.0",
+    "@types/jquery": "^3.3.30",
+    "@types/lodash-es": "^4.17.3",
     "css-loader": "^3.1.0",
     "elm": "^0.19.0-bugfix6",
     "style-loader": "^0.23.1",
+    "ts-loader": "^6.0.4",
+    "ts-node-dev": "^1.0.0-pre.40",
     "typescript": "^3.5.3",
     "uglify-js": "^3.6.0",
     "webpack": "^4.38.0",
