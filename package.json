@@ -23,13 +23,14 @@
     "ulid": "^2.3.0"
   },
   "scripts": {
-    "server": "tsc -w server.ts --outFile server.bundle.js & node-dev --no-notify server.ts",
+    "server:watch": "tsc -w & node-dev --no-notify server.js",
     "db": "sqlite3 private/db.sqlite3",
-    "webpack:watch": "webpack -w --env.development",
-    "webpack": "webpack --env.production"
+    "client:watch": "webpack -w --env.development",
+    "build": "webpack --env.production && tsc"
   },
   "devDependencies": {
     "@types/axios": "^0.14.0",
+    "@types/express": "^4.17.0",
     "@types/jquery": "^3.3.30",
     "@types/lodash-es": "^4.17.3",
     "css-loader": "^3.1.0",
