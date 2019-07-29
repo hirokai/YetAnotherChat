@@ -285,7 +285,7 @@ update msg model =
             ( { model | page = RoomPage "" }, createNewSession ( "", user_list ) )
 
         ReceiveNewSessionId { name, timestamp, id } ->
-            ( { model | page = RoomPage id, roomInfo = Dict.insert id { id = id, name = name, timestamp = timestamp, members = [], numMessages = 0, firstMsgTime = "", lastMsgTime = "" } model.roomInfo }, Cmd.none )
+            ( { model | page = RoomPage id, roomInfo = Dict.insert id { id = id, name = name, timestamp = timestamp, members = [], numMessages = 10, firstMsgTime = "", lastMsgTime = "" } model.roomInfo }, Cmd.none )
 
         EnterNewSessionScreen ->
             ( { model | page = NewSession, newSessionStatus = { selected = Set.empty, sessions_same_members = [] } }, Cmd.none )

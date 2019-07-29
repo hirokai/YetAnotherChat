@@ -1,0 +1,10 @@
+{
+    "compilerOptions": {
+        "sourceMap": true,
+        "target": "es6", // TSはECMAScript 5に変換
+        "module": "commonjs" // TSのモジュールはES Modulesとして出力
+        ,
+        "esModuleInterop": true
+    },
+    "moduleResolution": "node"
+}
