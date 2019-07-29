@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "@types/node": "^12.6.8",
     "axios": "^0.19.0",
     "body-parser": "^1.19.0",
     "bootstrap": "^4.3.1",
@@ -22,7 +23,7 @@
     "ulid": "^2.3.0"
   },
   "scripts": {
-    "server": "npx ts-node-dev server.ts",
+    "server": "tsc -w server.ts --outFile server.bundle.js & node-dev --no-notify server.ts",
     "db": "sqlite3 private/db.sqlite3",
     "webpack:watch": "webpack -w --env.development",
     "webpack": "webpack --env.production"
