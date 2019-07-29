@@ -6,10 +6,9 @@ const app = Elm.Main.init();
 
 function scrollToBottom() {
     window.setTimeout(() => {
-        const el = $('#chat-entries')[0];
+        const el = <HTMLDivElement>$('#chat-entries')[0];
         // const el = $('#chat-wrapper')[0];
-        el.scrollIntoView({ block: "end", inline: "nearest", behavior: "instant" });
-        el.scrollTop = el.height;
+        el.scrollTop = el.offsetHeight;
     }, 10);
 }
 
@@ -61,7 +60,7 @@ app.ports.sendCommentToServer.subscribe(function (comment) {
 });
 
 // https://stackoverflow.com/questions/11700927/horizontal-scrolling-with-mouse-wheel-in-a-div
-$.fn.hScroll = function () {
+$.fn['hScroll'] = function () {
     function scroll(obj, e) {
         var evt = e.originalEvent;
         var direction = evt.detail ? evt.detail * (-120) : evt.wheelDelta;
@@ -86,5 +85,5 @@ $.fn.hScroll = function () {
 }
 
 $(document).ready(function () {
-    $('#matrix-wrapper').hScroll();
+    $('#matrix-wrapper')['hScroll']();
 });

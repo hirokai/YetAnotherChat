@@ -82,6 +82,9 @@ type alias RoomInfo =
     , name : String
     , timestamp : Int
     , members : List Member
+    , firstMsgTime : String
+    , lastMsgTime : String
+    , numMessages : Int
     }
 
 
@@ -282,7 +285,7 @@ update msg model =
             ( { model | page = RoomPage "" }, createNewSession ( "", user_list ) )
 
         ReceiveNewSessionId { name, timestamp, id } ->
-            ( { model | page = RoomPage id, roomInfo = Dict.insert id { id = id, name = name, timestamp = timestamp, members = [] } model.roomInfo }, Cmd.none )
+            ( { model | page = RoomPage id, roomInfo = Dict.insert id { id = id, name = name, timestamp = timestamp, members = [], numMessages = 0, firstMsgTime = "", lastMsgTime = "" } model.roomInfo }, Cmd.none )
 
         EnterNewSessionScreen ->
             ( { model | page = NewSession, newSessionStatus = { selected = Set.empty, sessions_same_members = [] } }, Cmd.none )
@@ -664,6 +667,16 @@ chatRoomView room model =
     }
 
 
+numSessionMessages : RoomID -> Model -> Int
+numSessionMessages id model =
+    case Dict.get id model.roomInfo of
+        Just room ->
+            room.numMessages
+
+        Nothing ->
+            0
+
+
 userPageView : String -> Model -> { title : String, body : List (Html Msg) }
 userPageView user model =
     { title = "Slack clone"
@@ -675,7 +688,7 @@ userPageView user model =
                     [ h1 [] [ text user ]
                     , div [] [ text <| String.fromInt (List.length model.userPageStatus.messages) ++ " messages." ]
                     , div []
-                        [ ul [] (List.map (\s -> li [] [ a [ class "clickable", onClick (EnterRoom s) ] [ text <| roomName s model ] ]) model.userPageStatus.sessions)
+                        [ ul [] (List.map (\s -> li [] [ a [ class "clickable", onClick (EnterRoom s) ] [ text <| roomName s model ++ "(" ++ String.fromInt (numSessionMessages s model) ++ ")" ] ]) model.userPageStatus.sessions)
                         ]
                     ]
                 ]
