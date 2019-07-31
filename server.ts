@@ -1,4 +1,5 @@
-import RoomInfo from 'defs';
+/// <reference path="./types.d.ts" />
+
 {
     const express = require('express');
     const app = express();
@@ -15,8 +16,19 @@ import RoomInfo from 'defs';
 
     interface MyResponse extends Response {
         token: any;
-        header: any;
+        header: (k: string, v: string) => void;
     }
+
+    interface CommentPostRequest {
+        token: any;
+        body: {
+            user: string,
+            session: string,
+            comment: string,
+        }
+    }
+
+
 
     const port = 3000;
 
@@ -199,13 +211,13 @@ import RoomInfo from 'defs';
     });
 
 
-    app.get('/api/sessions', (req, res) => {
+    app.get('/api/sessions', (req, res: GetSessionsResponse) => {
         const ms = req.query.of_members;
         const of_members = ms ? ms.split(",") : undefined;
         const is_all = !(typeof req.query.is_all === 'undefined');
         model.get_session_list({ of_members, is_all }).then((r: RoomInfo[]) => {
             console.log(r);
-            res.json(r);
+            res.json({ ok: true, data: r });
         })
     });
 
@@ -226,7 +238,7 @@ import RoomInfo from 'defs';
     app.get('/api/comments', (req, res) => {
         const session_id = req.query.session;
         const user_id = req.query.user;
-        model.get_comments_list({ session_id, user_id }).then((comments: any[]) => {
+        model.get_comments_list(session_id, user_id).then((comments: any[]) => {
             res.json(comments);
         });
     });
@@ -240,7 +252,7 @@ import RoomInfo from 'defs';
     });
 
 
-    app.post('/api/comments', (req, res) => {
+    app.post('/api/comments', (req: CommentPostRequest, res: CommentPostResponse) => {
         db.serialize(() => {
             const ts = new Date().getTime();
             const user = req.body.user;

@@ -1,4 +1,5 @@
-import RoomInfo from 'defs';
+/// <reference path="./types.d.ts" />
+
 {
     const fs = require("fs");
     const path = require('path');
@@ -11,7 +12,7 @@ import RoomInfo from 'defs';
     const emojis = require("./emojis.json").emojis;
     const emoji_dict = _.keyBy(emojis, 'shortname');
 
-    const get_sent_mail = (q) => {
+    function get_sent_mail(q: string): Promise<any[]> {
         return new Promise((resolve) => {
             fs.readFile(path.join(process.env.HOME, 'repos/gmail-import/sent_gmail_list.json'), 'utf8', (err, data) => {
                 const list = JSON.parse(data);
@@ -21,7 +22,7 @@ import RoomInfo from 'defs';
         });
     };
 
-    const get_mail_from = (q) => {
+    function get_mail_from(q: string): Promise<any[]> {
         return new Promise((resolve) => {
             fs.readFile(path.join(process.env.HOME, 'repos/gmail-import/all_mail_summary.json'), 'utf8', (err, data) => {
                 const list = JSON.parse(data);
@@ -31,7 +32,7 @@ import RoomInfo from 'defs';
         });
     };
 
-    const get_mail_to = (q) => {
+    function get_mail_to(q: string): Promise<any[]> {
         return new Promise((resolve) => {
             fs.readFile(path.join(process.env.HOME, 'repos/gmail-import/all_mail_summary.json'), 'utf8', (err, data) => {
                 const list = JSON.parse(data);
@@ -41,7 +42,7 @@ import RoomInfo from 'defs';
         });
     };
 
-    const create_new_session = (name, members) => {
+    function create_new_session(name: string, members: string[]): Promise<{ id: string, name: string, timestamp: number }> {
         return new Promise((resolve) => {
             const ts = new Date().getTime();
             const session_id = shortid();
@@ -95,7 +96,7 @@ import RoomInfo from 'defs';
         });
     };
 
-    const get_session_of_members = (members, is_all): Promise<RoomInfo[]> => {
+    const get_session_of_members = (members: string[], is_all: boolean): Promise<RoomInfo[]> => {
         var s = _.sortBy(members).join(",");
         if (!is_all) {
             s = '%' + s + '%';
@@ -115,7 +116,7 @@ import RoomInfo from 'defs';
         });
     };
 
-    const get_comments_list = ({ session_id, user_id }) => {
+    const get_comments_list = (session_id: string, user_id: string): Promise<any[]> => {
         const processRow = (row) => {
             const text = row.comment.replace(/(:.+?:)/g, function (m, $1) {
                 const r = emoji_dict[$1];
