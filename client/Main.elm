@@ -143,10 +143,6 @@ pageToPath page =
 
 pathToPage : String -> Page
 pathToPage hash =
-    let
-        _ =
-            Debug.log "pathToPage split" <| String.split "/" hash
-    in
     case Maybe.withDefault [] <| List.tail (String.split "/" hash) of
         "sessions" :: r :: ts ->
             if r == "new" then
@@ -359,10 +355,6 @@ update msg model =
             ( model, setPageHash (pageToPath model.page) )
 
         HashChanged hash ->
-            let
-                _ =
-                    Debug.log "HashChanged new page" (pathToPage hash)
-            in
             if hash /= pageToPath model.page then
                 case pathToPage hash of
                     UserPage u ->
@@ -382,7 +374,11 @@ update msg model =
 
 
 enterNewSession model =
-    ( { model | page = NewSession, newSessionStatus = { selected = Set.empty, sessions_same_members = [] } }, Cmd.none )
+    let
+        new_model =
+            { model | page = NewSession, newSessionStatus = { selected = Set.empty, sessions_same_members = [] } }
+    in
+    ( new_model, updatePageHash new_model )
 
 
 enterHome model =
