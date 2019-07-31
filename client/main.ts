@@ -57,12 +57,10 @@ app.ports.createNewSession.subscribe(async function (args: any[]) {
         name = "会話: " + moment().format('MM/DD HH:mm')
     }
     const { data }: PostSessionsResponse = await $.post('http://localhost:3000/api/sessions', { name, members, token });
-    console.log('newsession', data);
     app.ports.receiveNewRoomInfo.send(data);
     const p1 = axios.get('http://localhost:3000/api/sessions', { params: { token } });
     const p2 = axios.get('http://localhost:3000/api/comments', { params: { session: data.id, token } });
     const [{ data: { data: data1 } }, { data: { data: data2 } }] = await Promise.all([p1, p2]);
-    console.log(data1, data2);
     app.ports.feedRoomInfo.send(data1);
     app.ports.feedMessages.send(processData(data2));
 });

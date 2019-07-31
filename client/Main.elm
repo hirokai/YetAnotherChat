@@ -418,7 +418,20 @@ update msg model =
                         f { user, comment, timestamp, session, originalUrl, sentTo } =
                             Comment { user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = session }
                     in
-                    ( { model | messages = Just (Maybe.withDefault [] model.messages ++ [ f v1 ]) }, Cmd.none )
+                    ( { model
+                        | messages =
+                            Just
+                                (Maybe.withDefault [] model.messages
+                                    ++ (if v1.user == model.myself then
+                                            []
+
+                                        else
+                                            [ f v1 ]
+                                       )
+                                )
+                      }
+                    , Cmd.none
+                    )
 
                 _ ->
                     let
