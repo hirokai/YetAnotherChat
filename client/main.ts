@@ -91,22 +91,22 @@ app.ports.getSessionsOf.subscribe(function (user: string) {
     });
 });
 
-app.ports.getRoomInfo.subscribe(function () {
+function getAndfeedRoolmInfo() {
     const params: AuthedParams = { token };
     axios.get('http://localhost:3000/api/sessions', { params }).then(({ data }: AxiosResponse<GetSessionsResponse>) => {
-        const values = map(data.data, function (r: RoomInfo) {
-            return r;
-        });
-        console.log('getRoomInfo', values);
-        app.ports.feedRoomInfo.send(values);
+        app.ports.feedRoomInfo.send(data.data);
         // scrollToBottom();
     });
+}
+
+app.ports.getRoomInfo.subscribe(function () {
+    getAndfeedRoolmInfo();
 });
 
 
 app.ports.sendCommentToServer.subscribe(function ({ comment, user, session }: { comment: string, user: string, session: string }) {
     $.post('http://localhost:3000/api/comments', { comment, user, session, token }).then((res: CommentPostResponse) => {
-        console.log(res);
+        getAndfeedRoolmInfo();
         scrollToBottom();
     });
 });
