@@ -75,22 +75,41 @@
         });
     };
 
-    const get_session_list = function ({ of_members, is_all }): Promise<RoomInfo[]> {
+    const get_session_list = function (params): Promise<RoomInfo[]> {
+        const { of_members, is_all } = params;
+        console.log('get_session_list():', params);
         if (of_members) {
             return get_session_of_members(of_members, is_all);
         }
         return new Promise((resolve) => {
             db.serialize(() => {
-                db.all('select s.id,s.name,s.timestamp,group_concat(distinct m.member_name) as members,count(c.timestamp) from sessions as s join session_members as m on s.id=m.session_id join comments as c on s.id=c.session_id group by s.id order by s.timestamp desc;', (err, sessions) => {
-                    const ss: RoomInfo[] = _.map(sessions, (s) => {
-                        console.log(s);
-                        return {
-                            id: s.id, name: s.name, timestamp: s.timestamp, members: s.members.split(","),
-                            numMessages: s['count(c.timestamp)'], firstMsgTime: "", lastMsgTime: ""
-                        };
-                    });
-                    console.log(ss);
-                    resolve(ss);
+                db.all('select s.id,s.name,s.timestamp,group_concat(distinct m.member_name) as members from sessions as s join session_members as m on s.id=m.session_id group by s.id order by s.timestamp desc;', (err, sessions) => {
+                    Promise.all(_.map(sessions, (s) => {
+                        return new Promise((resolve1) => {
+                            db.all("select count(*),user_id,max(timestamp),min(timestamp) from comments where session_id=? group by user_id;", s.id, (err, users) => {
+                                if (users.length == 0) {
+                                    resolve1({ count: { __total: 0 }, first: -1, last: -1 });
+                                } else {
+                                    const first = _.min(_.map(users, 'min(timestamp)'));
+                                    const last = _.max(_.map(users, 'max(timestamp)'));
+                                    const count = _.chain(users).keyBy('user_id').mapValues((u) => {
+                                        return u['count(*)'];
+                                    }).value();
+                                    count['__total'] = _.sum(_.values(count)) || 0;
+                                    console.log(count);
+                                    resolve1({ count, first, last });
+                                }
+                            });
+                        });
+                    })).then((infos) => {
+                        const ss: RoomInfo[] = _.map(_.zip(sessions, infos), ([s, info]) => {
+                            return {
+                                id: s.id, name: s.name, timestamp: s.timestamp, members: s.members.split(","),
+                                numMessages: info.count, firstMsgTime: info.first, lastMsgTime: info.last
+                            };
+                        });
+                        resolve(ss);
+                    })
                 });
             });
         });
