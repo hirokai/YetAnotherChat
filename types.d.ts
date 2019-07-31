@@ -8,15 +8,13 @@ interface RoomInfo {
     members: Array<string>
 }
 
-interface CommentPostResponse {
-    json: (r: {
-        ok: boolean,
-        data: {
-            timestamp: number,
-            comment: string,
-            user_id: string,
-        }
-    }) => void;
+interface PostCommentResponse {
+    ok: boolean,
+    data: {
+        timestamp: number,
+        comment: string,
+        user_id: string,
+    }
 }
 
 interface UserSlack {
