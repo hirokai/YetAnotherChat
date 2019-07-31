@@ -52,7 +52,7 @@ port feedMessages : (List CommentTyp -> msg) -> Sub msg
 port feedUserMessages : (List CommentTyp -> msg) -> Sub msg
 
 
-port feedRoomInfo : (List ( RoomID, RoomInfo ) -> msg) -> Sub msg
+port feedRoomInfo : (Json.Value -> msg) -> Sub msg
 
 
 port receiveNewRoomInfo : ({ name : String, id : RoomID, timestamp : Int } -> msg) -> Sub msg
@@ -92,6 +92,23 @@ type alias RoomInfo =
     , lastMsgTime : Int
     , numMessages : Int
     }
+
+
+roomInfoListDecoder : Json.Decoder (List RoomInfo)
+roomInfoListDecoder =
+    Json.list roomInfoDecoder
+
+
+roomInfoDecoder : Json.Decoder RoomInfo
+roomInfoDecoder =
+    Json.map7 RoomInfo
+        (Json.field "id" Json.string)
+        (Json.field "name" Json.string)
+        (Json.field "timestamp" Json.int)
+        (Json.field "members" (Json.list Json.string))
+        (Json.field "firstMsgTime" Json.int)
+        (Json.field "lastMsgTime" Json.int)
+        (Json.field "numMessages" Json.int)
 
 
 getUser : ChatEntry -> String
@@ -222,7 +239,7 @@ type Msg
     | UserPageMsg UserPageMsg
     | StartSession (Set.Set Member)
     | ReceiveNewSessionId { timestamp : Int, name : String, id : RoomID }
-    | FeedRoomInfo (List ( RoomID, RoomInfo ))
+    | FeedRoomInfo Json.Value
     | EnterNewSessionScreen
     | StartEditing String String
     | UpdateEditingValue String String
@@ -278,8 +295,17 @@ update msg model =
             in
             ( { model | selected = Dict.insert m v model.selected }, Cmd.none )
 
-        FeedRoomInfo rs ->
-            ( { model | roomInfo = Dict.fromList rs, rooms = List.map Tuple.first rs }, Cmd.none )
+        FeedRoomInfo v ->
+            let
+                rs1 =
+                    Json.decodeValue roomInfoListDecoder v
+            in
+            case rs1 of
+                Ok rs ->
+                    ( { model | roomInfo = Dict.fromList (List.map (\r -> ( r.id, r )) rs), rooms = List.map (\r -> r.id) rs }, Cmd.none )
+
+                Err err ->
+                    ( model, Cmd.none )
 
         FeedMessages ms ->
             let
