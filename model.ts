@@ -133,13 +133,13 @@
         });
     };
 
-    const get_comments_list = (session_id: string, user_id: string): Promise<any[]> => {
-        const processRow = (row) => {
-            const text = row.comment.replace(/(:.+?:)/g, function (m, $1) {
+    const get_comments_list = (session_id: string, user_id: string): Promise<CommentTyp[]> => {
+        const processRow = (row): CommentTyp => {
+            const comment = row.comment.replace(/(:.+?:)/g, function (m, $1) {
                 const r = emoji_dict[$1];
                 return r ? r.emoji : $1;
             });
-            return { text, ts: row.timestamp, user: row.user_id, original_url: row.url_original, sent_to: row.sent_to };
+            return { comment, timestamp: parseInt(row.timestamp), user_id: row.user_id, original_url: row.url_original, sent_to: row.sent_to, session_id };
         };
         return new Promise((resolve) => {
             if (session_id && !user_id) {

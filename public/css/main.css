@@ -98,6 +98,10 @@ ul.menu-list li {
     /* line-height: 10px; */
 }
 
+.chatlist-name.current {
+    font-weight: bold;
+}
+
 .chatlist-members {
     font-size: 12px;
     margin-top: 0px;

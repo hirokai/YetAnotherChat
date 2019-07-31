@@ -13,6 +13,7 @@ import Set
 type alias CommentTyp =
     { user : String
     , comment : String
+    , session : String
     , timestamp : String
     , originalUrl : String
     , sentTo : String
@@ -68,6 +69,9 @@ port sendRoomName : { id : String, new_name : String } -> Cmd msg
 
 
 port setPageHash : String -> Cmd msg
+
+
+port onSocket : (Json.Value -> msg) -> Sub msg
 
 
 type ChatEntry
@@ -249,6 +253,7 @@ type Msg
     | SubmitComment
     | SetPageHash
     | HashChanged String
+    | OnSocket Json.Value
     | NoOp
 
 
@@ -271,7 +276,7 @@ addComment : String -> Model -> Model
 addComment comment model =
     case model.messages of
         Just messages ->
-            { model | messages = Just <| List.append messages [ Comment { user = model.myself, comment = comment, originalUrl = "", sentTo = "all", timestamp = "" } ] }
+            { model | messages = Just <| List.append messages [ Comment { user = model.myself, comment = comment, originalUrl = "", sentTo = "all", timestamp = "", session = "" } ] }
 
         Nothing ->
             model
@@ -310,7 +315,7 @@ update msg model =
         FeedMessages ms ->
             let
                 f { user, comment, timestamp, originalUrl, sentTo } =
-                    Comment { user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo }
+                    Comment { user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = "" }
 
                 msgs =
                     List.map f ms
@@ -345,7 +350,14 @@ update msg model =
             ( { model | page = RoomPage "" }, Cmd.batch [ createNewSession ( "", user_list ), updatePageHash model ] )
 
         ReceiveNewSessionId { name, timestamp, id } ->
-            ( { model | page = RoomPage id, roomInfo = Dict.insert id { id = id, name = name, timestamp = timestamp, members = [], numMessages = Dict.empty, firstMsgTime = -1, lastMsgTime = -1 } model.roomInfo }, updatePageHash model )
+            let
+                newRoomInfo =
+                    { id = id, name = name, timestamp = timestamp, members = [], numMessages = Dict.empty, firstMsgTime = -1, lastMsgTime = -1 }
+
+                _ =
+                    Debug.log "newRoomInfo" newRoomInfo
+            in
+            enterRoom id model
 
         EnterNewSessionScreen ->
             enterNewSession model
@@ -397,6 +409,57 @@ update msg model =
 
             else
                 ( model, Cmd.none )
+
+        OnSocket v ->
+            case Json.decodeValue socketDecoder v of
+                Ok (NewComment v1) ->
+                    let
+                        f : NewCommentMsg -> ChatEntry
+                        f { user, comment, timestamp, session, originalUrl, sentTo } =
+                            Comment { user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = session }
+                    in
+                    ( { model | messages = Just (Maybe.withDefault [] model.messages ++ [ f v1 ]) }, Cmd.none )
+
+                _ ->
+                    let
+                        _ =
+                            Debug.log "Error in OnSocket parsing" v
+                    in
+                    ( model, Cmd.none )
+
+
+type alias NewCommentMsg =
+    { session : String, user : String, timestamp : String, comment : String, originalUrl : String, sentTo : String }
+
+
+type SocketMsg
+    = NewComment NewCommentMsg
+
+
+socketDecoder : Json.Decoder SocketMsg
+socketDecoder =
+    Json.field "__type" Json.string
+        |> Json.andThen socketMsg
+
+
+socketMsg m =
+    case m of
+        "new_comment" ->
+            let
+                _ =
+                    Debug.log "OK so far" ""
+            in
+            Json.map NewComment <|
+                Json.map6 NewCommentMsg
+                    (Json.field "session_id" Json.string)
+                    (Json.field "user_id" Json.string)
+                    (Json.field "timestamp" Json.string)
+                    (Json.field "comment" Json.string)
+                    (Json.field "original_url" Json.string)
+                    (Json.field "sent_to" Json.string)
+
+        _ ->
+            Json.fail "Stub"
 
 
 enterNewSession model =
@@ -470,7 +533,7 @@ updateUserPageStatus msg model =
         FeedUserMessages ms ->
             let
                 f { user, comment, timestamp, originalUrl, sentTo } =
-                    Comment { user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo }
+                    Comment { user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = "" }
 
                 msgs =
                     List.map f ms
@@ -574,7 +637,17 @@ showChannels model =
                 List.map
                     (\r ->
                         li []
-                            [ div [ class "chatlist-name clickable" ] [ a [ onClick (EnterRoom r) ] [ text (roomName r model) ] ]
+                            [ div
+                                [ class <|
+                                    "chatlist-name clickable"
+                                        ++ (if RoomPage r == model.page then
+                                                " current"
+
+                                            else
+                                                ""
+                                           )
+                                ]
+                                [ a [ onClick (EnterRoom r) ] [ text (roomName r model) ] ]
                             , div [ class "chatlist-members" ] (List.intersperse (text ",") <| List.map (\u -> a [ class "chatlist-member clickable", onClick (EnterUser u) ] [ text u ]) <| roomUsers r model)
                             ]
                     )
@@ -678,16 +751,6 @@ newSessionView model =
             ]
         ]
     }
-
-
-
--- inputComponent : (Model -> String) -> (String -> Msg) -> (Int -> Msg) -> Model -> Html Msg
--- inputComponent valueFunc onInputMsg onKeyDownMsg model =
---     (input [ value (valueFunc model), onInput onInputMsg, onKeyDown onKeyDownMsg ] [],
---         \id -> if id ==
--- sessionEditInput : Html Msg
--- sessionEditInput =
---     inputComponent (\m -> m.editingSessionNameValue) UpdateEditingSessionName
 
 
 updateRoomName : RoomID -> String -> Model -> Model
@@ -860,6 +923,7 @@ subscriptions _ =
         , feedRoomInfo FeedRoomInfo
         , feedSessionsWithSameMembers (\s -> NewSessionMsg (FeedSessionsWithSameMembers s))
         , feedSessionsOf (\s -> UserPageMsg (FeedSessions s))
+        , onSocket OnSocket
         ]
 
 

@@ -10,11 +10,25 @@ interface RoomInfo {
 
 interface PostCommentResponse {
     ok: boolean,
-    data: {
-        timestamp: number,
-        comment: string,
-        user_id: string,
-    }
+    data: CommentTyp
+}
+
+interface CommentTyp {
+    user_id: string,
+    comment: string,
+    session_id: string,
+    timestamp: number,
+    original_url: string,
+    sent_to: string,
+}
+
+interface CommentTypClient {
+    user: string,
+    comment: string,
+    session: string,
+    timestamp: string,
+    originalUrl: string,
+    sentTo: string,
 }
 
 interface UserSlack {
