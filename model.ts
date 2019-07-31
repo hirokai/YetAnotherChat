@@ -96,7 +96,6 @@
                                     count[m] = count[m] || 0;
                                 });
                                 count['__total'] = _.sum(_.values(count)) || 0;
-                                console.log(count);
                                 resolve1({ count, first, last });
                             });
                         });

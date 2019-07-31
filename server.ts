@@ -15,6 +15,10 @@ import { UserInfo } from "os";
     const fs = require('fs');
     const moment = require('moment');
     const jwt = require('jsonwebtoken');
+    var http = require('http').createServer(app);
+    const io = require('socket.io')(http);
+
+    console.log(io);
 
 
     interface MyResponse extends Response {
@@ -207,7 +211,6 @@ import { UserInfo } from "os";
         const of_members = ms ? ms.split(",") : undefined;
         const is_all = !(typeof req.query.is_all === 'undefined');
         model.get_session_list({ of_members, is_all }).then((r: RoomInfo[]) => {
-            console.log(r);
             res.json({ ok: true, data: r });
         })
     });
@@ -248,19 +251,26 @@ import { UserInfo } from "os";
     });
 
 
-    app.post('/api/comments', (req: CommentPostRequest, res: CommentPostResponse) => {
+    app.post('/api/comments', (req: CommentPostRequest, res: JsonResponse<PostCommentResponse>) => {
         db.serialize(() => {
             const ts = new Date().getTime();
             const user = req.body.user;
             const comment = req.body.comment;
-            db.run('insert into comments (user_id,comment,timestamp,session_id) values (?,?,?,?);', user, comment, ts, req.body.session, (err) => {
+            const session_id = req.body.session;
+            db.run('insert into comments (user_id,comment,timestamp,session_id) values (?,?,?,?);', user, comment, ts, session_id, (err) => {
                 console.log(err);
-                res.json({ ok: err === null, data: { timestamp: ts, user_id: user, comment: comment } });
+                const data = { timestamp: ts, user_id: user, comment: comment, session_id };
+                res.json({ ok: err === null, data });
+                io.emit("new_comment", data);
             });
         });
     });
 
-    app.listen(port, () => {
+    http.listen(port, () => {
         console.log("server is running at port " + port);
     })
+
+    io.on('connection', function (socket) {
+        console.log('a user connected');
+    });
 }

@@ -7,12 +7,23 @@ import axios from 'axios';
 import $ from 'jquery';
 import moment from 'moment';
 import 'bootstrap';
+import io from "socket.io-client";
+
+// @ts-ignore
+const socket: SocketIOClient.Socket = io('http://localhost:3000');
+
+const a = 1;
 require('moment/locale/ja');
 moment.locale('ja');
 
 const app = Elm.Main.init({ flags: { username: localStorage['yacht.username'] || "" } });
 
 const token = localStorage.getItem('yacht.token') || "";
+
+socket.on("new_comment", (msg: any) => {
+    console.log(msg);
+    getAndFeedMessages(msg.session_id);
+});
 
 function scrollToBottom() {
     window.setTimeout(() => {
@@ -52,13 +63,15 @@ app.ports.createNewSession.subscribe(function (args: any[]) {
     });
 });
 
-app.ports.getMessages.subscribe(function (session: string) {
+function getAndFeedMessages(session: string) {
     const params: GetCommentsParams = { session, token };
     axios.get('http://localhost:3000/api/comments', { params }).then(({ data }) => {
         app.ports.feedMessages.send(processData(data));
         // scrollToBottom();
     });
-});
+}
+
+app.ports.getMessages.subscribe(getAndFeedMessages);
 
 app.ports.getUserMessages.subscribe(function (user: string) {
     axios.get('http://localhost:3000/api/comments', { params: { user, token } }).then(({ data }) => {
@@ -105,7 +118,7 @@ app.ports.getRoomInfo.subscribe(function () {
 
 
 app.ports.sendCommentToServer.subscribe(function ({ comment, user, session }: { comment: string, user: string, session: string }) {
-    $.post('http://localhost:3000/api/comments', { comment, user, session, token }).then((res: CommentPostResponse) => {
+    $.post('http://localhost:3000/api/comments', { comment, user, session, token }).then((res: PostCommentResponse) => {
         getAndfeedRoolmInfo();
         scrollToBottom();
     });
