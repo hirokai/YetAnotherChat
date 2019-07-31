@@ -90,7 +90,7 @@ type alias RoomInfo =
     , members : List Member
     , firstMsgTime : Int
     , lastMsgTime : Int
-    , numMessages : Int
+    , numMessages : Dict String Int
     }
 
 
@@ -108,7 +108,7 @@ roomInfoDecoder =
         (Json.field "members" (Json.list Json.string))
         (Json.field "firstMsgTime" Json.int)
         (Json.field "lastMsgTime" Json.int)
-        (Json.field "numMessages" Json.int)
+        (Json.field "numMessages" (Json.dict Json.int))
 
 
 getUser : ChatEntry -> String
@@ -345,7 +345,7 @@ update msg model =
             ( { model | page = RoomPage "" }, Cmd.batch [ createNewSession ( "", user_list ), updatePageHash model ] )
 
         ReceiveNewSessionId { name, timestamp, id } ->
-            ( { model | page = RoomPage id, roomInfo = Dict.insert id { id = id, name = name, timestamp = timestamp, members = [], numMessages = 0, firstMsgTime = -1, lastMsgTime = -1 } model.roomInfo }, updatePageHash model )
+            ( { model | page = RoomPage id, roomInfo = Dict.insert id { id = id, name = name, timestamp = timestamp, members = [], numMessages = Dict.empty, firstMsgTime = -1, lastMsgTime = -1 } model.roomInfo }, updatePageHash model )
 
         EnterNewSessionScreen ->
             enterNewSession model
@@ -780,7 +780,7 @@ numSessionMessages : RoomID -> Model -> Int
 numSessionMessages id model =
     case Dict.get id model.roomInfo of
         Just room ->
-            room.numMessages
+            Maybe.withDefault 0 <| Dict.get "__total" room.numMessages
 
         Nothing ->
             0
