@@ -1,5 +1,6 @@
+/// <reference path="../types.d.ts" />
+
 import { Elm } from './dist/main.elm.js';
-import { RoomInfo } from "defs";
 import { map } from 'lodash-es';
 import axios from 'axios';
 import $ from 'jquery';
@@ -73,7 +74,7 @@ app.ports.getSessionsWithSameMembers.subscribe(function ({ members, is_all }: { 
 });
 
 app.ports.getSessionsOf.subscribe(function (user: string) {
-    axios.get('http://localhost:3000/api/sessions', { params: { of_members: user, token } }).then(({ data }) => {
+    axios.get('http://localhost:3000/api/sessions', { params: { of_members: user, token } }).then(({ data: { data } }) => {
         console.log(data);
         app.ports.feedSessionsOf.send(map(data, (r) => {
             return r.id;
@@ -84,8 +85,9 @@ app.ports.getSessionsOf.subscribe(function (user: string) {
 });
 
 app.ports.getRoomInfo.subscribe(function () {
-    axios.get('http://localhost:3000/api/sessions', { params: { token } }).then(({ data }) => {
-        app.ports.feedRoomInfo.send(map(data, function (r: RoomInfo): (string | RoomInfo)[] {
+    axios.get('http://localhost:3000/api/sessions', { params: { token } }).then(({ data }: { data: { ok: boolean, data: RoomInfo[] } }) => {
+        console.log('getRoomInfo', data.data);
+        app.ports.feedRoomInfo.send(map(data.data, function (r: RoomInfo): (string | RoomInfo)[] {
             console.log('getRoomInfo loop', r);
             return [r.id, r];
         }));
@@ -95,7 +97,8 @@ app.ports.getRoomInfo.subscribe(function () {
 
 
 app.ports.sendCommentToServer.subscribe(function ({ comment, user, session }: { comment: string, user: string, session: string }) {
-    $.post('http://localhost:3000/api/comments', { comment, user, session, token }).then(() => {
+    $.post('http://localhost:3000/api/comments', { comment, user, session, token }).then((res: CommentPostResponse) => {
+        console.log(res);
         scrollToBottom();
     });
 });
