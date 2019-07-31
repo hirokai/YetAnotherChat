@@ -139,7 +139,7 @@
                 const r = emoji_dict[$1];
                 return r ? r.emoji : $1;
             });
-            return { comment, timestamp: parseInt(row.timestamp), user_id: row.user_id, original_url: row.url_original, sent_to: row.sent_to, session_id };
+            return { comment, timestamp: parseInt(row.timestamp), user_id: row.user_id, original_url: row.url_original, sent_to: row.sent_to, session_id: row.session_id };
         };
         return new Promise((resolve) => {
             if (session_id && !user_id) {
