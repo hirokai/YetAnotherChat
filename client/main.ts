@@ -115,3 +115,18 @@ app.ports.sendRoomName.subscribe(({ id, new_name }: { id: string, new_name: stri
         console.log(data, data.ok, id, new_name);
     })
 });
+
+app.ports.setPageHash.subscribe(function (hash: string) {
+    console.log(hash);
+    location.hash = hash;
+});
+
+window.addEventListener('hashchange', (ev: HashChangeEvent) => {
+    console.log('hashChange', location.hash, app.ports.hashChanged);
+    app.ports.hashChanged.send(location.hash);
+    return null;
+});
+
+module.exports = {
+    app
+}

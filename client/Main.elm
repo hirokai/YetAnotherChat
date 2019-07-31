@@ -58,10 +58,16 @@ port feedRoomInfo : (List ( RoomID, RoomInfo ) -> msg) -> Sub msg
 port receiveNewRoomInfo : ({ name : String, id : RoomID, timestamp : Int } -> msg) -> Sub msg
 
 
+port hashChanged : (String -> msg) -> Sub msg
+
+
 port sendCommentToServer : { user : String, comment : String, session : String } -> Cmd msg
 
 
 port sendRoomName : { id : String, new_name : String } -> Cmd msg
+
+
+port setPageHash : String -> Cmd msg
 
 
 type ChatEntry
@@ -129,6 +135,31 @@ pageToPath page =
 
         NewSession ->
             "/sessions/new"
+
+
+
+-- FIXME
+
+
+pathToPage : String -> Page
+pathToPage hash =
+    let
+        _ =
+            Debug.log "pathToPage split" <| String.split "/" hash
+    in
+    case Maybe.withDefault [] <| List.tail (String.split "/" hash) of
+        "sessions" :: r :: ts ->
+            if r == "new" then
+                NewSession
+
+            else
+                RoomPage r
+
+        "users" :: u :: ts ->
+            UserPage u
+
+        _ ->
+            HomePage
 
 
 type alias Model =
@@ -203,6 +234,8 @@ type Msg
     | AbortEditing String
     | EditingKeyDown String (Model -> Model) (Cmd Msg) Int
     | SubmitComment
+    | SetPageHash
+    | HashChanged String
     | NoOp
 
 
@@ -229,6 +262,11 @@ addComment comment model =
 
         Nothing ->
             model
+
+
+updatePageHash : Model -> Cmd Msg
+updatePageHash model =
+    setPageHash (pageToPath model.page)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -258,10 +296,10 @@ update msg model =
             ( { model | messages = Just msgs, selected = showAll msgs }, Cmd.none )
 
         EnterRoom r ->
-            ( { model | page = RoomPage r, messages = Nothing }, getMessages r )
+            enterRoom r model
 
         EnterUser u ->
-            ( { model | page = UserPage u, messages = Nothing }, Cmd.batch [ getSessionsOf u, getUserMessages u ] )
+            enterUser u model
 
         NewSessionMsg msg1 ->
             let
@@ -282,13 +320,13 @@ update msg model =
                 user_list =
                     Set.toList users
             in
-            ( { model | page = RoomPage "" }, createNewSession ( "", user_list ) )
+            ( { model | page = RoomPage "" }, Cmd.batch [ createNewSession ( "", user_list ), updatePageHash model ] )
 
         ReceiveNewSessionId { name, timestamp, id } ->
-            ( { model | page = RoomPage id, roomInfo = Dict.insert id { id = id, name = name, timestamp = timestamp, members = [], numMessages = 10, firstMsgTime = "", lastMsgTime = "" } model.roomInfo }, Cmd.none )
+            ( { model | page = RoomPage id, roomInfo = Dict.insert id { id = id, name = name, timestamp = timestamp, members = [], numMessages = 10, firstMsgTime = "", lastMsgTime = "" } model.roomInfo }, updatePageHash model )
 
         EnterNewSessionScreen ->
-            ( { model | page = NewSession, newSessionStatus = { selected = Set.empty, sessions_same_members = [] } }, Cmd.none )
+            enterNewSession model
 
         StartEditing id initialValue ->
             ( { model | editing = Set.insert id model.editing, editingValue = Dict.insert id initialValue model.editingValue }, Cmd.none )
@@ -316,6 +354,55 @@ update msg model =
 
                 _ ->
                     ( model, Cmd.none )
+
+        SetPageHash ->
+            ( model, setPageHash (pageToPath model.page) )
+
+        HashChanged hash ->
+            let
+                _ =
+                    Debug.log "HashChanged new page" (pathToPage hash)
+            in
+            if hash /= pageToPath model.page then
+                case pathToPage hash of
+                    UserPage u ->
+                        enterUser u model
+
+                    RoomPage r ->
+                        enterRoom r model
+
+                    HomePage ->
+                        enterHome model
+
+                    NewSession ->
+                        enterNewSession model
+
+            else
+                ( model, Cmd.none )
+
+
+enterNewSession model =
+    ( { model | page = NewSession, newSessionStatus = { selected = Set.empty, sessions_same_members = [] } }, Cmd.none )
+
+
+enterHome model =
+    ( { model | page = HomePage }, Cmd.none )
+
+
+enterRoom r model =
+    let
+        new_model =
+            { model | page = RoomPage r, messages = Nothing }
+    in
+    ( new_model, Cmd.batch [ updatePageHash new_model, getMessages r ] )
+
+
+enterUser u model =
+    let
+        new_model =
+            { model | page = UserPage u, messages = Nothing }
+    in
+    ( new_model, Cmd.batch [ updatePageHash new_model, getSessionsOf u, getUserMessages u ] )
 
 
 finishEditing : String -> (Model -> Model) -> Cmd Msg -> Model -> ( Model, Cmd Msg )
@@ -708,6 +795,7 @@ subscriptions _ =
         [ feedMessages FeedMessages
         , feedUserMessages (\s -> UserPageMsg <| FeedUserMessages s)
         , receiveNewRoomInfo ReceiveNewSessionId
+        , hashChanged HashChanged
         , feedRoomInfo FeedRoomInfo
         , feedSessionsWithSameMembers (\s -> NewSessionMsg (FeedSessionsWithSameMembers s))
         , feedSessionsOf (\s -> UserPageMsg (FeedSessions s))
