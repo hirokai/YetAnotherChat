@@ -20,9 +20,13 @@ const app = Elm.Main.init({ flags: { username: localStorage['yacht.username'] ||
 
 const token = localStorage.getItem('yacht.token') || "";
 
-socket.on("new_comment", (msg: any) => {
+socket.on("message", (msg: any) => {
     console.log(msg);
-    getAndFeedMessages(msg.session_id);
+    if (msg.__type == "new_comment") {
+        msg.timestamp = moment(msg.timestamp).format('YYYY/M/D HH:mm:ss');
+        msg = <CommentTypClient>msg;
+    }
+    app.ports.onSocket.send(msg);
 });
 
 function scrollToBottom() {
@@ -38,42 +42,44 @@ function scrollToBottom() {
 
 app.ports.scrollToBottom.subscribe(scrollToBottom);
 
-const processData = (res: any[]) => {
+const processData = (res: CommentTyp[]): CommentTypClient[] => {
     return map(res, (m) => {
-        return { user: m.user || 'myself', comment: m.text, timestamp: moment(parseInt(m.ts)).format('YYYY/M/D HH:mm:ss'), originalUrl: m.original_url || "", sentTo: m.sent_to || "" };
+        const user: string = m.user_id || 'myself'
+        const v: CommentTypClient = { user, comment: m.comment, timestamp: moment(m.timestamp).format('YYYY/M/D HH:mm:ss'), originalUrl: m.original_url || "", sentTo: m.sent_to || "", session: m.session_id };
+        return v;
     });
 };
 
-app.ports.createNewSession.subscribe(function (args: any[]) {
+app.ports.createNewSession.subscribe(async function (args: any[]) {
     var name: string = args[0];
     const members: string[] = args[1];
     if (name == "") {
         name = "会話: " + moment().format('MM/DD HH:mm')
     }
-    $.post('http://localhost:3000/api/sessions', { name, members, token }).then(({ data }: PostSessionsResponse) => {
-        app.ports.receiveNewRoomInfo.send(data);
-        axios.get('http://localhost:3000/api/sessions', { params: { token } }).then(({ data }) => {
-            app.ports.feedRoomInfo.send(map(data, (r) => {
-                return [r.id, r];
-            }));
-        });
-        axios.get('http://localhost:3000/api/comments', { params: { session: data.id, token } }).then(({ data }) => {
-            app.ports.feedMessages.send(processData(data));
-        });
-    });
+    const { data }: PostSessionsResponse = await $.post('http://localhost:3000/api/sessions', { name, members, token });
+    console.log('newsession', data);
+    app.ports.receiveNewRoomInfo.send(data);
+    const p1 = axios.get('http://localhost:3000/api/sessions', { params: { token } });
+    const p2 = axios.get('http://localhost:3000/api/comments', { params: { session: data.id, token } });
+    const [{ data: { data: data1 } }, { data: { data: data2 } }] = await Promise.all([p1, p2]);
+    console.log(data1, data2);
+    app.ports.feedRoomInfo.send(data1);
+    app.ports.feedMessages.send(processData(data2));
 });
 
 function getAndFeedMessages(session: string) {
     const params: GetCommentsParams = { session, token };
     axios.get('http://localhost:3000/api/comments', { params }).then(({ data }) => {
-        app.ports.feedMessages.send(processData(data));
+        const values = processData(data);
+        console.log(values);
+        app.ports.feedMessages.send(values);
         // scrollToBottom();
     });
 }
 
 app.ports.getMessages.subscribe(getAndFeedMessages);
 
-app.ports.getUserMessages.subscribe(function (user: string) {
+app.ports.getUserMessages.subscribe(async function (user: string) {
     axios.get('http://localhost:3000/api/comments', { params: { user, token } }).then(({ data }) => {
         app.ports.feedUserMessages.send(processData(data));
         // scrollToBottom();

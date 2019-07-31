@@ -237,7 +237,7 @@ import { UserInfo } from "os";
     app.get('/api/comments', (req, res) => {
         const session_id = req.query.session;
         const user_id = req.query.user;
-        model.get_comments_list(session_id, user_id).then((comments: any[]) => {
+        model.get_comments_list(session_id, user_id).then((comments: CommentTyp[]) => {
             res.json(comments);
         });
     });
@@ -259,9 +259,9 @@ import { UserInfo } from "os";
             const session_id = req.body.session;
             db.run('insert into comments (user_id,comment,timestamp,session_id) values (?,?,?,?);', user, comment, ts, session_id, (err) => {
                 console.log(err);
-                const data = { timestamp: ts, user_id: user, comment: comment, session_id };
+                const data = { timestamp: ts, user_id: user, comment: comment, session_id, original_url: "", sent_to: "" };
                 res.json({ ok: err === null, data });
-                io.emit("new_comment", data);
+                io.emit("message", _.extend({}, { __type: "new_comment" }, data));
             });
         });
     });
