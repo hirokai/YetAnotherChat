@@ -87,21 +87,17 @@
                     Promise.all(_.map(sessions, (s) => {
                         return new Promise((resolve1) => {
                             db.all("select count(*),user_id,max(timestamp),min(timestamp) from comments where session_id=? group by user_id;", s.id, (err, users) => {
-                                if (users.length == 0) {
-                                    resolve1({ count: { __total: 0 }, first: -1, last: -1 });
-                                } else {
-                                    const first = _.min(_.map(users, 'min(timestamp)'));
-                                    const last = _.max(_.map(users, 'max(timestamp)'));
-                                    var count = _.chain(users).keyBy('user_id').mapValues((u) => {
-                                        return u['count(*)'];
-                                    }).value();
-                                    _.map(s.members.split(","), (m) => {
-                                        count[m] = count[m] || 0;
-                                    });
-                                    count['__total'] = _.sum(_.values(count)) || 0;
-                                    console.log(count);
-                                    resolve1({ count, first, last });
-                                }
+                                const first = _.min(_.map(users, 'min(timestamp)')) || -1;
+                                const last = _.max(_.map(users, 'max(timestamp)')) || -1;
+                                var count = _.chain(users).keyBy('user_id').mapValues((u) => {
+                                    return u['count(*)'];
+                                }).value();
+                                _.map(s.members.split(","), (m) => {
+                                    count[m] = count[m] || 0;
+                                });
+                                count['__total'] = _.sum(_.values(count)) || 0;
+                                console.log(count);
+                                resolve1({ count, first, last });
                             });
                         });
                     })).then((infos) => {
