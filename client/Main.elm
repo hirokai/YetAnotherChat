@@ -769,7 +769,7 @@ userPageView user model =
                 [ leftMenu model
                 , div [ class "col-md-10 col-lg-10" ]
                     [ h1 [] [ text user ]
-                    , div [] [ text <| String.fromInt (List.length model.userPageStatus.messages) ++ " messages." ]
+                    , div [] [ text <| String.fromInt (List.length model.userPageStatus.messages) ++ " messages in " ++ String.fromInt (List.length model.userPageStatus.sessions) ++ " rooms." ]
                     , div []
                         [ ul [] (List.map (\s -> li [] [ a [ class "clickable", onClick (EnterRoom s) ] [ text <| s ++ ": " ++ roomName s model ++ "(" ++ String.fromInt (numSessionMessages s model) ++ ")" ] ]) model.userPageStatus.sessions)
                         ]

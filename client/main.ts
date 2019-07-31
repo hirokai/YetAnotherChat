@@ -1,5 +1,6 @@
 /// <reference path="../types.d.ts" />
 
+// @ts-ignore
 import { Elm } from './dist/main.elm.js';
 import { map } from 'lodash-es';
 import axios from 'axios';
