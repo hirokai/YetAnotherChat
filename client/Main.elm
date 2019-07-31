@@ -559,16 +559,17 @@ leftMenu model =
             ++ showChannels model
         )
 
+
 showUsers room model =
-        ul [ class "menu-list", id "room-memberlist" ] <|
-            List.map (\u -> li [] [ a [ class "clickable", onClick (EnterUser u) ] [ text u ] ]) (roomUsers room model)
+    ul [ class "menu-list", id "room-memberlist" ] <|
+        List.map (\u -> li [] [ a [ class "clickable", onClick (EnterUser u) ] [ text u ] ]) (roomUsers room model)
+
 
 showChannels : Model -> List (Html Msg)
 showChannels model =
     case model.page of
         RoomPage room ->
             [ p [] [ text "チャンネル" ]
-
             , ul [ class "menu-list" ] <|
                 List.map
                     (\r ->
@@ -827,9 +828,16 @@ userPageView user model =
                 , div [ class "col-md-10 col-lg-10" ]
                     [ h1 [] [ text user ]
                     , div [] [ text <| String.fromInt (List.length model.userPageStatus.messages) ++ " messages in " ++ String.fromInt (List.length model.userPageStatus.sessions) ++ " rooms." ]
-                    , div []
-                        [ ul [] (List.map (\s -> li [] [ a [ class "clickable", onClick (EnterRoom s) ] [ text <| s ++ ": " ++ roomName s model ++ "(" ++ getMessageCount s model ++ ")" ] ]) model.userPageStatus.sessions)
-                        ]
+                    , div [] <|
+                        List.map
+                            (\s ->
+                                div [ class "userpage-room-entry" ]
+                                    [ span [ class "session_id" ] [ text <| "ID: " ++ s ]
+                                    , h3 [ class "clickable", onClick (EnterRoom s) ] [ text <| roomName s model ]
+                                    , span [] [ text <| getMessageCount s model ]
+                                    ]
+                            )
+                            model.userPageStatus.sessions
                     ]
                 ]
             ]
