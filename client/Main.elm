@@ -559,14 +559,16 @@ leftMenu model =
             ++ showChannels model
         )
 
+showUsers room model =
+        ul [ class "menu-list", id "room-memberlist" ] <|
+            List.map (\u -> li [] [ a [ class "clickable", onClick (EnterUser u) ] [ text u ] ]) (roomUsers room model)
 
 showChannels : Model -> List (Html Msg)
 showChannels model =
     case model.page of
         RoomPage room ->
             [ p [] [ text "チャンネル" ]
-            , ul [ class "menu-list", id "room-memberlist" ] <|
-                List.map (\u -> li [] [ a [ class "clickable", onClick (EnterUser u) ] [ text u ] ]) (roomUsers room model)
+
             , ul [ class "menu-list" ] <|
                 List.map
                     (\r ->
@@ -727,7 +729,7 @@ chatRoomView room model =
                             text <| Maybe.withDefault "(N/A)" (Maybe.map (\a -> a.name) (Dict.get room model.roomInfo))
                         , a [ id "edit-roomname", class "clickable", onClick (StartEditing "room-title" (roomName room model)) ] [ text "Edit" ]
                         ]
-                    , div [] [ text <| "参加者：" ++ String.join ", " (roomUsers room model) ]
+                    , div [] ([ text <| "参加者：" ] ++ List.intersperse (text ", ") (List.map (\u -> a [ onClick (EnterUser u), class "clickable" ] [ text u ]) (roomUsers room model)))
                     , div []
                         (text ("Session ID: " ++ room)
                             :: (case model.messages of
