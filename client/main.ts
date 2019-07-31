@@ -80,10 +80,8 @@ function getAndFeedMessages(session: string) {
 app.ports.getMessages.subscribe(getAndFeedMessages);
 
 app.ports.getUserMessages.subscribe(async function (user: string) {
-    axios.get('http://localhost:3000/api/comments', { params: { user, token } }).then(({ data }) => {
-        app.ports.feedUserMessages.send(processData(data));
-        // scrollToBottom();
-    });
+    const { data } = await axios.get('http://localhost:3000/api/comments', { params: { user, token } });
+    app.ports.feedUserMessages.send(processData(data));
 });
 
 app.ports.getSessionsWithSameMembers.subscribe(function ({ members, is_all }: { members: Array<string>, is_all: boolean }) {
