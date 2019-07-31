@@ -33,12 +33,12 @@ const processData = (res: any[]) => {
 };
 
 app.ports.createNewSession.subscribe(function (args: any[]) {
-    var name = args[0];
-    const members = args[1];
+    var name: string = args[0];
+    const members: string[] = args[1];
     if (name == "") {
         name = "会話: " + moment().format('MM/DD HH:mm')
     }
-    $.post('http://localhost:3000/api/sessions', { name, members, token }).then(({ data }) => {
+    $.post('http://localhost:3000/api/sessions', { name, members, token }).then(({ data }: PostSessionsResponse) => {
         app.ports.receiveNewRoomInfo.send(data);
         axios.get('http://localhost:3000/api/sessions', { params: { token } }).then(({ data }) => {
             app.ports.feedRoomInfo.send(map(data, (r) => {
@@ -52,7 +52,8 @@ app.ports.createNewSession.subscribe(function (args: any[]) {
 });
 
 app.ports.getMessages.subscribe(function (session: string) {
-    axios.get('http://localhost:3000/api/comments', { params: { session, token } }).then(({ data }) => {
+    const params: GetCommentsParams = { session, token };
+    axios.get('http://localhost:3000/api/comments', { params }).then(({ data }) => {
         app.ports.feedMessages.send(processData(data));
         // scrollToBottom();
     });
@@ -66,17 +67,22 @@ app.ports.getUserMessages.subscribe(function (user: string) {
 });
 
 app.ports.getSessionsWithSameMembers.subscribe(function ({ members, is_all }: { members: Array<string>, is_all: boolean }) {
-    axios.get('http://localhost:3000/api/sessions', { params: { of_members: members.join(','), is_all, token } }).then(({ data }) => {
-        app.ports.feedSessionsWithSameMembers.send(map(data, (r) => {
+    axios.get('http://localhost:3000/api/sessions', { params: { of_members: members.join(','), is_all, token } }).then(({ data }: AxiosResponse<GetSessionsResponse>) => {
+        app.ports.feedSessionsWithSameMembers.send(map(data.data, (r) => {
             return r.id;
         }));
     });
 });
 
+interface AxiosResponse<T> {
+    data: T
+}
+
 app.ports.getSessionsOf.subscribe(function (user: string) {
-    axios.get('http://localhost:3000/api/sessions', { params: { of_members: user, token } }).then(({ data: { data } }) => {
+    const params: GetSessionsOfParams = { of_members: user, token };
+    axios.get('http://localhost:3000/api/sessions', { params }).then(({ data }: AxiosResponse<GetSessionsResponse>) => {
         console.log(data);
-        app.ports.feedSessionsOf.send(map(data, (r) => {
+        app.ports.feedSessionsOf.send(map(data.data, (r) => {
             return r.id;
         }));
     }).catch(() => {
@@ -85,7 +91,8 @@ app.ports.getSessionsOf.subscribe(function (user: string) {
 });
 
 app.ports.getRoomInfo.subscribe(function () {
-    axios.get('http://localhost:3000/api/sessions', { params: { token } }).then(({ data }: { data: { ok: boolean, data: RoomInfo[] } }) => {
+    const params: AuthedParams = { token };
+    axios.get('http://localhost:3000/api/sessions', { params }).then(({ data }: AxiosResponse<GetSessionsResponse>) => {
         console.log('getRoomInfo', data.data);
         app.ports.feedRoomInfo.send(map(data.data, function (r: RoomInfo): (string | RoomInfo)[] {
             console.log('getRoomInfo loop', r);
@@ -104,7 +111,7 @@ app.ports.sendCommentToServer.subscribe(function ({ comment, user, session }: { 
 });
 
 app.ports.sendRoomName.subscribe(({ id, new_name }: { id: string, new_name: string }) => {
-    axios.patch('http://localhost:3000/api/sessions/' + id, { name: new_name, token }).then(({ data }) => {
-        console.log(data, id, new_name);
+    axios.patch('http://localhost:3000/api/sessions/' + id, { name: new_name, token }).then(({ data }: AxiosResponse<PatchSessionResponse>) => {
+        console.log(data, data.ok, id, new_name);
     })
 });
