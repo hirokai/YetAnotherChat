@@ -95,7 +95,6 @@ app.ports.getRoomInfo.subscribe(function () {
     const params: AuthedParams = { token };
     axios.get('http://localhost:3000/api/sessions', { params }).then(({ data }: AxiosResponse<GetSessionsResponse>) => {
         const values = map(data.data, function (r: RoomInfo) {
-            r.numMessages = r.numMessages['__total'];
             return r;
         });
         console.log('getRoomInfo', values);
