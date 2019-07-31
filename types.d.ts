@@ -1,6 +1,6 @@
 interface RoomInfo {
     name: string,
-    numMessages: number,
+    numMessages: Map<string, number>,
     firstMsgTime: string,
     lastMsgTime: string,
     id: string,

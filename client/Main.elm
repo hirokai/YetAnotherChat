@@ -88,8 +88,8 @@ type alias RoomInfo =
     , name : String
     , timestamp : Int
     , members : List Member
-    , firstMsgTime : String
-    , lastMsgTime : String
+    , firstMsgTime : Int
+    , lastMsgTime : Int
     , numMessages : Int
     }
 
@@ -319,7 +319,7 @@ update msg model =
             ( { model | page = RoomPage "" }, Cmd.batch [ createNewSession ( "", user_list ), updatePageHash model ] )
 
         ReceiveNewSessionId { name, timestamp, id } ->
-            ( { model | page = RoomPage id, roomInfo = Dict.insert id { id = id, name = name, timestamp = timestamp, members = [], numMessages = 10, firstMsgTime = "", lastMsgTime = "" } model.roomInfo }, updatePageHash model )
+            ( { model | page = RoomPage id, roomInfo = Dict.insert id { id = id, name = name, timestamp = timestamp, members = [], numMessages = 0, firstMsgTime = -1, lastMsgTime = -1 } model.roomInfo }, updatePageHash model )
 
         EnterNewSessionScreen ->
             enterNewSession model
@@ -469,10 +469,10 @@ iconOfUser : String -> String
 iconOfUser name =
     case name of
         "myself" ->
-            "img/myself_icon.jpg"
+            "/public/img/myself_icon.jpg"
 
         _ ->
-            "img/user_icon.png"
+            "/public/img/i.png"
 
 
 showItem : Model -> ChatEntry -> Html Msg
