@@ -1,8 +1,8 @@
 interface RoomInfo {
     name: string,
     numMessages: Map<string, number>,
-    firstMsgTime: string,
-    lastMsgTime: string,
+    firstMsgTime: number,
+    lastMsgTime: number,
     id: string,
     timestamp: number,
     members: Array<string>

@@ -64,9 +64,9 @@
                 db.get('select * from sessions where id=?;', session_id, (err, session) => {
                     db.all('select * from session_members where session_id=?', session_id, (err, r2) => {
                         const members = _.map(r2, 'member_name');
-                        const numMessages = 0;
-                        const firstMsgTime = "";
-                        const lastMsgTime = "";
+                        const numMessages: Map<string, number> = new Map<string, number>();
+                        const firstMsgTime = -1;
+                        const lastMsgTime = -1;
                         const id = session_id;
                         resolve({ name: <string>session.name, timestamp: <number>session.timestamp, members, numMessages, firstMsgTime, lastMsgTime, id });
                     })
@@ -92,9 +92,12 @@
                                 } else {
                                     const first = _.min(_.map(users, 'min(timestamp)'));
                                     const last = _.max(_.map(users, 'max(timestamp)'));
-                                    const count = _.chain(users).keyBy('user_id').mapValues((u) => {
+                                    var count = _.chain(users).keyBy('user_id').mapValues((u) => {
                                         return u['count(*)'];
                                     }).value();
+                                    _.map(s.members.split(","), (m) => {
+                                        count[m] = count[m] || 0;
+                                    });
                                     count['__total'] = _.sum(_.values(count)) || 0;
                                     console.log(count);
                                     resolve1({ count, first, last });
@@ -127,7 +130,7 @@
                 resolve(_.map(sessions, (session) => {
                     var r: RoomInfo = {
                         id: session.id, name: session.name, timestamp: session.timestamp,
-                        numMessages: s['count(timestamp)'], firstMsgTime: "", lastMsgTime: "", members: session.members.split(",")
+                        numMessages: s['count(timestamp)'], firstMsgTime: -1, lastMsgTime: -1, members: session.members.split(",")
                     };
                     return r;
                 }));
