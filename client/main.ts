@@ -128,6 +128,4 @@ window.addEventListener('hashchange', (ev: HashChangeEvent) => {
     return null;
 });
 
-module.exports = {
-    app
-}
+app.ports.hashChanged.send(location.hash);
