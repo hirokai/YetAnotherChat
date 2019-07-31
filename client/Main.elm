@@ -569,12 +569,11 @@ mkComment s =
 
 iconOfUser : String -> String
 iconOfUser name =
-    case name of
-        "myself" ->
-            "/public/img/myself_icon.jpg"
-
-        _ ->
-            "/public/img/i.png"
+    let
+        c =
+            String.toLower (String.left 1 name)
+    in
+    "/public/img/" ++ c ++ ".png"
 
 
 showItem : Model -> ChatEntry -> Html Msg
