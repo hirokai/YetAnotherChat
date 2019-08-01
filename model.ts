@@ -1,6 +1,5 @@
 /// <reference path="./types.d.ts" />
 
-import { resolve } from "url";
 const user_info_private = require('./private/user_info');
 
 {
@@ -14,12 +13,19 @@ const user_info_private = require('./private/user_info');
 
     const emojis = require("./emojis.json").emojis;
     const emoji_dict = _.keyBy(emojis, 'shortname');
+    const mail_algo = require('./mail_algo');
 
     function post_comment(user_id: string, session_id: string, ts: number, comment: string, original_url?: string) {
-        return new Promise((resolve) => {
-            db.run('insert into comments (user_id,comment,timestamp,session_id,url_original) values (?,?,?,?,?);', user_id, comment, ts, session_id, original_url, (err) => {
-
-                resolve();
+        return new Promise((resolve, reject) => {
+            const comment_id = shortid.generate();
+            db.run('insert into comments (id,user_id,comment,timestamp,session_id,url_original) values (?,?,?,?,?,?);', comment_id, user_id, comment, ts, session_id, original_url, (err1) => {
+                db.run('insert or ignore into session_members (session_id,member_name) values (?,?)', session_id, user_id, (err2) => {
+                    if (!err1 && !err2) {
+                        resolve(comment_id);
+                    } else {
+                        reject([err1, err2]);
+                    }
+                });
             });
         });
     }
@@ -55,18 +61,23 @@ const user_info_private = require('./private/user_info');
     };
 
     function create_new_session(name: string, members: string[]): Promise<{ id: string, name: string, timestamp: number }> {
+        const session_id = shortid();
+        return create_session_with_id(session_id, name, members);
+    }
+
+
+    function create_session_with_id(session_id: string, name: string, members: string[]): Promise<{ id: string, name: string, timestamp: number }> {
         return new Promise((resolve) => {
             const ts = new Date().getTime();
-            const session_id = shortid();
             db.serialize(() => {
-                db.run('insert into sessions (id, name, timestamp) values (?,?,?);', session_id, name, ts);
+                db.run('insert or ignore into sessions (id, name, timestamp) values (?,?,?);', session_id, name, ts);
                 _.each(members, (member) => {
-                    db.run('insert into session_members (session_id, member_name) values (?,?);', session_id, member);
+                    db.run('insert or ignore into session_members (session_id, member_name) values (?,?);', session_id, member);
                 });
                 resolve({ id: session_id, name: name, timestamp: ts });
             });
         });
-    };
+    }
 
     function get_session_info(session_id: string): Promise<RoomInfo> {
         console.log('get_session_info', session_id);
@@ -151,7 +162,7 @@ const user_info_private = require('./private/user_info');
                 const r = emoji_dict[$1];
                 return r ? r.emoji : $1;
             });
-            return { comment, timestamp: parseInt(row.timestamp), user_id: row.user_id, original_url: row.url_original, sent_to: row.sent_to, session_id: row.session_id };
+            return { id: row.id, comment, timestamp: parseInt(row.timestamp), user_id: row.user_id, original_url: row.url_original, sent_to: row.sent_to, session_id: row.session_id };
         };
         return new Promise((resolve) => {
             if (session_id && !user_id) {
@@ -180,22 +191,46 @@ const user_info_private = require('./private/user_info');
         });
     };
 
-    function parseMailgunWebhook(body): CommentTyp {
+    function parseMailgunWebhook(body): MailgunParsed {
         const timestamp = new Date(body['Date']).getTime();
-        const comment = body['body-plain'];
-        const original_url = body['Message-Id'];
-        const session_id = 'N3PheJEZN';
+        const comment = body['stripped-text'];
+        const message_id = body['Message-Id'];
         const user_id = user_info_private.find_user(body['From']);
         const sent_to = body['To'];
+        const id = shortid.generate();
         const data = {
-            session_id,
+            id,
             user_id,
-            original_url,
+            message_id,
             timestamp,
             comment,
-            sent_to
+            sent_to,
+            body
         };
         return data;
+    }
+
+    function find_email_sessions(data: MailgunParsed[]): string[][] {
+        const pairs = _.flatten(_.map(data, (d) => {
+            const s = d.body['References'];
+            const id = d.body['Message-Id'];
+            const refs = s ? s.split(/\s+/) : [id]; // Connect to self if isolated.
+            return _.map(refs, (r) => [r, id]);
+        }));
+        const groups = mail_algo.find_groups(pairs);
+        var id_mapping = {};
+        console.log('groups', groups);
+        _.map(groups, (g) => {
+            const session_id = shortid.generate();
+            _.map(g, (m) => {
+                console.log(m);
+                id_mapping[m] = session_id;
+            });
+        });
+        const all_ids = _.map(data, (d) => {
+            return [id_mapping[d.message_id], "Email thread"];
+        })
+        return all_ids;
     }
 
     module.exports = {
@@ -207,7 +242,9 @@ const user_info_private = require('./private/user_info');
         get_session_list,
         get_comments_list,
         post_comment,
-        parseMailgunWebhook
+        parseMailgunWebhook,
+        find_email_sessions,
+        create_session_with_id
     };
 
 }
