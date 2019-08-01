@@ -413,6 +413,9 @@ update msg model =
         OnSocket v ->
             case Json.decodeValue socketDecoder v of
                 Ok (NewComment v1) ->
+                    if RoomPage v1.session /= model.page then
+                        (model,Cmd.none)
+                    else
                     let
                         f : NewCommentMsg -> ChatEntry
                         f { user, comment, timestamp, session, originalUrl, sentTo } =
@@ -422,12 +425,7 @@ update msg model =
                         | messages =
                             Just
                                 (Maybe.withDefault [] model.messages
-                                    ++ (if v1.user == model.myself then
-                                            []
-
-                                        else
-                                            [ f v1 ]
-                                       )
+                                    ++[ f v1 ]
                                 )
                       }
                     , Cmd.none

@@ -17,6 +17,7 @@ import { UserInfo } from "os";
     var http = require('http').createServer(app);
     const io = require('socket.io')(http);
     const multer = require('multer');
+    const mail_algo = require('./mail_algo');
 
 
     interface MyResponse extends Response {
@@ -251,8 +252,7 @@ import { UserInfo } from "os";
                 const user = req.body.user;
                 const comment = req.body.comment;
                 const session_id = req.body.session;
-                const id = await model.post_comment(user, session_id, ts, comment);
-                const data = { id, timestamp: ts, user_id: user, comment: comment, session_id, original_url: "", sent_to: "" };
+                const data: CommentTyp = await model.post_comment(user, session_id, ts, comment);
                 res.json({ ok: true, data });
                 io.emit("message", _.extend({}, { __type: "new_comment" }, data));
             });
@@ -268,8 +268,10 @@ import { UserInfo } from "os";
             res.json({ status: "ok" });
             const data: MailgunParsed = model.parseMailgunWebhook(req.body);
             mail_algo.find_email_session(db, data).then((session_id: string) => {
-                model.post_comment(data.user_id, session_id, data.timestamp, data.comment, data.message_id).then(() => {
-                    io.emit("message", _.extend({}, { __type: "new_comment" }, data));
+                model.post_comment(data.user_id, session_id, data.timestamp, data.comment, data.message_id).then((data1: CommentTyp) => {
+                    const obj = _.extend({ __type: "new_comment" }, data1);
+                    io.emit("message", obj);
+                    console.log("emitted", obj);
                 });
                 console.log('Received email from: ', req.body['From']);
             });
