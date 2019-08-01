@@ -11,7 +11,8 @@ import Set
 
 
 type alias CommentTyp =
-    { user : String
+    { id : String
+    , user : String
     , comment : String
     , session : String
     , timestamp : String
@@ -294,7 +295,7 @@ addComment : String -> Model -> Model
 addComment comment model =
     case model.messages of
         Just messages ->
-            { model | messages = Just <| List.append messages [ Comment { user = model.myself, comment = comment, originalUrl = "", sentTo = "all", timestamp = "", session = "" } ] }
+            { model | messages = Just <| List.append messages [ Comment { id = "__latest", user = model.myself, comment = comment, originalUrl = "", sentTo = "all", timestamp = "", session = "" } ] }
 
         Nothing ->
             model
@@ -332,8 +333,8 @@ update msg model =
 
         FeedMessages ms ->
             let
-                f { user, comment, timestamp, originalUrl, sentTo } =
-                    Comment { user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = "" }
+                f { id, user, comment, timestamp, originalUrl, sentTo } =
+                    Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = "" }
 
                 msgs =
                     List.map f ms
@@ -450,8 +451,8 @@ update msg model =
                     else
                         let
                             f : NewCommentMsg -> ChatEntry
-                            f { user, comment, timestamp, session, originalUrl, sentTo } =
-                                Comment { user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = session }
+                            f { id, user, comment, timestamp, session, originalUrl, sentTo } =
+                                Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = session }
                         in
                         ( { model
                             | messages =
@@ -472,7 +473,7 @@ update msg model =
 
 
 type alias NewCommentMsg =
-    { session : String, user : String, timestamp : String, comment : String, originalUrl : String, sentTo : String }
+    { id : String, session : String, user : String, timestamp : String, comment : String, originalUrl : String, sentTo : String }
 
 
 type SocketMsg
@@ -493,7 +494,8 @@ socketMsg m =
                     Debug.log "OK so far" ""
             in
             Json.map NewComment <|
-                Json.map6 NewCommentMsg
+                Json.map7 NewCommentMsg
+                    (Json.field "id" Json.string)
                     (Json.field "session_id" Json.string)
                     (Json.field "user_id" Json.string)
                     (Json.field "timestamp" Json.string)
@@ -579,8 +581,8 @@ updateUserPageStatus msg model =
 
         FeedUserMessages ms ->
             let
-                f { user, comment, timestamp, originalUrl, sentTo } =
-                    Comment { user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = "" }
+                f { id, user, comment, timestamp, originalUrl, sentTo } =
+                    Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = "" }
 
                 msgs =
                     List.map f ms
@@ -641,7 +643,7 @@ showItem : Model -> ChatEntry -> Html Msg
 showItem model e =
     case e of
         Comment m ->
-            div [ class "chat_entry_comment" ]
+            div [ class "chat_entry_comment", id m.id ]
                 [ div [ style "float" "left" ] [ img [ class "chat_user_icon", src (iconOfUser m.user) ] [] ]
                 , div [ class "chat_comment" ]
                     [ div [ class "chat_user_name" ]
