@@ -567,6 +567,10 @@ mkComment s =
     List.map f <| List.intersperse "\n" <| String.split "\n" s
 
 
+
+-- https://avatars.discourse.org/v4/letter/t/cc2283/60.png
+
+
 iconOfUser : String -> String
 iconOfUser name =
     let

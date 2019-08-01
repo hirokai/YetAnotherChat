@@ -76,6 +76,13 @@ interface PostSessionsResponse {
     error?: string
 }
 
+interface PostCommentData {
+    user: string,
+    session: string,
+    comment: string,
+}
+
+
 interface GetCommentsParams extends AuthedParams {
     session: string
 }
