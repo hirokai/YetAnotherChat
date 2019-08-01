@@ -1,5 +1,6 @@
 /// <reference path="./types.d.ts" />
 
+
 const user_info_private = require('./private/user_info');
 
 {
@@ -13,7 +14,6 @@ const user_info_private = require('./private/user_info');
 
     const emojis = require("./emojis.json").emojis;
     const emoji_dict = _.keyBy(emojis, 'shortname');
-    const mail_algo = require('./mail_algo');
 
     function post_comment(user_id: string, session_id: string, ts: number, comment: string, original_url?: string) {
         return new Promise((resolve, reject) => {
@@ -198,6 +198,9 @@ const user_info_private = require('./private/user_info');
         const user_id = user_info_private.find_user(body['From']);
         const sent_to = body['To'];
         const id = shortid.generate();
+        const subject = body['Subject'];
+        const s = body['References'];
+        const references = s ? s.split(/\s+/) : [];
         const data = {
             id,
             user_id,
@@ -205,32 +208,11 @@ const user_info_private = require('./private/user_info');
             timestamp,
             comment,
             sent_to,
-            body
+            body,
+            references,
+            subject,
         };
         return data;
-    }
-
-    function find_email_sessions(data: MailgunParsed[]): string[][] {
-        const pairs = _.flatten(_.map(data, (d) => {
-            const s = d.body['References'];
-            const id = d.body['Message-Id'];
-            const refs = s ? s.split(/\s+/) : [id]; // Connect to self if isolated.
-            return _.map(refs, (r) => [r, id]);
-        }));
-        const groups = mail_algo.find_groups(pairs);
-        var id_mapping = {};
-        console.log('groups', groups);
-        _.map(groups, (g) => {
-            const session_id = shortid.generate();
-            _.map(g, (m) => {
-                console.log(m);
-                id_mapping[m] = session_id;
-            });
-        });
-        const all_ids = _.map(data, (d) => {
-            return [id_mapping[d.message_id], "Email thread"];
-        })
-        return all_ids;
     }
 
     module.exports = {
@@ -243,7 +225,6 @@ const user_info_private = require('./private/user_info');
         get_comments_list,
         post_comment,
         parseMailgunWebhook,
-        find_email_sessions,
         create_session_with_id
     };
 

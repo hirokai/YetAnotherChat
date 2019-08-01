@@ -1,3 +1,7 @@
+const shortid = require('shortid').generate;
+const _ = require('lodash');
+
+
 // https://stackoverflow.com/questions/21900713/finding-all-connected-components-of-an-undirected-graph
 
 // Breadth First Search function
@@ -59,7 +63,55 @@ function find_groups(pairs: string[][]): string[][] {
         }
     }
     return groups;
-};
+}
+
+
+function group_email_sessions(data: MailgunParsed[]): string[][] {
+    const data_dict: { [index: string]: MailgunParsed; } = _.keyBy(data, (d: MailgunParsed) => { return d.message_id });
+    const pairs = _.flatten(_.map(data, (d) => {
+        const id = d.body['Message-Id'];
+        const refs = d.references.length == 0 ? [id] : d.references; //Connect to self if isolated.
+        return _.map(refs, (r) => [r, id]);
+    }));
+    const groups = find_groups(pairs);
+    var id_mapping = {};
+    var name_mapping = {};
+    console.log('groups', groups);
+    _.map(groups, (g) => {
+        const session_id = shortid.generate();
+        console.log(data_dict[g[0]], g[0])
+        name_mapping[session_id] = (data_dict[g[0]] || {})['subject'] || "Email thread";
+        _.map(g, (m) => {
+            console.log(m);
+            id_mapping[m] = session_id;
+        });
+    });
+    const all_ids = _.map(data, (d) => {
+        const session_id = id_mapping[d.message_id];
+        return [session_id, name_mapping[session_id]];
+    })
+    return all_ids;
+}
+
+function find_email_session(db: any, data: MailgunParsed): Promise<string> {
+    const ps = _.map(data.references, (r) => {
+        return new Promise((resolve) => {
+            db.get("select session_id from comments where url_original=?", r, (err, row) => {
+                // console.log('find_email_session', r, err, row);
+                if (row && row['session_id']) {
+                    resolve(row['session_id']);
+                } else {
+                    resolve(null)
+                }
+            });
+        });
+    });
+    return Promise.all(ps).then((results) => {
+        console.log('results', results);
+        const session_id = _.compact(results)[0];
+        return session_id;
+    })
+}
 
 function test() {
     const pairs = [
@@ -74,5 +126,7 @@ function test() {
 }
 
 module.exports = {
-    find_groups
+    find_groups,
+    group_email_sessions,
+    find_email_session
 }
