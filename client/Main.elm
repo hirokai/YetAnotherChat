@@ -142,7 +142,7 @@ type FilterMode
 
 
 type alias ChatPageModel =
-    { filterMode : FilterMode }
+    { filterMode : FilterMode, filter : Set.Set String, users : List String }
 
 
 type Page
@@ -228,7 +228,7 @@ init { username } =
       , users = [ "Tanaka", "Yoshida", "Saito", "Kimura", "Abe" ]
       , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
       , userPageStatus = { sessions = [], messages = [] }
-      , chatPageStatus = { filterMode = Thread }
+      , chatPageStatus = { filterMode = Thread, filter = Set.empty, users = [] }
       , editing = Set.empty
       , editingValue = Dict.empty
       }
@@ -282,6 +282,7 @@ type UserPageMsg
 
 type ChatPageMsg
     = SetFilterMode FilterMode
+    | SetFilter String Bool
 
 
 onKeyDown : (Int -> msg) -> Attribute msg
@@ -336,8 +337,14 @@ update msg model =
 
                 msgs =
                     List.map f ms
+
+                chatPageStatus =
+                    model.chatPageStatus
+
+                users =
+                    getMembers msgs
             in
-            ( { model | messages = Just msgs, selected = showAll msgs }, Cmd.none )
+            ( { model | messages = Just msgs, selected = showAll msgs, chatPageStatus = { chatPageStatus | users = users, filter = Set.fromList users } }, Cmd.none )
 
         EnterRoom r ->
             enterRoom r model
@@ -510,10 +517,14 @@ enterHome model =
     ( { model | page = HomePage }, Cmd.none )
 
 
+enterRoom : String -> Model -> ( Model, Cmd Msg )
 enterRoom r model =
     let
+        users =
+            []
+
         new_model =
-            { model | page = RoomPage r, messages = Nothing }
+            { model | page = RoomPage r, messages = Nothing, chatPageStatus = { filterMode = Person, filter = Set.fromList users, users = users } }
     in
     ( new_model, Cmd.batch [ updatePageHash new_model, getMessages r ] )
 
@@ -582,6 +593,22 @@ updateChatPageStatus msg model =
     case msg of
         SetFilterMode mode ->
             ( { model | filterMode = mode }, Cmd.none )
+
+        SetFilter item enabled ->
+            let
+                _ =
+                    Debug.log "setfilter" model.filter
+            in
+            ( { model
+                | filter =
+                    if enabled then
+                        Set.insert item model.filter
+
+                    else
+                        Set.remove item model.filter
+              }
+            , Cmd.none
+            )
 
 
 mkComment : String -> List (Html.Html msg)
@@ -844,7 +871,7 @@ topPane model =
 
                 Person ->
                     div [ id "top-pane-list-container" ]
-                        [ ul [] <| List.map (\u -> li [] [ input [ type_ "checkbox" ] [], span [ class "clickable", onClick (EnterUser u) ] [ text u ] ]) model.users
+                        [ ul [] <| List.map (\u -> li [] [ input [ type_ "checkbox", checked (Set.member u model.chatPageStatus.filter), onCheck (\b -> ChatPageMsg <| SetFilter u b) ] [], span [ class "clickable", onClick (EnterUser u) ] [ text u ] ]) model.chatPageStatus.users
                         ]
             ]
         ]
@@ -885,12 +912,16 @@ chatRoomView room model =
                                 (text ("Session ID: " ++ room)
                                     :: (case model.messages of
                                             Just messages ->
-                                                [ div [ id "message-count" ] [ text (String.fromInt (List.length messages) ++ " messages.") ]
+                                                let
+                                                    messages_filtered =
+                                                        List.filter (\m -> Set.member (getUser m) model.chatPageStatus.filter) messages
+                                                in
+                                                [ div [ id "message-count" ] [ text (String.fromInt (List.length messages_filtered) ++ " messages.") ]
                                                 , div [ id "chat-wrapper" ]
                                                     [ div
                                                         [ id "chat-entries" ]
                                                       <|
-                                                        List.map (showItem model) messages
+                                                        List.map (showItem model) messages_filtered
                                                     ]
                                                 ]
 
