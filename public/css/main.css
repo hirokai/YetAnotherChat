@@ -119,6 +119,7 @@ ul.menu-list li {
 }
 
 #path {
+    display: none;
     font-size: 14px;
     font-family: 'Courier New', Courier, monospace
 }

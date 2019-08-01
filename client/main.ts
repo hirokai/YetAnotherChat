@@ -90,10 +90,6 @@ app.ports.getSessionsWithSameMembers.subscribe(function ({ members, is_all }: { 
     });
 });
 
-interface AxiosResponse<T> {
-    data: T
-}
-
 app.ports.getSessionsOf.subscribe(function (user: string) {
     const params: GetSessionsOfParams = { of_members: user, token };
     axios.get('/api/sessions', { params }).then(({ data }: AxiosResponse<GetSessionsResponse>) => {
