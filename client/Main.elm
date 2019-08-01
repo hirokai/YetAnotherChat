@@ -718,7 +718,7 @@ roomUsers room model =
 
 leftMenu : Model -> Html Msg
 leftMenu model =
-    div [ class "col-md-2 col-lg-2", id "menu-left" ]
+    div [ class "d-none d-md-block col-md-5 col-lg-2", id "menu-left" ]
         ([ div [ id "username-top" ]
             [ text model.myself ]
          , div [ id "path" ] [ text (pageToPath model.page) ]
@@ -803,7 +803,7 @@ homeView model =
         [ div [ class "container-fluid" ]
             [ div [ class "row" ]
                 [ leftMenu model
-                , div [ class "offset-md-2 offset-lg-2 col-md-10 col-lg-10" ]
+                , div [ class "offset-md-2 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text "新しい会話を開始" ]
                     , div [ id "people-wrapper" ] <|
                         List.map (mkPeoplePanel model.newSessionStatus.selected)
@@ -843,7 +843,7 @@ newSessionView model =
         [ div [ class "container-fluid" ]
             [ div [ class "row" ]
                 [ leftMenu model
-                , div [ class "offset-md-2 offset-lg-2 col-md-10 col-lg-10" ]
+                , div [ class "offset-md-2 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text "新しい会話を開始" ]
                     , div [ id "people-wrapper" ] <|
                         List.map (mkPeoplePanel model.newSessionStatus.selected)
@@ -887,7 +887,7 @@ topPane model =
                        )
     in
     div [ class "row" ]
-        [ div [ id "top-pane", class "col-md-10 col-lg-10" ]
+        [ div [ id "top-pane", class "col-md-12 col-lg-12" ]
             [ div []
                 [ span [ class "top-page-menu-label" ] [ text "フィルタ" ]
                 , button [ klass Thread, onClick (ChatPageMsg <| SetFilterMode Thread) ] [ text "スレッド" ]
@@ -918,10 +918,10 @@ chatRoomView room model =
         [ div [ class "container-fluid" ]
             [ div [ class "row" ]
                 [ leftMenu model
-                , div [ class "offset-md-2 offset-lg-2 col-md-10 col-lg-10" ]
+                , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ topPane model
                     , div [ class "row", id "chat-container" ]
-                        [ div [ class "col-md-10 col-lg-10" ]
+                        [ div [ class "col-md-12 col-lg-12" ]
                             [ h1 []
                                 [ if Set.member "room-title" model.editing then
                                     input
