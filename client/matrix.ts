@@ -15,7 +15,7 @@ function scrollToBottom() {
 app.ports.scrollToBottom.subscribe(scrollToBottom);
 
 app.ports.getMessages.subscribe(function (obj) {
-    $.get('http://localhost:3000/api/matrix', { timespan: obj.timespan }).then((res) => {
+    $.get('/api/matrix', { timespan: obj.timespan }).then((res) => {
         app.ports.feedMatrix.send(res);
     });
 });
@@ -37,7 +37,7 @@ var users = {};
 
 console.log(app.ports);
 app.ports.getUsers.subscribe(function () {
-    $.get('http://localhost:3000/users').done((res) => {
+    $.get('/users').done((res) => {
         users = keyBy(res, 'id');
         app.ports.feedUsers.send(res);
     }).fail(() => {
@@ -46,7 +46,7 @@ app.ports.getUsers.subscribe(function () {
 });
 
 app.ports.getMessageAt.subscribe(function (obj) {
-    $.get('http://localhost:3000/comments_by_date_user', { date: obj[0], user: obj[1] != "" ? obj[1] : null, timespan: obj[2] }).done((res) => {
+    $.get('/comments_by_date_user', { date: obj[0], user: obj[1] != "" ? obj[1] : null, timespan: obj[2] }).done((res) => {
         app.ports.feedMessages.send(processMessages(res))
     }).fail(() => {
         app.ports.feedMessages.send([]);
@@ -54,7 +54,7 @@ app.ports.getMessageAt.subscribe(function (obj) {
 });
 
 app.ports.sendCommentToServer.subscribe(function (comment) {
-    $.post('http://localhost:3000/comments', { comment: comment, user: 'myself' }).then(() => {
+    $.post('/comments', { comment: comment, user: 'myself' }).then(() => {
         scrollToBottom();
     });
 });

@@ -36,12 +36,12 @@
                 const username = $('#username').val();
                 const password = $('#password').val();
                 console.log(username, password);
-                $.post('http://localhost:3000/api/login', { username, password }).then((res) => {
+                $.post('/api/login', { username, password }).then((res) => {
                     if (res.ok && res.token) {
                         console.log(res);
                         localStorage.setItem("yacht.token", res.token);
                         localStorage.setItem("yacht.username", res.decoded.username);
-                        location.href = 'http://localhost:3000/main';
+                        location.href = '/main';
                     } else {
                         console.log(res);
                     }
