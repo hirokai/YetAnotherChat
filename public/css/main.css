@@ -30,6 +30,14 @@ div#footer {
 
 #menu-left {
     background: rgb(140, 142, 196);
+    position: fixed;
+    bottom: 5px;
+    top: 5px;
+}
+
+#chat-container {
+    position: absolute;
+    top: 320px;
 }
 
 #chat-wrapper {
@@ -143,6 +151,8 @@ ul.menu-list li {
 }
 
 #top-pane {
+    z-index: 100;
+    position: fixed;
     height: 300px;
     padding: 5px 0px 0px 0px;
     background: #ccc;
