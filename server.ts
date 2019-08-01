@@ -259,6 +259,13 @@ import { UserInfo } from "os";
         });
     });
 
+    app.post('/mailgun_webhook', (req, res) => {
+        console.log('POST mailgun', req.body);
+        fs.writeFile('mailgun/' + req.body['Message-Id'] + '.json', JSON.stringify(req.body, null, 2), () => {
+            res.json({ status: "ok" });
+        });
+    });
+
     http.listen(port, () => {
         console.log("server is running at port " + port);
     })
