@@ -18,21 +18,14 @@ import { UserInfo } from "os";
     var http = require('http').createServer(app);
     const io = require('socket.io')(http);
 
-    console.log(io);
-
-
     interface MyResponse extends Response {
         token: any;
         header: (k: string, v: string) => void;
     }
 
-    interface CommentPostRequest {
+    interface MyPostRequest<T> {
         token: any;
-        body: {
-            user: string,
-            session: string,
-            comment: string,
-        }
+        body: T
     }
 
     const port = 3000;
@@ -234,14 +227,15 @@ import { UserInfo } from "os";
         }
     });
 
-    app.get('/api/comments', (req, res) => {
-        const session_id = req.query.session;
-        const user_id = req.query.user;
-        model.get_comments_list(session_id, user_id).then((comments: CommentTyp[]) => {
+    app.get('/api/comments', (req, res, next) => {
+        // https://qiita.com/yukin01/items/1a36606439123525dc6d
+        (async () => {
+            const session_id = req.query.session;
+            const user_id = req.query.user;
+            const comments: CommentTyp[] = await model.get_comments_list(session_id, user_id);
             res.json(comments);
-        });
+        })().catch(next);
     });
-
 
     app.get('/api/sent_email', (req, res) => {
         model.get_sent_mail(req.query.q).then((data) => {
@@ -250,8 +244,7 @@ import { UserInfo } from "os";
         });
     });
 
-
-    app.post('/api/comments', (req: CommentPostRequest, res: JsonResponse<PostCommentResponse>) => {
+    app.post('/api/comments', (req: MyPostRequest<PostCommentData>, res: JsonResponse<PostCommentResponse>) => {
         db.serialize(() => {
             const ts = new Date().getTime();
             const user = req.body.user;

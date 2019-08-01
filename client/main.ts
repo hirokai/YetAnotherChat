@@ -97,10 +97,7 @@ interface AxiosResponse<T> {
 app.ports.getSessionsOf.subscribe(function (user: string) {
     const params: GetSessionsOfParams = { of_members: user, token };
     axios.get('http://localhost:3000/api/sessions', { params }).then(({ data }: AxiosResponse<GetSessionsResponse>) => {
-        console.log(data);
-        app.ports.feedSessionsOf.send(map(data.data, (r) => {
-            return r.id;
-        }));
+        app.ports.feedSessionsOf.send(map(data.data, "id"));
     }).catch(() => {
         app.ports.feedSessionsOf.send([]);
     });
