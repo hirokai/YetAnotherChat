@@ -28,7 +28,7 @@
         }
         // https://stackoverflow.com/questions/6962658/randomize-setinterval-how-to-rewrite-same-random-after-random-interval
         (function loop() {
-            var rand = Math.round(Math.random() * (3000 - 500)) + 500;
+            var rand = Math.round(Math.random() * (8000 - 500)) + 500;
             setTimeout(function () {
                 doSomething(user, token);
                 loop();

@@ -29,18 +29,18 @@ socket.on("message", (msg: any) => {
     app.ports.onSocket.send(msg);
 });
 
-function scrollToBottom() {
+function scrollTo(id) {
+    console.log('scrollTo', id);
     window.setTimeout(() => {
-        const el = <HTMLDivElement>$('#chat-entries')[0];
-        // const el = $('#chat-wrapper')[0];
-        // el.scrollIntoView({ block: "end", inline: "nearest", behavior: "instant" });
-        el.scrollTop = el.offsetHeight;
-        const a = 1;
-        console.log('scrollToBottom', el.clientHeight);
-    }, 10);
+        const el = document.getElementById(id);
+        if (el) {
+            console.log('scrollTo', id);
+            el.scrollIntoView(true);
+        }
+    }, 50);
 }
 
-app.ports.scrollToBottom.subscribe(scrollToBottom);
+app.ports.scrollTo.subscribe(scrollTo);
 
 const processData = (res: CommentTyp[]): CommentTypClient[] => {
     return map(res, (m) => {
@@ -115,7 +115,7 @@ app.ports.getRoomInfo.subscribe(function () {
 app.ports.sendCommentToServer.subscribe(function ({ comment, user, session }: { comment: string, user: string, session: string }) {
     $.post('/api/comments', { comment, user, session, token }).then((res: PostCommentResponse) => {
         getAndfeedRoolmInfo();
-        scrollToBottom();
+        scrollTo(res.data.id);
     });
 });
 
@@ -130,6 +130,7 @@ app.ports.setPageHash.subscribe(function (hash: string) {
     location.hash = hash;
 });
 
+
 window.addEventListener('hashchange', (ev: HashChangeEvent) => {
     console.log('hashChange', location.hash, app.ports.hashChanged);
     app.ports.hashChanged.send(location.hash);
@@ -137,3 +138,4 @@ window.addEventListener('hashchange', (ev: HashChangeEvent) => {
 });
 
 app.ports.hashChanged.send(location.hash);
+
