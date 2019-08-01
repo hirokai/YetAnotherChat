@@ -799,7 +799,7 @@ homeView model =
         [ div [ class "container-fluid" ]
             [ div [ class "row" ]
                 [ leftMenu model
-                , div [ class "col-md-10 col-lg-10" ]
+                , div [ class "offset-md-2 offset-lg-2 col-md-10 col-lg-10" ]
                     [ h1 [] [ text "新しい会話を開始" ]
                     , div [ id "people-wrapper" ] <|
                         List.map (mkPeoplePanel model.newSessionStatus.selected)
@@ -839,7 +839,7 @@ newSessionView model =
         [ div [ class "container-fluid" ]
             [ div [ class "row" ]
                 [ leftMenu model
-                , div [ class "col-md-10 col-lg-10" ]
+                , div [ class "offset-md-2 offset-lg-2 col-md-10 col-lg-10" ]
                     [ h1 [] [ text "新しい会話を開始" ]
                     , div [ id "people-wrapper" ] <|
                         List.map (mkPeoplePanel model.newSessionStatus.selected)
