@@ -14,6 +14,12 @@ interface PostCommentResponse {
     error?: string
 }
 
+
+interface AxiosResponse<T> {
+    data: T
+}
+
+
 interface CommentTyp {
     id: string,
     user_id: string,
