@@ -18,6 +18,8 @@ import { UserInfo } from "os";
     const io = require('socket.io')(http);
     const multer = require('multer');
     const mail_algo = require('./mail_algo');
+    const credential = require('./private/credential');
+    const user_info = require('./private/user_info');
 
 
     interface MyResponse extends Response {
@@ -57,7 +59,6 @@ import { UserInfo } from "os";
     });
 
     app.get('/main', (req, res) => {
-        // res.sendFile(path.join(__dirname, './dist/main2.html'));
         res.sendFile(path.join(__dirname, './public/html/main.html'));
     });
 
@@ -68,10 +69,10 @@ import { UserInfo } from "os";
 
     app.post('/api/login', (req, res) => {
         const { username, password } = req.body;
-        if (_.includes(["Tanaka", "Abe"], username) && password == "1234") {
+        if (_.includes(user_info.allowed_users, username) && (_.includes(user_info.allowed_passwords, password))) {
             console.log("login ok", req.user);
-            const token = jwt.sign({ username }, "hogehuga", { expiresIn: 604800 });
-            jwt.verify(token, "hogehuga", function (err, decoded) {
+            const token = jwt.sign({ username }, credential.jwt_secret, { expiresIn: 604800 });
+            jwt.verify(token, credential.jwt_secret, function (err, decoded) {
                 res.json({ ok: true, token, decoded });
             });
         } else {
@@ -81,7 +82,7 @@ import { UserInfo } from "os";
 
     app.get('/api/verify_token', (req, res) => {
         var token = req.body.token || req.query.token || req.headers['x-access-token'];
-        jwt.verify(token, "hogehuga", function (err, decoded) {
+        jwt.verify(token, credential.jwt_secret, function (err, decoded) {
             if (err) {
                 res.status(200).json({ valid: false });
             } else {
@@ -102,7 +103,7 @@ import { UserInfo } from "os";
             res.status(403).send({ ok: false, message: 'No token provided.' });
             return
         }
-        jwt.verify(token, "hogehuga", function (err, decoded) {
+        jwt.verify(token, credential.jwt_secret, function (err, decoded) {
             if (err) {
                 console.log("auth failed", decoded, err)
                 res.status(403).json({ ok: false, error: 'Invalid token.' });
