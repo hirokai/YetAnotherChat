@@ -29,7 +29,7 @@
     "server:watch": "tsc -w & node-dev --no-notify server.js",
     "db": "sqlite3 private/db.sqlite3",
     "client:watch": "webpack -w --env.development",
-    "build": "webpack --env.production && tsc"
+    "build": "tsc && npx webpack --env.production"
   },
   "devDependencies": {
     "@types/axios": "^0.14.0",
