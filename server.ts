@@ -18,6 +18,7 @@ import { UserInfo } from "os";
     const io = require('socket.io')(http);
     const multer = require('multer');
 
+
     interface MyResponse extends Response {
         token: any;
         header: (k: string, v: string) => void;
@@ -36,7 +37,7 @@ import { UserInfo } from "os";
 
     app.use(pretty({ query: 'pretty' }));
 
-    app.use(bodyParser.urlencoded({ extended: true }));
+    app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
     app.use(bodyParser.json());
 
     // db.run('drop table if exists comments;')
@@ -265,11 +266,13 @@ import { UserInfo } from "os";
     app.post('/mailgun_webhook', multer().none(), (req, res) => {
         fs.writeFile('mailgun/' + req.body['Message-Id'] + '.json', JSON.stringify(req.body, null, 2), () => {
             res.json({ status: "ok" });
-            const data = model.parseMailgunWebhook(req.body);
-            model.post_comment(data.user_id, data.session_id, data.timestamp, data.comment, data.original_url).then(() => {
-                io.emit("message", _.extend({}, { __type: "new_comment" }, data));
+            const data: MailgunParsed = model.parseMailgunWebhook(req.body);
+            mail_algo.find_email_session(db, data).then((session_id: string) => {
+                model.post_comment(data.user_id, session_id, data.timestamp, data.comment, data.message_id).then(() => {
+                    io.emit("message", _.extend({}, { __type: "new_comment" }, data));
+                });
+                console.log('Received email from: ', req.body['From']);
             });
-            console.log('Received email from: ', req.body['From']);
         });
     });
 

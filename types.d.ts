@@ -26,10 +26,12 @@ interface CommentTyp {
 
 interface MailgunParsed {
     id: string,
+    subject: string,
     user_id: string,
     comment: string,
     timestamp: number,
     message_id: string,
+    references: string[]
     sent_to: string,
     body: any
 }
