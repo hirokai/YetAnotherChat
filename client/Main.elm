@@ -77,7 +77,7 @@ port onSocket : (Json.Value -> msg) -> Sub msg
 
 type ChatEntry
     = Comment CommentTyp
-    | ChatFile { user : String, filename : String }
+    | ChatFile { id : String, user : String, filename : String }
 
 
 type alias Member =
@@ -143,7 +143,11 @@ type FilterMode
 
 
 type alias ChatPageModel =
-    { filterMode : FilterMode, filter : Set.Set String, users : List String }
+    { filterMode : FilterMode
+    , filter : Set.Set String
+    , users : List String
+    , messages : Maybe (List ChatEntry)
+    }
 
 
 type Page
@@ -194,7 +198,6 @@ type alias Model =
     { page : Page
     , rooms : List RoomID
     , users : List Member
-    , messages : Maybe (List ChatEntry)
     , onlineUsers : List Member
     , myself : Member
     , selected : Dict Member Bool
@@ -219,8 +222,7 @@ getRoomID model =
 
 init : Flags -> ( Model, Cmd Msg )
 init { username } =
-    ( { messages = Nothing
-      , selected = showAll []
+    ( { selected = showAll []
       , onlineUsers = []
       , myself = username
       , roomInfo = Dict.empty
@@ -229,7 +231,7 @@ init { username } =
       , users = [ "Tanaka", "Yoshida", "Saito", "Kimura", "Abe" ]
       , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
       , userPageStatus = { sessions = [], messages = [] }
-      , chatPageStatus = { filterMode = Thread, filter = Set.empty, users = [] }
+      , chatPageStatus = { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing }
       , editing = Set.empty
       , editingValue = Dict.empty
       }
@@ -249,7 +251,6 @@ main =
 
 type Msg
     = ToggleMember Member
-    | FeedMessages (List CommentTyp)
     | EnterRoom RoomID
     | EnterUser String
     | NewSessionMsg NewSessionMsg
@@ -284,6 +285,8 @@ type UserPageMsg
 type ChatPageMsg
     = SetFilterMode FilterMode
     | SetFilter String Bool
+    | ScrollToBottom
+    | FeedMessages (List CommentTyp)
 
 
 onKeyDown : (Int -> msg) -> Attribute msg
@@ -293,9 +296,16 @@ onKeyDown tagger =
 
 addComment : String -> Model -> Model
 addComment comment model =
-    case model.messages of
+    case model.chatPageStatus.messages of
         Just messages ->
-            { model | messages = Just <| List.append messages [ Comment { id = "__latest", user = model.myself, comment = comment, originalUrl = "", sentTo = "all", timestamp = "", session = "" } ] }
+            let
+                chatPageStatus =
+                    model.chatPageStatus
+
+                msgs =
+                    Just <| List.append messages [ Comment { id = "__latest", user = model.myself, comment = comment, originalUrl = "", sentTo = "all", timestamp = "", session = "" } ]
+            in
+            { model | chatPageStatus = { chatPageStatus | messages = msgs } }
 
         Nothing ->
             model
@@ -330,22 +340,6 @@ update msg model =
 
                 Err err ->
                     ( model, Cmd.none )
-
-        FeedMessages ms ->
-            let
-                f { id, user, comment, timestamp, originalUrl, sentTo } =
-                    Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = "" }
-
-                msgs =
-                    List.map f ms
-
-                chatPageStatus =
-                    model.chatPageStatus
-
-                users =
-                    getMembers msgs
-            in
-            ( { model | messages = Just msgs, selected = showAll msgs, chatPageStatus = { chatPageStatus | users = users, filter = Set.fromList users } }, Cmd.none )
 
         EnterRoom r ->
             enterRoom r model
@@ -453,13 +447,19 @@ update msg model =
                             f : NewCommentMsg -> ChatEntry
                             f { id, user, comment, timestamp, session, originalUrl, sentTo } =
                                 Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = session }
+
+                            cm =
+                                model.chatPageStatus
                         in
                         ( { model
-                            | messages =
-                                Just
-                                    (Maybe.withDefault [] model.messages
-                                        ++ [ f v1 ]
-                                    )
+                            | chatPageStatus =
+                                { cm
+                                    | messages =
+                                        Just
+                                            (Maybe.withDefault [] cm.messages
+                                                ++ [ f v1 ]
+                                            )
+                                }
                           }
                         , scrollTo v1.id
                         )
@@ -526,7 +526,7 @@ enterRoom r model =
             []
 
         new_model =
-            { model | page = RoomPage r, messages = Nothing, chatPageStatus = { filterMode = Person, filter = Set.fromList users, users = users } }
+            { model | page = RoomPage r, chatPageStatus = { filterMode = Person, filter = Set.fromList users, users = users, messages = Nothing } }
     in
     ( new_model, Cmd.batch [ updatePageHash new_model, getMessages r ] )
 
@@ -534,7 +534,7 @@ enterRoom r model =
 enterUser u model =
     let
         new_model =
-            { model | page = UserPage u, messages = Nothing }
+            { model | page = UserPage u }
     in
     ( new_model, Cmd.batch [ updatePageHash new_model, getSessionsOf u, getUserMessages u ] )
 
@@ -611,6 +611,34 @@ updateChatPageStatus msg model =
               }
             , Cmd.none
             )
+
+        ScrollToBottom ->
+            let
+                messages_filtered =
+                    List.filter (\m -> Set.member (getUser m) model.filter) (Maybe.withDefault [] model.messages)
+            in
+            case List.Extra.last messages_filtered of
+                Just (Comment m) ->
+                    ( model, scrollTo m.id )
+
+                Just (ChatFile m) ->
+                    ( model, scrollTo m.id )
+
+                Nothing ->
+                    ( model, Cmd.none )
+
+        FeedMessages ms ->
+            let
+                f { id, user, comment, timestamp, originalUrl, sentTo } =
+                    Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = "" }
+
+                msgs =
+                    List.map f ms
+
+                users =
+                    getMembers msgs
+            in
+            ( { model | messages = Just msgs, users = users, filter = Set.fromList users }, Cmd.none )
 
 
 mkComment : String -> List (Html.Html msg)
@@ -886,9 +914,9 @@ chatRoomView room model =
         [ div [ class "container-fluid" ]
             [ div [ class "row" ]
                 [ leftMenu model
-                , div [ class "col-md-10 col-lg-10" ]
+                , div [ class "offset-md-2 offset-lg-2 col-md-10 col-lg-10" ]
                     [ topPane model
-                    , div [ class "row" ]
+                    , div [ class "row", id "chat-container" ]
                         [ div [ class "col-md-10 col-lg-10" ]
                             [ h1 []
                                 [ if Set.member "room-title" model.editing then
@@ -912,13 +940,16 @@ chatRoomView room model =
                             , div [] ([ text <| "参加者：" ] ++ List.intersperse (text ", ") (List.map (\u -> a [ onClick (EnterUser u), class "clickable" ] [ text u ]) (roomUsers room model)))
                             , div []
                                 (text ("Session ID: " ++ room)
-                                    :: (case model.messages of
+                                    :: (case model.chatPageStatus.messages of
                                             Just messages ->
                                                 let
                                                     messages_filtered =
                                                         List.filter (\m -> Set.member (getUser m) model.chatPageStatus.filter) messages
                                                 in
-                                                [ div [ id "message-count" ] [ text (String.fromInt (List.length messages_filtered) ++ " messages.") ]
+                                                [ div [ id "message-count" ]
+                                                    [ text (String.fromInt (List.length messages_filtered) ++ " messages.")
+                                                    , button [ class "btn-sm btn-light btn", onClick (ChatPageMsg ScrollToBottom) ] [ text "⬇⬇" ]
+                                                    ]
                                                 , div [ id "chat-wrapper" ]
                                                     [ div
                                                         [ id "chat-entries" ]
@@ -1010,7 +1041,7 @@ userPageView user model =
         [ div [ class "container-fluid" ]
             [ div [ class "row" ]
                 [ leftMenu model
-                , div [ class "col-md-10 col-lg-10" ]
+                , div [ class "offset-md-2 offset-lg-2 col-md-10 col-lg-10" ]
                     [ h1 [] [ text user ]
                     , div [] [ text <| String.fromInt (List.length model.userPageStatus.messages) ++ " messages in " ++ String.fromInt (List.length model.userPageStatus.sessions) ++ " rooms." ]
                     , div [] <|
@@ -1038,7 +1069,7 @@ messageFilter =
 subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.batch
-        [ feedMessages FeedMessages
+        [ feedMessages (\ms -> ChatPageMsg <| FeedMessages ms)
         , feedUserMessages (\s -> UserPageMsg <| FeedUserMessages s)
         , receiveNewRoomInfo ReceiveNewSessionId
         , hashChanged HashChanged
