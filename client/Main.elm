@@ -1,4 +1,4 @@
-port module Main exposing (ChatEntry(..), Flags, Member, Model, Msg(..), addComment, feedMessages, feedUserMessages, getMembers, getMessages, getUserMessages, iconOfUser, init, isSelected, main, mkComment, onKeyDown, scrollToBottom, showAll, showItem, subscriptions, update, view)
+port module Main exposing (ChatEntry(..), Flags, Member, Model, Msg(..), addComment, feedMessages, feedUserMessages, getMembers, getMessages, getUserMessages, iconOfUser, init, isSelected, main, mkComment, onKeyDown, scrollTo, showAll, showItem, subscriptions, update, view)
 
 import Browser
 import Dict exposing (Dict)
@@ -42,7 +42,7 @@ port feedSessionsWithSameMembers : (List String -> msg) -> Sub msg
 port feedSessionsOf : (List String -> msg) -> Sub msg
 
 
-port scrollToBottom : () -> Cmd msg
+port scrollTo : String -> Cmd msg
 
 
 port createNewSession : ( String, List Member ) -> Cmd msg
@@ -416,7 +416,7 @@ update msg model =
         SubmitComment ->
             case ( Dict.get "chat" model.editingValue, getRoomID model ) of
                 ( Just comment, Just room ) ->
-                    ( addComment comment model, Cmd.batch [ scrollToBottom (), sendCommentToServer { comment = comment, user = model.myself, session = room } ] )
+                    ( addComment comment model, Cmd.batch [ scrollTo "__latest", sendCommentToServer { comment = comment, user = model.myself, session = room } ] )
 
                 _ ->
                     ( model, Cmd.none )
@@ -461,7 +461,7 @@ update msg model =
                                         ++ [ f v1 ]
                                     )
                           }
-                        , Cmd.none
+                        , scrollTo v1.id
                         )
 
                 _ ->
