@@ -244,25 +244,32 @@ import { UserInfo } from "os";
         });
     });
 
-    app.post('/api/comments', (req: MyPostRequest<PostCommentData>, res: JsonResponse<PostCommentResponse>) => {
+    app.post('/api/comments', (req: MyPostRequest<PostCommentData>, res: JsonResponse<PostCommentResponse>, next) => {
         db.serialize(() => {
             const ts = new Date().getTime();
             const user = req.body.user;
             const comment = req.body.comment;
             const session_id = req.body.session;
-            db.run('insert into comments (user_id,comment,timestamp,session_id) values (?,?,?,?);', user, comment, ts, session_id, (err) => {
-                console.log(err);
+            (async () => {
+                const _ = await model.post_comment(user, session_id, ts, comment);
                 const data = { timestamp: ts, user_id: user, comment: comment, session_id, original_url: "", sent_to: "" };
-                res.json({ ok: err === null, data });
+                res.json({ ok: true, data });
                 io.emit("message", _.extend({}, { __type: "new_comment" }, data));
+            })().catch(() => {
+                res.json({ ok: false, error: "DB error." })
             });
         });
     });
+
 
     app.post('/mailgun_webhook', (req, res) => {
         console.log('POST mailgun', req.body);
         fs.writeFile('mailgun/' + req.body['Message-Id'] + '.json', JSON.stringify(req.body, null, 2), () => {
             res.json({ status: "ok" });
+            const data = model.parseMailgunWebhook(req.body);
+            model.post_comment(data.user_id, data.session_id, data.timestamp, data.comment, data.original_url).then(() => {
+                io.emit("message", _.extend({}, { __type: "new_comment" }, data));
+            });
         });
     });
 
