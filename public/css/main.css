@@ -140,3 +140,27 @@ ul.menu-list li {
     font-size: 12px;
     float: right;
 }
+
+#top-pane {
+    height: 300px;
+    padding: 5px 0px 0px 0px;
+    background: #ccc;
+}
+
+#top-pane-list-container {
+    height: 270px;
+    overflow: scroll;
+}
+
+.top-page-menu-label {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+#top-pane .btn-sm {
+    margin-left: 10px;
+}
+
+#top-pane .btn.active {
+    font-weight: bold ! important;
+}

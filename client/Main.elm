@@ -135,6 +135,16 @@ type alias UserPageModel =
     { sessions : List RoomID, messages : List ChatEntry }
 
 
+type FilterMode
+    = Date
+    | Person
+    | Thread
+
+
+type alias ChatPageModel =
+    { filterMode : FilterMode }
+
+
 type Page
     = RoomPage RoomID
     | UserPage String
@@ -190,6 +200,7 @@ type alias Model =
     , roomInfo : Dict RoomID RoomInfo
     , newSessionStatus : NewSessionStatus
     , userPageStatus : UserPageModel
+    , chatPageStatus : ChatPageModel
     , editing : Set.Set String
     , editingValue : Dict String String
     }
@@ -217,6 +228,7 @@ init { username } =
       , users = [ "Tanaka", "Yoshida", "Saito", "Kimura", "Abe" ]
       , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
       , userPageStatus = { sessions = [], messages = [] }
+      , chatPageStatus = { filterMode = Thread }
       , editing = Set.empty
       , editingValue = Dict.empty
       }
@@ -241,6 +253,7 @@ type Msg
     | EnterUser String
     | NewSessionMsg NewSessionMsg
     | UserPageMsg UserPageMsg
+    | ChatPageMsg ChatPageMsg
     | StartSession (Set.Set Member)
     | ReceiveNewSessionId { timestamp : Int, name : String, id : RoomID }
     | FeedRoomInfo Json.Value
@@ -265,6 +278,10 @@ type NewSessionMsg
 type UserPageMsg
     = FeedSessions (List String)
     | FeedUserMessages (List CommentTyp)
+
+
+type ChatPageMsg
+    = SetFilterMode FilterMode
 
 
 onKeyDown : (Int -> msg) -> Attribute msg
@@ -342,6 +359,13 @@ update msg model =
             in
             ( { model | userPageStatus = m }, c )
 
+        ChatPageMsg msg1 ->
+            let
+                ( m, c ) =
+                    updateChatPageStatus msg1 model.chatPageStatus
+            in
+            ( { model | chatPageStatus = m }, c )
+
         StartSession users ->
             let
                 user_list =
@@ -414,22 +438,23 @@ update msg model =
             case Json.decodeValue socketDecoder v of
                 Ok (NewComment v1) ->
                     if RoomPage v1.session /= model.page then
-                        (model,Cmd.none)
+                        ( model, Cmd.none )
+
                     else
-                    let
-                        f : NewCommentMsg -> ChatEntry
-                        f { user, comment, timestamp, session, originalUrl, sentTo } =
-                            Comment { user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = session }
-                    in
-                    ( { model
-                        | messages =
-                            Just
-                                (Maybe.withDefault [] model.messages
-                                    ++[ f v1 ]
-                                )
-                      }
-                    , Cmd.none
-                    )
+                        let
+                            f : NewCommentMsg -> ChatEntry
+                            f { user, comment, timestamp, session, originalUrl, sentTo } =
+                                Comment { user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = session }
+                        in
+                        ( { model
+                            | messages =
+                                Just
+                                    (Maybe.withDefault [] model.messages
+                                        ++ [ f v1 ]
+                                    )
+                          }
+                        , Cmd.none
+                        )
 
                 _ ->
                     let
@@ -550,6 +575,13 @@ updateUserPageStatus msg model =
                     List.map f ms
             in
             ( { model | messages = msgs }, Cmd.none )
+
+
+updateChatPageStatus : ChatPageMsg -> ChatPageModel -> ( ChatPageModel, Cmd msg )
+updateChatPageStatus msg model =
+    case msg of
+        SetFilterMode mode ->
+            ( { model | filterMode = mode }, Cmd.none )
 
 
 mkComment : String -> List (Html.Html msg)
@@ -707,7 +739,7 @@ homeView : Model -> { title : String, body : List (Html Msg) }
 homeView model =
     { title = "Slack clone"
     , body =
-        [ div [ class "container" ]
+        [ div [ class "container-fluid" ]
             [ div [ class "row" ]
                 [ leftMenu model
                 , div [ class "col-md-10 col-lg-10" ]
@@ -747,7 +779,7 @@ newSessionView : Model -> { title : String, body : List (Html Msg) }
 newSessionView model =
     { title = "Slack clone"
     , body =
-        [ div [ class "container" ]
+        [ div [ class "container-fluid" ]
             [ div [ class "row" ]
                 [ leftMenu model
                 , div [ class "col-md-10 col-lg-10" ]
@@ -780,51 +812,94 @@ updateRoomName room newName model =
     { model | roomInfo = Dict.map f model.roomInfo }
 
 
+topPane : Model -> Html Msg
+topPane model =
+    let
+        klass n =
+            class <|
+                "btn btn-sm btn-light"
+                    ++ (if model.chatPageStatus.filterMode == n then
+                            " active"
+
+                        else
+                            ""
+                       )
+    in
+    div [ class "row" ]
+        [ div [ id "top-pane", class "col-md-10 col-lg-10" ]
+            [ div []
+                [ span [ class "top-page-menu-label" ] [ text "フィルタ" ]
+                , button [ klass Thread, onClick (ChatPageMsg <| SetFilterMode Thread) ] [ text "スレッド" ]
+                , button [ klass Person, onClick (ChatPageMsg <| SetFilterMode Person) ] [ text "人" ]
+                , button [ klass Date, onClick (ChatPageMsg <| SetFilterMode Date) ] [ text "日付" ]
+                ]
+            , case model.chatPageStatus.filterMode of
+                Thread ->
+                    div [ id "top-pane-list-container" ]
+                        [ ul [] <| List.map (\r -> li [] [ input [ type_ "checkbox" ] [], span [ class "clickable", onClick (EnterRoom r) ] [ text (roomName r model) ] ]) model.rooms
+                        ]
+
+                Date ->
+                    div [] []
+
+                Person ->
+                    div [ id "top-pane-list-container" ]
+                        [ ul [] <| List.map (\u -> li [] [ input [ type_ "checkbox" ] [], span [ class "clickable", onClick (EnterUser u) ] [ text u ] ]) model.users
+                        ]
+            ]
+        ]
+
+
 chatRoomView : RoomID -> Model -> { title : String, body : List (Html Msg) }
 chatRoomView room model =
     { title = "Slack clone"
     , body =
-        [ div [ class "container" ]
+        [ div [ class "container-fluid" ]
             [ div [ class "row" ]
                 [ leftMenu model
                 , div [ class "col-md-10 col-lg-10" ]
-                    [ h1 []
-                        [ if Set.member "room-title" model.editing then
-                            input
-                                [ value (Maybe.withDefault "(N/A)" <| Dict.get "room-title" model.editingValue)
-                                , onKeyDown
-                                    (let
-                                        nv =
-                                            Maybe.withDefault "" <| Dict.get "room-title" model.editingValue
-                                     in
-                                     EditingKeyDown "room-title" (updateRoomName room nv) (sendRoomName { id = room, new_name = nv })
-                                    )
-                                , onInput (UpdateEditingValue "room-title")
-                                ]
-                                []
-
-                          else
-                            text <| Maybe.withDefault "(N/A)" (Maybe.map (\a -> a.name) (Dict.get room model.roomInfo))
-                        , a [ id "edit-roomname", class "clickable", onClick (StartEditing "room-title" (roomName room model)) ] [ text "Edit" ]
-                        ]
-                    , div [] ([ text <| "参加者：" ] ++ List.intersperse (text ", ") (List.map (\u -> a [ onClick (EnterUser u), class "clickable" ] [ text u ]) (roomUsers room model)))
-                    , div []
-                        (text ("Session ID: " ++ room)
-                            :: (case model.messages of
-                                    Just messages ->
-                                        [ div [ id "message-count" ] [ text (String.fromInt (List.length messages) ++ " messages.") ]
-                                        , div [ id "chat-wrapper" ]
-                                            [ div
-                                                [ id "chat-entries" ]
-                                              <|
-                                                List.map (showItem model) messages
-                                            ]
+                    [ topPane model
+                    , div [ class "row" ]
+                        [ div [ class "col-md-10 col-lg-10" ]
+                            [ h1 []
+                                [ if Set.member "room-title" model.editing then
+                                    input
+                                        [ value (Maybe.withDefault "(N/A)" <| Dict.get "room-title" model.editingValue)
+                                        , onKeyDown
+                                            (let
+                                                nv =
+                                                    Maybe.withDefault "" <| Dict.get "room-title" model.editingValue
+                                             in
+                                             EditingKeyDown "room-title" (updateRoomName room nv) (sendRoomName { id = room, new_name = nv })
+                                            )
+                                        , onInput (UpdateEditingValue "room-title")
                                         ]
-
-                                    Nothing ->
                                         []
-                               )
-                        )
+
+                                  else
+                                    text <| Maybe.withDefault "(N/A)" (Maybe.map (\a -> a.name) (Dict.get room model.roomInfo))
+                                , a [ id "edit-roomname", class "clickable", onClick (StartEditing "room-title" (roomName room model)) ] [ text "Edit" ]
+                                ]
+                            , div [] ([ text <| "参加者：" ] ++ List.intersperse (text ", ") (List.map (\u -> a [ onClick (EnterUser u), class "clickable" ] [ text u ]) (roomUsers room model)))
+                            , div []
+                                (text ("Session ID: " ++ room)
+                                    :: (case model.messages of
+                                            Just messages ->
+                                                [ div [ id "message-count" ] [ text (String.fromInt (List.length messages) ++ " messages.") ]
+                                                , div [ id "chat-wrapper" ]
+                                                    [ div
+                                                        [ id "chat-entries" ]
+                                                      <|
+                                                        List.map (showItem model) messages
+                                                    ]
+                                                ]
+
+                                            Nothing ->
+                                                []
+                                       )
+                                )
+                            ]
+                        ]
                     ]
                 , div [ id "footer_wrapper", class "fixed-bottom" ]
                     [ div [ id "footer" ]
@@ -899,7 +974,7 @@ userPageView : String -> Model -> { title : String, body : List (Html Msg) }
 userPageView user model =
     { title = "Slack clone"
     , body =
-        [ div [ class "container" ]
+        [ div [ class "container-fluid" ]
             [ div [ class "row" ]
                 [ leftMenu model
                 , div [ class "col-md-10 col-lg-10" ]
