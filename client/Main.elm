@@ -296,19 +296,23 @@ onKeyDown tagger =
 
 addComment : String -> Model -> Model
 addComment comment model =
-    case model.chatPageStatus.messages of
-        Just messages ->
-            let
-                chatPageStatus =
-                    model.chatPageStatus
+    if comment /= "" then
+        case model.chatPageStatus.messages of
+            Just messages ->
+                let
+                    chatPageStatus =
+                        model.chatPageStatus
 
-                msgs =
-                    Just <| List.append messages [ Comment { id = "__latest", user = model.myself, comment = comment, originalUrl = "", sentTo = "all", timestamp = "", session = "" } ]
-            in
-            { model | chatPageStatus = { chatPageStatus | messages = msgs } }
+                    msgs =
+                        Just <| List.append messages [ Comment { id = "__latest", user = model.myself, comment = comment, originalUrl = "", sentTo = "all", timestamp = "", session = "" } ]
+                in
+                { model | chatPageStatus = { chatPageStatus | messages = msgs }, editingValue = Dict.insert "chat" "" model.editingValue }
 
-        Nothing ->
-            model
+            Nothing ->
+                model
+
+    else
+        model
 
 
 updatePageHash : Model -> Cmd Msg
@@ -975,11 +979,15 @@ chatRoomView room model =
                             , onKeyDown
                                 (case Dict.get "chat" model.editingValue of
                                     Just c ->
-                                        EditingKeyDown "chat"
-                                            (addComment c)
-                                            (sendCommentToServer
-                                                { comment = c, user = model.myself, session = room }
-                                            )
+                                        if c /= "" then
+                                            EditingKeyDown "chat"
+                                                (addComment c)
+                                                (sendCommentToServer
+                                                    { comment = c, user = model.myself, session = room }
+                                                )
+
+                                        else
+                                            \_ -> NoOp
 
                                     Nothing ->
                                         \_ -> NoOp
