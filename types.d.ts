@@ -15,12 +15,23 @@ interface PostCommentResponse {
 }
 
 interface CommentTyp {
+    id: string,
     user_id: string,
     comment: string,
     session_id: string,
     timestamp: number,
     original_url: string,
     sent_to: string,
+}
+
+interface MailgunParsed {
+    id: string,
+    user_id: string,
+    comment: string,
+    timestamp: number,
+    message_id: string,
+    sent_to: string,
+    body: any
 }
 
 interface CommentTypClient {

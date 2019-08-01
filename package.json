@@ -15,6 +15,7 @@
     "mailgun-js": "^0.22.0",
     "moment": "^2.24.0",
     "moment-timezone": "^0.5.26",
+    "multer": "^1.4.2",
     "passport": "^0.4.0",
     "passport-local": "^1.0.0",
     "popper.js": "^1.15.0",
