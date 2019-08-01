@@ -43,6 +43,7 @@ interface MailgunParsed {
 }
 
 interface CommentTypClient {
+    id: String,
     user: string,
     comment: string,
     session: string,
