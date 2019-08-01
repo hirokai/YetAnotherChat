@@ -10,7 +10,8 @@ interface RoomInfo {
 
 interface PostCommentResponse {
     ok: boolean,
-    data: CommentTyp
+    data?: CommentTyp,
+    error?: string
 }
 
 interface CommentTyp {

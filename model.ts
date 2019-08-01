@@ -1,5 +1,8 @@
 /// <reference path="./types.d.ts" />
 
+import { resolve } from "url";
+const user_info_private = require('./private/user_info');
+
 {
     const fs = require("fs");
     const path = require('path');
@@ -11,6 +14,15 @@
 
     const emojis = require("./emojis.json").emojis;
     const emoji_dict = _.keyBy(emojis, 'shortname');
+
+    function post_comment(user_id: string, session_id: string, ts: number, comment: string, original_url?: string) {
+        return new Promise((resolve) => {
+            db.run('insert into comments (user_id,comment,timestamp,session_id,url_original) values (?,?,?,?,?);', user_id, comment, ts, session_id, original_url, (err) => {
+
+                resolve();
+            });
+        });
+    }
 
     function get_sent_mail(q: string): Promise<any[]> {
         return new Promise((resolve) => {
@@ -168,6 +180,24 @@
         });
     };
 
+    function parseMailgunWebhook(body): CommentTyp {
+        const timestamp = new Date(body['Date']).getTime();
+        const comment = body['body-plain'];
+        const original_url = body['Message-Id'];
+        const session_id = 'N3PheJEZN';
+        const user_id = user_info_private.find_user(body['From']);
+        const sent_to = body['To'];
+        const data = {
+            session_id,
+            user_id,
+            original_url,
+            timestamp,
+            comment,
+            sent_to
+        };
+        return data;
+    }
+
     module.exports = {
         get_sent_mail,
         get_mail_from,
@@ -175,7 +205,9 @@
         create_new_session,
         get_session_info,
         get_session_list,
-        get_comments_list
+        get_comments_list,
+        post_comment,
+        parseMailgunWebhook
     };
 
 }
