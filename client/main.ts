@@ -140,7 +140,6 @@ app.ports.setPageHash.subscribe(function (hash: string) {
 var show_toppane = false;
 
 function recalcPositions(_show_toppane: boolean) {
-    show_toppane = _show_toppane;
     $(() => {
         $('#chat-outer').height(window.innerHeight - (show_toppane ? 280 : 120));
     });
@@ -162,6 +161,7 @@ app.ports.hashChanged.send(location.hash);
 
 app.ports.recalcElementPositions.subscribe((b: boolean) => {
     console.log("recalcElementPositions");
+    show_toppane = b;
     recalcPositions(b);
 });
 
