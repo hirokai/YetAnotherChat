@@ -137,15 +137,15 @@ app.ports.setPageHash.subscribe(function (hash: string) {
     recalcPositions(true);
 });
 
-var show_toppane = false;
+var show_toppane = true;
 
 function recalcPositions(_show_toppane: boolean) {
     $(() => {
-        $('#chat-outer').height(window.innerHeight - (show_toppane ? 280 : 120));
+        $('#chat-outer').height(window.innerHeight - (show_toppane ? 260 : 100));
     });
 
     window.addEventListener('resize', (ev: Event) => {
-        $('#chat-outer').height(window.innerHeight - (show_toppane ? 280 : 120));
+        $('#chat-outer').height(window.innerHeight - (show_toppane ? 260 : 100));
         console.log(window.innerHeight);
     });
 }
