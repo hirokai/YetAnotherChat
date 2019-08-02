@@ -590,13 +590,11 @@ enterRoom r model =
     ( new_model, Cmd.batch [ updatePageHash new_model, getMessages r ] )
 
 
+enterUser : String -> Model -> ( Model, Cmd Msg )
 enterUser u model =
     let
-        userPageStatus =
-            model.userPageStatus
-
         new_model =
-            { model | page = UserPage u, userPageStatus = { userPageStatus | messages = [] } }
+            { model | page = UserPage u, userPageStatus = { sessions = [], messages = [] } }
     in
     ( new_model, Cmd.batch [ updatePageHash new_model, getSessionsOf u, getUserMessages u ] )
 
