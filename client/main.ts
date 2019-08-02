@@ -134,26 +134,36 @@ app.ports.sendRoomName.subscribe(({ id, new_name }: { id: string, new_name: stri
 app.ports.setPageHash.subscribe(function (hash: string) {
     console.log(hash);
     location.hash = hash;
+    recalcPositions(true);
+});
 
+var show_toppane = false;
+
+function recalcPositions(_show_toppane: boolean) {
+    show_toppane = _show_toppane;
     $(() => {
-        $('#chat-outer').height(window.innerHeight - 280);
+        $('#chat-outer').height(window.innerHeight - (show_toppane ? 280 : 120));
     });
 
     window.addEventListener('resize', (ev: Event) => {
-        $('#chat-outer').height(window.innerHeight - 280);
+        $('#chat-outer').height(window.innerHeight - (show_toppane ? 280 : 120));
         console.log(window.innerHeight);
     });
-});
-
+}
 
 window.addEventListener('hashchange', (ev: HashChangeEvent) => {
     console.log('hashChange', location.hash, app.ports.hashChanged);
     app.ports.hashChanged.send(location.hash);
+    recalcPositions(show_toppane);
     return null;
 });
 
 app.ports.hashChanged.send(location.hash);
 
+app.ports.recalcElementPositions.subscribe((b: boolean) => {
+    console.log("recalcElementPositions");
+    recalcPositions(b);
+});
 
 window.setTimeout(() => {
     var test = document.getElementById("measure-width");
