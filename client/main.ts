@@ -128,6 +128,15 @@ app.ports.sendRoomName.subscribe(({ id, new_name }: { id: string, new_name: stri
 app.ports.setPageHash.subscribe(function (hash: string) {
     console.log(hash);
     location.hash = hash;
+
+    $(() => {
+        $('#chat-outer').height(window.innerHeight - 280);
+    });
+
+    window.addEventListener('resize', (ev: Event) => {
+        $('#chat-outer').height(window.innerHeight - 280);
+        console.log(window.innerHeight);
+    });
 });
 
 
@@ -139,11 +148,13 @@ window.addEventListener('hashchange', (ev: HashChangeEvent) => {
 
 app.ports.hashChanged.send(location.hash);
 
-$(() => {
-    $('#chat-outer').height(window.innerHeight - 280);
-});
 
-window.addEventListener('resize', (ev: Event) => {
-    $('#chat-outer').height(window.innerHeight - 280);
-    console.log(window.innerHeight);
-});
+
+window.setTimeout(() => {
+    var test = document.getElementById("measure-width");
+    test.innerText = "hoge";
+    var height = (test.clientHeight + 1);
+    var width = (test.clientWidth + 1);
+
+    console.log(height, width);
+}, 1000);

@@ -8,13 +8,21 @@
 }
 
 div#footer_wrapper {
+    left: 200px;
     height: 60px;
+    padding: 0px;
     padding-top: 10px;
     background: white;
+    position: static;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    margin: 0;
+    z-index: 1030;
 }
 
 div#footer {
-    margin-left: 40px;
+    margin: 0px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -124,6 +132,11 @@ ul.menu-list li {
 .chatlist-name {
     margin-top: 5px;
     cursor: pointer;
+    overflow: hidden;
+    white-space: nowrap;
+
+    text-overflow: ellipsis;
+
     /* line-height: 10px; */
 }
 
@@ -161,6 +174,14 @@ ul.menu-list li {
     padding: 10px;
 }
 
+h1 {
+    font-size: 24px;
+}
+
+hr {
+    margin: 0px;
+}
+
 .userpage-room-entry h3 {
     font-size: 16px;
     font-weight: bold;
@@ -196,4 +217,15 @@ ul.menu-list li {
 
 #top-pane .btn.active {
     font-weight: bold ! important;
+}
+
+// https://stackoverflow.com/questions/118241/calculate-text-width-with-javascript
+#measure-width {
+    position: absolute;
+    display: block;
+    visibility: hidden;
+    height: auto;
+    width: auto;
+    white-space: nowrap;
+    /* Thanks to Herb Caudill comment */
 }

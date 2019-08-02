@@ -737,16 +737,25 @@ showUsers room model =
         List.map (\u -> li [] [ a [ class "clickable", onClick (EnterUser u) ] [ text u ] ]) (roomUsers room model)
 
 
+truncate n s =
+    if String.length s > n then
+        String.left n s ++ "..."
+
+    else
+        s
+
+
 showChannels : Model -> List (Html Msg)
 showChannels model =
     case model.page of
         RoomPage room ->
             [ p [] [ text "チャンネル" ]
             , ul [ class "menu-list" ] <|
-                List.map
-                    (\r ->
+                (List.indexedMap
+                    (\i r ->
                         li []
-                            [ div
+                            [ hr [] []
+                            , div
                                 [ class <|
                                     "chatlist-name clickable"
                                         ++ (if RoomPage r == model.page then
@@ -756,11 +765,13 @@ showChannels model =
                                                 ""
                                            )
                                 ]
-                                [ a [ onClick (EnterRoom r) ] [ text (roomName r model) ] ]
+                                [ a [ onClick (EnterRoom r) ] [ text (String.fromInt (i+1) ++": " ++roomName r model) ] ]
                             , div [ class "chatlist-members" ] (List.intersperse (text ",") <| List.map (\u -> a [ class "chatlist-member clickable", onClick (EnterUser u) ] [ text u ]) <| roomUsers r model)
                             ]
                     )
                     model.rooms
+                 -- ++ [li [] [div [ class "chatlist-name" ] [a [id "measure-width"] []]]]
+                )
             ]
 
         _ ->
@@ -972,31 +983,31 @@ chatRoomView room model =
                                 ]
                             ]
                         ]
-                    ]
-                , div [ id "footer_wrapper", class "fixed-bottom" ]
-                    [ div [ id "footer" ]
-                        [ input
-                            [ value (Maybe.withDefault "" <| Dict.get "chat" model.editingValue)
-                            , onInput (UpdateEditingValue "chat")
-                            , onKeyDown
-                                (case Dict.get "chat" model.editingValue of
-                                    Just c ->
-                                        if c /= "" then
-                                            EditingKeyDown "chat"
-                                                (addComment c)
-                                                (sendCommentToServer
-                                                    { comment = c, user = model.myself, session = room }
-                                                )
+                    , div [ class "row", id "footer_wrapper" ]
+                        [ div [ class "col-md-12 col-lg-12", id "footer" ]
+                            [ input
+                                [ value (Maybe.withDefault "" <| Dict.get "chat" model.editingValue)
+                                , onInput (UpdateEditingValue "chat")
+                                , onKeyDown
+                                    (case Dict.get "chat" model.editingValue of
+                                        Just c ->
+                                            if c /= "" then
+                                                EditingKeyDown "chat"
+                                                    (addComment c)
+                                                    (sendCommentToServer
+                                                        { comment = c, user = model.myself, session = room }
+                                                    )
 
-                                        else
+                                            else
+                                                \_ -> NoOp
+
+                                        Nothing ->
                                             \_ -> NoOp
-
-                                    Nothing ->
-                                        \_ -> NoOp
-                                )
+                                    )
+                                ]
+                                []
+                            , button [ class "btn btn-primary", onClick SubmitComment ] [ text "送信" ]
                             ]
-                            []
-                        , button [ class "btn btn-primary", onClick SubmitComment ] [ text "送信" ]
                         ]
                     ]
                 ]
