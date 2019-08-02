@@ -4,7 +4,7 @@ const path = require('path');
 
 module.exports = env => {
     return {
-        mode: (env.production ? 'production' : 'development'),
+        mode: ((env && env.production) ? 'production' : 'development'),
         // mode: 'development',
         entry: {
             main: './client/main.ts',

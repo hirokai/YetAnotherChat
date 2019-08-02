@@ -1,7 +1,7 @@
 import { map, keyBy } from 'lodash-es';
 const moment = require('moment');
 import $ from 'jquery';
-const { Elm } = require('./dist/matrix.elm.js');
+const { Elm } = require('./Matrix.elm');
 const app = Elm.Main.init();
 
 function scrollToBottom() {
