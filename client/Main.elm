@@ -7,6 +7,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Json.Decode as Json
 import List.Extra
+import Maybe.Extra exposing (..)
 import Set
 
 
@@ -482,7 +483,32 @@ update msg model =
                         , scrollTo v1.id
                         )
 
-                _ ->
+                Ok (DeleteComment { session_id, comment_id }) ->
+                    if RoomPage session_id /= model.page then
+                        ( model, Cmd.none )
+
+                    else
+                        let
+                            cm =
+                                model.chatPageStatus
+                        in
+                        case cm.messages of
+                            Just msgs ->
+                                ( { model
+                                    | chatPageStatus =
+                                        { cm
+                                            | messages =
+                                                Just <|
+                                                    List.filter (\m -> getId m /= comment_id) msgs
+                                        }
+                                  }
+                                , Cmd.none
+                                )
+
+                            Nothing ->
+                                ( model, Cmd.none )
+
+                Err e ->
                     let
                         _ =
                             Debug.log "Error in OnSocket parsing" v
@@ -494,8 +520,13 @@ type alias NewCommentMsg =
     { id : String, session : String, user : String, timestamp : String, comment : String, originalUrl : String, sentTo : String }
 
 
+type alias DeleteCommentMsg =
+    { comment_id : String, session_id : String }
+
+
 type SocketMsg
     = NewComment NewCommentMsg
+    | DeleteComment DeleteCommentMsg
 
 
 socketDecoder : Json.Decoder SocketMsg
@@ -509,7 +540,7 @@ socketMsg m =
         "new_comment" ->
             let
                 _ =
-                    Debug.log "OK so far" ""
+                    Debug.log "new_comment, OK so far" ""
             in
             Json.map NewComment <|
                 Json.map7 NewCommentMsg
@@ -520,6 +551,16 @@ socketMsg m =
                     (Json.field "comment" Json.string)
                     (Json.field "original_url" Json.string)
                     (Json.field "sent_to" Json.string)
+
+        "delete_comment" ->
+            let
+                _ =
+                    Debug.log "delete_comment, OK so far" ""
+            in
+            Json.map DeleteComment <|
+                Json.map2 DeleteCommentMsg
+                    (Json.field "comment_id" Json.string)
+                    (Json.field "session_id" Json.string)
 
         _ ->
             Json.fail "Stub"

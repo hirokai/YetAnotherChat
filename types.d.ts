@@ -88,8 +88,8 @@ interface GetSessionsOfParams extends AuthedParams {
 
 interface GetSessionResponse { ok: boolean, data: RoomInfo }
 interface PatchSessionResponse { ok: boolean }
-interface DeleteCommentResponse { ok: boolean }
-
+interface DeleteCommentResponse { ok: boolean, data?: DeleteCommentData }
+interface DeleteCommentData { comment_id: string, session_id: string }
 interface GetSessionsResponse { ok: boolean, data: RoomInfo[] }
 
 interface PostSessionsResponse {

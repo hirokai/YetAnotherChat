@@ -191,10 +191,20 @@ import { UserInfo } from "os";
 
 
     app.delete('/api/comments/:id', (req, res: JsonResponse<DeleteCommentResponse>) => {
-        console.log('delete commnet');
-        const id = req.params.id;
-        db.run('delete from comments where id=?;', id, () => {
-            res.json({ ok: true });
+        console.log('delete comment');
+        const comment_id = req.params.id;
+        db.get('select session_id from comments where id=?', comment_id, (err, row) => {
+            const session_id = row['session_id'];
+            db.run('delete from comments where id=?;', comment_id, (err) => {
+                if (!err) {
+                    res.json({ ok: true, data: { comment_id, session_id } });
+                    const data: DeleteCommentData = { comment_id, session_id };
+                    io.emit("message", _.extend({}, { __type: "delete_comment" }, data));
+                } else {
+                    res.json({ ok: true });
+                }
+            });
+
         });
     });
 
