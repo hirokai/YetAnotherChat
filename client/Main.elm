@@ -66,6 +66,9 @@ port hashChanged : (String -> msg) -> Sub msg
 port sendCommentToServer : { user : String, comment : String, session : String } -> Cmd msg
 
 
+port removeItemRemote : String -> Cmd msg
+
+
 port sendRoomName : { id : String, new_name : String } -> Cmd msg
 
 
@@ -114,6 +117,16 @@ roomInfoDecoder =
         (Json.field "firstMsgTime" Json.int)
         (Json.field "lastMsgTime" Json.int)
         (Json.field "numMessages" (Json.dict Json.int))
+
+
+getId : ChatEntry -> String
+getId c =
+    case c of
+        Comment { id } ->
+            id
+
+        ChatFile { id } ->
+            id
 
 
 getUser : ChatEntry -> String
@@ -287,6 +300,7 @@ type ChatPageMsg
     | SetFilter String Bool
     | ScrollToBottom
     | FeedMessages (List CommentTyp)
+    | RemoveItem String
 
 
 onKeyDown : (Int -> msg) -> Attribute msg
@@ -537,8 +551,11 @@ enterRoom r model =
 
 enterUser u model =
     let
+        userPageStatus =
+            model.userPageStatus
+
         new_model =
-            { model | page = UserPage u }
+            { model | page = UserPage u, userPageStatus = { userPageStatus | messages = [] } }
     in
     ( new_model, Cmd.batch [ updatePageHash new_model, getSessionsOf u, getUserMessages u ] )
 
@@ -644,6 +661,23 @@ updateChatPageStatus msg model =
             in
             ( { model | messages = Just msgs, users = users, filter = Set.fromList users }, Cmd.none )
 
+        RemoveItem id ->
+            removeItem id model
+
+
+removeItem : String -> ChatPageModel -> ( ChatPageModel, Cmd msg )
+removeItem id model =
+    let
+        f m =
+            getId m /= id
+    in
+    case model.messages of
+        Just msgs ->
+            ( { model | messages = Just (List.filter f msgs) }, removeItemRemote id )
+
+        Nothing ->
+            ( model, Cmd.none )
+
 
 mkComment : String -> List (Html.Html msg)
 mkComment s =
@@ -692,6 +726,7 @@ showItem model e =
                             [ text m.timestamp
                             ]
                         , a [ href m.originalUrl ] [ text "Gmail" ]
+                        , span [ class "remove-item clickable", onClick (ChatPageMsg (RemoveItem m.id)) ] [ text "×" ]
                         ]
                     , div [ class "chat_comment_content" ] <| mkComment m.comment
                     ]
@@ -747,30 +782,30 @@ truncate n s =
 
 showChannels : Model -> List (Html Msg)
 showChannels model =
-            [ p [] [ text "チャンネル" ]
-            , ul [ class "menu-list" ] <|
-                (List.indexedMap
-                    (\i r ->
-                        li []
-                            [ hr [] []
-                            , div
-                                [ class <|
-                                    "chatlist-name clickable"
-                                        ++ (if RoomPage r == model.page then
-                                                " current"
+    [ p [] [ text "チャンネル" ]
+    , ul [ class "menu-list" ] <|
+        (List.indexedMap
+            (\i r ->
+                li []
+                    [ hr [] []
+                    , div
+                        [ class <|
+                            "chatlist-name clickable"
+                                ++ (if RoomPage r == model.page then
+                                        " current"
 
-                                            else
-                                                ""
-                                           )
-                                ]
-                                [ a [ onClick (EnterRoom r) ] [ text (String.fromInt (i+1) ++": " ++roomName r model) ] ]
-                            , div [ class "chatlist-members" ] (List.intersperse (text ",") <| List.map (\u -> a [ class "chatlist-member clickable", onClick (EnterUser u) ] [ text u ]) <| roomUsers r model)
-                            ]
-                    )
-                    model.rooms
-                 -- ++ [li [] [div [ class "chatlist-name" ] [a [id "measure-width"] []]]]
-                )
-            ]
+                                    else
+                                        ""
+                                   )
+                        ]
+                        [ a [ onClick (EnterRoom r) ] [ text (String.fromInt (i + 1) ++ ": " ++ roomName r model) ] ]
+                    , div [ class "chatlist-members" ] (List.intersperse (text ",") <| List.map (\u -> a [ class "chatlist-member clickable", onClick (EnterUser u) ] [ text u ]) <| roomUsers r model)
+                    ]
+            )
+            model.rooms
+         -- ++ [li [] [div [ class "chatlist-name" ] [a [id "measure-width"] []]]]
+        )
+    ]
 
 
 roomName : String -> Model -> String

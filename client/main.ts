@@ -119,6 +119,12 @@ app.ports.sendCommentToServer.subscribe(function ({ comment, user, session }: { 
     });
 });
 
+app.ports.removeItemRemote.subscribe((comment_id: string) => {
+    axios.delete('/api/comments/' + comment_id, { data: { token } }).then(({ data }: AxiosResponse<DeleteCommentResponse>) => {
+        console.log(data);
+    });
+});
+
 app.ports.sendRoomName.subscribe(({ id, new_name }: { id: string, new_name: string }) => {
     axios.patch('/api/sessions/' + id, { name: new_name, token }).then(({ data }: AxiosResponse<PatchSessionResponse>) => {
         console.log(data, data.ok, id, new_name);
@@ -147,7 +153,6 @@ window.addEventListener('hashchange', (ev: HashChangeEvent) => {
 });
 
 app.ports.hashChanged.send(location.hash);
-
 
 
 window.setTimeout(() => {
