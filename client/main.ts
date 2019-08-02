@@ -45,7 +45,7 @@ app.ports.scrollTo.subscribe(scrollTo);
 const processData = (res: CommentTyp[]): CommentTypClient[] => {
     return map(res, (m) => {
         const user: string = m.user_id || 'myself'
-        const v: CommentTypClient = { id: m.id, user, comment: m.comment, timestamp: moment(m.timestamp).format('YYYY/M/D HH:mm:ss'), originalUrl: m.original_url || "", sentTo: m.sent_to || "", session: m.session_id };
+        const v: CommentTypClient = { id: m.id, user, comment: m.comment, timestamp: moment(m.timestamp).format('YYYY/M/D HH:mm:ss'), originalUrl: m.original_url || "", sentTo: m.sent_to || "", session: m.session_id, source: m.source };
         return v;
     });
 };

@@ -28,6 +28,7 @@ interface CommentTyp {
     timestamp: number,
     original_url: string,
     sent_to: string,
+    source: string
 }
 
 interface MailgunParsed {
@@ -50,6 +51,7 @@ interface CommentTypClient {
     timestamp: string,
     originalUrl: string,
     sentTo: string,
+    source: string
 }
 
 interface UserSlack {
