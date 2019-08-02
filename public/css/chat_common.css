@@ -5,7 +5,6 @@ div.chat_user_name {
 
 
 #chat-entries {
-    padding-bottom: 60px;
     overflow: auto;
 }
 

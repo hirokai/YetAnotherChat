@@ -7,6 +7,8 @@
     const _ = require('lodash');
     const $ = require('jquery');
 
+    const session_id = '4T9Y1a7ThzA';
+
     function get_token(username: string): string {
         const token = jwt.sign({ username }, credential.jwt_secret, { expiresIn: 604800 });
         return token;
@@ -22,7 +24,7 @@
         function doSomething(user, token) {
             const params: GetSessionsOfParams = { of_members: null, token };
             const comment = '' + Math.random();
-            axios.post('http://localhost:3000/api/comments', { comment, user, session: 'R3vhp90oUbY', token }).then((res: PostCommentResponse) => {
+            axios.post('http://localhost:3000/api/comments', { comment, user, session: session_id, token }).then((res: PostCommentResponse) => {
                 console.log(res.data)
             });
         }

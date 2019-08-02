@@ -28,16 +28,37 @@ div#footer {
     }
 }
 
-#menu-left {
+div#footer input {
+    display: inline-block;
+    margin-left: 0px;
+    margin-right: auto;
+    width: calc(100% - 100px) ! important;
+}
+
+div#footer button {
+    margin-left: 10px;
+}
+
+#menu-left-wrapper {
     background: rgb(140, 142, 196);
     position: fixed;
     bottom: 5px;
     top: 5px;
+    overflow: scroll;
+}
+
+#chat-outer {
+    // top: 200px;
+    // position: absolute;
+    top: 0px;
+    bottom: 10px;
+    height: 100%;
+    overflow: scroll;
 }
 
 #chat-container {
-    position: absolute;
-    top: 320px;
+    position: relative;
+    height: calc(100%-300px);
 }
 
 #chat-wrapper {
@@ -152,15 +173,15 @@ ul.menu-list li {
 
 #top-pane {
     z-index: 100;
-    position: fixed;
-    height: 300px;
-    max-height: 30%;
+    // position: fixed;
+    height: 200px;
+    max-height: 20%;
     padding: 5px 0px 0px 0px;
     background: #ccc;
 }
 
 #top-pane-list-container {
-    height: 270px;
+    height: calc(100% - 30px);
     overflow: scroll;
 }
 

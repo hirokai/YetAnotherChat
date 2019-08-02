@@ -718,16 +718,18 @@ roomUsers room model =
 
 leftMenu : Model -> Html Msg
 leftMenu model =
-    div [ class "d-none d-md-block col-md-5 col-lg-2", id "menu-left" ]
-        ([ div [ id "username-top" ]
-            [ text model.myself ]
-         , div [ id "path" ] [ text (pageToPath model.page) ]
-         , div []
-            [ a [ class "btn btn-light", id "newroom-button", onClick EnterNewSessionScreen ] [ text "新しい会話" ]
-            ]
-         ]
-            ++ showChannels model
-        )
+    div [ class "d-none d-md-block col-md-5 col-lg-2", id "menu-left-wrapper" ]
+        [ div [ id "menu-left" ]
+            ([ div [ id "username-top" ]
+                [ text model.myself ]
+             , div [ id "path" ] [ text (pageToPath model.page) ]
+             , div []
+                [ a [ class "btn btn-light", id "newroom-button", onClick EnterNewSessionScreen ] [ text "新しい会話" ]
+                ]
+             ]
+                ++ showChannels model
+            )
+        ]
 
 
 showUsers room model =
@@ -920,52 +922,54 @@ chatRoomView room model =
                 [ leftMenu model
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ topPane model
-                    , div [ class "row", id "chat-container" ]
+                    , div [ class "row" ]
                         [ div [ class "col-md-12 col-lg-12" ]
-                            [ h1 []
-                                [ if Set.member "room-title" model.editing then
-                                    input
-                                        [ value (Maybe.withDefault "(N/A)" <| Dict.get "room-title" model.editingValue)
-                                        , onKeyDown
-                                            (let
-                                                nv =
-                                                    Maybe.withDefault "" <| Dict.get "room-title" model.editingValue
-                                             in
-                                             EditingKeyDown "room-title" (updateRoomName room nv) (sendRoomName { id = room, new_name = nv })
-                                            )
-                                        , onInput (UpdateEditingValue "room-title")
-                                        ]
-                                        []
+                            [ div [ class "col-md-12 col-lg-12", id "chat-outer" ]
+                                [ h1 []
+                                    [ if Set.member "room-title" model.editing then
+                                        input
+                                            [ value (Maybe.withDefault "(N/A)" <| Dict.get "room-title" model.editingValue)
+                                            , onKeyDown
+                                                (let
+                                                    nv =
+                                                        Maybe.withDefault "" <| Dict.get "room-title" model.editingValue
+                                                 in
+                                                 EditingKeyDown "room-title" (updateRoomName room nv) (sendRoomName { id = room, new_name = nv })
+                                                )
+                                            , onInput (UpdateEditingValue "room-title")
+                                            ]
+                                            []
 
-                                  else
-                                    text <| Maybe.withDefault "(N/A)" (Maybe.map (\a -> a.name) (Dict.get room model.roomInfo))
-                                , a [ id "edit-roomname", class "clickable", onClick (StartEditing "room-title" (roomName room model)) ] [ text "Edit" ]
+                                      else
+                                        text <| Maybe.withDefault "(N/A)" (Maybe.map (\a -> a.name) (Dict.get room model.roomInfo))
+                                    , a [ id "edit-roomname", class "clickable", onClick (StartEditing "room-title" (roomName room model)) ] [ text "Edit" ]
+                                    ]
+                                , div [] ([ text <| "参加者：" ] ++ List.intersperse (text ", ") (List.map (\u -> a [ onClick (EnterUser u), class "clickable" ] [ text u ]) (roomUsers room model)))
+                                , div []
+                                    (text ("Session ID: " ++ room)
+                                        :: (case model.chatPageStatus.messages of
+                                                Just messages ->
+                                                    let
+                                                        messages_filtered =
+                                                            List.filter (\m -> Set.member (getUser m) model.chatPageStatus.filter) messages
+                                                    in
+                                                    [ div [ id "message-count" ]
+                                                        [ text (String.fromInt (List.length messages_filtered) ++ " messages.")
+                                                        , button [ class "btn-sm btn-light btn", onClick (ChatPageMsg ScrollToBottom) ] [ text "⬇⬇" ]
+                                                        ]
+                                                    , div [ id "chat-wrapper" ]
+                                                        [ div
+                                                            [ id "chat-entries" ]
+                                                          <|
+                                                            List.map (showItem model) messages_filtered
+                                                        ]
+                                                    ]
+
+                                                Nothing ->
+                                                    []
+                                           )
+                                    )
                                 ]
-                            , div [] ([ text <| "参加者：" ] ++ List.intersperse (text ", ") (List.map (\u -> a [ onClick (EnterUser u), class "clickable" ] [ text u ]) (roomUsers room model)))
-                            , div []
-                                (text ("Session ID: " ++ room)
-                                    :: (case model.chatPageStatus.messages of
-                                            Just messages ->
-                                                let
-                                                    messages_filtered =
-                                                        List.filter (\m -> Set.member (getUser m) model.chatPageStatus.filter) messages
-                                                in
-                                                [ div [ id "message-count" ]
-                                                    [ text (String.fromInt (List.length messages_filtered) ++ " messages.")
-                                                    , button [ class "btn-sm btn-light btn", onClick (ChatPageMsg ScrollToBottom) ] [ text "⬇⬇" ]
-                                                    ]
-                                                , div [ id "chat-wrapper" ]
-                                                    [ div
-                                                        [ id "chat-entries" ]
-                                                      <|
-                                                        List.map (showItem model) messages_filtered
-                                                    ]
-                                                ]
-
-                                            Nothing ->
-                                                []
-                                       )
-                                )
                             ]
                         ]
                     ]
@@ -973,8 +977,6 @@ chatRoomView room model =
                     [ div [ id "footer" ]
                         [ input
                             [ value (Maybe.withDefault "" <| Dict.get "chat" model.editingValue)
-                            , style "height" "30px"
-                            , style "width" "90vw"
                             , onInput (UpdateEditingValue "chat")
                             , onKeyDown
                                 (case Dict.get "chat" model.editingValue of

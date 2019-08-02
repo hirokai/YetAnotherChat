@@ -139,3 +139,11 @@ window.addEventListener('hashchange', (ev: HashChangeEvent) => {
 
 app.ports.hashChanged.send(location.hash);
 
+$(() => {
+    $('#chat-outer').height(window.innerHeight - 280);
+});
+
+window.addEventListener('resize', (ev: Event) => {
+    $('#chat-outer').height(window.innerHeight - 280);
+    console.log(window.innerHeight);
+});
