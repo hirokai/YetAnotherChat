@@ -18,6 +18,17 @@ div.chat_entry_comment:hover {
     background: #f8f8f8;
 }
 
+
+.remove-item {
+    font-size: 20px;
+    margin-right: 10px;
+    float: right;
+}
+
+div.chat_entry_comment:not(:hover) .remove-item {
+    visibility: hidden;
+}
+
 @media (prefers-color-scheme: dark) {
     div.chat_entry_comment:hover {
         background: #222;

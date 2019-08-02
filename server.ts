@@ -105,7 +105,6 @@ import { UserInfo } from "os";
         }
         jwt.verify(token, credential.jwt_secret, function (err, decoded) {
             if (err) {
-                console.log("auth failed", decoded, err)
                 res.status(403).json({ ok: false, error: 'Invalid token.' });
             } else {
                 //. 正当な値が定されていた場合は処理を続ける
@@ -189,6 +188,16 @@ import { UserInfo } from "os";
             res.json(r);
         })
     });
+
+
+    app.delete('/api/comments/:id', (req, res: JsonResponse<DeleteCommentResponse>) => {
+        console.log('delete commnet');
+        const id = req.params.id;
+        db.run('delete from comments where id=?;', id, () => {
+            res.json({ ok: true });
+        });
+    });
+
 
 
     app.patch('/api/sessions/:id', (req, res: JsonResponse<PatchSessionResponse>) => {
