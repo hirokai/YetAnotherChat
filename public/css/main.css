@@ -201,6 +201,14 @@ hr {
     background: #ccc;
 }
 
+#top-pane.shrunk {
+    height: 40px;
+}
+
+#top-pane-expand-button {
+    width: 30px;
+}
+
 #top-pane-list-container {
     height: calc(100% - 30px);
     overflow: scroll;

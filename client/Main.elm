@@ -77,6 +77,9 @@ port sendRoomName : { id : String, new_name : String } -> Cmd msg
 port setPageHash : String -> Cmd msg
 
 
+port recalcElementPositions : Bool -> Cmd msg
+
+
 port onSocket : (Json.Value -> msg) -> Sub msg
 
 
@@ -162,6 +165,7 @@ type alias ChatPageModel =
     , filter : Set.Set String
     , users : List String
     , messages : Maybe (List ChatEntry)
+    , topPaneExpanded : Bool
     }
 
 
@@ -246,7 +250,7 @@ init { username } =
       , users = [ "Tanaka", "Yoshida", "Saito", "Kimura", "Abe" ]
       , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
       , userPageStatus = { sessions = [], messages = [] }
-      , chatPageStatus = { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing }
+      , chatPageStatus = { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing, topPaneExpanded = True }
       , editing = Set.empty
       , editingValue = Dict.empty
       }
@@ -303,6 +307,7 @@ type ChatPageMsg
     | ScrollToBottom
     | FeedMessages (List CommentTyp)
     | RemoveItem String
+    | ExpandTopPane Bool
 
 
 onKeyDown : (Int -> msg) -> Attribute msg
@@ -587,8 +592,11 @@ enterRoom r model =
         users =
             []
 
+        chatPageStatus =
+            model.chatPageStatus
+
         new_model =
-            { model | page = RoomPage r, chatPageStatus = { filterMode = Person, filter = Set.fromList users, users = users, messages = Nothing } }
+            { model | page = RoomPage r, chatPageStatus = { chatPageStatus | filterMode = Person, filter = Set.fromList users, users = users, messages = Nothing } }
     in
     ( new_model, Cmd.batch [ updatePageHash new_model, getMessages r ] )
 
@@ -692,8 +700,8 @@ updateChatPageStatus msg model =
 
         FeedMessages ms ->
             let
-                f { id, user, comment, timestamp, originalUrl, sentTo,source } =
-                    Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = "",source=source }
+                f { id, user, comment, timestamp, originalUrl, sentTo, source } =
+                    Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = "", source = source }
 
                 msgs =
                     List.map f ms
@@ -705,6 +713,9 @@ updateChatPageStatus msg model =
 
         RemoveItem id ->
             removeItem id model
+
+        ExpandTopPane b ->
+            ( { model | topPaneExpanded = b }, recalcElementPositions b )
 
 
 removeItem : String -> ChatPageModel -> ( ChatPageModel, Cmd msg )
@@ -750,9 +761,15 @@ iconOfUser name =
 showSource : String -> Html Msg
 showSource s =
     case s of
-        "email" -> text "Email"
-        "self" -> text "self"
-        _ -> text "(unknown)"
+        "email" ->
+            text "Email"
+
+        "self" ->
+            text "self"
+
+        _ ->
+            text "(unknown)"
+
 
 showItem : Model -> ChatEntry -> Html Msg
 showItem model e =
@@ -969,26 +986,46 @@ topPane model =
                        )
     in
     div [ class "row" ]
-        [ div [ id "top-pane", class "col-md-12 col-lg-12" ]
+        [ div
+            [ id "top-pane"
+            , class
+                ("col-md-12 col-lg-12"
+                    ++ (if model.chatPageStatus.topPaneExpanded then
+                            ""
+
+                        else
+                            " shrunk"
+                       )
+                )
+            ]
             [ div []
-                [ span [ class "top-page-menu-label" ] [ text "フィルタ" ]
+                [ if model.chatPageStatus.topPaneExpanded then
+                    button [ id "top-pane-expand-button", class "btn btn-sm btn-light", onClick (ChatPageMsg <| ExpandTopPane False) ] [ i [ class "fas fa-angle-down" ] [] ]
+
+                  else
+                    button [ id "top-pane-expand-button", class "btn btn-sm btn-light", onClick (ChatPageMsg <| ExpandTopPane True) ] [ i [ class "fas fa-angle-right" ] [] ]
+                , span [ class "top-page-menu-label" ] [ text "フィルタ" ]
                 , button [ klass Thread, onClick (ChatPageMsg <| SetFilterMode Thread) ] [ text "スレッド" ]
                 , button [ klass Person, onClick (ChatPageMsg <| SetFilterMode Person) ] [ text "人" ]
                 , button [ klass Date, onClick (ChatPageMsg <| SetFilterMode Date) ] [ text "日付" ]
                 ]
-            , case model.chatPageStatus.filterMode of
-                Thread ->
-                    div [ id "top-pane-list-container" ]
-                        [ ul [] <| List.map (\r -> li [] [ input [ type_ "checkbox" ] [], span [ class "clickable", onClick (EnterRoom r) ] [ text (roomName r model) ] ]) model.rooms
-                        ]
+            , if model.chatPageStatus.topPaneExpanded then
+                case model.chatPageStatus.filterMode of
+                    Thread ->
+                        div [ id "top-pane-list-container" ]
+                            [ ul [] <| List.map (\r -> li [] [ input [ type_ "checkbox" ] [], span [ class "clickable", onClick (EnterRoom r) ] [ text (roomName r model) ] ]) model.rooms
+                            ]
 
-                Date ->
-                    div [] []
+                    Date ->
+                        div [] []
 
-                Person ->
-                    div [ id "top-pane-list-container" ]
-                        [ ul [] <| List.map (\u -> li [] [ input [ type_ "checkbox", checked (Set.member u model.chatPageStatus.filter), onCheck (\b -> ChatPageMsg <| SetFilter u b) ] [], span [ class "clickable", onClick (EnterUser u) ] [ text u ] ]) model.chatPageStatus.users
-                        ]
+                    Person ->
+                        div [ id "top-pane-list-container" ]
+                            [ ul [] <| List.map (\u -> li [] [ input [ type_ "checkbox", checked (Set.member u model.chatPageStatus.filter), onCheck (\b -> ChatPageMsg <| SetFilter u b) ] [], span [ class "clickable", onClick (EnterUser u) ] [ text u ] ]) model.chatPageStatus.users
+                            ]
+
+              else
+                text ""
             ]
         ]
 
