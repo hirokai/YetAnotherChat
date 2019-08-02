@@ -747,8 +747,6 @@ truncate n s =
 
 showChannels : Model -> List (Html Msg)
 showChannels model =
-    case model.page of
-        RoomPage room ->
             [ p [] [ text "チャンネル" ]
             , ul [ class "menu-list" ] <|
                 (List.indexedMap
@@ -772,19 +770,6 @@ showChannels model =
                     model.rooms
                  -- ++ [li [] [div [ class "chatlist-name" ] [a [id "measure-width"] []]]]
                 )
-            ]
-
-        _ ->
-            [ p [] [ text "チャンネル" ]
-            , ul [ class "menu-list" ] <|
-                List.map
-                    (\r ->
-                        li []
-                            [ div [ class "chatlist-name clickable" ] [ a [ onClick (EnterRoom r) ] [ text (roomName r model) ] ]
-                            , div [ class "chatlist-members" ] (List.intersperse (text ",") <| List.map (\u -> a [ class "chatlist-member clickable", onClick (EnterUser u) ] [ text u ]) <| roomUsers r model)
-                            ]
-                    )
-                    model.rooms
             ]
 
 
