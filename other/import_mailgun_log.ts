@@ -22,7 +22,7 @@
         _.map(_.zip(datas, sessions), ([data1, [session_id, session_name]]) => {
             const data = <MailgunParsed>data1;
             model.create_session_with_id(session_id, session_name, []).then(() => {
-                model.post_comment(data.user_id, session_id, data.timestamp, data.comment, data.message_id).then((data: CommentTyp) => {
+                model.post_comment(data.user_id, session_id, data.timestamp, data.comment, data.message_id, "", 'email').then((data: CommentTyp) => {
                     console.log("Added " + data.id + ":" + data.user_id + data.original_url + " in session " + session_id);
                 }).catch((err) => {
                     console.log(err);

@@ -15,14 +15,14 @@ const user_info_private = require('./private/user_info');
     const emojis = require("./emojis.json").emojis;
     const emoji_dict = _.keyBy(emojis, 'shortname');
 
-    function post_comment(user_id: string, session_id: string, ts: number, comment: string, original_url: string = "", sent_to: string = ""): Promise<CommentTyp> {
+    function post_comment(user_id: string, session_id: string, ts: number, comment: string, original_url: string = "", sent_to: string = "", source = ""): Promise<CommentTyp> {
         return new Promise((resolve, reject) => {
             const comment_id = shortid.generate();
-            db.run('insert into comments (id,user_id,comment,timestamp,session_id,url_original,sent_to) values (?,?,?,?,?,?,?);', comment_id, user_id, comment, ts, session_id, original_url, sent_to, (err1) => {
+            db.run('insert into comments (id,user_id,comment,timestamp,session_id,original_url,sent_to,source) values (?,?,?,?,?,?,?,?);', comment_id, user_id, comment, ts, session_id, original_url, sent_to, source, (err1) => {
                 db.run('insert or ignore into session_members (session_id,member_name) values (?,?)', session_id, user_id, (err2) => {
                     if (!err1 && !err2) {
                         const data = {
-                            id: comment_id, timestamp: ts, user_id, comment: comment, session_id, original_url, sent_to
+                            id: comment_id, timestamp: ts, user_id, comment: comment, session_id, original_url, sent_to, source
                         };
                         resolve(data);
                     } else {
@@ -165,7 +165,7 @@ const user_info_private = require('./private/user_info');
                 const r = emoji_dict[$1];
                 return r ? r.emoji : $1;
             });
-            return { id: row.id, comment, timestamp: parseInt(row.timestamp), user_id: row.user_id, original_url: row.url_original, sent_to: row.sent_to, session_id: row.session_id };
+            return { id: row.id, comment, timestamp: parseInt(row.timestamp), user_id: row.user_id, original_url: row.original_url, sent_to: row.sent_to, session_id: row.session_id, source: row.source };
         };
         return new Promise((resolve) => {
             if (session_id && !user_id) {

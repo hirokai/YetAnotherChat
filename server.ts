@@ -272,7 +272,7 @@ import { UserInfo } from "os";
                 const user = req.body.user;
                 const comment = req.body.comment;
                 const session_id = req.body.session;
-                const data: CommentTyp = await model.post_comment(user, session_id, ts, comment);
+                const data: CommentTyp = await model.post_comment(user, session_id, ts, comment, "", "", "self");
                 res.json({ ok: true, data });
                 io.emit("message", _.extend({}, { __type: "new_comment" }, data));
             });

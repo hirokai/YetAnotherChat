@@ -19,6 +19,7 @@ type alias CommentTyp =
     , timestamp : String
     , originalUrl : String
     , sentTo : String
+    , source : String
     }
 
 
@@ -319,7 +320,7 @@ addComment comment model =
                         model.chatPageStatus
 
                     msgs =
-                        Just <| List.append messages [ Comment { id = "__latest", user = model.myself, comment = comment, originalUrl = "", sentTo = "all", timestamp = "", session = "" } ]
+                        Just <| List.append messages [ Comment { id = "__latest", user = model.myself, comment = comment, originalUrl = "", sentTo = "all", timestamp = "", session = "", source = "self" } ]
                 in
                 { model | chatPageStatus = { chatPageStatus | messages = msgs }, editingValue = Dict.insert "chat" "" model.editingValue }
 
@@ -463,9 +464,9 @@ update msg model =
 
                     else
                         let
-                            f : NewCommentMsg -> ChatEntry
-                            f { id, user, comment, timestamp, session, originalUrl, sentTo } =
-                                Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = session }
+                            f : CommentTyp -> ChatEntry
+                            f { id, user, comment, timestamp, session, originalUrl, sentTo, source } =
+                                Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = session, source = source }
 
                             cm =
                                 model.chatPageStatus
@@ -516,8 +517,9 @@ update msg model =
                     ( model, Cmd.none )
 
 
-type alias NewCommentMsg =
-    { id : String, session : String, user : String, timestamp : String, comment : String, originalUrl : String, sentTo : String }
+
+-- type alias NewCommentMsg =
+--     { id : String, session : String, user : String, timestamp : String, comment : String, originalUrl : String, sentTo : String, source : String }
 
 
 type alias DeleteCommentMsg =
@@ -525,7 +527,7 @@ type alias DeleteCommentMsg =
 
 
 type SocketMsg
-    = NewComment NewCommentMsg
+    = NewComment CommentTyp
     | DeleteComment DeleteCommentMsg
 
 
@@ -543,7 +545,7 @@ socketMsg m =
                     Debug.log "new_comment, OK so far" ""
             in
             Json.map NewComment <|
-                Json.map7 NewCommentMsg
+                Json.map8 CommentTyp
                     (Json.field "id" Json.string)
                     (Json.field "session_id" Json.string)
                     (Json.field "user_id" Json.string)
@@ -551,6 +553,7 @@ socketMsg m =
                     (Json.field "comment" Json.string)
                     (Json.field "original_url" Json.string)
                     (Json.field "sent_to" Json.string)
+                    (Json.field "source" Json.string)
 
         "delete_comment" ->
             let
@@ -641,8 +644,8 @@ updateUserPageStatus msg model =
 
         FeedUserMessages ms ->
             let
-                f { id, user, comment, timestamp, originalUrl, sentTo } =
-                    Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = "" }
+                f { id, user, comment, timestamp, originalUrl, sentTo, source } =
+                    Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = "", source = source }
 
                 msgs =
                     List.map f ms
@@ -689,8 +692,8 @@ updateChatPageStatus msg model =
 
         FeedMessages ms ->
             let
-                f { id, user, comment, timestamp, originalUrl, sentTo } =
-                    Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = "" }
+                f { id, user, comment, timestamp, originalUrl, sentTo,source } =
+                    Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = "",source=source }
 
                 msgs =
                     List.map f ms
@@ -744,6 +747,13 @@ iconOfUser name =
     "/public/img/" ++ c ++ ".png"
 
 
+showSource : String -> Html Msg
+showSource s =
+    case s of
+        "email" -> text "Email"
+        "self" -> text "self"
+        _ -> text "(unknown)"
+
 showItem : Model -> ChatEntry -> Html Msg
 showItem model e =
     case e of
@@ -764,7 +774,7 @@ showItem model e =
                         , span [ class "chat_timestamp" ]
                             [ text m.timestamp
                             ]
-                        , a [ href m.originalUrl ] [ text "Gmail" ]
+                        , a [ href m.originalUrl ] [ showSource m.source ]
                         , span [ class "remove-item clickable", onClick (ChatPageMsg (RemoveItem m.id)) ] [ text "×" ]
                         ]
                     , div [ class "chat_comment_content" ] <| mkComment m.comment
