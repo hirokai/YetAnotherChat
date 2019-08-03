@@ -237,3 +237,7 @@ hr {
     white-space: nowrap;
     /* Thanks to Herb Caudill comment */
 }
+
+.chat_entry_event {
+    text-align: center;
+}

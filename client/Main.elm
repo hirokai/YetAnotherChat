@@ -12,20 +12,6 @@ import Maybe.Extra exposing (..)
 import Set
 
 
-type alias CommentTyp =
-    { id : String
-    , user : String
-    , comment : String
-    , session : String
-    , timestamp : String
-    , originalUrl : String
-    , sentTo : String
-    , source : String
-    , kind : String
-    , action : String
-    }
-
-
 port getMessages : RoomID -> Cmd msg
 
 
@@ -53,10 +39,10 @@ port scrollTo : String -> Cmd msg
 port createNewSession : ( String, List Member ) -> Cmd msg
 
 
-port feedMessages : (List CommentTyp -> msg) -> Sub msg
+port feedMessages : (Json.Value -> msg) -> Sub msg
 
 
-port feedUserMessages : (List CommentTyp -> msg) -> Sub msg
+port feedUserMessages : (Json.Value -> msg) -> Sub msg
 
 
 port feedRoomInfo : (Json.Value -> msg) -> Sub msg
@@ -89,9 +75,74 @@ port onSocket : (Json.Value -> msg) -> Sub msg
 port joinRoom : { session_id : String, user_id : String } -> Cmd msg
 
 
+type alias CommentTyp =
+    { id : String
+    , user : String
+    , comment : String
+    , session : String
+    , timestamp : String
+    , originalUrl : String
+    , sentTo : String
+    , source : String
+    }
+
+
+type alias SessionEventTyp =
+    { id : String
+    , session : String
+    , user : String
+    , timestamp : String
+    , action : String
+    }
+
+
 type ChatEntry
     = Comment CommentTyp
     | ChatFile { id : String, user : String, filename : String }
+    | SessionEvent SessionEventTyp
+
+
+chatEntriesDecoder : Json.Decoder (List ChatEntry)
+chatEntriesDecoder =
+    Json.list chatEntryDecoder
+
+
+commentTypDecoder =
+    Json.succeed CommentTyp
+        |> JE.andMap (Json.field "id" Json.string)
+        |> JE.andMap (Json.field "user" Json.string)
+        |> JE.andMap (Json.field "comment" Json.string)
+        |> JE.andMap (Json.field "session" Json.string)
+        |> JE.andMap (Json.field "timestamp" Json.string)
+        |> JE.andMap (Json.field "originalUrl" Json.string)
+        |> JE.andMap (Json.field "sentTo" Json.string)
+        |> JE.andMap (Json.field "source" Json.string)
+
+
+sessionEventTypDecoder =
+    Json.succeed SessionEventTyp
+        |> JE.andMap (Json.field "id" Json.string)
+        |> JE.andMap (Json.field "session" Json.string)
+        |> JE.andMap (Json.field "user" Json.string)
+        |> JE.andMap (Json.field "timestamp" Json.string)
+        |> JE.andMap (Json.field "action" Json.string)
+
+
+chatEntryDecoder : Json.Decoder ChatEntry
+chatEntryDecoder =
+    Json.field "kind" Json.string
+        |> Json.andThen
+            (\kind ->
+                case kind of
+                    "comment" ->
+                        Json.map Comment <| commentTypDecoder
+
+                    "event" ->
+                        Json.map SessionEvent <| sessionEventTypDecoder
+
+                    _ ->
+                        Json.fail "Unsupported kind"
+            )
 
 
 type alias Member =
@@ -139,6 +190,9 @@ getId c =
         ChatFile { id } ->
             id
 
+        SessionEvent { id } ->
+            id
+
 
 getUser : ChatEntry -> String
 getUser c =
@@ -147,6 +201,9 @@ getUser c =
             user
 
         ChatFile { user } ->
+            user
+
+        SessionEvent { user } ->
             user
 
 
@@ -304,14 +361,14 @@ type NewSessionMsg
 
 type UserPageMsg
     = FeedSessions (List String)
-    | FeedUserMessages (List CommentTyp)
+    | FeedUserMessages (List ChatEntry)
 
 
 type ChatPageMsg
     = SetFilterMode FilterMode
     | SetFilter String Bool
     | ScrollToBottom
-    | FeedMessages (List CommentTyp)
+    | FeedMessages (List ChatEntry)
     | RemoveItem String
     | ExpandTopPane Bool
 
@@ -331,7 +388,7 @@ addComment comment model =
                         model.chatPageStatus
 
                     msgs =
-                        Just <| List.append messages [ Comment { id = "__latest", user = model.myself, comment = comment, originalUrl = "", sentTo = "all", timestamp = "", session = "", source = "self", kind = "comment", action = "" } ]
+                        Just <| List.append messages [ Comment { id = "__latest", user = model.myself, comment = comment, originalUrl = "", sentTo = "all", timestamp = "", session = "", source = "self" } ]
                 in
                 { model | chatPageStatus = { chatPageStatus | messages = msgs }, editingValue = Dict.insert "chat" "" model.editingValue }
 
@@ -477,7 +534,7 @@ update msg model =
                         let
                             f : CommentTyp -> ChatEntry
                             f { id, user, comment, timestamp, session, originalUrl, sentTo, source } =
-                                Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = session, source = source, kind = "comment", action = "" }
+                                Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = session, source = source }
 
                             cm =
                                 model.chatPageStatus
@@ -565,8 +622,6 @@ socketMsg m =
                     |> JE.andMap (Json.field "original_url" Json.string)
                     |> JE.andMap (Json.field "sent_to" Json.string)
                     |> JE.andMap (Json.field "source" Json.string)
-                    |> JE.andMap (Json.field "kind" Json.string)
-                    |> JE.andMap (Json.field "action" Json.string)
                 )
 
         "delete_comment" ->
@@ -660,14 +715,7 @@ updateUserPageStatus msg model =
             ( { model | sessions = ss }, Cmd.none )
 
         FeedUserMessages ms ->
-            let
-                f { id, user, comment, timestamp, originalUrl, sentTo, source,kind,action } =
-                    Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = "", source = source,kind=kind,action=action }
-
-                msgs =
-                    List.map f ms
-            in
-            ( { model | messages = msgs }, Cmd.none )
+            ( { model | messages = ms }, Cmd.none )
 
 
 updateChatPageStatus : ChatPageMsg -> ChatPageModel -> ( ChatPageModel, Cmd msg )
@@ -698,27 +746,18 @@ updateChatPageStatus msg model =
                     List.filter (\m -> Set.member (getUser m) model.filter) (Maybe.withDefault [] model.messages)
             in
             case List.Extra.last messages_filtered of
-                Just (Comment m) ->
-                    ( model, scrollTo m.id )
-
-                Just (ChatFile m) ->
-                    ( model, scrollTo m.id )
+                Just item ->
+                    ( model, scrollTo (getId item) )
 
                 Nothing ->
                     ( model, Cmd.none )
 
         FeedMessages ms ->
             let
-                f { id, user, comment, timestamp, originalUrl, sentTo, source,kind,action } =
-                    Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = "", source = source,kind=kind,action=action }
-
-                msgs =
-                    List.map f ms
-
                 users =
-                    getMembers msgs
+                    getMembers ms
             in
-            ( { model | messages = Just msgs, users = users, filter = Set.fromList users }, Cmd.none )
+            ( { model | messages = Just ms, users = users, filter = Set.fromList users }, Cmd.none )
 
         RemoveItem id ->
             removeItem id model
@@ -781,8 +820,8 @@ showSource s =
 
 
 showItem : Model -> ChatEntry -> Html Msg
-showItem model e =
-    case e of
+showItem model entry =
+    case entry of
         Comment m ->
             div [ class "chat_entry_comment", id m.id ]
                 [ div [ style "float" "left" ] [ img [ class "chat_user_icon", src (iconOfUser m.user) ] [] ]
@@ -814,6 +853,9 @@ showItem model e =
 
             else
                 text ""
+
+        SessionEvent e ->
+            div [ class "chat_entry_event", id e.id ] [ hr [] [], text <| e.user ++ "が参加しました（" ++ e.timestamp ++ "）" ]
 
 
 isSelected : Model -> Member -> Bool
@@ -1205,8 +1247,8 @@ messageFilter =
 subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.batch
-        [ feedMessages (\ms -> ChatPageMsg <| FeedMessages ms)
-        , feedUserMessages (\s -> UserPageMsg <| FeedUserMessages s)
+        [ feedMessages (\ms -> ChatPageMsg <| FeedMessages (Result.withDefault [] (Json.decodeValue chatEntriesDecoder ms)))
+        , feedUserMessages (\ms -> UserPageMsg <| FeedUserMessages (Result.withDefault [] (Json.decodeValue chatEntriesDecoder ms)))
         , receiveNewRoomInfo ReceiveNewSessionId
         , hashChanged HashChanged
         , feedRoomInfo FeedRoomInfo
@@ -1225,6 +1267,9 @@ getMembers entries =
                     user
 
                 ChatFile { user } ->
+                    user
+
+                SessionEvent { user } ->
                     user
     in
     List.Extra.unique <| List.map f entries
