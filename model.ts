@@ -69,7 +69,7 @@ const user_info_private = require('./private/user_info');
     }
 
 
-    function create_session_with_id(session_id: string, name: string, members: string[]): Promise<{ id: string, name: string, timestamp: number }> {
+    function create_session_with_id(session_id: string, name: string, members: string[]): Promise<{ id: string, name: string, timestamp: number, members: string[] }> {
         return new Promise((resolve) => {
             const ts = new Date().getTime();
             db.serialize(() => {
@@ -77,7 +77,7 @@ const user_info_private = require('./private/user_info');
                 _.each(members, (member) => {
                     db.run('insert or ignore into session_current_members (session_id, user_id) values (?,?);', session_id, member);
                 });
-                resolve({ id: session_id, name: name, timestamp: ts });
+                resolve({ id: session_id, name: name, timestamp: ts, members });
             });
         });
     }
@@ -126,12 +126,16 @@ const user_info_private = require('./private/user_info');
                             });
                         });
                     })).then((infos) => {
-                        const ss: RoomInfo[] = _.map(_.zip(sessions, infos), ([s, info]) => {
+                        const ss: RoomInfo[] = _.compact(_.map(_.zip(sessions, infos), ([s, info]) => {
+                            const members = s.members.split(",");
+                            if (!_.includes(members, user_id)) {   //Double check if user_id is included.
+                                return null;
+                            }
                             return {
-                                id: s.id, name: s.name, timestamp: s.timestamp, members: s.members.split(","),
+                                id: s.id, name: s.name, timestamp: s.timestamp, members,
                                 numMessages: info.count, firstMsgTime: info.first, lastMsgTime: info.last
                             };
-                        });
+                        }));
                         resolve(ss);
                     })
                 });
@@ -256,8 +260,25 @@ const user_info_private = require('./private/user_info');
                                 }
                             });
                     } else {
+                        console.log('error')
                     }
                 });
+            });
+        });
+    }
+
+    function getSocketId(user_id: string): Promise<string> {
+        return new Promise((resolve) => {
+            db.get('select socket_id from user_connections where user_id=?;', user_id, (err, row) => {
+                resolve(row['socket_id']);
+            });
+        });
+    }
+
+    function saveSocketId(user_id: string, socket_id: string): Promise<{ ok: boolean }> {
+        return new Promise((resolve) => {
+            db.get('update user_connections set socket_id=? where user_id=?;', socket_id, user_id, (err, row) => {
+                resolve({ ok: !err });
             });
         });
     }
@@ -274,7 +295,9 @@ const user_info_private = require('./private/user_info');
         parseMailgunWebhook,
         create_session_with_id,
         join_session,
-        is_member
+        is_member,
+        getSocketId,
+        saveSocketId
     };
 
 }

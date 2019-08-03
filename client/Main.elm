@@ -162,7 +162,7 @@ type alias RoomID =
 type alias RoomInfo =
     { id : String
     , name : String
-    , timestamp : Int
+    , timestamp : String
     , members : List Member
     , firstMsgTime : Int
     , lastMsgTime : Int
@@ -180,7 +180,7 @@ roomInfoDecoder =
     Json.map7 RoomInfo
         (Json.field "id" Json.string)
         (Json.field "name" Json.string)
-        (Json.field "timestamp" Json.int)
+        (Json.field "timestamp" Json.string)
         (Json.field "members" (Json.list Json.string))
         (Json.field "firstMsgTime" Json.int)
         (Json.field "lastMsgTime" Json.int)
@@ -591,10 +591,13 @@ update msg model =
                             Nothing ->
                                 ( model, Cmd.none )
 
+                Ok (NewSessionSocket info) ->
+                    ( { model | roomInfo = Dict.insert info.id info model.roomInfo, rooms = info.id :: model.rooms }, Cmd.none )
+
                 Err e ->
                     let
                         _ =
-                            Debug.log "Error in OnSocket parsing" v
+                            Debug.log "Error in OnSocket parsing: " e
                     in
                     ( model, Cmd.none )
 
@@ -608,9 +611,14 @@ type alias DeleteCommentMsg =
     { comment_id : String, session_id : String }
 
 
+type alias NewSessionSocketMsg =
+    { session_id : String, name : String, members : List String, timestamp : String }
+
+
 type SocketMsg
     = NewComment CommentTyp
     | DeleteComment DeleteCommentMsg
+    | NewSessionSocket RoomInfo
 
 
 socketDecoder : Json.Decoder SocketMsg
@@ -648,8 +656,15 @@ socketMsg m =
                     (Json.field "comment_id" Json.string)
                     (Json.field "session_id" Json.string)
 
-        _ ->
-            Json.fail "Stub"
+        "new_session" ->
+            let
+                _ =
+                    Debug.log "new_session, OK so far" ""
+            in
+            Json.map NewSessionSocket <| roomInfoDecoder
+
+        s ->
+            Json.fail ("Message <" ++ s ++ "> Not implemented yet")
 
 
 enterNewSession model =

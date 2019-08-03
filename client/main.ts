@@ -2,7 +2,7 @@
 
 // @ts-ignore
 import { Elm } from './Main.elm';
-import { map, includes } from 'lodash-es';
+import { map, includes, pull, clone } from 'lodash-es';
 import axios from 'axios';
 import $ from 'jquery';
 import moment from 'moment';
@@ -13,12 +13,16 @@ const shortid = require('shortid').generate;
 // @ts-ignore
 const socket: SocketIOClient.Socket = io('');
 
+
+
 require('moment/locale/ja');
 moment.locale('ja');
 
 const app = Elm.Main.init({ flags: { username: localStorage['yacht.username'] || "" } });
 
 const token = localStorage.getItem('yacht.token') || "";
+
+socket.emit('subscribe', { token });
 
 axios.get('/api/verify_token', { params: { token } }).then(({ data }) => {
     if (!data.valid) {
@@ -27,13 +31,20 @@ axios.get('/api/verify_token', { params: { token } }).then(({ data }) => {
 });
 
 socket.on("message", (msg: any) => {
-    console.log(msg);
+    console.log('Socket.io message', msg);
     if (includes(temporary_id_list, msg.temporary_id)) {
+        pull(temporary_id_list, msg.temporary_id);
         return;
     }
     if (msg.__type == "new_comment") {
         msg.timestamp = moment(msg.timestamp).format('YYYY/M/D HH:mm:ss');
         msg = <ChatEntryClient>msg;
+    } else if (msg.__type == "new_session") {
+        const msg1 = <RoomInfoClient>msg;
+        msg1.timestamp = moment(msg.timestamp).format('YYYY/M/D HH:mm:ss');
+        msg1.firstMsgTime = -1;
+        msg1.lastMsgTime = -1;
+        msg1.numMessages = { "__total": 0 };
     }
     app.ports.onSocket.send(msg);
 });
@@ -83,7 +94,9 @@ app.ports.createNewSession.subscribe(async function (args: any[]) {
     if (name == "") {
         name = "会話: " + moment().format('MM/DD HH:mm')
     }
-    const { data }: PostSessionsResponse = await $.post('/api/sessions', { name, members, token });
+    const temporary_id = shortid();
+    const post_data: PostSessionsParam = { name, members, temporary_id, token };
+    const { data }: PostSessionsResponse = await $.post('/api/sessions', post_data);
     app.ports.receiveNewRoomInfo.send(data);
     const p1 = axios.get('/api/sessions', { params: { token } });
     const p2 = axios.get('/api/comments', { params: { session: data.id, token } });
@@ -137,7 +150,11 @@ app.ports.getSessionsOf.subscribe(function (user: string) {
 function getAndfeedRoolmInfo() {
     const params: AuthedParams = { token };
     axios.get('/api/sessions', { params }).then(({ data }: AxiosResponse<GetSessionsResponse>) => {
-        app.ports.feedRoomInfo.send(data.data);
+        app.ports.feedRoomInfo.send(map(data.data, (r): RoomInfoClient => {
+            var s: any = clone(r);
+            s.timestamp = moment(r.timestamp).format('YYYY/M/D HH:mm:ss');
+            return s;
+        }));
         // scrollToBottom();
     });
 }

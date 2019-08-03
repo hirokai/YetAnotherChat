@@ -1,3 +1,5 @@
+/// <reference path="../types.d.ts" />
+
 {
     const path = require('path');
     const _ = require('lodash');
@@ -6,6 +8,7 @@
     const db = new sqlite3.Database(path.join(__dirname, '../private/db.sqlite3'));
     const model = require('../model');
     const user_list = require('../private/user_list');
+    const user_info: PrivateUserInfo = require('../private/user_info');
 
     function initialize() {
         db.serialize(() => {
@@ -17,6 +20,11 @@
             db.run('create table session_current_members (session_id text, user_id text not null, unique(session_id,user_id));');
             db.run('drop table if exists session_events;')
             db.run('create table session_events (id text not null, session_id text, user_id text not null, timestamp integer, action text);');
+            db.run('drop table if exists user_connections;')
+            db.run('create table user_connections (user_id text not null, socket_id text);');
+            user_info.allowed_users.forEach((user_id) => {
+                db.run('insert into user_connections (user_id) values (?)', user_id);
+            });
         });
     }
 
