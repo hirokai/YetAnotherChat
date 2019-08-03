@@ -12,7 +12,6 @@ import io from "socket.io-client";
 // @ts-ignore
 const socket: SocketIOClient.Socket = io('');
 
-const a = 1;
 require('moment/locale/ja');
 moment.locale('ja');
 
@@ -163,18 +162,18 @@ app.ports.setPageHash.subscribe(function (hash: string) {
 
 var show_toppane = true;
 
-function recalcPositions(_show_toppane: boolean) {
+function recalcPositions(show_toppane: boolean) {
     $(() => {
         $('#chat-outer').height(window.innerHeight - (show_toppane ? 260 : 100));
     });
 
-    window.addEventListener('resize', (ev: Event) => {
+    window.addEventListener('resize', () => {
         $('#chat-outer').height(window.innerHeight - (show_toppane ? 260 : 100));
         console.log(window.innerHeight);
     });
 }
 
-window.addEventListener('hashchange', (ev: HashChangeEvent) => {
+window.addEventListener('hashchange', () => {
     console.log('hashChange', location.hash, app.ports.hashChanged);
     app.ports.hashChanged.send(location.hash);
     recalcPositions(show_toppane);

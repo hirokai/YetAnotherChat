@@ -14,7 +14,7 @@
             db.run('drop table if exists sessions;')
             db.run('create table sessions (id text not null unique, timestamp integer not null, name text not null);');
             db.run('drop table if exists session_current_members;')
-            db.run('create table session_current_members (session_id text, member_name text not null, unique(session_id,member_name));');
+            db.run('create table session_current_members (session_id text, user_id text not null, unique(session_id,user_id));');
             db.run('drop table if exists session_events;')
             db.run('create table session_events (id text not null, session_id text, user_id text not null, timestamp integer, action text);');
         });

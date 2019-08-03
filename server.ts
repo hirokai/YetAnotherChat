@@ -1,5 +1,4 @@
 /// <reference path="./types.d.ts" />
-import { UserInfo } from "os";
 
 {
     const express = require('express');
@@ -16,10 +15,14 @@ import { UserInfo } from "os";
     const jwt = require('jsonwebtoken');
     var http = require('http').createServer(app);
     const io = require('socket.io')(http);
-    const multer = require('multer');
-    const mail_algo = require('./mail_algo');
     const credential = require('./private/credential');
     const user_info = require('./private/user_info');
+
+    enum Timespan {
+        day,
+        week,
+        month
+    }
 
 
     interface MyResponse extends Response {
@@ -265,13 +268,19 @@ import { UserInfo } from "os";
         });
     });
 
-    app.post('/api/join_session', (req: PostRequest<JoinSessionParam>, res: JsonResponse<JoinSessionResponse>) => {
-        model.join_session(req.body.session_id, req.body.user_id).then((data) => {
-            res.json(data);
-        });
+    app.post('/api/join_session', (req: PostRequest<JoinSessionParam>, res: JsonResponse<JoinSessionResponse>, next) => {
+        (async () => {
+            const is_member = await model.is_member(req.body.session_id, req.body.user_id);
+            if (!is_member) {
+                const data: JoinSessionResponse = await model.join_session(req.body.session_id, req.body.user_id);
+                res.json(data);
+            } else {
+                res.json({ ok: false, error: 'Already member' });
+            }
+        })().catch(next);
     });
 
-    app.post('/api/comments', (req: MyPostRequest<PostCommentData>, res: JsonResponse<PostCommentResponse>, next) => {
+    app.post('/api/comments', (req: MyPostRequest<PostCommentData>, res: JsonResponse<PostCommentResponse>) => {
         (async () => {
             db.serialize(async () => {
                 const ts = new Date().getTime();
@@ -292,7 +301,7 @@ import { UserInfo } from "os";
         console.log("server is running at port " + port);
     })
 
-    io.on('connection', function (socket) {
+    io.on('connection', function () {
         console.log('A user connected');
     });
 }

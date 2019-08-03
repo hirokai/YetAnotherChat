@@ -82,11 +82,6 @@ interface User {
     avatar: string
 }
 
-declare enum Timespan {
-    day,
-    week,
-    month
-}
 
 interface JsonResponse<T> {
     json: (r: T) => void;
@@ -136,5 +131,6 @@ interface JoinSessionParam {
 
 interface JoinSessionResponse {
     ok: boolean,
-    data: { id: string }
+    data?: { id: string },
+    error?: string
 }

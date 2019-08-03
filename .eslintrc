@@ -2,9 +2,13 @@
     "extends": [
         "eslint:recommended"
     ],
-    "plugins": [],
+    "plugins": [
+        "@typescript-eslint"
+    ],
+    "parser": "@typescript-eslint/parser",
     "parserOptions": {
-        "sourceType": "module"
+        "sourceType": "module",
+        "project": "./tsconfig.json"
     },
     "env": {
         "node": true,
