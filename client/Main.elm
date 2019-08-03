@@ -12,6 +12,12 @@ import Maybe.Extra exposing (..)
 import Set
 
 
+port getUsers : () -> Cmd msg
+
+
+port feedUsers : (List String -> msg) -> Sub msg
+
+
 port getMessages : RoomID -> Cmd msg
 
 
@@ -310,14 +316,14 @@ init { username } =
       , roomInfo = Dict.empty
       , rooms = [ "Home", "COI" ]
       , page = NewSession
-      , users = [ "Tanaka", "Yoshida", "Saito", "Kimura", "Abe" ]
+      , users = []
       , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
       , userPageStatus = { sessions = [], messages = [] }
       , chatPageStatus = { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing, topPaneExpanded = True }
       , editing = Set.empty
       , editingValue = Dict.empty
       }
-    , Cmd.batch [ getRoomInfo () ]
+    , Cmd.batch [ getRoomInfo (), getUsers () ]
     )
 
 
@@ -341,6 +347,7 @@ type Msg
     | StartSession (Set.Set Member)
     | ReceiveNewSessionId { timestamp : Int, name : String, id : RoomID }
     | FeedRoomInfo Json.Value
+    | FeedUsers (List String)
     | EnterNewSessionScreen
     | StartEditing String String
     | UpdateEditingValue String String
@@ -416,6 +423,9 @@ update msg model =
                     not (Dict.get m model.selected == Just True)
             in
             ( { model | selected = Dict.insert m v model.selected }, Cmd.none )
+
+        FeedUsers users ->
+            ( { model | users = users }, Cmd.none )
 
         FeedRoomInfo v ->
             let
@@ -527,6 +537,10 @@ update msg model =
         OnSocket v ->
             case Json.decodeValue socketDecoder v of
                 Ok (NewComment v1) ->
+                    let
+                        _ =
+                            Debug.log "OnSocket NewComment" v1
+                    in
                     if RoomPage v1.session /= model.page then
                         ( model, Cmd.none )
 
@@ -615,10 +629,10 @@ socketMsg m =
             Json.map NewComment <|
                 (Json.succeed CommentTyp
                     |> JE.andMap (Json.field "id" Json.string)
-                    |> JE.andMap (Json.field "session_id" Json.string)
                     |> JE.andMap (Json.field "user_id" Json.string)
-                    |> JE.andMap (Json.field "timestamp" Json.string)
                     |> JE.andMap (Json.field "comment" Json.string)
+                    |> JE.andMap (Json.field "session_id" Json.string)
+                    |> JE.andMap (Json.field "timestamp" Json.string)
                     |> JE.andMap (Json.field "original_url" Json.string)
                     |> JE.andMap (Json.field "sent_to" Json.string)
                     |> JE.andMap (Json.field "source" Json.string)
@@ -855,7 +869,7 @@ showItem model entry =
                 text ""
 
         SessionEvent e ->
-            div [ class "chat_entry_event", id e.id ] [ hr [] [], text <| e.user ++ "が参加しました（" ++ e.timestamp ++ "）" ]
+            div [ class "chat_entry_event", id e.id ] [ hr [] [], text <| e.user ++ "が参加しました（" ++ e.timestamp ++ "）", hr [] [] ]
 
 
 isSelected : Model -> Member -> Bool
@@ -1247,7 +1261,8 @@ messageFilter =
 subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.batch
-        [ feedMessages (\ms -> ChatPageMsg <| FeedMessages (Result.withDefault [] (Json.decodeValue chatEntriesDecoder ms)))
+        [ feedUsers FeedUsers
+        , feedMessages (\ms -> ChatPageMsg <| FeedMessages (Result.withDefault [] (Json.decodeValue chatEntriesDecoder ms)))
         , feedUserMessages (\ms -> UserPageMsg <| FeedUserMessages (Result.withDefault [] (Json.decodeValue chatEntriesDecoder ms)))
         , receiveNewRoomInfo ReceiveNewSessionId
         , hashChanged HashChanged
