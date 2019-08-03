@@ -2,12 +2,13 @@
 
 // @ts-ignore
 import { Elm } from './Main.elm';
-import { map } from 'lodash-es';
+import { map, includes } from 'lodash-es';
 import axios from 'axios';
 import $ from 'jquery';
 import moment from 'moment';
 import 'bootstrap';
 import io from "socket.io-client";
+const shortid = require('shortid').generate;
 
 // @ts-ignore
 const socket: SocketIOClient.Socket = io('');
@@ -27,6 +28,9 @@ axios.get('/api/verify_token', { params: { token } }).then(({ data }) => {
 
 socket.on("message", (msg: any) => {
     console.log(msg);
+    if (includes(temporary_id_list, msg.temporary_id)) {
+        return;
+    }
     if (msg.__type == "new_comment") {
         msg.timestamp = moment(msg.timestamp).format('YYYY/M/D HH:mm:ss');
         msg = <ChatEntryClient>msg;
@@ -142,9 +146,12 @@ app.ports.getRoomInfo.subscribe(function () {
     getAndfeedRoolmInfo();
 });
 
+var temporary_id_list = [];
 
 app.ports.sendCommentToServer.subscribe(function ({ comment, user, session }: { comment: string, user: string, session: string }) {
-    $.post('/api/comments', { comment, user, session, token }).then((res: PostCommentResponse) => {
+    const temporary_id = shortid();
+    temporary_id_list.push(temporary_id);
+    $.post('/api/comments', { comment, user, session, temporary_id, token }).then((res: PostCommentResponse) => {
         getAndfeedRoolmInfo();
         scrollTo(res.data.id);
     });
