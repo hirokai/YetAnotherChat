@@ -116,6 +116,7 @@ type PostCommentData = {
     user: string,
     session: string,
     comment: string,
+    temporary_id: string,   //generated at client to avoid duplicate addition by socket notification.
 }
 
 
