@@ -63,7 +63,7 @@ const user_info_private = require('./private/user_info');
         });
     }
 
-    function create_new_session(name: string, members: string[]): Promise<{ id: string, name: string, timestamp: number }> {
+    function create_new_session(name: string, members: string[]): Promise<{ id: string, name: string, timestamp: number, members: string[] }> {
         const session_id = shortid();
         return create_session_with_id(session_id, name, members);
     }
@@ -87,14 +87,19 @@ const user_info_private = require('./private/user_info');
             // const ts = new Date().getTime();
             db.serialize(() => {
                 db.get('select * from sessions where id=?;', session_id, (err, session) => {
-                    db.all('select * from session_current_members where session_id=?', session_id, (err, r2) => {
-                        const members = _.map(r2, 'user_id');
-                        const numMessages: Map<string, number> = new Map<string, number>();
-                        const firstMsgTime = -1;
-                        const lastMsgTime = -1;
-                        const id = session_id;
-                        resolve({ name: <string>session.name, timestamp: <number>session.timestamp, members, numMessages, firstMsgTime, lastMsgTime, id });
-                    })
+                    if (!session) {
+                        resolve(null);
+                    } else {
+                        db.all('select * from session_current_members where session_id=?', session_id, (err, r2) => {
+                            const members = _.map(r2, 'user_id');
+                            const numMessages: Map<string, number> = new Map<string, number>();
+                            const firstMsgTime = -1;
+                            const lastMsgTime = -1;
+                            const id = session_id;
+                            resolve({ name: <string>session.name, timestamp: <number>session.timestamp, members, numMessages, firstMsgTime, lastMsgTime, id });
+                        })
+
+                    }
                 });
             });
         });
@@ -274,17 +279,19 @@ const user_info_private = require('./private/user_info');
         });
     }
 
-    function getSocketId(user_id: string): Promise<string> {
+    function getSocketIds(user_id: string): Promise<string[]> {
         return new Promise((resolve) => {
-            db.get('select socket_id from user_connections where user_id=?;', user_id, (err, row) => {
-                resolve(row['socket_id']);
+            db.all('select socket_id from user_connections where user_id=?;', user_id, (err, rows) => {
+                resolve(_.map(rows, 'socket_id'));
             });
         });
     }
 
     function saveSocketId(user_id: string, socket_id: string): Promise<{ ok: boolean }> {
         return new Promise((resolve) => {
-            db.get('update user_connections set socket_id=? where user_id=?;', socket_id, user_id, (err, row) => {
+            const ts: number = new Date().getTime();
+            db.run('insert into user_connections (socket_id,user_id, timestamp) values (?,?,?);', socket_id, user_id, ts, (err) => {
+                console.log('saveSocketId', err);
                 resolve({ ok: !err });
             });
         });
@@ -304,7 +311,7 @@ const user_info_private = require('./private/user_info');
         join_session,
         is_member,
         get_members,
-        getSocketId,
+        getSocketIds,
         saveSocketId
     };
 
