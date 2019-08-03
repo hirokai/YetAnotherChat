@@ -22,7 +22,7 @@
     const users = get_users();
     _.map(users, ([user, token]) => {
         function doSomething(user, token) {
-            const params: GetSessionsOfParams = { of_members: null, token };
+            // const params: GetSessionsOfParams = { of_members: null, token };
             const comment = '' + Math.random();
             axios.post('http://localhost:3000/api/comments', { comment, user, session: session_id, token }).then((res: PostCommentResponse) => {
                 console.log(res.data)

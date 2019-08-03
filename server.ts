@@ -245,9 +245,15 @@
         const body = req.body;
         const members = body.members;
         const name = body.name;
+        const temporary_id = body.temporary_id;
         if (name && members) {
             model.create_new_session(name, members).then((data) => {
                 res.json({ ok: true, data });
+                _.map(members, async (m: string) => {
+                    const socket_id: string = await model.getSocketId(m);
+                    console.log('emitting to', socket_id);
+                    io.to(socket_id).emit("message", _.extend({}, { __type: "new_session", temporary_id }, data));
+                });
             }).catch((error) => {
                 res.json({ ok: false, error });
             });
@@ -307,7 +313,17 @@
         console.log("server is running at port " + port);
     })
 
-    io.on('connection', function () {
+    io.on('connection', function (socket) {
         console.log('A user connected');
+        socket.on('subscribe', ({ token }) => {
+            console.log('subscribe');
+            jwt.verify(token, credential.jwt_secret, function (err, decoded) {
+                const user_id = decoded.username;
+                model.saveSocketId(user_id, socket.id).then((r) => {
+                    console.log('saveSocketId', r)
+                    console.log('socket id', user_id, socket.id);
+                });
+            });
+        });
     });
 }

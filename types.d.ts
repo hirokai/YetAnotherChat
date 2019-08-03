@@ -1,10 +1,20 @@
-interface RoomInfo {
+type RoomInfo = {
     name: string,
     numMessages: Map<string, number>,
     firstMsgTime: number,
     lastMsgTime: number,
     id: string,
     timestamp: number,
+    members: Array<string>
+}
+
+type RoomInfoClient = {
+    name: string,
+    numMessages: object,
+    firstMsgTime: number,
+    lastMsgTime: number,
+    id: string,
+    timestamp: string,
     members: Array<string>
 }
 
@@ -127,6 +137,7 @@ interface GetCommentsParams extends AuthedParams {
 interface PostSessionsParam extends AuthedParams {
     name: string,
     members: string[],
+    temporary_id: string,
 }
 
 interface JoinSessionParam extends AuthedParams {
