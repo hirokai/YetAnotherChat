@@ -144,7 +144,7 @@ const user_info_private = require('./private/user_info');
     };
 
     const get_session_of_members = (user_id: string, members: string[], is_all: boolean): Promise<RoomInfo[]> => {
-        var s: string = _.sortBy([user_id].concat(members)).join(",");
+        var s: string = _.sortedUniq(_.sortBy([user_id].concat(members))).join(",");
         if (!is_all) {
             s = '%' + s + '%';
         }
