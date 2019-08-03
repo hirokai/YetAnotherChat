@@ -95,19 +95,24 @@ interface GetSessionsOfParams extends AuthedParams {
     of_members: string,
 }
 
-interface GetSessionResponse { ok: boolean, data: RoomInfo }
-interface PatchSessionResponse { ok: boolean }
-interface DeleteCommentResponse { ok: boolean, data?: DeleteCommentData }
-interface DeleteCommentData { comment_id: string, session_id: string }
-interface GetSessionsResponse { ok: boolean, data: RoomInfo[] }
+type GetSessionResponse = { ok: boolean, data: RoomInfo }
+type PatchSessionResponse = { ok: boolean }
+type DeleteCommentResponse = { ok: boolean, data?: DeleteCommentData }
+type DeleteCommentData = { comment_id: string, session_id: string }
+type GetSessionsResponse = { ok: boolean, data: RoomInfo[] }
+type GetUsersResponse = {
+    ok: boolean, data: {
+        users: string[]
+    }
+}
 
-interface PostSessionsResponse {
+type PostSessionsResponse = {
     ok: boolean,
     data?: { id: string },
     error?: string
 }
 
-interface PostCommentData {
+type PostCommentData = {
     user: string,
     session: string,
     comment: string,
@@ -118,19 +123,25 @@ interface GetCommentsParams extends AuthedParams {
     session: string
 }
 
-interface PostSessionsParam {
+interface PostSessionsParam extends AuthedParams {
     name: string,
     members: string[],
-    token: string
 }
 
-interface JoinSessionParam {
+interface JoinSessionParam extends AuthedParams {
     session_id: string,
     user_id: string,
 }
 
-interface JoinSessionResponse {
+type JoinSessionResponse = {
     ok: boolean,
     data?: { id: string },
     error?: string
+}
+
+type PrivateUserInfo = {
+    find_user: (string) => string,
+    test_myself: string,
+    allowed_users: string[],
+    allowed_passwords: string[]
 }

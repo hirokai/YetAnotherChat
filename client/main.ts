@@ -98,6 +98,14 @@ function getAndFeedMessages(session: string) {
     });
 }
 
+app.ports.getUsers.subscribe(() => {
+    axios.get('/api/users', { params: { token } }).then(({ data }: AxiosResponse<GetUsersResponse>) => {
+        const users: string[] = data.data.users;
+        console.log(users);
+        app.ports.feedUsers.send(users);
+    });
+});
+
 app.ports.getMessages.subscribe(getAndFeedMessages);
 
 app.ports.getUserMessages.subscribe(async function (user: string) {

@@ -102,14 +102,14 @@ const user_info_private = require('./private/user_info');
     }
 
     const get_session_list = function (params): Promise<RoomInfo[]> {
-        const { of_members, is_all } = params;
+        const { user_id, of_members, is_all } = params;
         console.log('get_session_list():', params);
         if (of_members) {
-            return get_session_of_members(of_members, is_all);
+            return get_session_of_members(user_id, of_members, is_all);
         }
         return new Promise((resolve) => {
             db.serialize(() => {
-                db.all('select s.id,s.name,s.timestamp,group_concat(distinct m.user_id) as members from sessions as s join session_current_members as m on s.id=m.session_id group by s.id order by s.timestamp desc;', (err, sessions) => {
+                db.all('select s.id,s.name,s.timestamp,group_concat(distinct m.user_id) as members from sessions as s join session_current_members as m on s.id=m.session_id group by s.id having members like ? order by s.timestamp desc;', '%' + user_id + '%', (err, sessions) => {
                     Promise.all(_.map(sessions, (s) => {
                         return new Promise((resolve1) => {
                             db.all("select count(*),user_id,max(timestamp),min(timestamp) from comments where session_id=? group by user_id;", s.id, (err, users) => {
@@ -139,8 +139,8 @@ const user_info_private = require('./private/user_info');
         });
     };
 
-    const get_session_of_members = (members: string[], is_all: boolean): Promise<RoomInfo[]> => {
-        var s = _.sortBy(members).join(",");
+    const get_session_of_members = (user_id: string, members: string[], is_all: boolean): Promise<RoomInfo[]> => {
+        var s: string = _.sortBy([user_id].concat(members)).join(",");
         if (!is_all) {
             s = '%' + s + '%';
         }
@@ -242,24 +242,22 @@ const user_info_private = require('./private/user_info');
         return new Promise((resolve) => {
             const ts: number = new Date().getTime();
             const id: string = shortid();
-            db.exec('BEGIN TRANSACTION');
-            db.run('insert into session_events (id,session_id,user_id,timestamp,action) values (?,?,?,?,?);', id, session_id, user_id, ts, 'join', (err) => {
-                console.log('model.join_session', err);
-                const data = { id };
-                if (!err) {
-                    db.run('insert or ignore into session_current_members (session_id,user_id) values (?,?);',
-                        session_id, user_id, (err2) => {
-                            if (!err2) {
-                                resolve({ ok: true, data });
-                                db.exec('commit');
-                            } else {
-                                resolve({ ok: false, data });
-                                db.exec('rollback');
-                            }
-                        });
-                } else {
-                    db.exec('rollback');
-                }
+            db.serialize(() => {
+                db.run('insert into session_events (id,session_id,user_id,timestamp,action) values (?,?,?,?,?);', id, session_id, user_id, ts, 'join', (err) => {
+                    console.log('model.join_session', err);
+                    const data = { id };
+                    if (!err) {
+                        db.run('insert or ignore into session_current_members (session_id,user_id) values (?,?);',
+                            session_id, user_id, (err2) => {
+                                if (!err2) {
+                                    resolve({ ok: true, data });
+                                } else {
+                                    resolve({ ok: false, data });
+                                }
+                            });
+                    } else {
+                    }
+                });
             });
         });
     }

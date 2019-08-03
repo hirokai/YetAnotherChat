@@ -16,7 +16,7 @@
     var http = require('http').createServer(app);
     const io = require('socket.io')(http);
     const credential = require('./private/credential');
-    const user_info = require('./private/user_info');
+    const user_info: PrivateUserInfo = require('./private/user_info');
 
     enum Timespan {
         day,
@@ -123,13 +123,17 @@
         res.send(fs.readFileSync('private/slack_count_' + span + '.json', 'utf8'));
     });
 
-    app.get('/api/users', (_, res: JsonResponse<User>) => {
+    app.get('/api/users_old', (_, res: JsonResponse<User>) => {
         const users: UserSlack[] = JSON.parse(fs.readFileSync('private/slack_users.json', 'utf8'));
         res.json(_.map(users, (u: UserSlack): User => {
             const ts = u.real_name.split(" ");
             const letter = ts[ts.length - 1][0].toLowerCase();
             return { id: u.id, name: u.real_name, username: u.name, avatar: '/public/img/letter/' + letter + '.png' };
         }));
+    });
+
+    app.get('/api/users', (_, res: JsonResponse<GetUsersResponse>) => {
+        res.json({ ok: true, data: { users: user_info.allowed_users } });
     });
 
     function expandSpan(date: string, span: Timespan): string[] {
@@ -227,7 +231,8 @@
         const ms = req.query.of_members;
         const of_members = ms ? ms.split(",") : undefined;
         const is_all = !(typeof req.query.is_all === 'undefined');
-        model.get_session_list({ of_members, is_all }).then((r: RoomInfo[]) => {
+        const user_id = req.decoded.username;
+        model.get_session_list({ user_id, of_members, is_all }).then((r: RoomInfo[]) => {
             res.json({ ok: true, data: r });
         })
     });
