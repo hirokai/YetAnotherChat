@@ -213,6 +213,19 @@ getUser c =
             user
 
 
+getKind : ChatEntry -> String
+getKind c =
+    case c of
+        Comment _ ->
+            "comment"
+
+        ChatFile _ ->
+            "file"
+
+        SessionEvent _ ->
+            "event"
+
+
 type alias NewSessionStatus =
     { selected : Set.Set Member
     , sessions_same_members : List RoomID
@@ -1196,9 +1209,12 @@ chatRoomView room model =
                                                     let
                                                         messages_filtered =
                                                             List.filter (\m -> Set.member (getUser m) model.chatPageStatus.filter) messages
+
+                                                        messages_filtered_nonevent =
+                                                            List.filter (\m -> getKind m /= "event") messages_filtered
                                                     in
                                                     [ div [ id "message-count" ]
-                                                        [ text (String.fromInt (List.length messages_filtered) ++ " messages.")
+                                                        [ text (String.fromInt (List.length messages_filtered_nonevent) ++ " messages.")
                                                         , button [ class "btn-sm btn-light btn", onClick (ChatPageMsg ScrollToBottom) ] [ text "⬇⬇" ]
                                                         ]
                                                     , div [ id "chat-wrapper" ]
