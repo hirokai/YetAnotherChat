@@ -281,10 +281,19 @@
 
     app.post('/api/join_session', (req: PostRequest<JoinSessionParam>, res: JsonResponse<JoinSessionResponse>, next) => {
         (async () => {
-            const is_member = await model.is_member(req.body.session_id, req.body.user_id);
+            const session_id = req.body.session_id;
+            const members = await model.get_members(session_id);
+            console.log(members);
+            const new_member = req.body.user_id;
+            const is_member = _.includes(members, new_member);
             if (!is_member) {
-                const data: JoinSessionResponse = await model.join_session(req.body.session_id, req.body.user_id);
+                const data: JoinSessionResponse = await model.join_session(session_id, req.body.user_id);
                 res.json(data);
+                _.map(members.concat([new_member]), async (m: string) => {
+                    const socket_id: string = await model.getSocketId(m);
+                    const data1 = { session_id, user_id: new_member };
+                    io.to(socket_id).emit("message", _.extend({}, { __type: "new_member" }, data1));
+                });
             } else {
                 res.json({ ok: false, error: 'Already member' });
             }
