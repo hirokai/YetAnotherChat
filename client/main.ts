@@ -45,6 +45,11 @@ socket.on("message", (msg: any) => {
         msg1.firstMsgTime = -1;
         msg1.lastMsgTime = -1;
         msg1.numMessages = { "__total": 0 };
+        msg = msg1;
+    } else if (msg.__type == "new_member") {
+        const msg1 = <any>msg;
+        msg1.timestamp = moment(msg.timestamp).format('YYYY/M/D HH:mm:ss');
+        msg = msg1;
     }
     app.ports.onSocket.send(msg);
 });

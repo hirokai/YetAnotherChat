@@ -594,6 +594,45 @@ update msg model =
                 Ok (NewSessionSocket info) ->
                     ( { model | roomInfo = Dict.insert info.id info model.roomInfo, rooms = info.id :: model.rooms }, Cmd.none )
 
+                Ok (NewMemberSocket { session_id, user_id, timestamp }) ->
+                    if RoomPage session_id /= model.page then
+                        ( model, Cmd.none )
+
+                    else
+                        let
+                            f : String -> String -> String -> ChatEntry
+                            f session user ts =
+                                let
+                                    a =
+                                        SessionEvent { id = "", user = user, timestamp = ts, session = session, action = "join" }
+
+                                    _ =
+                                        Debug.log "sessionevent" a
+                                in
+                                a
+
+                            cm =
+                                model.chatPageStatus
+
+                            _ =
+                                Debug.log "cm length" ( List.length (Maybe.withDefault [] cm.messages), List.length new_msgs )
+
+                            new_msgs =
+                                Maybe.withDefault [] cm.messages
+                                    ++ [ f session_id user_id timestamp ]
+                        in
+                        ( { model
+                            | chatPageStatus =
+                                { cm
+                                    | messages =
+                                        Just new_msgs
+                                    , filter = Set.insert user_id cm.filter
+                                    , users = cm.users ++ [ user_id ]
+                                }
+                          }
+                        , Cmd.none
+                        )
+
                 Err e ->
                     let
                         _ =
@@ -611,14 +650,11 @@ type alias DeleteCommentMsg =
     { comment_id : String, session_id : String }
 
 
-type alias NewSessionSocketMsg =
-    { session_id : String, name : String, members : List String, timestamp : String }
-
-
 type SocketMsg
     = NewComment CommentTyp
     | DeleteComment DeleteCommentMsg
     | NewSessionSocket RoomInfo
+    | NewMemberSocket { session_id : String, user_id : String, timestamp : String }
 
 
 socketDecoder : Json.Decoder SocketMsg
@@ -662,6 +698,17 @@ socketMsg m =
                     Debug.log "new_session, OK so far" ""
             in
             Json.map NewSessionSocket <| roomInfoDecoder
+
+        "new_member" ->
+            let
+                _ =
+                    Debug.log "new_member, OK so far" ""
+            in
+            Json.map NewMemberSocket <|
+                Json.map3 (\a b c -> { session_id = a, user_id = b, timestamp = c })
+                    (Json.field "session_id" Json.string)
+                    (Json.field "user_id" Json.string)
+                    (Json.field "timestamp" Json.string)
 
         s ->
             Json.fail ("Message <" ++ s ++ "> Not implemented yet")

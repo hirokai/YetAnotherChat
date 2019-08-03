@@ -74,10 +74,9 @@ const user_info_private = require('./private/user_info');
             const ts = new Date().getTime();
             db.serialize(() => {
                 db.run('insert or ignore into sessions (id, name, timestamp) values (?,?,?);', session_id, name, ts);
-                _.each(members, (member) => {
-                    db.run('insert or ignore into session_current_members (session_id, user_id) values (?,?);', session_id, member);
+                Promise.all(_.map(members, (m) => join_session(session_id, m))).then(() => {
+                    resolve({ id: session_id, name: name, timestamp: ts, members });
                 });
-                resolve({ id: session_id, name: name, timestamp: ts, members });
             });
         });
     }
@@ -242,6 +241,14 @@ const user_info_private = require('./private/user_info');
         });
     }
 
+    function get_members(session_id: string): Promise<string[]> {
+        return new Promise((resolve) => {
+            db.all('select * from session_current_members where session_id=?', session_id, (err, rows) => {
+                resolve(_.map(rows, 'user_id'));
+            });
+        });
+    }
+
     function join_session(session_id: string, user_id: string): Promise<JoinSessionResponse> {
         return new Promise((resolve) => {
             const ts: number = new Date().getTime();
@@ -296,6 +303,7 @@ const user_info_private = require('./private/user_info');
         create_session_with_id,
         join_session,
         is_member,
+        get_members,
         getSocketId,
         saveSocketId
     };
