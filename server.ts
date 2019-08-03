@@ -250,9 +250,11 @@
             model.create_new_session(name, members).then((data) => {
                 res.json({ ok: true, data });
                 _.map(members, async (m: string) => {
-                    const socket_id: string = await model.getSocketId(m);
-                    console.log('emitting to', socket_id);
-                    io.to(socket_id).emit("message", _.extend({}, { __type: "new_session", temporary_id }, data));
+                    const socket_ids: string[] = await model.getSocketIds(m);
+                    console.log('emitting to', socket_ids);
+                    socket_ids.forEach(socket_id => {
+                        io.to(socket_id).emit("message", _.extend({}, { __type: "new_session", temporary_id }, data));
+                    })
                 });
             }).catch((error) => {
                 res.json({ ok: false, error });
@@ -290,10 +292,20 @@
                 const data: JoinSessionResponse = await model.join_session(session_id, req.body.user_id);
                 res.json(data);
                 _.map(members.concat([new_member]), async (m: string) => {
-                    const socket_id: string = await model.getSocketId(m);
+                    const socket_ids: string[] = await model.getSocketIds(m);
                     const data1 = { session_id, user_id: new_member };
-                    io.to(socket_id).emit("message", _.extend({}, { __type: "new_member" }, data1));
+                    socket_ids.forEach(socket_id => {
+                        io.to(socket_id).emit("message", _.extend({}, { __type: "new_member" }, data1));
+                    })
                 });
+                const socket_ids_newmember: string[] = await model.getSocketIds(new_member);
+                console.log('emitting to new member', socket_ids_newmember);
+
+                const data2: { id: string, name: string, timestamp: number, members: string[] } = await model.get_session_info(session_id);
+                socket_ids_newmember.forEach(socket_id => {
+                    io.to(socket_id).emit("message", _.extend({}, { __type: "new_session" }, data2));
+                });
+
             } else {
                 res.json({ ok: false, error: 'Already member' });
             }
