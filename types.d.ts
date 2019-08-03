@@ -20,7 +20,8 @@ interface AxiosResponse<T> {
 }
 
 
-interface CommentTyp {
+type CommentTyp = {
+    kind: "comment";
     id: string,
     user_id: string,
     comment: string,
@@ -29,6 +30,15 @@ interface CommentTyp {
     original_url: string,
     sent_to: string,
     source: string
+}
+
+type SessionEvent = {
+    kind: "event";
+    id: string,
+    user_id: string,
+    session_id: string,
+    timestamp: number,
+    action: string,
 }
 
 interface MailgunParsed {
@@ -43,7 +53,7 @@ interface MailgunParsed {
     body: any
 }
 
-interface CommentTypClient {
+interface ChatEntryClient {
     id: String,
     user: string,
     comment: string,
@@ -52,6 +62,8 @@ interface CommentTypClient {
     originalUrl: string,
     sentTo: string,
     source: string
+    kind: string,
+    action: string
 }
 
 interface UserSlack {
@@ -115,4 +127,14 @@ interface PostSessionsParam {
     name: string,
     members: string[],
     token: string
+}
+
+interface JoinSessionParam {
+    session_id: string,
+    user_id: string,
+}
+
+interface JoinSessionResponse {
+    ok: boolean,
+    data: { id: string }
 }

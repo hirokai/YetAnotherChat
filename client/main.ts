@@ -20,11 +20,17 @@ const app = Elm.Main.init({ flags: { username: localStorage['yacht.username'] ||
 
 const token = localStorage.getItem('yacht.token') || "";
 
+axios.get('/api/verify_token', { params: { token } }).then(({ data }) => {
+    if (!data.valid) {
+        location.href = '/login';
+    }
+});
+
 socket.on("message", (msg: any) => {
     console.log(msg);
     if (msg.__type == "new_comment") {
         msg.timestamp = moment(msg.timestamp).format('YYYY/M/D HH:mm:ss');
-        msg = <CommentTypClient>msg;
+        msg = <ChatEntryClient>msg;
     }
     app.ports.onSocket.send(msg);
 });
@@ -42,11 +48,29 @@ function scrollTo(id) {
 
 app.ports.scrollTo.subscribe(scrollTo);
 
-const processData = (res: CommentTyp[]): CommentTypClient[] => {
-    return map(res, (m) => {
-        const user: string = m.user_id || 'myself'
-        const v: CommentTypClient = { id: m.id, user, comment: m.comment, timestamp: moment(m.timestamp).format('YYYY/M/D HH:mm:ss'), originalUrl: m.original_url || "", sentTo: m.sent_to || "", session: m.session_id, source: m.source };
-        return v;
+type ChatEntry = CommentTyp | SessionEvent;
+
+const processData = (res: ChatEntry[]): ChatEntryClient[] => {
+    return map(res, (m1) => {
+        console.log('processData', m1);
+        const user: string = m1.user_id;
+        var v: ChatEntryClient = { id: m1.id, user, comment: "", timestamp: moment(m1.timestamp).format('YYYY/M/D HH:mm:ss'), originalUrl: "", sentTo: "", session: m1.session_id, source: "", kind: m1.kind, action: "" };
+        switch (m1.kind) {
+            case "comment": {
+                const m = <CommentTyp>m1;
+                v.comment = m.comment;
+                v.originalUrl = m.original_url || "";
+                v.sentTo = m.sent_to || "";
+                v.source = m.source;
+                return v;
+            }
+            case "event": {
+                const m = <SessionEvent>m1;
+                v.comment = "（参加しました）";
+                v.action = m.action;
+                return v;
+            }
+        }
     });
 };
 
@@ -165,11 +189,17 @@ app.ports.recalcElementPositions.subscribe((b: boolean) => {
     recalcPositions(b);
 });
 
-window.setTimeout(() => {
-    var test = document.getElementById("measure-width");
-    test.innerText = "hoge";
-    var height = (test.clientHeight + 1);
-    var width = (test.clientWidth + 1);
+app.ports.joinRoom.subscribe(({ session_id, user_id }) => {
+    $.post('/api/join_session', { token, session_id, user_id }).then((res: JoinSessionResponse) => {
+        console.log('join_session', res);
+    });
+});
 
-    console.log(height, width);
-}, 1000);
+// window.setTimeout(() => {
+//     var test = document.getElementById("measure-width");
+//     test.innerText = "hoge";
+//     var height = (test.clientHeight + 1);
+//     var width = (test.clientWidth + 1);
+
+//     console.log(height, width);
+// }, 1000);

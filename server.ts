@@ -265,6 +265,12 @@ import { UserInfo } from "os";
         });
     });
 
+    app.post('/api/join_session', (req: PostRequest<JoinSessionParam>, res: JsonResponse<JoinSessionResponse>) => {
+        model.join_session(req.body.session_id, req.body.user_id).then((data) => {
+            res.json(data);
+        });
+    });
+
     app.post('/api/comments', (req: MyPostRequest<PostCommentData>, res: JsonResponse<PostCommentResponse>, next) => {
         (async () => {
             db.serialize(async () => {

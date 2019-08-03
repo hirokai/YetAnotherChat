@@ -19,10 +19,10 @@ const user_info_private = require('./private/user_info');
         return new Promise((resolve, reject) => {
             const comment_id = shortid.generate();
             db.run('insert into comments (id,user_id,comment,timestamp,session_id,original_url,sent_to,source) values (?,?,?,?,?,?,?,?);', comment_id, user_id, comment, ts, session_id, original_url, sent_to, source, (err1) => {
-                db.run('insert or ignore into session_members (session_id,member_name) values (?,?)', session_id, user_id, (err2) => {
+                db.run('insert or ignore into session_current_members (session_id,member_name) values (?,?)', session_id, user_id, (err2) => {
                     if (!err1 && !err2) {
-                        const data = {
-                            id: comment_id, timestamp: ts, user_id, comment: comment, session_id, original_url, sent_to, source
+                        const data: CommentTyp = {
+                            id: comment_id, timestamp: ts, user_id, comment: comment, session_id, original_url, sent_to, source, kind: "comment"
                         };
                         resolve(data);
                     } else {
@@ -75,7 +75,7 @@ const user_info_private = require('./private/user_info');
             db.serialize(() => {
                 db.run('insert or ignore into sessions (id, name, timestamp) values (?,?,?);', session_id, name, ts);
                 _.each(members, (member) => {
-                    db.run('insert or ignore into session_members (session_id, member_name) values (?,?);', session_id, member);
+                    db.run('insert or ignore into session_current_members (session_id, member_name) values (?,?);', session_id, member);
                 });
                 resolve({ id: session_id, name: name, timestamp: ts });
             });
@@ -88,7 +88,7 @@ const user_info_private = require('./private/user_info');
             // const ts = new Date().getTime();
             db.serialize(() => {
                 db.get('select * from sessions where id=?;', session_id, (err, session) => {
-                    db.all('select * from session_members where session_id=?', session_id, (err, r2) => {
+                    db.all('select * from session_current_members where session_id=?', session_id, (err, r2) => {
                         const members = _.map(r2, 'member_name');
                         const numMessages: Map<string, number> = new Map<string, number>();
                         const firstMsgTime = -1;
@@ -109,7 +109,7 @@ const user_info_private = require('./private/user_info');
         }
         return new Promise((resolve) => {
             db.serialize(() => {
-                db.all('select s.id,s.name,s.timestamp,group_concat(distinct m.member_name) as members from sessions as s join session_members as m on s.id=m.session_id group by s.id order by s.timestamp desc;', (err, sessions) => {
+                db.all('select s.id,s.name,s.timestamp,group_concat(distinct m.member_name) as members from sessions as s join session_current_members as m on s.id=m.session_id group by s.id order by s.timestamp desc;', (err, sessions) => {
                     Promise.all(_.map(sessions, (s) => {
                         return new Promise((resolve1) => {
                             db.all("select count(*),user_id,max(timestamp),min(timestamp) from comments where session_id=? group by user_id;", s.id, (err, users) => {
@@ -146,7 +146,7 @@ const user_info_private = require('./private/user_info');
         }
         return new Promise((resolve) => {
             // https://stackoverflow.com/questions/1897352/sqlite-group-concat-ordering
-            const q = "select id,name,timestamp,group_concat(member_name) as members from (select s.id,s.name,s.timestamp,m.member_name from sessions as s join session_members as m on s.id=m.session_id order by s.timestamp,m.member_name) group by id having members like ? order by timestamp desc;"
+            const q = "select id,name,timestamp,group_concat(member_name) as members from (select s.id,s.name,s.timestamp,m.member_name from sessions as s join session_current_members as m on s.id=m.session_id order by s.timestamp,m.member_name) group by id having members like ? order by timestamp desc;"
             db.all(q, s, (err, sessions) => {
                 resolve(_.map(sessions, (session) => {
                     var r: RoomInfo = {
@@ -159,39 +159,50 @@ const user_info_private = require('./private/user_info');
         });
     };
 
-    const get_comments_list = (session_id: string, user_id: string): Promise<CommentTyp[]> => {
+    const get_comments_list = (session_id: string, user_id: string): Promise<(CommentTyp | SessionEvent)[]> => {
         const processRow = (row): CommentTyp => {
             const comment = row.comment.replace(/(:.+?:)/g, function (m, $1) {
                 const r = emoji_dict[$1];
                 return r ? r.emoji : $1;
             });
-            return { id: row.id, comment, timestamp: parseInt(row.timestamp), user_id: row.user_id, original_url: row.original_url, sent_to: row.sent_to, session_id: row.session_id, source: row.source };
+            return { id: row.id, comment, timestamp: parseInt(row.timestamp), user_id: row.user_id, original_url: row.original_url, sent_to: row.sent_to, session_id: row.session_id, source: row.source, kind: "comment" };
         };
-        return new Promise((resolve) => {
-            if (session_id && !user_id) {
-                db.serialize(() => {
-                    db.all('select * from comments where session_id=? order by timestamp;', session_id, (err, rows) => {
-                        resolve(_.map(rows, processRow));
-                    });
-                });
-            } else if (!session_id && user_id) {
-                db.serialize(() => {
-                    db.all('select * from comments where user_id=? order by timestamp;', user_id, (err, rows) => {
-                        resolve(_.map(rows, processRow));
-                    });
-                });
-            } else if (session_id && user_id) {
-                db.serialize(() => {
-                    db.all('select * from comments where session_id=? and user_id=? order by timestamp;', session_id, user_id, (err, rows) => {
-                        resolve(_.map(rows, processRow));
-                    });
-                });
-            } else {
-                db.all('select * from comments order by timestamp;', (err, rows) => {
-                    resolve(_.map(rows, processRow));
-                });
+        var func;
+        if (session_id && !user_id) {
+            func = (cb) => {
+                db.all('select * from comments where session_id=? order by timestamp;', session_id, cb);
+            };
+        } else if (!session_id && user_id) {
+            func = (cb) => {
+                db.all('select * from comments where user_id=? order by timestamp;', user_id, cb);
             }
+        } else if (session_id && user_id) {
+            func = (cb) => {
+                db.all('select * from comments where session_id=? and user_id=? order by timestamp;', session_id, user_id, cb);
+            }
+        } else {
+            func = (cb) => {
+                db.all('select * from comments order by timestamp;', cb);
+            }
+        }
+
+        return new Promise((resolve) => {
+            func((err, rows) => {
+                if (session_id) {
+                    db.all('select * from session_events where session_id=?', session_id, (err, rows2) => {
+                        const res1 = _.map(rows, processRow);
+                        const res2 = _.map(rows2, (r) => {
+                            r.kind = "event";
+                            return r;
+                        });
+                        resolve(_.sortBy(res1.concat(res2), 'timestamp'));
+                    });
+                } else {
+                    resolve(_.map(rows, processRow));
+                }
+            });
         });
+
     };
 
     function parseMailgunWebhook(body): MailgunParsed {
@@ -218,6 +229,32 @@ const user_info_private = require('./private/user_info');
         return data;
     }
 
+    function join_session(session_id: string, user_id: string): Promise<JoinSessionResponse> {
+        return new Promise((resolve) => {
+            const ts: number = new Date().getTime();
+            const id: string = shortid();
+            db.exec('BEGIN TRANSACTION');
+            db.run('insert into session_events (id,session_id,user_id,timestamp,action) values (?,?,?,?,?);', id, session_id, user_id, ts, 'join', (err) => {
+                console.log('model.join_session', err);
+                const data = { id };
+                if (!err) {
+                    db.run('insert or ignore into session_current_members (session_id,member_name) values (?,?);',
+                        session_id, user_id, (err2) => {
+                            if (!err2) {
+                                resolve({ ok: true, data });
+                                db.exec('commit');
+                            } else {
+                                resolve({ ok: false, data });
+                                db.exec('rollback');
+                            }
+                        });
+                } else {
+                    db.exec('rollback');
+                }
+            });
+        });
+    }
+
     module.exports = {
         get_sent_mail,
         get_mail_from,
@@ -228,7 +265,8 @@ const user_info_private = require('./private/user_info');
         get_comments_list,
         post_comment,
         parseMailgunWebhook,
-        create_session_with_id
+        create_session_with_id,
+        join_session
     };
 
 }

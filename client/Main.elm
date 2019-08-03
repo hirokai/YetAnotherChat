@@ -6,6 +6,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Json.Decode as Json
+import Json.Decode.Extra as JE
 import List.Extra
 import Maybe.Extra exposing (..)
 import Set
@@ -20,6 +21,8 @@ type alias CommentTyp =
     , originalUrl : String
     , sentTo : String
     , source : String
+    , kind : String
+    , action : String
     }
 
 
@@ -81,6 +84,9 @@ port recalcElementPositions : Bool -> Cmd msg
 
 
 port onSocket : (Json.Value -> msg) -> Sub msg
+
+
+port joinRoom : { session_id : String, user_id : String } -> Cmd msg
 
 
 type ChatEntry
@@ -325,7 +331,7 @@ addComment comment model =
                         model.chatPageStatus
 
                     msgs =
-                        Just <| List.append messages [ Comment { id = "__latest", user = model.myself, comment = comment, originalUrl = "", sentTo = "all", timestamp = "", session = "", source = "self" } ]
+                        Just <| List.append messages [ Comment { id = "__latest", user = model.myself, comment = comment, originalUrl = "", sentTo = "all", timestamp = "", session = "", source = "self", kind = "comment", action = "" } ]
                 in
                 { model | chatPageStatus = { chatPageStatus | messages = msgs }, editingValue = Dict.insert "chat" "" model.editingValue }
 
@@ -471,7 +477,7 @@ update msg model =
                         let
                             f : CommentTyp -> ChatEntry
                             f { id, user, comment, timestamp, session, originalUrl, sentTo, source } =
-                                Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = session, source = source }
+                                Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = session, source = source, kind = "comment", action = "" }
 
                             cm =
                                 model.chatPageStatus
@@ -550,15 +556,18 @@ socketMsg m =
                     Debug.log "new_comment, OK so far" ""
             in
             Json.map NewComment <|
-                Json.map8 CommentTyp
-                    (Json.field "id" Json.string)
-                    (Json.field "session_id" Json.string)
-                    (Json.field "user_id" Json.string)
-                    (Json.field "timestamp" Json.string)
-                    (Json.field "comment" Json.string)
-                    (Json.field "original_url" Json.string)
-                    (Json.field "sent_to" Json.string)
-                    (Json.field "source" Json.string)
+                (Json.succeed CommentTyp
+                    |> JE.andMap (Json.field "id" Json.string)
+                    |> JE.andMap (Json.field "session_id" Json.string)
+                    |> JE.andMap (Json.field "user_id" Json.string)
+                    |> JE.andMap (Json.field "timestamp" Json.string)
+                    |> JE.andMap (Json.field "comment" Json.string)
+                    |> JE.andMap (Json.field "original_url" Json.string)
+                    |> JE.andMap (Json.field "sent_to" Json.string)
+                    |> JE.andMap (Json.field "source" Json.string)
+                    |> JE.andMap (Json.field "kind" Json.string)
+                    |> JE.andMap (Json.field "action" Json.string)
+                )
 
         "delete_comment" ->
             let
@@ -598,7 +607,7 @@ enterRoom r model =
         new_model =
             { model | page = RoomPage r, chatPageStatus = { chatPageStatus | filterMode = Person, filter = Set.fromList users, users = users, messages = Nothing } }
     in
-    ( new_model, Cmd.batch [ updatePageHash new_model, getMessages r ] )
+    ( new_model, Cmd.batch [ updatePageHash new_model, getMessages r, joinRoom { session_id = r, user_id = model.myself } ] )
 
 
 enterUser : String -> Model -> ( Model, Cmd Msg )
@@ -652,8 +661,8 @@ updateUserPageStatus msg model =
 
         FeedUserMessages ms ->
             let
-                f { id, user, comment, timestamp, originalUrl, sentTo, source } =
-                    Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = "", source = source }
+                f { id, user, comment, timestamp, originalUrl, sentTo, source,kind,action } =
+                    Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = "", source = source,kind=kind,action=action }
 
                 msgs =
                     List.map f ms
@@ -700,8 +709,8 @@ updateChatPageStatus msg model =
 
         FeedMessages ms ->
             let
-                f { id, user, comment, timestamp, originalUrl, sentTo, source } =
-                    Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = "", source = source }
+                f { id, user, comment, timestamp, originalUrl, sentTo, source,kind,action } =
+                    Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = "", source = source,kind=kind,action=action }
 
                 msgs =
                     List.map f ms
