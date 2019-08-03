@@ -19,7 +19,7 @@ const user_info_private = require('./private/user_info');
         return new Promise((resolve, reject) => {
             const comment_id = shortid.generate();
             db.run('insert into comments (id,user_id,comment,timestamp,session_id,original_url,sent_to,source) values (?,?,?,?,?,?,?,?);', comment_id, user_id, comment, ts, session_id, original_url, sent_to, source, (err1) => {
-                db.run('insert or ignore into session_current_members (session_id,member_name) values (?,?)', session_id, user_id, (err2) => {
+                db.run('insert or ignore into session_current_members (session_id,user_id) values (?,?)', session_id, user_id, (err2) => {
                     if (!err1 && !err2) {
                         const data: CommentTyp = {
                             id: comment_id, timestamp: ts, user_id, comment: comment, session_id, original_url, sent_to, source, kind: "comment"
@@ -41,7 +41,7 @@ const user_info_private = require('./private/user_info');
                 resolve(res);
             });
         });
-    };
+    }
 
     function get_mail_from(q: string): Promise<any[]> {
         return new Promise((resolve) => {
@@ -51,7 +51,7 @@ const user_info_private = require('./private/user_info');
                 resolve(res);
             });
         });
-    };
+    }
 
     function get_mail_to(q: string): Promise<any[]> {
         return new Promise((resolve) => {
@@ -61,7 +61,7 @@ const user_info_private = require('./private/user_info');
                 resolve(res);
             });
         });
-    };
+    }
 
     function create_new_session(name: string, members: string[]): Promise<{ id: string, name: string, timestamp: number }> {
         const session_id = shortid();
@@ -75,7 +75,7 @@ const user_info_private = require('./private/user_info');
             db.serialize(() => {
                 db.run('insert or ignore into sessions (id, name, timestamp) values (?,?,?);', session_id, name, ts);
                 _.each(members, (member) => {
-                    db.run('insert or ignore into session_current_members (session_id, member_name) values (?,?);', session_id, member);
+                    db.run('insert or ignore into session_current_members (session_id, user_id) values (?,?);', session_id, member);
                 });
                 resolve({ id: session_id, name: name, timestamp: ts });
             });
@@ -89,7 +89,7 @@ const user_info_private = require('./private/user_info');
             db.serialize(() => {
                 db.get('select * from sessions where id=?;', session_id, (err, session) => {
                     db.all('select * from session_current_members where session_id=?', session_id, (err, r2) => {
-                        const members = _.map(r2, 'member_name');
+                        const members = _.map(r2, 'user_id');
                         const numMessages: Map<string, number> = new Map<string, number>();
                         const firstMsgTime = -1;
                         const lastMsgTime = -1;
@@ -99,7 +99,7 @@ const user_info_private = require('./private/user_info');
                 });
             });
         });
-    };
+    }
 
     const get_session_list = function (params): Promise<RoomInfo[]> {
         const { of_members, is_all } = params;
@@ -109,7 +109,7 @@ const user_info_private = require('./private/user_info');
         }
         return new Promise((resolve) => {
             db.serialize(() => {
-                db.all('select s.id,s.name,s.timestamp,group_concat(distinct m.member_name) as members from sessions as s join session_current_members as m on s.id=m.session_id group by s.id order by s.timestamp desc;', (err, sessions) => {
+                db.all('select s.id,s.name,s.timestamp,group_concat(distinct m.user_id) as members from sessions as s join session_current_members as m on s.id=m.session_id group by s.id order by s.timestamp desc;', (err, sessions) => {
                     Promise.all(_.map(sessions, (s) => {
                         return new Promise((resolve1) => {
                             db.all("select count(*),user_id,max(timestamp),min(timestamp) from comments where session_id=? group by user_id;", s.id, (err, users) => {
@@ -146,7 +146,7 @@ const user_info_private = require('./private/user_info');
         }
         return new Promise((resolve) => {
             // https://stackoverflow.com/questions/1897352/sqlite-group-concat-ordering
-            const q = "select id,name,timestamp,group_concat(member_name) as members from (select s.id,s.name,s.timestamp,m.member_name from sessions as s join session_current_members as m on s.id=m.session_id order by s.timestamp,m.member_name) group by id having members like ? order by timestamp desc;"
+            const q = "select id,name,timestamp,group_concat(user_id) as members from (select s.id,s.name,s.timestamp,m.user_id from sessions as s join session_current_members as m on s.id=m.session_id order by s.timestamp,m.user_id) group by id having members like ? order by timestamp desc;"
             db.all(q, s, (err, sessions) => {
                 resolve(_.map(sessions, (session) => {
                     var r: RoomInfo = {
@@ -229,6 +229,15 @@ const user_info_private = require('./private/user_info');
         return data;
     }
 
+    function is_member(session_id: string, user_id: string): Promise<boolean> {
+        return new Promise((resolve) => {
+            db.get('select * from session_current_members where session_id=? and user_id=?', session_id, user_id, (err, row) => {
+                console.log('model.is_member', err, row)
+                resolve(!!row);
+            });
+        });
+    }
+
     function join_session(session_id: string, user_id: string): Promise<JoinSessionResponse> {
         return new Promise((resolve) => {
             const ts: number = new Date().getTime();
@@ -238,7 +247,7 @@ const user_info_private = require('./private/user_info');
                 console.log('model.join_session', err);
                 const data = { id };
                 if (!err) {
-                    db.run('insert or ignore into session_current_members (session_id,member_name) values (?,?);',
+                    db.run('insert or ignore into session_current_members (session_id,user_id) values (?,?);',
                         session_id, user_id, (err2) => {
                             if (!err2) {
                                 resolve({ ok: true, data });
@@ -266,7 +275,8 @@ const user_info_private = require('./private/user_info');
         post_comment,
         parseMailgunWebhook,
         create_session_with_id,
-        join_session
+        join_session,
+        is_member
     };
 
 }

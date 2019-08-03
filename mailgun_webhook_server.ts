@@ -6,13 +6,12 @@
     const fs = require('fs');
     const multer = require('multer');
     const mail_algo = require('./mail_algo');
-    const credential = require('./private/credential');
-    const user_info = require('./private/user_info');
     const model = require('./model');
     const path = require('path');
     const sqlite3 = require('sqlite3');
     const db = new sqlite3.Database(path.join(__dirname, 'private/db.sqlite3'));
     const io = require('socket.io')(http);
+    const _ = require('lodash');
 
     const port = 8000;
     var http = require('http').createServer(app);
