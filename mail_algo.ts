@@ -79,7 +79,7 @@
         }));
 
         //Mapping from message-id to array of (possibly split) emails
-        const data_dict: { [index: string]: MailgunParsed[]; } = _.groupBy(_.flatten(threads), (d: MailgunParsed) => { console.log('thread timestamp', d.timestamp); return d.message_id });
+        const data_dict: { [index: string]: MailgunParsed[]; } = _.groupBy(_.flatten(threads), (d: MailgunParsed) => { return d.message_id });
 
         const pairs = _.flatten(_.map(emails, (d: MailgunParsed) => {
             const id = d.body['Message-Id'];
@@ -99,6 +99,7 @@
         return _.map(groups_of_emails, (group: string[]) => {
             const session_id = shortid.generate();
             // console.log(data_dict[g[0]], g[0])
+            console.log('dict', data_dict[group[0]])
             name_mapping[session_id] = (data_dict[group[0]] || [{}])[0]['subject'] || "Email thread";
             _.map(group, (message_id) => {
                 id_mapping[message_id] = session_id;

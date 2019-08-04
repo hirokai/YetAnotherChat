@@ -12,9 +12,13 @@
     const db = new sqlite3.Database(path.join(__dirname, '../private/db.sqlite3'));
     const io = require('socket.io')(http);
     const _ = require('lodash');
+    const bodyParser = require("body-parser");
 
     const port = 8000;
     var http = require('http').createServer(app);
+
+    app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+    app.use(bodyParser.json());
 
     app.post('/mailgun_webhook', multer().none(), (req, res) => {
         fs.writeFile('mailgun/' + req.body['Message-Id'] + '.json', JSON.stringify(req.body, null, 2), () => {
