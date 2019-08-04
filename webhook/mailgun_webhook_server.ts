@@ -1,15 +1,15 @@
-/// <reference path="./types.d.ts" />
+/// <reference path="../types.d.ts" />
 
 {
     const express = require('express');
     const app = express();
     const fs = require('fs');
     const multer = require('multer');
-    const mail_algo = require('./mail_algo');
-    const model = require('./model');
+    const mail_algo = require('../mail_algo');
+    const model = require('../model');
     const path = require('path');
     const sqlite3 = require('sqlite3');
-    const db = new sqlite3.Database(path.join(__dirname, 'private/db.sqlite3'));
+    const db = new sqlite3.Database(path.join(__dirname, '../private/db.sqlite3'));
     const io = require('socket.io')(http);
     const _ = require('lodash');
 

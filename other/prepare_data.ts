@@ -3,12 +3,10 @@
 {
     const path = require('path');
     const _ = require('lodash');
-    const messages_stub = require("../private/slack_data.json");
     const sqlite3 = require('sqlite3');
     const db = new sqlite3.Database(path.join(__dirname, '../private/db.sqlite3'));
     const model = require('../model');
-    const user_list = require('../private/user_list');
-    const user_info: PrivateUserInfo = require('../private/user_info');
+    // const user_info: PrivateUserInfo = require('../private/user_info');
 
     function initialize() {
         db.serialize(() => {
@@ -26,6 +24,8 @@
     }
 
     function _import_from_slack() {
+        const messages_stub = require("../private/slack_data.json");
+        const user_list = require('../private/user_list');
         db.serialize(() => {
             _.map(messages_stub, (obj) => {
                 obj.ts = Math.floor(obj.ts * 1000);
@@ -36,6 +36,7 @@
     }
 
     function _import_from_gmail() {
+        const user_list = require('../private/user_list');
         _.map(user_list.gmail_list, (from_user_email, from_user) => {
             model.get_mail_from(from_user_email).then((list) => {
                 console.log('' + list.length + ' emails from: ' + from_user);

@@ -24,13 +24,19 @@
     "socket.io": "^2.2.0",
     "socket.io-client": "^2.2.0",
     "sqlite3": "^4.0.9",
-    "ulid": "^2.3.0"
+    "ulid": "^2.3.0",
+    "ts-node": "^8.3.0",
+    "typescript": "^3.5.3"
   },
   "scripts": {
     "server:watch": "nodemon",
     "db": "sqlite3 private/db.sqlite3",
+    "db:reset": "sh ./clear_and_import_mailgun.sh",
     "client:watch": "npx webpack -w --env.development",
-    "build": "tsc && npx webpack --env.production"
+    "build": "npx tsc && npx webpack --env.production",
+    "gcp-build": "npm run build && npm run db:reset",
+    "deploy": "gcloud app deploy",
+    "start": "npx ts-node server.ts"
   },
   "devDependencies": {
     "@types/axios": "^0.14.0",
@@ -51,9 +57,7 @@
     "prettier": "^1.18.2",
     "style-loader": "^0.23.1",
     "ts-loader": "^6.0.4",
-    "ts-node": "^8.3.0",
     "ts-node-dev": "^1.0.0-pre.40",
-    "typescript": "^3.5.3",
     "uglify-js": "^3.6.0",
     "webpack": "^4.38.0",
     "webpack-bundle-analyzer": "^3.3.2",
