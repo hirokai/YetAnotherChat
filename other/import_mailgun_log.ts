@@ -24,10 +24,6 @@
                 const data_sorted = _.sortBy(data, (d: MailgunParsed) => { return d.timestamp < 0 ? new Date(2100, 1, 1).valueOf() : d.timestamp });
                 data_sorted.forEach((mail: MailgunParsed) => {
                     (async () => {
-                        const obj = _.cloneDeep(mail);
-                        delete obj['comment'];
-                        delete obj['body'];
-                        // console.log(obj);
                         const data2: CommentTyp = await model.post_comment(mail.user_id, session_id, mail.timestamp, mail.comment, mail.message_id, "", 'email');
                     })().catch((err) => console.log(err));
                 });

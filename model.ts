@@ -247,7 +247,9 @@ const user_info_private = require('./private/user_info');
         const comment = body['stripped-text'];
         const items: MailThreadItem[] = mail_algo.split_replies(comment);
         const message_id = body['Message-Id'];
-        const user_id = user_info_private.find_user(body['From']);
+        // const user = body['From'];
+        // const user_id: string = user_info_private.find_user(body['From']);
+        const user_id = user_info_private.find_user(mail_algo.parse_email_address(body['From'])) || body['From'];
         const sent_to = body['To'];
         const subject = body['Subject'];
         const s = body['References'];
@@ -255,9 +257,11 @@ const user_info_private = require('./private/user_info');
         items[0].from = user_id;
         items[0].timestamp = timestamp;
         return _.map(items, (item: MailThreadItem) => {
+            console.log('item.from', item.from)
+            const user_id1 = user_info_private.find_user(mail_algo.parse_email_address(item.from)) || item.from;
             const data = {
                 id: shortid.generate(),
-                user_id: item.from,
+                user_id: user_id1,
                 message_id,
                 timestamp: item.timestamp,
                 comment: item.comment,

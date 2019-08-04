@@ -221,6 +221,19 @@
         }
     }
 
+    function parse_email_address(s: string): { email: string, name: string } {
+        const ts = s.split('<');
+        if (ts.length > 1) {
+            const name = ts[0].trim();
+            const email = ts[1].replace(/>\s*$/, '');
+            return { name: name != '' ? name : null, email };
+        } else {
+            const name = null;
+            const email = s.replace(/[<>:]/g, '');
+            return { name, email };
+        }
+    }
+
     function test() {
         const pairs = [
             ["a2", "a5"],
@@ -237,6 +250,7 @@
         find_groups,
         group_email_sessions,
         find_email_session,
-        split_replies
+        split_replies,
+        parse_email_address
     }
 }
