@@ -339,11 +339,13 @@
         socket.on('subscribe', ({ token }) => {
             console.log('subscribe');
             jwt.verify(token, credential.jwt_secret, function (err, decoded) {
-                const user_id = decoded.username;
-                model.saveSocketId(user_id, socket.id).then((r) => {
-                    console.log('saveSocketId', r)
-                    console.log('socket id', user_id, socket.id);
-                });
+                if (decoded) {
+                    const user_id = decoded.username;
+                    model.saveSocketId(user_id, socket.id).then((r) => {
+                        console.log('saveSocketId', r)
+                        console.log('socket id', user_id, socket.id);
+                    });
+                }
             });
         });
     });

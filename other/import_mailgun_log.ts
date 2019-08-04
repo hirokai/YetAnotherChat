@@ -17,7 +17,6 @@
 
         const groups: MailGroup[] = mail_algo.group_email_sessions(datas);
 
-        console.log('group_email_sessions result', groups);
 
         _.map(groups, ({ session_id, session_name, data }: MailGroup) => {
             (async () => {

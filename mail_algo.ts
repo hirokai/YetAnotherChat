@@ -99,7 +99,6 @@
         return _.map(groups_of_emails, (group: string[]) => {
             const session_id = shortid.generate();
             // console.log(data_dict[g[0]], g[0])
-            console.log('dict', data_dict[group[0]])
             name_mapping[session_id] = (data_dict[group[0]] || [{}])[0]['subject'] || "Email thread";
             _.map(group, (message_id) => {
                 id_mapping[message_id] = session_id;
@@ -111,39 +110,6 @@
             };
         });
 
-        const all_groups_flatten: MailGroup[] = _.map(_.flatten(threads), (d): MailGroup => {
-            const session_id = id_mapping[d.message_id];
-            const session_name = name_mapping[session_id];
-            return { session_id, session_name, data: data_dict[d.message_id] };
-        });
-        console.log('all_groups_flatten', _.map(all_groups_flatten, (group: MailGroup) => {
-            return [group.session_id, group.data.map((m) => { return m.user_id })];
-        }));
-
-        const all_groups1: { [key: string]: MailGroup[] } = _.groupBy(all_groups_flatten, (d: MailGroup) => {
-            return d.session_id;
-        });
-        console.log('all_groups1', _.map(all_groups1, (groups: MailGroup[], k: string) => {
-            return _.map(groups, (group) => [group.session_id, group.data.map((m) => { return m.user_id })]);
-        }));
-        const all_groups: MailGroup[] = _.map(all_groups1, (ds: MailGroup[]) => {
-            console.log('mail group length', ds.length);
-            return {
-                session_id: ds[0].session_id,
-                session_name: ds[0].session_name,
-                data: _.flatMap(ds, (d: MailGroup): MailgunParsed[] => {
-                    return _.uniqBy(d.data, (d1: MailgunParsed) => {
-                        if (ds.length > 5)
-                            console.log(ds.length, d.data.length);
-                        return d1.id;
-                    });
-                })
-            };
-        });
-        console.log(_.map(all_groups, (group: MailGroup) => {
-            return [group.session_id, group.data.map((m) => { return m.user_id })];
-        }));
-        return all_groups;
     }
 
     function find_email_session(db: any, data: MailgunParsed): Promise<string> {
@@ -179,10 +145,13 @@
         var line_prev: string = '';
         var header_reading: boolean = false;
         txt.split('\r\n').forEach((line: string) => {
-            const m = line.replace(/\s/g, '').match(/^>+/);
+            if (line.match(/--+ ?Original Message ?--+/i))
+                console.log('originalmessage', line.match(/--+ ?Original Message ?--+/i));
             if (header_reading) {
                 head_txt += line + '\r\n';
-                if (line.trim() == '') {
+                console.log('trimmed', line.replace(/>/g, '').trim());
+                if (line.replace(/>/g, '').trim() == '') {
+                    console.log('header reading done', head_txt)
                     header_reading = false;
                     reply_depth += 1;
                     const { from, timestamp } = parseHead(head_txt_prev);
@@ -191,25 +160,26 @@
                     }).join('\r\n');
                     content_lines = [];
                     replies.push({ from, timestamp, comment });
+                    console.log({ from, timestamp, comment })
                     head_txt_prev = head_txt;
+                    head_txt = '';
                 }
             } else {
+                const m = line.replace(/\s/g, '').match(/^>+/);
                 if (m) {
                     reply_indent = Math.max(reply_indent, m[0].length);
-                    if (reply_indent > reply_indent_prev) {
-                        reply_depth += 1;
-                        const { from, timestamp } = parseHead(head_txt_prev);
-                        const comment = _.map(_.dropRight(content_lines), (l: string) => {
-                            return removeQuoteMarks(l, reply_indent_prev);
-                        }).join('\r\n');
-                        replies.push({ from, timestamp, comment });
-                        head_txt_prev = line_prev;
-                        content_lines = [];
-                        reply_indent_prev = reply_indent;
-                    } else {
-                        content_lines.push(line);
-                    }
-                } else if (line.match(/--+ Forwarded message --+/i)) {
+                }
+                if (reply_indent > reply_indent_prev) {
+                    reply_depth += 1;
+                    const { from, timestamp } = parseHead(head_txt_prev);
+                    const comment = _.map(_.dropRight(content_lines), (l: string) => {
+                        return removeQuoteMarks(l, reply_indent_prev);
+                    }).join('\r\n');
+                    replies.push({ from, timestamp, comment });
+                    head_txt_prev = line_prev;
+                    content_lines = [];
+                    reply_indent_prev = reply_indent;
+                } else if (line.match(/--+ ?Forwarded message ?--+/i) || line.match(/--+ ?Original Message ?--+/i)) {
                     header_reading = true;
                 } else {
                     content_lines.push(line);
@@ -238,8 +208,10 @@
         if (s.indexOf('\r\n') != -1) {
             const m1 = s.match(/From: (.+?)\r\n/);
             const m2 = s.match(/Date: (.+?)\r\n/);
-            if (m1 && m2) {
-                return { from: m1[1], timestamp: moment(m2[1], 'YYYY年M月D日(dddd) HH:mm').valueOf() };
+            const m3 = s.match(/Sent: (.+?)\r\n/);
+            if (m1 && (m2 || m3)) {
+                const timestamp = m2 ? moment(m2[1], 'YYYY年M月D日(dddd) HH:mm').valueOf() : moment(m3[1]).valueOf();
+                return { from: m1[1], timestamp };
             }
         } else {
             const m1 = s.match(/.+年.+月.+日\(.+\) \d+:\d+/);
