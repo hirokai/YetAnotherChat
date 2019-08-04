@@ -117,7 +117,6 @@
     }
 
 
-    type MailThreadItem = { from: string, timestamp: number, comment: string };
     function split_replies(txt: string): MailThreadItem[] {
         var replies: MailThreadItem[] = [];
         var head_txt: string = '';
@@ -158,9 +157,13 @@
                 }
             }
             line_prev = line;
-            console.log(reply_depth, reply_indent, line);
+            // console.log(reply_depth, reply_indent, line);
         });
-        return replies;
+        if (reply_indent > 0) {
+            return replies;
+        } else {
+            return [{ from: '', timestamp: -1, comment: txt }];
+        }
     }
 
     function removeQuoteMarks(s: string, indent: number) {

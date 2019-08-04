@@ -237,6 +237,35 @@ const user_info_private = require('./private/user_info');
         return data;
     }
 
+    function parseMailgunWebhookThread(body): MailgunParsed[] {
+        const mail_algo = require('./mail_algo');
+        const timestamp = new Date(body['Date']).getTime();
+        const comment = body['stripped-text'];
+        const items: MailThreadItem[] = mail_algo.split_replies(comment);
+        const message_id = body['Message-Id'];
+        const user_id = user_info_private.find_user(body['From']);
+        const sent_to = body['To'];
+        const subject = body['Subject'];
+        const s = body['References'];
+        const references = s ? s.split(/\s+/) : [];
+        items[0].from = user_id;
+        items[0].timestamp = timestamp;
+        return _.map(items, (item: MailThreadItem) => {
+            const data = {
+                id: shortid.generate(),
+                user_id: item.from,
+                message_id,
+                timestamp: item.timestamp,
+                comment: item.comment,
+                sent_to,
+                body,
+                references,
+                subject,
+            };
+            return data;
+        });
+    }
+
     function is_member(session_id: string, user_id: string): Promise<boolean> {
         return new Promise((resolve) => {
             db.get('select * from session_current_members where session_id=? and user_id=?', session_id, user_id, (err, row) => {

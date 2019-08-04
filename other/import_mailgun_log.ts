@@ -9,9 +9,9 @@
     const user_info: PrivateUserInfo = require('../private/user_info');
 
     glob.glob('mailgun/*.json', (err, files) => {
-        const datas = _.map(files, (f) => {
+        const datas: MailgunParsed[][] = _.map(files, (f) => {
             const s = fs.readFileSync(f, 'utf8');
-            return model.parseMailgunWebhook(JSON.parse(s));
+            return model.parseMailgunWebhookThread(JSON.parse(s));
         });
         const sessions: string[][] = mail_algo.group_email_sessions(datas);
         console.log(sessions);

@@ -63,6 +63,11 @@ interface MailgunParsed {
     body: any
 }
 
+type MailThreadItem = {
+    from: string, timestamp: number, comment: string
+};
+
+
 interface ChatEntryClient {
     id: String,
     user: string,
