@@ -69,31 +69,80 @@
     }
 
 
-    function group_email_sessions(data: MailgunParsed[]): string[][] {
-        const data_dict: { [index: string]: MailgunParsed; } = _.keyBy(data, (d: MailgunParsed) => { return d.message_id });
-        const pairs = _.flatten(_.map(data, (d) => {
+    function group_email_sessions(threads: MailgunParsed[][]): MailGroup[] {
+        const emails: MailgunParsed[] = _.map(threads, (thread) => {
+            return thread[0];
+        });
+
+        console.log(_.map(emails, (m: MailgunParsed) => {
+            return [m.message_id, m.subject];
+        }));
+
+        //Mapping from message-id to array of (possibly split) emails
+        const data_dict: { [index: string]: MailgunParsed[]; } = _.groupBy(_.flatten(threads), (d: MailgunParsed) => { console.log('thread timestamp', d.timestamp); return d.message_id });
+
+        const pairs = _.flatten(_.map(emails, (d: MailgunParsed) => {
             const id = d.body['Message-Id'];
             const refs = d.references.length == 0 ? [id] : d.references; //Connect to self if isolated.
             return _.map(refs, (r) => [r, id]);
         }));
-        const groups = find_groups(pairs);
-        var id_mapping = {};
-        var name_mapping = {};
-        console.log('groups', groups);
-        _.map(groups, (g) => {
+
+        //Grouping represented by arrays of arrays of message-id.
+        const groups_of_emails: string[][] = find_groups(pairs);
+        console.log('groups', groups_of_emails);
+
+        //Mapping from message-id to session_id
+        var id_mapping: { [key: string]: string } = {};
+        //Mapping from session_id to session name
+        var name_mapping: { [key: string]: string } = {};
+
+        return _.map(groups_of_emails, (group: string[]) => {
             const session_id = shortid.generate();
-            console.log(data_dict[g[0]], g[0])
-            name_mapping[session_id] = (data_dict[g[0]] || {})['subject'] || "Email thread";
-            _.map(g, (m) => {
-                console.log(m);
-                id_mapping[m] = session_id;
+            // console.log(data_dict[g[0]], g[0])
+            name_mapping[session_id] = (data_dict[group[0]] || [{}])[0]['subject'] || "Email thread";
+            _.map(group, (message_id) => {
+                id_mapping[message_id] = session_id;
             });
+            return {
+                session_id, session_name: name_mapping[session_id], data: _.compact(_.flatMap(group, (mid) => {
+                    return data_dict[mid];
+                }))
+            };
         });
-        const all_ids = _.map(data, (d) => {
+
+        const all_groups_flatten: MailGroup[] = _.map(_.flatten(threads), (d): MailGroup => {
             const session_id = id_mapping[d.message_id];
-            return [session_id, name_mapping[session_id]];
-        })
-        return all_ids;
+            const session_name = name_mapping[session_id];
+            return { session_id, session_name, data: data_dict[d.message_id] };
+        });
+        console.log('all_groups_flatten', _.map(all_groups_flatten, (group: MailGroup) => {
+            return [group.session_id, group.data.map((m) => { return m.user_id })];
+        }));
+
+        const all_groups1: { [key: string]: MailGroup[] } = _.groupBy(all_groups_flatten, (d: MailGroup) => {
+            return d.session_id;
+        });
+        console.log('all_groups1', _.map(all_groups1, (groups: MailGroup[], k: string) => {
+            return _.map(groups, (group) => [group.session_id, group.data.map((m) => { return m.user_id })]);
+        }));
+        const all_groups: MailGroup[] = _.map(all_groups1, (ds: MailGroup[]) => {
+            console.log('mail group length', ds.length);
+            return {
+                session_id: ds[0].session_id,
+                session_name: ds[0].session_name,
+                data: _.flatMap(ds, (d: MailGroup): MailgunParsed[] => {
+                    return _.uniqBy(d.data, (d1: MailgunParsed) => {
+                        if (ds.length > 5)
+                            console.log(ds.length, d.data.length);
+                        return d1.id;
+                    });
+                })
+            };
+        });
+        console.log(_.map(all_groups, (group: MailGroup) => {
+            return [group.session_id, group.data.map((m) => { return m.user_id })];
+        }));
+        return all_groups;
     }
 
     function find_email_session(db: any, data: MailgunParsed): Promise<string> {
@@ -125,6 +174,7 @@
         var reply_depth: number = 0;
         var content_lines: string[] = [];
         var head_txt: string = '';
+        var head_txt_prev: string = '';
         var line_prev: string = '';
         var header_reading: boolean = false;
         txt.split('\r\n').forEach((line: string) => {
@@ -134,18 +184,26 @@
                 if (line.trim() == '') {
                     header_reading = false;
                     reply_depth += 1;
+                    const { from, timestamp } = parseHead(head_txt_prev);
+                    const comment = _.map(_.dropRight(content_lines), (l: string) => {
+                        return removeQuoteMarks(l, reply_indent_prev);
+                    }).join('\r\n');
+                    content_lines = [];
+                    replies.push({ from, timestamp, comment });
+                    head_txt_prev = head_txt;
                 }
             } else {
                 if (m) {
                     reply_indent = Math.max(reply_indent, m[0].length);
                     if (reply_indent > reply_indent_prev) {
                         reply_depth += 1;
-                        const { from, timestamp } = parseHead(head_txt || line_prev);
-                        const comment = _.map(content_lines, (l: string) => {
+                        const { from, timestamp } = parseHead(head_txt_prev);
+                        const comment = _.map(_.dropRight(content_lines), (l: string) => {
                             return removeQuoteMarks(l, reply_indent_prev);
                         }).join('\r\n');
                         replies.push({ from, timestamp, comment });
-                        head_txt = '';
+                        head_txt_prev = line_prev;
+                        content_lines = [];
                         reply_indent_prev = reply_indent;
                     } else {
                         content_lines.push(line);
@@ -159,7 +217,12 @@
             line_prev = line;
             // console.log(reply_depth, reply_indent, line);
         });
-        if (reply_indent > 0) {
+        if (reply_depth > 0) {
+            const { from, timestamp } = parseHead(head_txt_prev);
+            const comment = _.map(content_lines, (l: string) => {
+                return removeQuoteMarks(l, reply_indent_prev);
+            }).join('\r\n');
+            replies.push({ from, timestamp, comment });
             return replies;
         } else {
             return [{ from: '', timestamp: -1, comment: txt }];
@@ -167,11 +230,10 @@
     }
 
     function removeQuoteMarks(s: string, indent: number) {
-        return s;
+        return s.replace(new RegExp('^(> ?){' + indent + '}'), '')
     }
 
     function parseHead(s: string): { from: string, timestamp: number } {
-        console.log('parseHead', s);
         if (s.indexOf('\r\n') != -1) {
             const m1 = s.match(/From: (.+?)\r\n/);
             const m2 = s.match(/Date: (.+?)\r\n/);

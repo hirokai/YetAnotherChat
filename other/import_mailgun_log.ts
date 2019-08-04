@@ -9,21 +9,33 @@
     const user_info: PrivateUserInfo = require('../private/user_info');
 
     glob.glob('mailgun/*.json', (err, files) => {
+        // files = files.slice(0, 1);
         const datas: MailgunParsed[][] = _.map(files, (f) => {
             const s = fs.readFileSync(f, 'utf8');
             return model.parseMailgunWebhookThread(JSON.parse(s));
         });
-        const sessions: string[][] = mail_algo.group_email_sessions(datas);
-        console.log(sessions);
-        console.log(datas.length, sessions.length)
-        _.map(_.zip(datas, sessions), ([data1, [session_id, session_name]]) => {
+
+        const groups: MailGroup[] = mail_algo.group_email_sessions(datas);
+
+        console.log('group_email_sessions result', groups);
+
+        _.map(groups, ({ session_id, session_name, data }: MailGroup) => {
             (async () => {
-                const data = <MailgunParsed>data1;
                 await model.create_session_with_id(session_id, session_name, []);
-                const data2: CommentTyp = await model.post_comment(data.user_id, session_id, data.timestamp, data.comment, data.message_id, "", 'email');
-                await model.join_session(session_id, user_info.test_myself);
-                console.log("Added " + data2.id + ":" + data2.user_id + ' ' + data2.original_url + " in session " + session_id);
-            })();
+                const data_sorted = _.sortBy(data, (d: MailgunParsed) => { return d.timestamp < 0 ? new Date(2100, 1, 1).valueOf() : d.timestamp });
+                data_sorted.forEach((mail: MailgunParsed) => {
+                    (async () => {
+                        const obj = _.cloneDeep(mail);
+                        delete obj['comment'];
+                        delete obj['body'];
+                        // console.log(obj);
+                        const data2: CommentTyp = await model.post_comment(mail.user_id, session_id, mail.timestamp, mail.comment, mail.message_id, "", 'email');
+                    })().catch((err) => console.log(err));
+                });
+                await model.join_session(session_id, user_info.test_myself, data_sorted[0].timestamp);
+            })().catch((err) => {
+                console.log(err);
+            });
         });
 
     });

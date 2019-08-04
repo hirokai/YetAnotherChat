@@ -3,5 +3,5 @@
         "."
     ],
     "ext": "ts",
-    "exec": "sudo PORT=80 npx ts-node ./server.ts"
+    "exec": "npx ts-node ./server.ts"
 }

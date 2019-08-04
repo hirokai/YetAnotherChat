@@ -1,5 +1,7 @@
 /// <reference path="./types.d.ts" />
 
+import { kMaxLength } from "buffer";
+
 
 const user_info_private = require('./private/user_info');
 
@@ -203,7 +205,9 @@ const user_info_private = require('./private/user_info');
                             r.kind = "event";
                             return r;
                         });
-                        resolve(_.sortBy(res1.concat(res2), 'timestamp'));
+                        resolve(_.sortBy(res1.concat(res2), ['timestamp', (r) => {
+                            return { 'event': 0, 'comment': 1 }[r.kind];
+                        }]));
                     });
                 } else {
                     resolve(_.map(rows, processRow));
@@ -283,13 +287,13 @@ const user_info_private = require('./private/user_info');
         });
     }
 
-    function join_session(session_id: string, user_id: string): Promise<JoinSessionResponse> {
+    function join_session(session_id: string, user_id: string, timestamp: number = -1): Promise<JoinSessionResponse> {
         return new Promise((resolve) => {
-            const ts: number = new Date().getTime();
+            const ts: number = timestamp > 0 ? timestamp : new Date().getTime();
             const id: string = shortid();
             db.serialize(() => {
                 db.run('insert into session_events (id,session_id,user_id,timestamp,action) values (?,?,?,?,?);', id, session_id, user_id, ts, 'join', (err) => {
-                    console.log('model.join_session', err);
+                    // console.log('model.join_session', err);
                     const data = { id };
                     if (!err) {
                         db.run('insert or ignore into session_current_members (session_id,user_id) values (?,?);',
@@ -336,6 +340,7 @@ const user_info_private = require('./private/user_info');
         get_comments_list,
         post_comment,
         parseMailgunWebhook,
+        parseMailgunWebhookThread,
         create_session_with_id,
         join_session,
         is_member,

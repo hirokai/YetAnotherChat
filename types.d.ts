@@ -67,6 +67,11 @@ type MailThreadItem = {
     from: string, timestamp: number, comment: string
 };
 
+type MailGroup = {
+    session_id: string,
+    session_name: string,
+    data: MailgunParsed[]
+}
 
 interface ChatEntryClient {
     id: String,
