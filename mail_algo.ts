@@ -1,6 +1,8 @@
 {
     const shortid = require('shortid').generate;
     const _ = require('lodash');
+    const moment = require('moment');
+    moment.locale('ja');
 
 
     // https://stackoverflow.com/questions/21900713/finding-all-connected-components-of-an-undirected-graph
@@ -114,6 +116,73 @@
         })
     }
 
+
+    type MailThreadItem = { from: string, timestamp: number, comment: string };
+    function split_replies(txt: string): MailThreadItem[] {
+        var replies: MailThreadItem[] = [];
+        var head_txt: string = '';
+        var reply_indent: number = 0;
+        var reply_indent_prev: number = 0;
+        var reply_depth: number = 0;
+        var content_lines: string[] = [];
+        var head_txt: string = '';
+        var line_prev: string = '';
+        var header_reading: boolean = false;
+        txt.split('\r\n').forEach((line: string) => {
+            const m = line.replace(/\s/g, '').match(/^>+/);
+            if (header_reading) {
+                head_txt += line + '\r\n';
+                if (line.trim() == '') {
+                    header_reading = false;
+                    reply_depth += 1;
+                }
+            } else {
+                if (m) {
+                    reply_indent = Math.max(reply_indent, m[0].length);
+                    if (reply_indent > reply_indent_prev) {
+                        reply_depth += 1;
+                        const { from, timestamp } = parseHead(head_txt || line_prev);
+                        const comment = _.map(content_lines, (l: string) => {
+                            return removeQuoteMarks(l, reply_indent_prev);
+                        }).join('\r\n');
+                        replies.push({ from, timestamp, comment });
+                        head_txt = '';
+                        reply_indent_prev = reply_indent;
+                    } else {
+                        content_lines.push(line);
+                    }
+                } else if (line.match(/--+ Forwarded message --+/i)) {
+                    header_reading = true;
+                } else {
+                    content_lines.push(line);
+                }
+            }
+            line_prev = line;
+            console.log(reply_depth, reply_indent, line);
+        });
+        return replies;
+    }
+
+    function removeQuoteMarks(s: string, indent: number) {
+        return s;
+    }
+
+    function parseHead(s: string): { from: string, timestamp: number } {
+        console.log('parseHead', s);
+        if (s.indexOf('\r\n') != -1) {
+            const m1 = s.match(/From: (.+?)\r\n/);
+            const m2 = s.match(/Date: (.+?)\r\n/);
+            if (m1 && m2) {
+                return { from: m1[1], timestamp: moment(m2[1], 'YYYY年M月D日(dddd) HH:mm').valueOf() };
+            }
+        } else {
+            const m1 = s.match(/.+年.+月.+日\(.+\) \d+:\d+/);
+            const timestamp = m1 ? moment(m1[0], 'YYYY年M月D日(dddd) HH:mm').valueOf() : -1;
+            const from = m1 ? s.replace(m1[0], '') : '';
+            return { from, timestamp };
+        }
+    }
+
     function test() {
         const pairs = [
             ["a2", "a5"],
@@ -129,6 +198,7 @@
     module.exports = {
         find_groups,
         group_email_sessions,
-        find_email_session
+        find_email_session,
+        split_replies
     }
 }
