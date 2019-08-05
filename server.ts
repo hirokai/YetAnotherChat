@@ -2,7 +2,6 @@
 
 import * as model from './model'
 
-import { info as user_info } from './private/user_info';
 
 const express = require('express');
 const app = express();
@@ -20,6 +19,7 @@ const jwt = require('jsonwebtoken');
 var http = require('http').createServer(app);
 const io = require('socket.io')(http);
 const credential = require('./private/credential');
+import * as ec from './error_codes';
 
 enum Timespan {
     day,
@@ -66,6 +66,10 @@ app.use(function (req: Request, res: MyResponse, next) {
 });
 
 
+app.get('/register', (req, res) => {
+    res.sendFile(path.join(__dirname, './public/html/register.html'));
+});
+
 app.get('/login', (req, res) => {
     res.sendFile(path.join(__dirname, './public/html/login.html'));
 });
@@ -79,29 +83,69 @@ app.get('/matrix', (req, res) => {
     res.sendFile(path.join(__dirname, './public/html/matrix.html'));
 });
 
+app.post('/api/register', (req, res) => {
+    // res.json({ ok: false });
+    (async () => {
+        const { username, password, fullname, email } = req.body;
+        console.log({ username, password, fullname, email });
+        const { user_id, error, error_code } = await model.register_user(username, email, fullname);
+        if (!user_id) {
+            res.json({ ok: false, error: error_code == ec.USER_EXISTS ? 'User already exists' : error, error_code });
+            return;
+        }
+        const r: boolean = await model.save_password(user_id, password);
+        if (!r) {
+            res.json({ ok: false, error: 'Password save error' });
+            return;
+        }
+        const token = jwt.sign({ username, user_id }, credential.jwt_secret, { expiresIn: 604800 });
+        jwt.verify(token, credential.jwt_secret, function (err, decoded) {
+            if (!err) {
+                res.json({ ok: true, token, decoded });
+            } else {
+                res.json({ ok: false, error: 'Token verificaiton error' });
+            }
+        });
+    })();
+});
+
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
-    if (_.includes(user_info.allowed_users, username) && (_.includes(user_info.allowed_passwords, password))) {
-        console.log("login ok", req.user);
-        model.find_user_from_username(username).then(({ id }) => {
-            const token = jwt.sign({ username, user_id: id }, credential.jwt_secret, { expiresIn: 604800 });
-            jwt.verify(token, credential.jwt_secret, function (err, decoded) {
-                res.json({ ok: true, token, decoded });
+    model.passwordMatch(username, password).then((matched) => {
+        if (matched) {
+            console.log("login ok", username, password);
+            model.find_user_from_username(username).then((user) => {
+                if (user != null) {
+                    console.log('find_user_from_username', user);
+                    const token = jwt.sign({ username, user_id: user.id }, credential.jwt_secret, { expiresIn: 604800 });
+                    jwt.verify(token, credential.jwt_secret, function (err, decoded) {
+                        res.json({ ok: true, token, decoded });
+                    });
+                } else {
+                    res.json({ ok: false, error: 'Wrong user name or password.' }); //User not found
+                }
             });
-        });
-    } else {
-        res.json({ ok: false });
-    }
+        } else {
+            res.json({ ok: false, error: 'Wrong user name or password.' });
+        }
+    });
 });
 
 app.get('/api/verify_token', (req, res) => {
     var token = req.body.token || req.query.token || req.headers['x-access-token'];
     jwt.verify(token, credential.jwt_secret, function (err, decoded) {
+        console.log('decoded', decoded);
         if (err) {
             res.status(200).json({ valid: false });
         } else {
-            req.decoded = decoded;
-            res.status(200).json({ valid: true, decoded });
+            model.find_user_from_user_id(decoded.user_id).then((user) => {
+                if (user) {
+                    req.decoded = decoded;
+                    res.status(200).json({ valid: true, decoded });
+                } else {
+                    res.json({ valid: false, error: 'Unknown user' })
+                }
+            });
         }
     });
 });
@@ -250,6 +294,7 @@ app.get('/api/sessions', (req: GetAuthRequest, res: JsonResponse<GetSessionsResp
     const ms: string = req.query.of_members;
     const of_members: string[] = ms ? ms.split(",") : undefined;
     const is_all: boolean = !(typeof req.query.is_all === 'undefined');
+    console.log(req.decoded);
     const user_id: string = req.decoded.user_id;
     model.get_session_list({ user_id, of_members, is_all }).then((r: RoomInfo[]) => {
         res.json({ ok: true, data: r });
@@ -369,3 +414,13 @@ io.on('connection', function (socket) {
         });
     });
 });
+
+function clientErrorHandler(err, req, res, next) {
+    if (req.xhr) {
+        res.status(500).send({ error: 'Something failed!' })
+    } else {
+        next(err)
+    }
+}
+
+app.use(clientErrorHandler);

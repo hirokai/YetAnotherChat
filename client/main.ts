@@ -18,7 +18,7 @@ const socket: SocketIOClient.Socket = io('');
 require('moment/locale/ja');
 moment.locale('ja');
 
-const app = Elm.Main.init({ flags: { username: localStorage['yacht.username'] || "" } });
+const app = Elm.Main.init({ flags: { user_id: localStorage['yacht.user_id'] || "" } });
 
 const token = localStorage.getItem('yacht.token') || "";
 
@@ -26,6 +26,7 @@ socket.emit('subscribe', { token });
 
 axios.get('/api/verify_token', { params: { token } }).then(({ data }) => {
     if (!data.valid) {
+        console.log('verify token failed',data);
         location.href = '/login';
     }
 });

@@ -326,10 +326,10 @@ getRoomID model =
 
 
 init : Flags -> ( Model, Cmd Msg )
-init { username } =
+init { user_id } =
     ( { selected = showAll []
       , onlineUsers = []
-      , myself = username
+      , myself = user_id
       , roomInfo = Dict.empty
       , rooms = [ "Home", "COI" ]
       , page = NewSession
@@ -967,7 +967,7 @@ leftMenu model =
     div [ class "d-none d-md-block col-md-5 col-lg-2", id "menu-left-wrapper" ]
         [ div [ id "menu-left" ]
             ([ div [ id "username-top" ]
-                [ text model.myself ]
+                [ text (getUserName model model.myself) ]
              , div [ id "path" ] [ text (pageToPath model.page) ]
              , div []
                 [ a [ class "btn btn-light", id "newroom-button", onClick EnterNewSessionScreen ] [ text "新しい会話" ]
@@ -1389,4 +1389,4 @@ showAll messages =
 
 
 type alias Flags =
-    { username : String }
+    { user_id : String }

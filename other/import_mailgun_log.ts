@@ -6,7 +6,7 @@ const glob = require('glob');
 import * as model from '../model';
 import * as mail_algo from '../mail_algo';
 const _ = require('lodash');
-import { info as user_info } from '../private/user_info';
+import * as user_info from '../private/user_info';
 
 glob.glob('mailgun/*.json', async (err, files) => {
     // files = files.slice(0, 1);
@@ -39,13 +39,26 @@ glob.glob('mailgun/*.json', async (err, files) => {
     const my_user_id = (await model.register_user(user_info.test_myself.name, user_info.test_myself.email)).user_id;
     console.log('my user id is', my_user_id)
 
-    Promise.all(_.map(user_info.allowed_users, (u) => {
-        return model.register_user(u, u + '@non-existent.asdkjasd2ecascs.com', u);
-    })).then();
+    // Promise.all(_.map(user_info.allowed_users, (u) => {
+    //     return model.register_user(u, u + '@non-existent.asdkjasd2ecascs.com', u);
+    // })).then();
 
+    var used_names = {};
     var user_table_with_id: UserTableFromEmail = await mapValuesAsync(user_table, async ({ name, email, names }) => {
         const fullname = name ? name : email;
-        const { user_id } = await model.register_user(mail_algo.mk_user_name(fullname), email, fullname);
+        var username;
+        const username_base = mail_algo.mk_user_name(fullname);
+        username = username_base;
+        for (var i = 2; i < 10000; i++) {
+            username = username_base + i;
+            if (!used_names[username]) {
+                break;
+            }
+        }
+        console.log('registering');
+        const { user_id } = await model.register_user(username, email, fullname);
+        console.log('registered');
+        used_names[username] = true;
         return { name, email, names, id: user_id };
     });
 
@@ -61,9 +74,10 @@ glob.glob('mailgun/*.json', async (err, files) => {
                     const user_id: string = (user_table_with_id[email] || { id: '' }).id;
                     console.log('user_id', user_id, user_table_with_id[email]);
                     const data2: CommentTyp = await model.post_comment(user_id, session_id, mail.timestamp, mail.comment, mail.message_id, "", 'email');
-                })().catch((err) => console.log(err));
+                })().catch((err) => console.log('post_comment error', err));
             });
-            await model.join_session(session_id, my_user_id, data_sorted[0].timestamp);
+            const res = await model.join_session(session_id, my_user_id, data_sorted[0].timestamp);
+            console.log('join_session result', res);
         })().catch((err) => {
             console.log(err);
         });

@@ -7,46 +7,81 @@
     , initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Document</title>
-    <script src="https://code.jquery.com/jquery-3.3.1.min.js" crossorigin="anonymous"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <style>
+        body {
+            text-align: center;
+        }
 
+        input {
+            font-size: 20px;
+        }
+
+        .largebutton {
+            display: inline-block;
+            width: 200px;
+            height: 40px;
+            /* padding: 1em; */
+            margin-top: 10px;
+            margin-bottom: 20px;
+            border-style: none;
+            border: 1px solid #ccc;
+            font-size: 20px;
+        }
+
+        label {
+            display: inline-block;
+            width: 100px;
+        }
+
+        div.input {
+            margin-top: 5px;
+        }
+    </style>
 </head>
 
 <body>
 
-
+    <h1>ログイン</h1>
     <form onsubmit='return false;'>
         <div>
             <label>ユーザーID：</label>
-            <input id='username' type="text" name="username" />
+            <input id='username' type="text" name="username" required />
         </div>
         <div>
             <label>パスワード：</label>
-            <input id='password' type="password" name="password" />
+            <input id='password' type="password" name="password" required />
         </div>
         <div>
-            <input id='submit' type="submit" value="ログイン" />
+            <input id='submit' type="submit" value="ログイン" class='largebutton' />
         </div>
     </form>
+    <div id='info'></div>
 
     <script>
         function submit(a) {
         }
         $(() => {
             $('#submit').click(() => {
-                const username = $('#username').val();
-                const password = $('#password').val();
-                console.log(username, password);
-                $.post('/api/login', { username, password }).then((res) => {
-                    if (res.ok && res.token) {
+                const valid = document.querySelectorAll(':invalid').length == 0;
+                if (valid) {
+                    const username = $('#username').val();
+                    const password = $('#password').val();
+                    console.log(username, password);
+                    $.post('/api/login', { username, password }).then((res) => {
                         console.log(res);
-                        localStorage.setItem("yacht.token", res.token);
-                        localStorage.setItem("yacht.user_id", res.decoded.user_id);
-                        localStorage.setItem("yacht.username", res.decoded.username);
-                        location.href = '/main';
-                    } else {
-                        console.log(res);
-                    }
-                });
+                        if (res.ok && res.token) {
+                            localStorage.setItem("yacht.token", res.token);
+                            localStorage.setItem("yacht.user_id", res.decoded.user_id);
+                            localStorage.setItem("yacht.username", res.decoded.username);
+                            location.href = '/main';
+                        } else {
+                            $('#password').val('');
+                            $('#password').focus();
+                            $('#info').html('ユーザー名あるいはパスワードが間違っています。<br><a class="largebutton" href="/register">新規登録</a>')
+                        }
+                    });
+                }
             })
         });
     </script>

@@ -11,7 +11,7 @@ const mail_algo = require('../mail_algo');
 function initialize() {
     db.serialize(() => {
         db.run('drop table if exists users;');
-        db.run('create table users (id text not null unique, name text not null, fullname text);');
+        db.run('create table users (id text not null unique, name text not null, fullname text,password text);');
         db.run('drop table if exists user_emails;');
         db.run('create table user_emails (user_id text not null, email text not null);');
         db.run('drop table if exists comments;');
