@@ -122,7 +122,7 @@ function getAndFeedMessages(session: string) {
 
 app.ports.getUsers.subscribe(() => {
     axios.get('/api/users', { params: { token } }).then(({ data }: AxiosResponse<GetUsersResponse>) => {
-        const users: string[] = data.data.users;
+        const users: User[] = data.data.users;
         console.log(users);
         app.ports.feedUsers.send(users);
     });
@@ -226,7 +226,7 @@ app.ports.recalcElementPositions.subscribe((b: boolean) => {
 });
 
 app.ports.joinRoom.subscribe(({ session_id, user_id }) => {
-    $.post('/api/join_session', { token, session_id, user_id }).then((res: JoinSessionResponse) => {
+    $.post('/api/join_session', { token, session_id }).then((res: JoinSessionResponse) => {
         console.log('join_session', res);
     });
 });

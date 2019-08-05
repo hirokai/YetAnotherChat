@@ -37,10 +37,16 @@ module import_mailgun {
         }
 
 
+        const my_user_id = (await model.register_user(user_info.test_myself.name, user_info.test_myself.email)).user_id;
+        console.log('my user id is', my_user_id)
+
+        Promise.all(_.map(user_info.allowed_users, (u) => {
+            return model.register_user(u, u + '@nonexist.asdkjasd2ecascs.com');
+        })).then();
+
         var user_table_with_id: UserTableFromEmail = await mapValuesAsync(user_table, async ({ name, email, names }) => {
             const name1 = name ? name : email;
             const { user_id } = await model.register_user(name1, email);
-            console.log(user_id);
             return { name, email, names, id: user_id };
         });
 
@@ -58,7 +64,7 @@ module import_mailgun {
                         const data2: CommentTyp = await model.post_comment(user_id, session_id, mail.timestamp, mail.comment, mail.message_id, "", 'email');
                     })().catch((err) => console.log(err));
                 });
-                await model.join_session(session_id, user_info.test_myself, data_sorted[0].timestamp);
+                await model.join_session(session_id, my_user_id, data_sorted[0].timestamp);
             })().catch((err) => {
                 console.log(err);
             });

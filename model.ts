@@ -257,7 +257,6 @@ const user_info_private = require('./private/user_info');
         items[0].from = from;
         items[0].timestamp = timestamp;
         return _.map(items, (item: MailThreadItem) => {
-            console.log('item.from', item.from)
             const data = {
                 id: shortid.generate(),
                 from: item.from,
@@ -367,6 +366,13 @@ const user_info_private = require('./private/user_info');
             return new Promise((resolve) => {
                 db.get('select users.id,users.name,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id group by users.id having emails like ?;', '%' + email + '%', (err, row) => {
                     resolve({ name: row['users.name'], id: row['users.id'] });
+                });
+            });
+        },
+        find_user_from_username: (username: string): Promise<{ name: string, id: string }> => {
+            return new Promise((resolve) => {
+                db.get('select * from users where name=?;', username, (err, row) => {
+                    resolve({ name: row['name'], id: row['id'] });
                 });
             });
         }

@@ -40,6 +40,7 @@
                     if (res.ok && res.token) {
                         console.log(res);
                         localStorage.setItem("yacht.token", res.token);
+                        localStorage.setItem("yacht.user_id", res.decoded.user_id);
                         localStorage.setItem("yacht.username", res.decoded.username);
                         location.href = '/main';
                     } else {

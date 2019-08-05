@@ -122,7 +122,7 @@ type DeleteCommentData = { comment_id: string, session_id: string }
 type GetSessionsResponse = { ok: boolean, data: RoomInfo[] }
 type GetUsersResponse = {
     ok: boolean, data: {
-        users: string[]
+        users: User[]
     }
 }
 
@@ -163,7 +163,7 @@ type JoinSessionResponse = {
 
 type PrivateUserInfo = {
     find_user: (string) => string,
-    test_myself: string,
+    test_myself: { name: string, email: string },
     allowed_users: string[],
     allowed_passwords: string[]
 }

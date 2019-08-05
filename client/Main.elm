@@ -15,7 +15,7 @@ import Set
 port getUsers : () -> Cmd msg
 
 
-port feedUsers : (List String -> msg) -> Sub msg
+port feedUsers : (List User -> msg) -> Sub msg
 
 
 port getMessages : RoomID -> Cmd msg
@@ -100,6 +100,10 @@ type alias SessionEventTyp =
     , timestamp : String
     , action : String
     }
+
+
+type alias User =
+    { username : String, id : String, email : String, avatar : String }
 
 
 type ChatEntry
@@ -298,7 +302,7 @@ pathToPage hash =
 type alias Model =
     { page : Page
     , rooms : List RoomID
-    , users : List Member
+    , users : List User
     , onlineUsers : List Member
     , myself : Member
     , selected : Dict Member Bool
@@ -360,7 +364,7 @@ type Msg
     | StartSession (Set.Set Member)
     | ReceiveNewSessionId { timestamp : Int, name : String, id : RoomID }
     | FeedRoomInfo Json.Value
-    | FeedUsers (List String)
+    | FeedUsers (List User)
     | EnterNewSessionScreen
     | StartEditing String String
     | UpdateEditingValue String String
@@ -917,9 +921,9 @@ showItem model entry =
                 , div [ class "chat_comment" ]
                     [ div [ class "chat_user_name" ]
                         [ text
-                            (m.user
+                            (getUserName model m.user
                                 ++ (if m.sentTo /= "" then
-                                        " to " ++ m.sentTo
+                                        " to " ++ getUserName model m.sentTo
 
                                     else
                                         ""
@@ -944,7 +948,7 @@ showItem model entry =
                 text ""
 
         SessionEvent e ->
-            div [ class "chat_entry_event", id e.id ] [ hr [] [], text <| e.user ++ "が参加しました（" ++ e.timestamp ++ "）", hr [] [] ]
+            div [ class "chat_entry_event", id e.id ] [ hr [] [], text <| getUserName model e.user ++ "が参加しました（" ++ e.timestamp ++ "）", hr [] [] ]
 
 
 isSelected : Model -> Member -> Bool
@@ -986,6 +990,16 @@ truncate n s =
         s
 
 
+getUserName : Model -> String -> String
+getUserName model uid =
+    case List.Extra.find (\u -> u.id == uid) model.users of
+        Just user ->
+            user.username
+
+        Nothing ->
+            "<"++uid++">"
+
+
 showChannels : Model -> List (Html Msg)
 showChannels model =
     [ p [] [ text "チャンネル" ]
@@ -1005,7 +1019,7 @@ showChannels model =
                                    )
                         ]
                         [ a [ onClick (EnterRoom r) ] [ text (String.fromInt (i + 1) ++ ": " ++ roomName r model) ] ]
-                    , div [ class "chatlist-members" ] (List.intersperse (text ",") <| List.map (\u -> a [ class "chatlist-member clickable", onClick (EnterUser u) ] [ text u ]) <| roomUsers r model)
+                    , div [ class "chatlist-members" ] (List.intersperse (text ",") <| List.map (\u -> a [ class "chatlist-member clickable", onClick (EnterUser u) ] [ text (getUserName model u) ]) <| roomUsers r model)
                     ]
             )
             model.rooms
@@ -1045,7 +1059,7 @@ homeView model =
                 , div [ class "offset-md-2 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text "新しい会話を開始" ]
                     , div [ id "people-wrapper" ] <|
-                        List.map (mkPeoplePanel model.newSessionStatus.selected)
+                        List.map (\u -> mkPeoplePanel model model.newSessionStatus.selected u.id)
                             model.users
                     , div
                         [ style "clear" "both" ]
@@ -1059,8 +1073,8 @@ homeView model =
     }
 
 
-mkPeoplePanel : Set.Set String -> String -> Html Msg
-mkPeoplePanel selected user =
+mkPeoplePanel : Model -> Set.Set String -> String -> Html Msg
+mkPeoplePanel model selected user =
     div
         [ class <|
             "person-panel"
@@ -1072,7 +1086,7 @@ mkPeoplePanel selected user =
                    )
         , onClick (NewSessionMsg (TogglePersonInNew user))
         ]
-        [ h3 [ class "name" ] [ text user ] ]
+        [ h3 [ class "name" ] [ text (getUserName model user) ] ]
 
 
 newSessionView : Model -> { title : String, body : List (Html Msg) }
@@ -1085,7 +1099,7 @@ newSessionView model =
                 , div [ class "offset-md-2 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text "新しい会話を開始" ]
                     , div [ id "people-wrapper" ] <|
-                        List.map (mkPeoplePanel model.newSessionStatus.selected)
+                        List.map (\u -> mkPeoplePanel model model.newSessionStatus.selected u.id)
                             model.users
                     , div
                         [ style "clear" "both" ]
@@ -1161,7 +1175,7 @@ topPane model =
 
                     Person ->
                         div [ id "top-pane-list-container" ]
-                            [ ul [] <| List.map (\u -> li [] [ input [ type_ "checkbox", checked (Set.member u model.chatPageStatus.filter), onCheck (\b -> ChatPageMsg <| SetFilter u b) ] [], span [ class "clickable", onClick (EnterUser u) ] [ text u ] ]) model.chatPageStatus.users
+                            [ ul [] <| List.map (\u -> li [] [ input [ type_ "checkbox", checked (Set.member u model.chatPageStatus.filter), onCheck (\b -> ChatPageMsg <| SetFilter u b) ] [], span [ class "clickable", onClick (EnterUser u) ] [ text (getUserName model u) ] ]) model.chatPageStatus.users
                             ]
 
               else
@@ -1201,7 +1215,7 @@ chatRoomView room model =
                                         text <| Maybe.withDefault "(N/A)" (Maybe.map (\a -> a.name) (Dict.get room model.roomInfo))
                                     , a [ id "edit-roomname", class "clickable", onClick (StartEditing "room-title" (roomName room model)) ] [ text "Edit" ]
                                     ]
-                                , div [] ([ text <| "参加者：" ] ++ List.intersperse (text ", ") (List.map (\u -> a [ onClick (EnterUser u), class "clickable" ] [ text u ]) (roomUsers room model)))
+                                , div [] ([ text <| "参加者：" ] ++ List.intersperse (text ", ") (List.map (\u -> a [ onClick (EnterUser u), class "clickable" ] [ text (getUserName model u) ]) (roomUsers room model)))
                                 , div []
                                     (text ("Session ID: " ++ room)
                                         :: (case model.chatPageStatus.messages of
@@ -1295,7 +1309,7 @@ getMessageCount session_id model =
                                     Nothing
 
                                 else
-                                    Just <| name ++ "(" ++ String.fromInt count ++ ")"
+                                    Just <| getUserName model name ++ "(" ++ String.fromInt count ++ ")"
                             )
                             cs
                    )
@@ -1312,7 +1326,7 @@ userPageView user model =
             [ div [ class "row" ]
                 [ leftMenu model
                 , div [ class "offset-md-2 offset-lg-2 col-md-10 col-lg-10" ]
-                    [ h1 [] [ text user ]
+                    [ h1 [] [ text (getUserName model user) ]
                     , div [] [ text <| String.fromInt (List.length model.userPageStatus.messages) ++ " messages in " ++ String.fromInt (List.length model.userPageStatus.sessions) ++ " rooms." ]
                     , div [] <|
                         List.map

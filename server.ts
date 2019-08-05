@@ -74,9 +74,11 @@
         const { username, password } = req.body;
         if (_.includes(user_info.allowed_users, username) && (_.includes(user_info.allowed_passwords, password))) {
             console.log("login ok", req.user);
-            const token = jwt.sign({ username }, credential.jwt_secret, { expiresIn: 604800 });
-            jwt.verify(token, credential.jwt_secret, function (err, decoded) {
-                res.json({ ok: true, token, decoded });
+            model.find_user_from_username(username).then(({ id }) => {
+                const token = jwt.sign({ username, user_id: id }, credential.jwt_secret, { expiresIn: 604800 });
+                jwt.verify(token, credential.jwt_secret, function (err, decoded) {
+                    res.json({ ok: true, token, decoded });
+                });
             });
         } else {
             res.json({ ok: false });
@@ -132,9 +134,20 @@
         }));
     });
 
-    app.get('/api/users', (_, res: JsonResponse<GetUsersResponse>) => {
-        res.json({ ok: true, data: { users: user_info.allowed_users } });
+    app.get('/api/users', (__, res: JsonResponse<GetUsersResponse>) => {
+        db.all('select users.id,users.name,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id group by users.id;', (err, rows) => {
+            const users: User[] = _.map(rows, (row) => {
+                return {
+                    email: <string>row['emails'].split(',')[0],
+                    username: row['name'],
+                    id: row['id'],
+                    avatar: ''
+                };
+            });
+            res.json({ ok: true, data: { users } });
+        });
     });
+
 
     function expandSpan(date: string, span: Timespan): string[] {
         console.log('expandSpan', span);
@@ -238,6 +251,7 @@
     });
 
     interface PostRequest<T> {
+        decoded: { user_id: string, username: string },
         body: T
     }
 
@@ -289,7 +303,7 @@
             const new_member = req.body.user_id;
             const is_member = _.includes(members, new_member);
             if (!is_member) {
-                const data: JoinSessionResponse = await model.join_session(session_id, req.body.user_id);
+                const data: JoinSessionResponse = await model.join_session(session_id, req.decoded.user_id);
                 res.json(data);
                 _.map(members.concat([new_member]), async (m: string) => {
                     const socket_ids: string[] = await model.getSocketIds(m);
