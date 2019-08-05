@@ -99,6 +99,7 @@ interface User {
     id: string,
     fullname: string,
     username: string,
+    emails: string[],
     avatar: string
 }
 
@@ -121,11 +122,15 @@ type DeleteCommentResponse = { ok: boolean, data?: DeleteCommentData }
 type DeleteCommentData = { comment_id: string, session_id: string }
 type GetSessionsResponse = { ok: boolean, data: RoomInfo[] }
 type GetUsersResponse = {
-    ok: boolean, data: {
+    ok: boolean, data?: {
         users: User[]
     }
 }
-
+type GetUserResponse = {
+    ok: boolean, data: {
+        user: User
+    }
+}
 type PostSessionsResponse = {
     ok: boolean,
     data?: { id: string },

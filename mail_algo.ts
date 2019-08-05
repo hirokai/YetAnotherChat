@@ -1,6 +1,6 @@
 
 const shortid = require('shortid').generate;
-const _ = require('lodash');
+import * as _ from 'lodash';
 const moment = require('moment');
 moment.locale('ja');
 
@@ -108,8 +108,8 @@ export function group_email_sessions(threads: MailgunParsed[][]): MailGroup[] {
 }
 
 export function find_email_session(db: any, data: MailgunParsed): Promise<string> {
-    const ps = _.map(data.references, (r) => {
-        return new Promise((resolve) => {
+    const ps: Promise<string>[] = _.map(data.references, (r) => {
+        return new Promise<string>((resolve) => {
             db.get("select session_id from comments where url_original=?", r, (err, row) => {
                 // console.log('find_email_session', r, err, row);
                 if (row && row['session_id']) {
@@ -120,7 +120,7 @@ export function find_email_session(db: any, data: MailgunParsed): Promise<string
             });
         });
     });
-    return Promise.all(ps).then((results) => {
+    return Promise.all(ps).then((results: string[]) => {
         const session_id = _.compact(results)[0];
         return session_id;
     })
@@ -242,8 +242,23 @@ export function mkUserTableFromEmails(emails: MailgunParsed[]): UserTableFromEma
         return parse_email_address(email.from);
     }), 'email');
     const s: UserTableFromEmail = _.mapValues(users, (us) => {
-        return { id: shortid(), name: us[0].name, names: _.uniqBy(_.map(us, 'name')), email: us[0].email };
+        return { id: shortid(), name: us[0].name, names: _.uniq(_.map(us, 'name')), email: us[0].email };
     })
     console.log(s);
     return s;
+}
+
+
+export function mk_user_name(fullname: string): string {
+    const ts: string[] = fullname.split(/\s+/g);
+    const re = /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/;
+    if (ts[0].match(re)) {
+        return ts[0];
+    } else {
+        var surname = _.find(ts, (t) => {
+            return t.toUpperCase() == t && t.length > 1;
+        });
+        surname = surname ? surname : ts[ts.length - 1];
+        return surname || fullname;
+    }
 }

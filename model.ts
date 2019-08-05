@@ -311,12 +311,11 @@ export function saveSocketId(user_id: string, socket_id: string): Promise<{ ok: 
     });
 }
 
-export async function register_user(name: string, email?: string): Promise<{ ok: boolean, user_id?: string }> {
+export async function register_user(username: string, email?: string, fullname?: string): Promise<{ ok: boolean, user_id?: string }> {
     const user_id = shortid();
-    console.log(name, email);
-    if (name) {
+    if (username) {
         db.serialize(() => {
-            db.run('insert into users (id,name) values (?,?)', user_id, name);
+            db.run('insert into users (id,name,fullname) values (?,?,?)', user_id, username, fullname);
             db.run('insert into user_emails (user_id,email) values (?,?)', user_id, email);
         });
         return { ok: true, user_id: user_id };
@@ -343,6 +342,28 @@ export function post_comment(user_id: string, session_id: string, ts: number, co
     });
 }
 
+export function get_users(): Promise<User[]> {
+    return new Promise((resolve, reject) => {
+        db.all('select users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname from users join user_emails on users.id=user_emails.user_id group by users.id;', (err, rows) => {
+            if (err) {
+                reject();
+            } else {
+                const users: User[] = _.map(rows, (row) => {
+                    console.log(row);
+                    return {
+                        emails: row['emails'].split(','),
+                        username: row['name'] || row['id'],
+                        fullname: row['fullname'] || row['id'],
+                        id: row['id'],
+                        avatar: ''
+                    };
+                });
+                resolve(users);
+            }
+        });
+    });
+}
+
 export function find_user_from_email(email: string): Promise<{ name: string, id: string }> {
     return new Promise((resolve) => {
         db.get('select users.id,users.name,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id group by users.id having emails like ?;', '%' + email + '%', (err, row) => {
@@ -359,5 +380,12 @@ export function find_user_from_username(username: string): Promise<{ name: strin
     });
 }
 
+export function find_user_from_user_id(user_id: string): Promise<User> {
+    return new Promise((resolve) => {
+        db.get('select users.id,users.name,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id group by users.id where users.id=?;', user_id, (err, row) => {
+            const emails = row['emails'].split(',');
+            resolve({ username: row['users.name'], id: row['users.id'], emails, avatar: "", fullname: row['users.fullname'] });
 
-export const hogemodel = 'hogehoge';
+        });
+    });
+}

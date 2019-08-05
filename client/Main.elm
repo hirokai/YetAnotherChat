@@ -103,7 +103,7 @@ type alias SessionEventTyp =
 
 
 type alias User =
-    { username : String, id : String, email : String, avatar : String }
+    { username : String, id : String, fullname : String, emails : List String, avatar : String }
 
 
 type ChatEntry
@@ -442,6 +442,7 @@ update msg model =
             ( { model | selected = Dict.insert m v model.selected }, Cmd.none )
 
         FeedUsers users ->
+            let _ = 1 in
             ( { model | users = users }, Cmd.none )
 
         FeedRoomInfo v ->

@@ -3,8 +3,8 @@
 
 const fs = require('fs');
 const glob = require('glob');
-const model = require('../model')
-const mail_algo = require('../mail_algo');
+import * as model from '../model';
+import * as mail_algo from '../mail_algo';
 const _ = require('lodash');
 import { info as user_info } from '../private/user_info';
 
@@ -40,12 +40,12 @@ glob.glob('mailgun/*.json', async (err, files) => {
     console.log('my user id is', my_user_id)
 
     Promise.all(_.map(user_info.allowed_users, (u) => {
-        return model.register_user(u, u + '@nonexist.asdkjasd2ecascs.com');
+        return model.register_user(u, u + '@non-existent.asdkjasd2ecascs.com', u);
     })).then();
 
     var user_table_with_id: UserTableFromEmail = await mapValuesAsync(user_table, async ({ name, email, names }) => {
-        const name1 = name ? name : email;
-        const { user_id } = await model.register_user(name1, email);
+        const fullname = name ? name : email;
+        const { user_id } = await model.register_user(mail_algo.mk_user_name(fullname), email, fullname);
         return { name, email, names, id: user_id };
     });
 

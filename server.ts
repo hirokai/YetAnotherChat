@@ -139,25 +139,21 @@ app.get('/api/users_old', (_, res: JsonResponse<User>) => {
     res.json(_.map(users, (u: UserSlack): User => {
         const ts = u.real_name.split(" ");
         const letter = ts[ts.length - 1][0].toLowerCase();
-        return { id: u.id, fullname: u.real_name, username: u.name, avatar: '/public/img/letter/' + letter + '.png' };
+        return { id: u.id, fullname: u.real_name, username: u.name, avatar: '/public/img/letter/' + letter + '.png', emails: [] };
     }));
 });
 
 app.get('/api/users', (__, res: JsonResponse<GetUsersResponse>) => {
-    db.all('select users.id,users.name,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id group by users.id;', (err, rows) => {
-        const users: User[] = _.map(rows, (row) => {
-            return {
-                email: <string>row['emails'].split(',')[0],
-                username: row['name'],
-                fullname: "",
-                id: row['id'],
-                avatar: ''
-            };
-        });
+    model.get_users().then(users => {
         res.json({ ok: true, data: { users } });
     });
 });
 
+app.get('/api/users/:id', (req, res: JsonResponse<GetUserResponse>) => {
+    model.find_user_from_user_id(req.params.id).then((user: User) => {
+        res.json({ ok: true, data: { user } });
+    });
+});
 
 function expandSpan(date: string, span: Timespan): string[] {
     console.log('expandSpan', span);
