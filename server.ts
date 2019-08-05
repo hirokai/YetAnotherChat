@@ -306,19 +306,19 @@ app.post('/api/join_session', (req: PostRequest<JoinSessionParam>, res: JsonResp
         const session_id = req.body.session_id;
         const members = await model.get_members(session_id);
         console.log(members);
-        const new_member = req.body.user_id;
-        const is_member = _.includes(members, new_member);
+        const myself = req.decoded.user_id;
+        const is_member = _.includes(members, myself);
         if (!is_member) {
             const data: JoinSessionResponse = await model.join_session(session_id, req.decoded.user_id);
             res.json(data);
-            _.map(members.concat([new_member]), async (m: string) => {
+            _.map(members.concat([myself]), async (m: string) => {
                 const socket_ids: string[] = await model.getSocketIds(m);
-                const data1 = { session_id, user_id: new_member };
+                const data1 = { session_id, user_id: myself };
                 socket_ids.forEach(socket_id => {
                     io.to(socket_id).emit("message", _.extend({}, { __type: "new_member" }, data1));
                 })
             });
-            const socket_ids_newmember: string[] = await model.getSocketIds(new_member);
+            const socket_ids_newmember: string[] = await model.getSocketIds(myself);
             console.log('emitting to new member', socket_ids_newmember);
 
             const data2: { id: string, name: string, timestamp: number, members: string[] } = await model.get_session_info(session_id);
