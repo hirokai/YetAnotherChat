@@ -54,7 +54,7 @@ type SessionEvent = {
 interface MailgunParsed {
     id: string,
     subject: string,
-    user_id: string,
+    from: string,
     comment: string,
     timestamp: number,
     message_id: string,
@@ -167,3 +167,7 @@ type PrivateUserInfo = {
     allowed_users: string[],
     allowed_passwords: string[]
 }
+
+type UserTableFromEmail = {
+    [email: string]: { name: string, names: string[], id: string, email: string }
+} 

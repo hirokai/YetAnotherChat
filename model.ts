@@ -221,7 +221,7 @@ const user_info_private = require('./private/user_info');
         const timestamp = new Date(body['Date']).getTime();
         const comment = body['stripped-text'];
         const message_id = body['Message-Id'];
-        const user_id = user_info_private.find_user(body['From']);
+        const from = body['From'];
         const sent_to = body['To'];
         const id = shortid.generate();
         const subject = body['Subject'];
@@ -229,7 +229,7 @@ const user_info_private = require('./private/user_info');
         const references = s ? s.split(/\s+/) : [];
         const data = {
             id,
-            user_id,
+            from,
             message_id,
             timestamp,
             comment,
@@ -249,19 +249,18 @@ const user_info_private = require('./private/user_info');
         const message_id = body['Message-Id'];
         // const user = body['From'];
         // const user_id: string = user_info_private.find_user(body['From']);
-        const user_id = user_info_private.find_user(mail_algo.parse_email_address(body['From'])) || body['From'];
+        const from = body['From']
         const sent_to = body['To'];
         const subject = body['Subject'];
         const s = body['References'];
         const references = s ? s.split(/\s+/) : [];
-        items[0].from = user_id;
+        items[0].from = from;
         items[0].timestamp = timestamp;
         return _.map(items, (item: MailThreadItem) => {
             console.log('item.from', item.from)
-            const user_id1 = user_info_private.find_user(mail_algo.parse_email_address(item.from)) || item.from;
             const data = {
                 id: shortid.generate(),
-                user_id: user_id1,
+                from: item.from,
                 message_id,
                 timestamp: item.timestamp,
                 comment: item.comment,
@@ -350,7 +349,30 @@ const user_info_private = require('./private/user_info');
         is_member,
         get_members,
         getSocketIds,
-        saveSocketId
+        saveSocketId,
+        register_user: async (name: string, email?: string): Promise<{ ok: boolean, user_id?: string }> => {
+            const user_id = shortid();
+            console.log(name, email);
+            if (name) {
+                db.serialize(() => {
+                    db.run('insert into users (id,name) values (?,?)', user_id, name);
+                    db.run('insert into user_emails (user_id,email) values (?,?)', user_id, email);
+                });
+                return { ok: true, user_id: user_id };
+            } else {
+                return { ok: false };
+            }
+        },
+        find_user_from_email: (email: string): Promise<{ name: string, id: string }> => {
+            return new Promise((resolve) => {
+                db.get('select users.id,users.name,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id group by users.id having emails like ?;', '%' + email + '%', (err, row) => {
+                    resolve({ name: row['users.name'], id: row['users.id'] });
+                });
+            });
+        }
     };
 
+
 }
+
+

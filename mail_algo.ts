@@ -74,10 +74,6 @@
             return thread[0];
         });
 
-        console.log(_.map(emails, (m: MailgunParsed) => {
-            return [m.message_id, m.subject];
-        }));
-
         //Mapping from message-id to array of (possibly split) emails
         const data_dict: { [index: string]: MailgunParsed[]; } = _.groupBy(_.flatten(threads), (d: MailgunParsed) => { return d.message_id });
 
@@ -89,7 +85,6 @@
 
         //Grouping represented by arrays of arrays of message-id.
         const groups_of_emails: string[][] = find_groups(pairs);
-        console.log('groups', groups_of_emails);
 
         //Mapping from message-id to session_id
         var id_mapping: { [key: string]: string } = {};
@@ -126,7 +121,6 @@
             });
         });
         return Promise.all(ps).then((results) => {
-            console.log('results', results);
             const session_id = _.compact(results)[0];
             return session_id;
         })
@@ -146,45 +140,41 @@
         var header_reading: boolean = false;
         txt.split('\r\n').forEach((line: string) => {
             if (line.match(/--+ ?Original Message ?--+/i))
-                console.log('originalmessage', line.match(/--+ ?Original Message ?--+/i));
-            if (header_reading) {
-                head_txt += line + '\r\n';
-                console.log('trimmed', line.replace(/>/g, '').trim());
-                if (line.replace(/>/g, '').trim() == '') {
-                    console.log('header reading done', head_txt)
-                    header_reading = false;
-                    reply_depth += 1;
-                    const { from, timestamp } = parseHead(head_txt_prev);
-                    const comment = _.map(_.dropRight(content_lines), (l: string) => {
-                        return removeQuoteMarks(l, reply_indent_prev);
-                    }).join('\r\n');
-                    content_lines = [];
-                    replies.push({ from, timestamp, comment });
-                    console.log({ from, timestamp, comment })
-                    head_txt_prev = head_txt;
-                    head_txt = '';
-                }
-            } else {
-                const m = line.replace(/\s/g, '').match(/^>+/);
-                if (m) {
-                    reply_indent = Math.max(reply_indent, m[0].length);
-                }
-                if (reply_indent > reply_indent_prev) {
-                    reply_depth += 1;
-                    const { from, timestamp } = parseHead(head_txt_prev);
-                    const comment = _.map(_.dropRight(content_lines), (l: string) => {
-                        return removeQuoteMarks(l, reply_indent_prev);
-                    }).join('\r\n');
-                    replies.push({ from, timestamp, comment });
-                    head_txt_prev = line_prev;
-                    content_lines = [];
-                    reply_indent_prev = reply_indent;
-                } else if (line.match(/--+ ?Forwarded message ?--+/i) || line.match(/--+ ?Original Message ?--+/i)) {
-                    header_reading = true;
+                if (header_reading) {
+                    head_txt += line + '\r\n';
+                    if (line.replace(/>/g, '').trim() == '') {
+                        header_reading = false;
+                        reply_depth += 1;
+                        const { from, timestamp } = parseHead(head_txt_prev);
+                        const comment = _.map(_.dropRight(content_lines), (l: string) => {
+                            return removeQuoteMarks(l, reply_indent_prev);
+                        }).join('\r\n');
+                        content_lines = [];
+                        replies.push({ from, timestamp, comment });
+                        head_txt_prev = head_txt;
+                        head_txt = '';
+                    }
                 } else {
-                    content_lines.push(line);
+                    const m = line.replace(/\s/g, '').match(/^>+/);
+                    if (m) {
+                        reply_indent = Math.max(reply_indent, m[0].length);
+                    }
+                    if (reply_indent > reply_indent_prev) {
+                        reply_depth += 1;
+                        const { from, timestamp } = parseHead(head_txt_prev);
+                        const comment = _.map(_.dropRight(content_lines), (l: string) => {
+                            return removeQuoteMarks(l, reply_indent_prev);
+                        }).join('\r\n');
+                        replies.push({ from, timestamp, comment });
+                        head_txt_prev = line_prev;
+                        content_lines = [];
+                        reply_indent_prev = reply_indent;
+                    } else if (line.match(/--+ ?Forwarded message ?--+/i) || line.match(/--+ ?Original Message ?--+/i)) {
+                        header_reading = true;
+                    } else {
+                        content_lines.push(line);
+                    }
                 }
-            }
             line_prev = line;
             // console.log(reply_depth, reply_indent, line);
         });
@@ -229,7 +219,7 @@
             return { name: name != '' ? name : null, email };
         } else {
             const name = null;
-            const email = s.replace(/[<>:]/g, '');
+            const email = s.replace(/[<>:"]/g, '');
             return { name, email };
         }
     }
@@ -251,6 +241,19 @@
         group_email_sessions,
         find_email_session,
         split_replies,
-        parse_email_address
+        parse_email_address,
+
+        // Make a mapping from parsed email to {id,name,email}.
+        mkUserTableFromEmails: (emails: MailgunParsed[]): UserTableFromEmail => {
+            const users = _.groupBy(_.map(emails, (email: MailgunParsed) => {
+                return parse_email_address(email.from);
+            }), 'email');
+            const s: UserTableFromEmail = _.mapValues(users, (us) => {
+                return { id: shortid(), name: us[0].name, names: _.uniqBy(_.map(us, 'name')), email: us[0].email };
+            })
+            console.log(s);
+            return s;
+        }
+
     }
 }
