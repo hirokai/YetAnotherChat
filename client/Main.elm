@@ -327,7 +327,7 @@ getRoomID model =
 
 
 init : Flags -> ( Model, Cmd Msg )
-init { user_id } =
+init { user_id,show_top_pane } =
     ( { selected = showAll []
       , onlineUsers = []
       , myself = user_id
@@ -337,7 +337,7 @@ init { user_id } =
       , users = []
       , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
       , userPageStatus = { sessions = [], messages = [] }
-      , chatPageStatus = { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing, topPaneExpanded = True }
+      , chatPageStatus = { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing, topPaneExpanded = show_top_pane }
       , editing = Set.empty
       , editingValue = Dict.empty
       }
@@ -1063,7 +1063,7 @@ homeView model =
         [ div [ class "container-fluid" ]
             [ div [ class "row" ]
                 [ leftMenu model
-                , div [ class "offset-md-2 offset-lg-2 col-md-7 col-lg-10" ]
+                , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text "新しい会話を開始" ]
                     , div [ id "people-wrapper" ] <|
                         List.map (\u -> mkPeoplePanel model model.newSessionStatus.selected u.id)
@@ -1103,7 +1103,7 @@ newSessionView model =
         [ div [ class "container-fluid" ]
             [ div [ class "row" ]
                 [ leftMenu model
-                , div [ class "offset-md-2 offset-lg-2 col-md-7 col-lg-10" ]
+                , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text "新しい会話を開始" ]
                     , div [ id "people-wrapper" ] <|
                         List.map (\u -> mkPeoplePanel model model.newSessionStatus.selected u.id)
@@ -1395,4 +1395,4 @@ showAll messages =
 
 
 type alias Flags =
-    { user_id : String }
+    { user_id : String, show_top_pane: Bool }

@@ -18,7 +18,8 @@ const socket: SocketIOClient.Socket = io('');
 require('moment/locale/ja');
 moment.locale('ja');
 
-const app = Elm.Main.init({ flags: { user_id: localStorage['yacht.user_id'] || "" } });
+const init_show_pane = JSON.parse(localStorage['yacht.show_toppane'] || "false") || false;
+const app = Elm.Main.init({ flags: { user_id: localStorage['yacht.user_id'] || "", show_top_pane: init_show_pane } });
 
 const token = localStorage.getItem('yacht.token') || "";
 
@@ -222,10 +223,11 @@ window.addEventListener('hashchange', () => {
 
 app.ports.hashChanged.send(location.hash);
 
-app.ports.recalcElementPositions.subscribe((b: boolean) => {
+app.ports.recalcElementPositions.subscribe((_show_toppane: boolean) => {
     console.log("recalcElementPositions");
-    show_toppane = b;
-    recalcPositions(b);
+    show_toppane = _show_toppane;
+    localStorage['yacht.show_toppane'] = JSON.stringify(show_toppane);
+    recalcPositions(_show_toppane);
 });
 
 app.ports.joinRoom.subscribe(({ session_id, user_id }) => {
