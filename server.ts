@@ -1,5 +1,7 @@
 /// <reference path="./types.d.ts" />
 
+import * as model from './model'
+
 {
     const express = require('express');
     const app = express();
@@ -9,7 +11,7 @@
     const path = require('path');
     const sqlite3 = require('sqlite3');
     const db = new sqlite3.Database(path.join(__dirname, 'private/db.sqlite3'));
-    const model = require('./model');
+    // const model = require('./model');
     const fs = require('fs');
     const moment = require('moment');
     const jwt = require('jsonwebtoken');
@@ -204,8 +206,8 @@
     });
 
     app.get('/api/sessions/:id', (req, res: JsonResponse<GetSessionResponse>) => {
-        model.get_session_info(req.params.id).then((r) => {
-            res.json(r);
+        model.get_session_info(req.params.id).then((data) => {
+            res.json({ ok: true, data });
         })
     });
 
@@ -283,7 +285,7 @@
         (async () => {
             const session_id = req.query.session;
             const user_id = req.query.user;
-            const comments: CommentTyp[] = await model.get_comments_list(session_id, user_id);
+            const comments: (CommentTyp | SessionEvent)[] = await model.get_comments_list(session_id, user_id);
             res.json(comments);
         })().catch(next);
     });
