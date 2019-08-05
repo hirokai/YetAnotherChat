@@ -97,7 +97,7 @@ interface UserSlack {
 
 interface User {
     id: string,
-    name: string,
+    fullname: string,
     username: string,
     avatar: string
 }

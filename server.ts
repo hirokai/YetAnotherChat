@@ -8,7 +8,8 @@ const express = require('express');
 const app = express();
 const glob = require("glob");
 const bodyParser = require("body-parser");
-const _ = require('lodash');
+// const _ = require('lodash');
+import * as _ from 'lodash';
 const path = require('path');
 const sqlite3 = require('sqlite3');
 const db = new sqlite3.Database(path.join(__dirname, 'private/db.sqlite3'));
@@ -138,7 +139,7 @@ app.get('/api/users_old', (_, res: JsonResponse<User>) => {
     res.json(_.map(users, (u: UserSlack): User => {
         const ts = u.real_name.split(" ");
         const letter = ts[ts.length - 1][0].toLowerCase();
-        return { id: u.id, name: u.real_name, username: u.name, avatar: '/public/img/letter/' + letter + '.png' };
+        return { id: u.id, fullname: u.real_name, username: u.name, avatar: '/public/img/letter/' + letter + '.png' };
     }));
 });
 
@@ -148,6 +149,7 @@ app.get('/api/users', (__, res: JsonResponse<GetUsersResponse>) => {
             return {
                 email: <string>row['emails'].split(',')[0],
                 username: row['name'],
+                fullname: "",
                 id: row['id'],
                 avatar: ''
             };
