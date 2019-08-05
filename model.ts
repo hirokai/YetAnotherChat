@@ -86,7 +86,7 @@ export function get_session_info(session_id: string): Promise<RoomInfo> {
     });
 }
 
-export function get_session_list(params): Promise<RoomInfo[]> {
+export function get_session_list(params: { user_id: string, of_members: string[], is_all: boolean }): Promise<RoomInfo[]> {
     const { user_id, of_members, is_all } = params;
     console.log('get_session_list():', params);
     if (of_members) {
