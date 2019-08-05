@@ -37,7 +37,8 @@
     "build": "npx tsc && npx webpack --env.production",
     "gcp-build": "npm run build && npm run db:reset",
     "deploy": "gcloud app deploy",
-    "start": "npx ts-node server.ts"
+    "start": "npx ts-node server.ts",
+    "forever": "sudo PORT=80 nohup forever -c npx ts-node server.ts"
   },
   "devDependencies": {
     "@types/axios": "^0.14.0",

@@ -923,7 +923,7 @@ showItem model entry =
     case entry of
         Comment m ->
             div [ class "chat_entry_comment", id m.id ]
-                [ div [ style "float" "left" ] [ img [ class "chat_user_icon", src (iconOfUser m.user) ] [] ]
+                [ div [ style "float" "left" ] [ img [ class "chat_user_icon", src (iconOfUser (getUserName model m.user)) ] [] ]
                 , div [ class "chat_comment" ]
                     [ div [ class "chat_user_name" ]
                         [ text
@@ -1332,7 +1332,7 @@ userPageView user model =
         [ div [ class "container-fluid" ]
             [ div [ class "row" ]
                 [ leftMenu model
-                , div [ class "offset-md-2 offset-lg-2 col-md-10 col-lg-10" ]
+                , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text (getUserName model user) ]
                     , div [] [ text <| String.fromInt (List.length model.userPageStatus.messages) ++ " messages in " ++ String.fromInt (List.length model.userPageStatus.sessions) ++ " rooms." ]
                     , div [] <|
@@ -1340,7 +1340,7 @@ userPageView user model =
                             (\s ->
                                 div [ class "userpage-room-entry" ]
                                     [ span [ class "session_id" ] [ text <| "ID: " ++ s ]
-                                    , h3 [ class "clickable", onClick (EnterRoom s) ] [ text <| roomName s model ]
+                                    , h3 [ class "clickable userpage-room-name", onClick (EnterRoom s) ] [ text <| roomName s model ]
                                     , span [] [ text <| getMessageCount s model ]
                                     ]
                             )

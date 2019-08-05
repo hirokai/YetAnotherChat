@@ -1,8 +1,9 @@
 /* @import url('https://fonts.googleapis.com/css?family=Noto+Sans+JP:400&subset=japanese'); */
 
+/* https://www.schemecolor.com/drab-army.php */
 @media (prefers-color-scheme: dark) {
     body {
-        background: black;
+        background: #191714;
         color: #ccc;
     }
 }
@@ -27,7 +28,7 @@ div#footer {
 
 @media (prefers-color-scheme: dark) {
     div#footer_wrapper {
-        background: black;
+        background: #191714;
     }
 
     div#footer input {
@@ -58,7 +59,8 @@ div#footer button {
 
 @media (prefers-color-scheme: dark) {
     #menu-left-wrapper {
-        background: rgb(21, 22, 62);
+        background: #191714;
+        box-shadow: #181613 3px 3px 7px;
         position: fixed;
         bottom: 5px;
         top: 5px;
@@ -190,10 +192,19 @@ ul.menu-list li {
 .userpage-room-entry {
     height: 70px;
     border-radius: 5px;
-    background: #ecc;
+    background: #656867;
     margin: 10px;
     padding: 10px;
+    white-space: nowrap;
 }
+
+.userpage-room-name {
+    margin-right: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+
 
 h1 {
     font-size: 24px;
@@ -226,7 +237,8 @@ hr {
 
 @media (prefers-color-scheme: dark) {
     #top-pane {
-        background: #222;
+        background: #212B21;
+        box-shadow: #202619 3px 3px 6px;
     }
 
     hr {

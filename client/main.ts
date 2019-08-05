@@ -20,6 +20,9 @@ moment.locale('ja');
 
 const init_show_pane = JSON.parse(localStorage['yacht.show_toppane'] || "false") || false;
 const app = Elm.Main.init({ flags: { user_id: localStorage['yacht.user_id'] || "", show_top_pane: init_show_pane } });
+window.setTimeout(() => {
+    recalcPositions(init_show_pane);
+}, 100);
 
 const token = localStorage.getItem('yacht.token') || "";
 
@@ -198,12 +201,13 @@ app.ports.sendRoomName.subscribe(({ id, new_name }: { id: string, new_name: stri
 app.ports.setPageHash.subscribe(function (hash: string) {
     console.log(hash);
     location.hash = hash;
-    recalcPositions(true);
+    recalcPositions(show_toppane);
 });
 
 var show_toppane = true;
 
 function recalcPositions(show_toppane: boolean) {
+    console.log('recalcPositions', show_toppane);
     $(() => {
         $('#chat-outer').height(window.innerHeight - (show_toppane ? 260 : 100));
     });
