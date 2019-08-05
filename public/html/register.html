@@ -1,20 +1,14 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=
-    , initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Document</title>
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js" crossorigin="anonymous"></script>
     <style>
         body {
             text-align: center;
-        }
-
-        input {
-            font-size: 20px;
         }
 
         .largebutton {
@@ -29,6 +23,11 @@
             font-size: 20px;
         }
 
+
+        input {
+            font-size: 20px;
+        }
+
         label {
             display: inline-block;
             width: 100px;
@@ -36,6 +35,11 @@
 
         div.input {
             margin-top: 5px;
+        }
+
+        #info-username {
+            height: 30px;
+            margin-top: 10px;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -54,25 +58,34 @@
             }
         }
     </style>
+    <title>新規登録 - Slack clone</title>
 </head>
 
 <body>
-
-    <h1>ようこそ</h1>
+    <h1>新規登録</h1>
     <form onsubmit='return false;'>
-        <div>
-            <label>ユーザーID：</label>
+        <div class='input'>
+            <label>ユーザー名：</label>
             <input id='username' type="text" name="username" required />
         </div>
-        <div>
+        <div class='input'>
             <label>パスワード：</label>
-            <input id='password' type="password" name="password" required />
+            <input id='password' type="password" name="password" minlength='8' required />
+        </div>
+        <div id='info-username'></div>
+        <div style='margin-top: 20px;'>以下は任意ですが，入れると便利です</div>
+        <div class='input'>
+            <label>フルネーム：</label>
+            <input id='fullname' type="text" name="fullname" />
+        </div>
+        <div class='input'>
+            <label>Email：</label>
+            <input id='email' type="email" name="email" />
         </div>
         <div>
-            <input id='submit' type="submit" value="ログイン" class='largebutton' />
+            <input id='submit' type="submit" value="登録" class='largebutton' />
         </div>
     </form>
-    <div id='info'></div>
 
     <script>
         function submit(a) {
@@ -82,26 +95,32 @@
                 const valid = document.querySelectorAll(':invalid').length == 0;
                 if (valid) {
                     const username = $('#username').val();
+                    if (username.slice(0, 2) == '__') {
+                        $('#info-username').html('無効なユーザー名です（"__"から始まることはできません）')
+                        return;
+                    }
                     const password = $('#password').val();
-                    console.log(username, password);
-                    $.post('/api/login', { username, password }).then((res) => {
+                    const fullname = $('#fullname').val();
+                    const email = $('#email').val();
+                    console.log({ username, password, fullname, email })
+                    $.post('/api/register', { username, password, fullname, email }).then((res) => {
                         console.log(res);
-                        if (res.ok && res.token) {
+                        if (res.ok && res.token && res.decoded) {
                             localStorage.setItem("yacht.token", res.token);
                             localStorage.setItem("yacht.user_id", res.decoded.user_id);
                             localStorage.setItem("yacht.username", res.decoded.username);
                             location.href = '/main';
                         } else {
-                            $('#password').val('');
-                            $('#password').focus();
-                            $('#info').html('ユーザー名あるいはパスワードが間違っています。<br><a class="largebutton" href="/register">新規登録</a>')
+                            if (res.error == "User already exists") {
+                                $('#info-username').html('ユーザー名がすでに使われています。')
+                            }
                         }
+
                     });
                 }
-            })
+            });
         });
     </script>
 
-</body>
 
 </html>

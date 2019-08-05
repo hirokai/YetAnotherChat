@@ -172,6 +172,11 @@ app.use(function (req, res, next) {
     });
 });
 
+app.post('/api/logout/', (req, res) => {
+    const user_id = req.decoded.user_id;
+    res.json({ ok: true });
+})
+
 app.get('/api/matrix', (req, res) => {
     const span = req.query.timespan;
     res.set('Content-Type', 'application/json')

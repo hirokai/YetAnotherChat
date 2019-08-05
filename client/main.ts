@@ -26,10 +26,12 @@ socket.emit('subscribe', { token });
 
 axios.get('/api/verify_token', { params: { token } }).then(({ data }) => {
     if (!data.valid) {
-        console.log('verify token failed',data);
+        console.log('verify token failed', data);
         location.href = '/login';
     }
 });
+
+
 
 socket.on("message", (msg: any) => {
     console.log('Socket.io message', msg);
@@ -232,6 +234,17 @@ app.ports.joinRoom.subscribe(({ session_id, user_id }) => {
     });
 });
 
+
+app.ports.logout.subscribe(() => {
+    $.post('/api/logout', { token }).then((res) => {
+        if (res.ok) {
+            localStorage.removeItem('yacht.token');
+            localStorage.removeItem('yacht.user_id');
+            localStorage.removeItem('yacht.username');
+            location.href = '/login';
+        }
+    })
+});
 // window.setTimeout(() => {
 //     var test = document.getElementById("measure-width");
 //     test.innerText = "hoge";

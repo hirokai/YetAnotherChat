@@ -80,6 +80,7 @@ port onSocket : (Json.Value -> msg) -> Sub msg
 
 port joinRoom : { session_id : String, user_id : String } -> Cmd msg
 
+port logout : () -> Cmd msg
 
 type alias CommentTyp =
     { id : String
@@ -375,6 +376,7 @@ type Msg
     | SetPageHash
     | HashChanged String
     | OnSocket Json.Value
+    | Logout
     | NoOp
 
 
@@ -551,6 +553,9 @@ update msg model =
 
             else
                 ( model, Cmd.none )
+
+        Logout ->
+            (model, logout ())
 
         OnSocket v ->
             case Json.decodeValue socketDecoder v of
@@ -967,7 +972,8 @@ leftMenu model =
     div [ class "d-none d-md-block col-md-5 col-lg-2", id "menu-left-wrapper" ]
         [ div [ id "menu-left" ]
             ([ div [ id "username-top" ]
-                [ text (getUserName model model.myself) ]
+                [ text (getUserName model model.myself),
+                    a [onClick Logout, class "clickable", id "logout-button"] [text "ログアウト"] ]
              , div [ id "path" ] [ text (pageToPath model.page) ]
              , div []
                 [ a [ class "btn btn-light", id "newroom-button", onClick EnterNewSessionScreen ] [ text "新しい会話" ]

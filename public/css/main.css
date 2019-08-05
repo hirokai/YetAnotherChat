@@ -241,3 +241,7 @@ hr {
 .chat_entry_event {
     text-align: center;
 }
+
+#logout-button {
+    float: right;
+}
