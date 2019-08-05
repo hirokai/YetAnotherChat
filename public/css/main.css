@@ -3,7 +3,7 @@
 @media (prefers-color-scheme: dark) {
     body {
         background: black;
-        color: white;
+        color: #ccc;
     }
 }
 
@@ -53,6 +53,26 @@ div#footer button {
     bottom: 5px;
     top: 5px;
     overflow: scroll;
+}
+
+@media (prefers-color-scheme: dark) {
+    #menu-left-wrapper {
+        background: rgb(21, 22, 62);
+        position: fixed;
+        bottom: 5px;
+        top: 5px;
+        overflow: scroll;
+    }
+
+    .btn-light {
+        background: black;
+        color: white;
+    }
+
+    .btn-light:hover {
+        background: #222;
+        color: white;
+    }
 }
 
 #chat-outer {
@@ -199,6 +219,16 @@ hr {
     max-height: 20%;
     padding: 5px 0px 0px 0px;
     background: #ccc;
+}
+
+@media (prefers-color-scheme: dark) {
+    #top-pane {
+        background: #222;
+    }
+
+    hr {
+        background: #777;
+    }
 }
 
 #top-pane.shrunk {

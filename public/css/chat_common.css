@@ -18,6 +18,12 @@ div.chat_entry_comment:hover {
     background: #f8f8f8;
 }
 
+@media (prefers-color-scheme: dark) {
+
+    div.chat_entry_comment:hover {
+        background: #111;
+    }
+}
 
 .remove-item {
     font-size: 20px;
@@ -27,12 +33,6 @@ div.chat_entry_comment:hover {
 
 div.chat_entry_comment:not(:hover) .remove-item {
     visibility: hidden;
-}
-
-@media (prefers-color-scheme: dark) {
-    div.chat_entry_comment:hover {
-        background: #222;
-    }
 }
 
 img.chat_user_icon {
@@ -56,6 +56,7 @@ div.chat_comment_content {
     div.chat_comment_content {
         color: #ccc;
     }
+
 }
 
 div.chat_comment {

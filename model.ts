@@ -15,6 +15,8 @@ import * as user_info from './private/user_info';
 import * as error_code from './error_codes';
 import bcrypt from 'bcrypt';
 const saltRounds = 10;
+import * as credentials from './private/credential';
+import { createCipher, createDecipher } from 'crypto';
 
 export async function save_password(user_id: string, password: string): Promise<boolean> {
     const hash = await bcrypt.hash(password, saltRounds);
@@ -70,7 +72,7 @@ export function create_session_with_id(session_id: string, name: string, members
     return new Promise((resolve) => {
         const ts = new Date().getTime();
         db.serialize(() => {
-            db.run('insert or ignore into sessions (id, name, timestamp) values (?,?,?);', session_id, name, ts);
+            db.run('insert or ignore into sessions (id, name, timestamp) values (?,?,?);', session_id, cipher(name), ts);
             Promise.all(_.map(members, (m) => join_session(session_id, m))).then(() => {
                 resolve({ id: session_id, name: name, timestamp: ts, members });
             });
@@ -93,7 +95,7 @@ export function get_session_info(session_id: string): Promise<RoomInfo> {
                         const firstMsgTime = -1;
                         const lastMsgTime = -1;
                         const id = session_id;
-                        resolve({ name: <string>session.name, timestamp: <number>session.timestamp, members, numMessages, firstMsgTime, lastMsgTime, id });
+                        resolve({ name: decipher(session.name), timestamp: <number>session.timestamp, members, numMessages, firstMsgTime, lastMsgTime, id });
                     })
 
                 }
@@ -133,7 +135,7 @@ export function get_session_list(params: { user_id: string, of_members: string[]
                             return null;
                         }
                         return {
-                            id: s.id, name: s.name, timestamp: s.timestamp, members,
+                            id: s.id, name: decipher(s.name), timestamp: s.timestamp, members,
                             numMessages: info.count, firstMsgTime: info.first, lastMsgTime: info.last
                         };
                     }));
@@ -166,7 +168,8 @@ export function get_session_of_members(user_id: string, members: string[], is_al
 
 export function get_comments_list(session_id: string, user_id: string): Promise<(CommentTyp | SessionEvent)[]> {
     const processRow = (row): CommentTyp => {
-        const comment = row.comment.replace(/(:.+?:)/g, function (m, $1) {
+        const comment_deciphered = decipher(row.comment, credentials.cipher_secret);
+        const comment = comment_deciphered.replace(/(:.+?:)/g, function (m, $1) {
             const r = emoji_dict[$1];
             return r ? r.emoji : $1;
         });
@@ -346,10 +349,33 @@ export async function register_user(username: string, email?: string, fullname?:
     }
 }
 
+
+function cipher(plainText: string, password: string = credentials.cipher_secret) {
+    var cipher = createCipher('aes192', password);
+    var cipheredText = cipher.update(plainText, 'utf8', 'hex');
+    cipheredText += cipher.final('hex');
+    console.log('ciphered length', cipheredText.length);
+    return cipheredText;
+}
+
+function decipher(cipheredText: string, password: string = credentials.cipher_secret) {
+    try {
+        var decipher = createDecipher('aes192', password);
+        var dec = decipher.update(cipheredText, 'hex', 'utf8');
+        dec += decipher.final('utf8');
+        console.log('deciphered length', dec.length);
+        return dec;
+    } catch (e) {
+        console.log(e, cipheredText)
+        return null;
+    }
+}
+
+
 export function post_comment(user_id: string, session_id: string, ts: number, comment: string, original_url: string = "", sent_to: string = "", source = ""): Promise<CommentTyp> {
     return new Promise((resolve, reject) => {
         const comment_id = shortid.generate();
-        db.run('insert into comments (id,user_id,comment,timestamp,session_id,original_url,sent_to,source) values (?,?,?,?,?,?,?,?);', comment_id, user_id, comment, ts, session_id, original_url, sent_to, source, (err1) => {
+        db.run('insert into comments (id,user_id,comment,timestamp,session_id,original_url,sent_to,source) values (?,?,?,?,?,?,?,?);', comment_id, user_id, cipher(comment, credentials.cipher_secret), ts, session_id, original_url, sent_to, source, (err1) => {
             db.run('insert or ignore into session_current_members (session_id,user_id) values (?,?)', session_id, user_id, (err2) => {
                 if (!err1 && !err2) {
                     const data: CommentTyp = {
