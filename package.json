@@ -35,10 +35,10 @@
     "db:reset": "sh ./clear_and_import_mailgun.sh",
     "client:watch": "npx webpack -w --env.development",
     "build": "npx tsc && npx webpack --env.production",
-    "gcp-build": "npm run build && npm run db:reset",
     "deploy": "gcloud app deploy",
     "start": "npx ts-node server.ts",
-    "forever": "nohup sudo PORT=80 forever -c node server.js &"
+    "forever": "nohup sudo PORT=80 forever -c node server.js &",
+    "forever:nohup": "nohup sudo PORT=80 forever -c node server.js &"
   },
   "devDependencies": {
     "@types/axios": "^0.14.0",

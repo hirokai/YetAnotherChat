@@ -1390,10 +1390,10 @@ userPageView user model =
                     , div []
                         [ h2 [] [ text "ポスター" ],
                         div [] (
-                            List.indexedMap (\i f -> button [class "btn btn-light btn-sm", onClick ( UserPageMsg <| SetShownImageIndex i)] [text (String.fromInt (1+i))]) user_files
+                            List.indexedMap (\i f -> button [class "btn btn-light btn-sm poster-tab-button", onClick ( UserPageMsg <| SetShownImageIndex i)] [text (String.fromInt (1+i))]) user_files
                              ++
                                 (if model.userPageStatus.newFileBox then 
-                                 [button [class "btn btn-light btn-sm"] [text (String.fromInt (1 + List.length user_files))]]
+                                 [button [class "btn btn-light btn-sm poster-tab-button", onClick ( UserPageMsg <| SetShownImageIndex (1 +List.length user_files))] [text (String.fromInt (1 + List.length user_files))]]
                                  else [])
                              ++
                              [button [class "btn btn-light btn-sm", onClick ( UserPageMsg <| AddNewFileBox)] [text "+"]]),

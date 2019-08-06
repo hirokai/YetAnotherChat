@@ -71,6 +71,7 @@
         <div>
             <input id='submit' type="submit" value="ログイン" class='largebutton' />
         </div>
+        <a class="largebutton" href="/register">新規登録</a>
     </form>
     <div id='info'></div>
 
@@ -78,6 +79,7 @@
         function submit(a) {
         }
         $(() => {
+            $('.largebutton').attr('href', '/register' + location.hash);
             $('#submit').click(() => {
                 const valid = document.querySelectorAll(':invalid').length == 0;
                 if (valid) {
@@ -90,11 +92,11 @@
                             localStorage.setItem("yacht.token", res.token);
                             localStorage.setItem("yacht.user_id", res.decoded.user_id);
                             localStorage.setItem("yacht.username", res.decoded.username);
-                            location.href = '/main';
+                            location.href = '/main' + location.hash;
                         } else {
                             $('#password').val('');
                             $('#password').focus();
-                            $('#info').html('ユーザー名あるいはパスワードが間違っています。<br><a class="largebutton" href="/register' + location.hash + '">新規登録</a>')
+                            $('#info').html('ユーザー名あるいはパスワードが間違っています。')
                         }
                     });
                 }

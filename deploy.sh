@@ -1,9 +1,9 @@
-scp *.js slacklike:~
-scp *.json slacklike:~
-scp -pr client/ slacklike:~/client
-scp *.ts slacklike:~
-scp *.sh slacklike:~
-scp -pr other slacklike:~/other
-scp -pr private/ slacklike:~/private
-scp -pr public slacklike:~/
-# scp -pr mailgun/ slacklike:~/
+scp *.js coisns:~
+scp *.json coisns:~
+scp -pr client/ coisns:~/client
+scp *.ts coisns:~
+scp *.sh coisns:~
+scp other/* coisns:~/other/
+scp -pr private/ coisns:~/private
+scp -pr public coisns:~/
+# scp -pr mailgun/ coisns:~/

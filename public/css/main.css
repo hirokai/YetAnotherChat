@@ -312,3 +312,9 @@ hr {
     background: #cce;
     border: 3px solid black;
 }
+
+.poster-tab-button {
+    width: 100px;
+    text-align: left;
+    border: 1px solid #ccc;
+}

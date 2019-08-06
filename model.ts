@@ -115,11 +115,13 @@ export function get_user_file_list(): Promise<{ url: string }[]> {
     });
 }
 
-export function save_user_file(user_id: string, path: string) {
+export function save_user_file(user_id: string, path: string): Promise<{ file_id: string }> {
     return new Promise((resolve) => {
         const timestamp: number = new Date().getTime();
-        db.run('insert into files (user_id,path,timestamp) values (?,?,?);', user_id, path, timestamp);
-        resolve();
+        const file_id = shortid();
+        db.run('insert into files (id,user_id,path,timestamp) values (?,?,?,?);', file_id, user_id, path, timestamp, (err) => {
+            resolve({ file_id });
+        });
     });
 }
 

@@ -414,9 +414,10 @@ app.post('/api/files', (req, res) => {
     upload(req, res, function (err) {
         console.log('/api/files', err, req.file);
         if (!err) {
-            model.save_user_file(req.decoded.user_id, req.file.path).then(() => {
+            model.save_user_file(req.decoded.user_id, req.file.path).then(({ file_id }) => {
                 const file = {
-                    path: '/' + req.file.path
+                    path: '/' + req.file.path,
+                    file_id,
                 }
                 res.json({ ok: true, files: [file] });
             });
