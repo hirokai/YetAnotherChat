@@ -1262,7 +1262,7 @@ chatRoomView room model =
                 [ leftMenu model
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ topPane model
-                    , div [ class "row" ]
+                    , div [ id "chat-body", class "row", attribute "data-session_id" room ]
                         [ div [ class "col-md-12 col-lg-12" ]
                             [ div [ class "col-md-12 col-lg-12", id "chat-outer" ]
                                 [ h1 []
@@ -1318,7 +1318,8 @@ chatRoomView room model =
                     , div [ class "row", id "footer_wrapper" ]
                         [ div [ class "col-md-12 col-lg-12", id "footer" ]
                             [ input
-                                [ value (Maybe.withDefault "" <| Dict.get "chat" model.editingValue)
+                                [ id "chat-input"
+                                , value (Maybe.withDefault "" <| Dict.get "chat" model.editingValue)
                                 , onInput (UpdateEditingValue "chat")
                                 , onKeyDown
                                     (case Dict.get "chat" model.editingValue of

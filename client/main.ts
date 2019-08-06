@@ -13,8 +13,6 @@ const shortid = require('shortid').generate;
 // @ts-ignore
 const socket: SocketIOClient.Socket = io('');
 
-
-
 require('moment/locale/ja');
 moment.locale('ja');
 
@@ -210,7 +208,7 @@ app.ports.sendRoomName.subscribe(({ id, new_name }: { id: string, new_name: stri
 app.ports.setPageHash.subscribe(function (hash: string) {
     console.log(hash);
     location.hash = hash;
-    recalcPositions(show_toppane);
+    // recalcPositions(show_toppane);
 });
 
 var show_toppane = true;
@@ -318,6 +316,34 @@ $(() => {
         });
         console.log(files);
     });
+
+    const chat_body = $('#chat-input');
+    chat_body.on('dragover', (ev) => {
+        $(ev.target).addClass('dragover');
+        ev.preventDefault();
+    });
+    chat_body.on('dragleave', (ev) => {
+        $(ev.target).removeClass('dragover');
+    });
+    chat_body.on('drop', (ev: any) => {
+        const event: DragEvent = ev.originalEvent;
+        console.log(ev);
+        ev.stopPropagation();
+        ev.preventDefault();
+        $(ev.target).removeClass('dragover');
+        const files = event.dataTransfer.files;
+        map(files, function (file) {
+            var reader = new FileReader();
+            reader.onloadend = () => {
+                const formData = new FormData();
+                const imgBlob = new Blob([reader.result], { type: file.type });
+                formData.append('user_image', imgBlob, file.name);
+                const session_id: string = $('#chat-body').attr('data-session_id');
+                postFileToSession(session_id, formData);
+            };
+            reader.readAsArrayBuffer(file);
+        });
+    });
 });
 
 function getUserImages() {
@@ -339,9 +365,25 @@ app.ports.getUserImages.subscribe(() => {
     getUserImages();
 });
 
+function postFileToSession(session_id: string, formData: FormData) {
+    $.ajax({
+        url: '/api/files?kind=file&session_id=' + session_id + '&token=' + token,
+        type: 'post',
+        data: formData,
+        processData: false,
+        contentType: false,
+        dataType: 'html',
+        complete: function () { },
+        success: function (r) {
+            const res = JSON.parse(r);
+            console.log(res);
+        }
+    });
+}
+
 function postData(formData: FormData) {
     $.ajax({
-        url: '/api/files?token=' + token,
+        url: '/api/files?kind=poster&token=' + token,
         type: 'post',
         data: formData,
         processData: false,

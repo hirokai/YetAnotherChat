@@ -353,3 +353,8 @@ hr {
 .person-panel .email {
     font-size: 14px;
 }
+
+#chat-input.dragover {
+    background: #cce;
+    border: 3px solid black;
+}

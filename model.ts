@@ -150,13 +150,24 @@ export function get_user_file_list(): Promise<{ url: string }[]> {
     });
 }
 
-export function save_user_file(user_id: string, path: string): Promise<{ file_id: string, path: string }> {
+export function save_user_file(user_id: string, path: string, kind: string, session_id?: string): Promise<{ file_id: string, path: string }> {
     return new Promise((resolve) => {
         const timestamp: number = new Date().getTime();
         const file_id = shortid();
         const abs_path = '/' + path;
-        db.run('insert into files (id,user_id,path,timestamp) values (?,?,?,?);', file_id, user_id, abs_path, timestamp, (err) => {
-            resolve({ file_id, path });
+        db.run('insert into files (id,user_id,path,timestamp,kind) values (?,?,?,?);', file_id, user_id, abs_path, timestamp, kind, (err) => {
+            if (session_id != null) {
+                const comment_id = shortid();
+                const comment = '<__file::' + file_id + '::' + path + '>';
+                db.run('insert into comments (id,user_id,session_id,timestamp,comment) values (?,?,?,?,?)',
+                    comment_id, user_id, session_id, timestamp, cipher(comment),
+                    (err2) => {
+                        if (!err && !err2) {
+                            resolve({ file_id, path });
+                        }
+                    }
+                )
+            }
         });
     });
 }
@@ -179,7 +190,7 @@ export function post_file_to_session(session_id: string, user_id: string, file_i
         const timestamp = new Date().getTime();
         get_user_file(file_id).then((r) => {
             if (r != null) {
-                post_comment(user_id, session_id, timestamp, "<__file::" + file_id + "::" + r.url + " > ").then(() => {
+                post_comment(user_id, session_id, timestamp, "<__file::" + file_id + "::" + r.url + ">").then(() => {
                     resolve({ ok: true });
                 });
             }
