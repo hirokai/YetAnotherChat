@@ -1153,7 +1153,7 @@ mkPeoplePanel model selected user =
                    )
         , onClick (NewSessionMsg (TogglePersonInNew user))
         ]
-        [ h3 [ class "name" ] [ text (getUserNameDisplay model user) ] ]
+        [ h3 [ class "name" ] [ text (getUserNameDisplay model user) ] , span [class "email"] [text <| Maybe.withDefault "" <| Maybe.andThen (\u -> List.head u.emails) (getUserInfo model user)]]
 
 
 newSessionView : Model -> { title : String, body : List (Html Msg) }

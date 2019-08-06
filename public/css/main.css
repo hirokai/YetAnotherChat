@@ -349,3 +349,7 @@ hr {
     width: 500px;
     margin: 5px;
 }
+
+.person-panel .email {
+    font-size: 14px;
+}
