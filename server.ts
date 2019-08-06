@@ -44,6 +44,7 @@ interface GetAuthRequest {
     decoded: { username: string, user_id: string, iap: number, exp: number }
 }
 
+console.log('Starting...');
 const port = process.env.PORT || 3000;
 
 const pretty = require('express-prettify');
@@ -289,7 +290,7 @@ app.patch('/api/sessions/:id', (req, res: JsonResponse<PatchSessionResponse>) =>
     const id = req.params.id;
     const { name, members } = req.body;
     console.log(name, members);
-    db.run('update sessions set name=? where id=?;', name, id, () => {
+    db.run('update sessions set name=? where id=?;', model.cipher(name), id, () => {
         res.json({ ok: true });
     });
 });

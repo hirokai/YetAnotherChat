@@ -77,7 +77,7 @@ glob.glob('mailgun/*.json', async (err, files) => {
                 })().catch((err) => console.log('post_comment error', err));
             });
             const res = await model.join_session(session_id, my_user_id, data_sorted[0].timestamp);
-            console.log('join_session result', res);
+            // console.log('join_session result', res);
         })().catch((err) => {
             console.log(err);
         });

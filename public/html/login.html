@@ -94,7 +94,7 @@
                         } else {
                             $('#password').val('');
                             $('#password').focus();
-                            $('#info').html('ユーザー名あるいはパスワードが間違っています。<br><a class="largebutton" href="/register">新規登録</a>')
+                            $('#info').html('ユーザー名あるいはパスワードが間違っています。<br><a class="largebutton" href="/register' + location.hash + '">新規登録</a>')
                         }
                     });
                 }

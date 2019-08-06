@@ -11,12 +11,12 @@ const mail_algo = require('../mail_algo');
 function initialize() {
     db.serialize(() => {
         db.run('drop table if exists users;');
-        db.run('create table users (id text not null unique, name text not null, fullname text,password text);');
+        db.run('create table users (id text not null unique, name text not null, fullname text,password text,timestamp integer not null);');
         db.run('drop table if exists user_emails;');
         db.run('create table user_emails (user_id text not null, email text not null);');
         db.run('drop table if exists comments;');
         db.run('create table comments (id text not null unique, comment text, timestamp integer not null, user_id text not null, session_id text, original_url text, sent_to text, source text);');
-        db.run('drop table if exists sessions;')
+        db.run('drop table if exists sessions;');
         db.run('create table sessions (id text not null unique, timestamp integer not null, name text not null);');
         db.run('drop table if exists session_current_members;')
         db.run('create table session_current_members (session_id text, user_id text not null, unique(session_id,user_id));');

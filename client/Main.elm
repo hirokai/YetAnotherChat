@@ -997,6 +997,10 @@ truncate n s =
         s
 
 
+getUserInfo : Model -> String -> Maybe User
+getUserInfo model uid =
+    List.Extra.find (\u -> u.id == uid) model.users 
+
 getUserName : Model -> String -> String
 getUserName model uid =
     case List.Extra.find (\u -> u.id == uid) model.users of
@@ -1327,6 +1331,15 @@ getMessageCount session_id model =
 
 userPageView : String -> Model -> { title : String, body : List (Html Msg) }
 userPageView user model =
+    let user_show_name uid =
+            case getUserInfo model uid of
+                Just u ->
+                    if u.fullname == "" then
+                        u.username
+                    else
+                        u.fullname ++ " (" ++ u.username ++ ")"
+                Nothing -> "(N/A)"
+    in
     { title = "Slack clone"
     , body =
         [ div [ class "container-fluid" ]

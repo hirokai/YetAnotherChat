@@ -109,7 +109,7 @@
                             localStorage.setItem("yacht.token", res.token);
                             localStorage.setItem("yacht.user_id", res.decoded.user_id);
                             localStorage.setItem("yacht.username", res.decoded.username);
-                            location.href = '/main';
+                            location.href = '/main' + location.hash;
                         } else {
                             if (res.error == "User already exists") {
                                 $('#info-username').html('ユーザー名がすでに使われています。')

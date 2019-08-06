@@ -74,7 +74,7 @@ export function create_session_with_id(session_id: string, name: string, members
         db.serialize(() => {
             db.run('insert or ignore into sessions (id, name, timestamp) values (?,?,?);', session_id, cipher(name), ts);
             Promise.all(_.map(members, (m) => join_session(session_id, m))).then(() => {
-                resolve({ id: session_id, name: name, timestamp: ts, members });
+                resolve({ id: session_id, name: cipher(name), timestamp: ts, members });
             });
         });
     });
@@ -135,7 +135,7 @@ export function get_session_list(params: { user_id: string, of_members: string[]
                             return null;
                         }
                         return {
-                            id: s.id, name: decipher(s.name), timestamp: s.timestamp, members,
+                            id: s.id, name: decipher(s.name) || '', timestamp: s.timestamp, members,
                             numMessages: info.count, firstMsgTime: info.first, lastMsgTime: info.last
                         };
                     }));
@@ -339,7 +339,8 @@ export async function register_user(username: string, email?: string, fullname?:
             return { ok: false, error_code: error_code.USER_EXISTS, error: 'User name already exists' }
         } else {
             db.serialize(() => {
-                db.run('insert into users (id,name,fullname) values (?,?,?)', user_id, username, fullname);
+                const timestamp = new Date().getTime();
+                db.run('insert into users (id,name,fullname,timestamp) values (?,?,?,?)', user_id, username, fullname, timestamp);
                 db.run('insert into user_emails (user_id,email) values (?,?)', user_id, email);
             });
             return { ok: true, user_id: user_id, };
@@ -350,7 +351,7 @@ export async function register_user(username: string, email?: string, fullname?:
 }
 
 
-function cipher(plainText: string, password: string = credentials.cipher_secret) {
+export function cipher(plainText: string, password: string = credentials.cipher_secret) {
     var cipher = createCipher('aes192', password);
     var cipheredText = cipher.update(plainText, 'utf8', 'hex');
     cipheredText += cipher.final('hex');
@@ -358,7 +359,7 @@ function cipher(plainText: string, password: string = credentials.cipher_secret)
     return cipheredText;
 }
 
-function decipher(cipheredText: string, password: string = credentials.cipher_secret) {
+export function decipher(cipheredText: string, password: string = credentials.cipher_secret) {
     try {
         var decipher = createDecipher('aes192', password);
         var dec = decipher.update(cipheredText, 'hex', 'utf8');
