@@ -6,7 +6,10 @@ const _ = require('lodash');
 const sqlite3 = require('sqlite3');
 const db = new sqlite3.Database(path.join(__dirname, './private/db.sqlite3'));
 // const ulid = require('ulid').ulid;
-const shortid = require('shortid').generate;
+const shortid_ = require('shortid');
+shortid_.characters('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$_');
+const shortid = shortid_.generate;
+import * as mail_algo from './mail_algo';
 
 const emojis = require("./emojis.json").emojis;
 const emoji_dict = _.keyBy(emojis, 'shortname');
@@ -30,7 +33,30 @@ export async function save_password(user_id: string, password: string): Promise<
     // return res;
 }
 
+export function merge_users(db, users: { user_id: string, name: string, fullname: string, email: string }[]) {
+    const merge_to_user: { user_id: string, name: string, fullname: string, email: string } = _.orderBy(users, (u) => {
+        return (u.fullname ? 100 : 0) + (u.name ? 50 : 0);
+    }, 'desc')[0];
 
+    console.log('Merging to', merge_to_user);
+    if (merge_to_user == null) {
+        return;
+    } else {
+        const new_id = merge_to_user.user_id;
+        db.serialize(() => {
+            _.map(_.map(users, 'user_id'), (uid: string) => {
+                if (uid != new_id) {
+                    db.run('update comments set user_id=? where user_id=?', new_id, uid);
+                    db.run('update session_current_members set user_id=? where user_id=?', new_id, uid);
+                    db.run('update session_events set user_id=? where user_id=?', new_id, uid);
+                    db.run('update user_connections set user_id=? where user_id=?', new_id, uid);
+                    db.run('delete from user_emails where user_id=?', uid);
+                    db.run('delete from users where id=?', uid);
+                }
+            });
+        });
+    }
+}
 
 export function get_sent_mail(q: string): Promise<any[]> {
     return new Promise((resolve) => {
@@ -104,6 +130,15 @@ export function get_session_info(session_id: string): Promise<RoomInfo> {
     });
 }
 
+export function get_user_file(file_id: string): Promise<{ url: string }> {
+    return new Promise((resolve) => {
+        db.get('select path from files where id=?;', file_id, (err, row) => {
+            const path = row ? row['path'] : null;
+            resolve({ url: path });
+        });
+    });
+}
+
 export function get_user_file_list(): Promise<{ url: string }[]> {
     return new Promise((resolve) => {
         db.all('select * from files;', (err, rows) => {
@@ -119,7 +154,8 @@ export function save_user_file(user_id: string, path: string): Promise<{ file_id
     return new Promise((resolve) => {
         const timestamp: number = new Date().getTime();
         const file_id = shortid();
-        db.run('insert into files (id,user_id,path,timestamp) values (?,?,?,?);', file_id, user_id, path, timestamp, (err) => {
+        const abs_path = '/' + path;
+        db.run('insert into files (id,user_id,path,timestamp) values (?,?,?,?);', file_id, user_id, abs_path, timestamp, (err) => {
             resolve({ file_id, path });
         });
     });
@@ -133,6 +169,19 @@ export function update_user_file(user_id: string, file_id: string, new_path: str
                 resolve({ file_id, path });
             } else {
                 resolve(null);
+            }
+        });
+    });
+}
+
+export function post_file_to_session(session_id: string, user_id: string, file_id: string): Promise<{ ok: boolean }> {
+    return new Promise((resolve) => {
+        const timestamp = new Date().getTime();
+        get_user_file(file_id).then((r) => {
+            if (r != null) {
+                post_comment(user_id, session_id, timestamp, "<__file::" + file_id + "::" + r.url + " > ").then(() => {
+                    resolve({ ok: true });
+                });
             }
         });
     });
@@ -200,14 +249,29 @@ export function get_session_of_members(user_id: string, members: string[], is_al
     });
 };
 
-export function get_comments_list(session_id: string, user_id: string): Promise<(CommentTyp | SessionEvent)[]> {
-    const processRow = (row): CommentTyp => {
+export function get_comments_list(session_id: string, user_id: string): Promise<(CommentTyp | SessionEvent | ChatFile)[]> {
+    const processRow = (row): CommentTyp | SessionEvent | ChatFile => {
         const comment_deciphered = decipher(row.comment, credentials.cipher_secret);
         const comment = comment_deciphered.replace(/(:.+?:)/g, function (m, $1) {
             const r = emoji_dict[$1];
             return r ? r.emoji : $1;
         });
-        return { id: row.id, comment, timestamp: parseInt(row.timestamp), user_id: row.user_id, original_url: row.original_url, sent_to: row.sent_to, session_id: row.session_id, source: row.source, kind: "comment" };
+        console.log('get_comments_list comment', comment);
+        if (comment.slice(0, 9) == '<__file::') {
+            const m = comment.match(/<__file::(.+?)::(.+)>/);
+            const file_id = m[1] || "";
+            return {
+                url: m[2] || "",
+                file_id: file_id,
+                kind: "file",
+                session_id,
+                user_id: row['user_id'],
+                timestamp: row['timestamp'],
+                id: row['id']
+            };
+        } else {
+            return { id: row.id, comment, timestamp: parseInt(row.timestamp), user_id: row.user_id, original_url: row.original_url, sent_to: row.sent_to, session_id: row.session_id, source: row.source, kind: "comment" }
+        }
     };
     var func;
     if (session_id && !user_id) {
@@ -274,10 +338,13 @@ export function parseMailgunWebhook(body): MailgunParsed {
 }
 
 export function parseMailgunWebhookThread(body): MailgunParsed[] {
-    const mail_algo = require('./mail_algo');
     const timestamp = new Date(body['Date']).getTime();
-    const comment = body['stripped-text'];
+    const comment = body['body-plain'];
     const items: MailThreadItem[] = mail_algo.split_replies(comment);
+    if (!items) {
+        return [];
+    }
+    // console.log('parseMailgunWebhookThread: split', items.length);
     const message_id = body['Message-Id'];
     // const user = body['From'];
     // const user_id: string = user_info_private.find_user(body['From']);
@@ -322,7 +389,10 @@ export function get_members(session_id: string): Promise<string[]> {
 }
 
 export function join_session(session_id: string, user_id: string, timestamp: number = -1): Promise<JoinSessionResponse> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+        if (!session_id || !user_id) {
+            reject();
+        }
         const ts: number = timestamp > 0 ? timestamp : new Date().getTime();
         const id: string = shortid();
         db.serialize(() => {
@@ -365,17 +435,21 @@ export function saveSocketId(user_id: string, socket_id: string): Promise<{ ok: 
     });
 }
 
-export async function register_user(username: string, email?: string, fullname?: string): Promise<{ ok: boolean, user_id?: string, error?: string, error_code?: number }> {
+export async function register_user(username: string, password: string, email?: string, fullname?: string): Promise<{ ok: boolean, user_id?: string, error?: string, error_code?: number }> {
     const user_id = shortid();
     if (username) {
         const existing_user: User = await find_user_from_username(username);
         if (existing_user) {
             return { ok: false, error_code: error_code.USER_EXISTS, error: 'User name already exists' }
         } else {
-            db.serialize(() => {
-                const timestamp = new Date().getTime();
-                db.run('insert into users (id,name,fullname,timestamp) values (?,?,?,?)', user_id, username, fullname, timestamp);
-                db.run('insert into user_emails (user_id,email) values (?,?)', user_id, email);
+            bcrypt.hash(password, saltRounds, function (err, hash) {
+                db.serialize(() => {
+                    if (!err) {
+                        const timestamp = new Date().getTime();
+                        db.run('insert into users (id,name,password,fullname,timestamp) values (?,?,?,?,?)', user_id, username, hash, fullname, timestamp);
+                        db.run('insert into user_emails (user_id,email) values (?,?)', user_id, email);
+                    }
+                });
             });
             return { ok: true, user_id: user_id, };
         }
@@ -389,7 +463,7 @@ export function cipher(plainText: string, password: string = credentials.cipher_
     var cipher = createCipher('aes192', password);
     var cipheredText = cipher.update(plainText, 'utf8', 'hex');
     cipheredText += cipher.final('hex');
-    console.log('ciphered length', cipheredText.length);
+    // console.log('ciphered length', cipheredText.length);
     return cipheredText;
 }
 
@@ -407,7 +481,7 @@ export function decipher(cipheredText: string, password: string = credentials.ci
 }
 
 
-export function post_comment(user_id: string, session_id: string, ts: number, comment: string, original_url: string = "", sent_to: string = "", source = ""): Promise<CommentTyp> {
+export function post_comment(user_id: string, session_id: string, ts: number, comment: string, original_url: string = "", sent_to: string = "", source = ""): Promise<{ ok: boolean, data?: CommentTyp, error?: string }> {
     return new Promise((resolve, reject) => {
         const comment_id = shortid.generate();
         db.run('insert into comments (id,user_id,comment,timestamp,session_id,original_url,sent_to,source) values (?,?,?,?,?,?,?,?);', comment_id, user_id, cipher(comment, credentials.cipher_secret), ts, session_id, original_url, sent_to, source, (err1) => {
@@ -416,7 +490,7 @@ export function post_comment(user_id: string, session_id: string, ts: number, co
                     const data: CommentTyp = {
                         id: comment_id, timestamp: ts, user_id, comment: comment, session_id, original_url, sent_to, source, kind: "comment"
                     };
-                    resolve(data);
+                    resolve({ ok: true, data });
                 } else {
                     reject([err1, err2]);
                 }
@@ -448,13 +522,18 @@ export function get_users(): Promise<User[]> {
 
 export function find_user_from_email(email: string): Promise<User> {
     return new Promise((resolve, reject) => {
-        db.get('select users.id,users.name,users.fullname,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id group by users.id having emails like ?;', '%' + email + '%', (err, row) => {
-            if (!err) {
-                resolve({ username: row['name'], fullname: row['fullname'], id: row['id'], emails: row['emails'], avatar: '' });
-            } else {
-                reject();
-            }
-        });
+        if (!email || email.trim() == "") {
+            resolve(null);
+        } else {
+            db.get('select users.id,users.name,users.fullname,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id group by users.id having emails like ?;', '%' + email + '%', (err, row) => {
+                if (!err && row) {
+                    resolve({ username: row['name'], fullname: row['fullname'], id: row['id'], emails: row['emails'], avatar: '' });
+                } else {
+                    resolve(null);
+                }
+            });
+
+        }
     });
 }
 

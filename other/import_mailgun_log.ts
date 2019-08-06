@@ -3,83 +3,30 @@
 
 const fs = require('fs');
 const glob = require('glob');
+import * as _ from 'lodash';
+import { update_db_on_mailgun_webhook } from '../mail_algo';
+import { sumBy } from 'lodash-es';
+const path = require('path');
+const sqlite3 = require('sqlite3');
+const db = new sqlite3.Database(path.join(__dirname, '../private/db.sqlite3'));
 import * as model from '../model';
-import * as mail_algo from '../mail_algo';
-const _ = require('lodash');
-import * as user_info from '../private/user_info';
+
 
 glob.glob('mailgun/*.json', async (err, files) => {
-    // files = files.slice(0, 1);
-    const datas: MailgunParsed[][] = _.map(files, (f) => {
-        const s = fs.readFileSync(f, 'utf8');
-        return model.parseMailgunWebhookThread(JSON.parse(s));
-    });
-
-    const user_table: UserTableFromEmail = mail_algo.mkUserTableFromEmails(_.flatten(datas));
-
-
-    //https://gist.github.com/jcsrb/c9fd5d2928b4341b120d6db375679095
-    const mapValuesAsync = (obj, asyncFn) => {
-        const keys = Object.keys(obj);
-        const promises = keys.map(k => {
-            return asyncFn(obj[k]).then(newValue => {
-                return { key: k, value: newValue };
+    db.serialize(() => {
+        Promise.all(_.map(files, async (filename: string) => {
+            const s = fs.readFileSync(filename, 'utf8');
+            const body = JSON.parse(s);
+            return await update_db_on_mailgun_webhook(body, db);
+        })).then((rss) => {
+            const users: { user_id: string, name: string, fullname: string, email: string }[] = _.flatMap(rss, 'added_users');
+            const grouped = _.groupBy(users, 'email');
+            console.log(grouped);
+            _.map(grouped, async (vs, email) => {
+                if (vs && vs.length > 1) {
+                    model.merge_users(db, vs);
+                }
             });
-        });
-        return Promise.all(promises).then(values => {
-            const newObj = {};
-            values.forEach(v => {
-                newObj[v.key] = v.value;
-            });
-            return newObj;
-        });
-    }
-
-
-    const my_user_id = (await model.register_user(user_info.test_myself.name, user_info.test_myself.email)).user_id;
-    console.log('my user id is', my_user_id)
-
-    // Promise.all(_.map(user_info.allowed_users, (u) => {
-    //     return model.register_user(u, u + '@non-existent.asdkjasd2ecascs.com', u);
-    // })).then();
-
-    var used_names = {};
-    var user_table_with_id: UserTableFromEmail = await mapValuesAsync(user_table, async ({ name, email, names }) => {
-        const fullname = name ? name : email;
-        var username;
-        const username_base = mail_algo.mk_user_name(fullname);
-        username = username_base;
-        for (var i = 2; i < 10000; i++) {
-            username = username_base + i;
-            if (!used_names[username]) {
-                break;
-            }
-        }
-        console.log('registering');
-        const { user_id } = await model.register_user(username, email, fullname);
-        console.log('registered');
-        used_names[username] = true;
-        return { name, email, names, id: user_id };
-    });
-
-    const groups: MailGroup[] = mail_algo.group_email_sessions(datas);
-
-    _.map(groups, ({ session_id, session_name, data }: MailGroup) => {
-        (async () => {
-            await model.create_session_with_id(session_id, session_name, []);
-            const data_sorted = _.sortBy(data, (d: MailgunParsed) => { return d.timestamp < 0 ? new Date(2100, 1, 1).valueOf() : d.timestamp });
-            data_sorted.forEach((mail: MailgunParsed) => {
-                (async () => {
-                    const email = mail_algo.parse_email_address(mail.from).email;
-                    const user_id: string = (user_table_with_id[email] || { id: '' }).id;
-                    console.log('user_id', user_id, user_table_with_id[email]);
-                    const data2: CommentTyp = await model.post_comment(user_id, session_id, mail.timestamp, mail.comment, mail.message_id, "", 'email');
-                })().catch((err) => console.log('post_comment error', err));
-            });
-            const res = await model.join_session(session_id, my_user_id, data_sorted[0].timestamp);
-            // console.log('join_session result', res);
-        })().catch((err) => {
-            console.log(err);
         });
     });
 });

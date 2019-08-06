@@ -150,6 +150,13 @@ sessionEventTypDecoder =
         |> JE.andMap (Json.field "action" Json.string)
 
 
+chatFileDecoder =
+        Json.map3 (\i u f -> {id = i, user = u, filename = f})
+            (Json.field "id" Json.string)
+            (Json.field "user" Json.string)
+            (Json.field "url" Json.string)
+
+
 chatEntryDecoder : Json.Decoder ChatEntry
 chatEntryDecoder =
     Json.field "kind" Json.string
@@ -161,6 +168,10 @@ chatEntryDecoder =
 
                     "event" ->
                         Json.map SessionEvent <| sessionEventTypDecoder
+
+                    "file" ->
+                        let _ = Debug.log "chatEntryDecoder file" "" in
+                        Json.map ChatFile <| chatFileDecoder
 
                     _ ->
                         Json.fail "Unsupported kind"
@@ -992,11 +1003,8 @@ showItem model entry =
                 ]
 
         ChatFile f ->
-            if isSelected model f.user then
-                div [ style "border" "1px solid red", style "padding" "10px", style "width" "500px", style "margin" "5px" ] [ text f.filename ]
+            div [ class "file-image-chat"] [ img [src f.filename ] []]
 
-            else
-                text ""
 
         SessionEvent e ->
             div [ class "chat_entry_event", id e.id ] [ hr [] [], text <| getUserName model e.user ++ "が参加しました（" ++ e.timestamp ++ "）", hr [] [] ]

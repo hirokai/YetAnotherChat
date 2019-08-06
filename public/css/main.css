@@ -337,3 +337,15 @@ hr {
 #poster-div {
     margin-bottom: 20px;
 }
+
+.file-image-chat img {
+    max-width: 100%;
+    max-height: 200px;
+}
+
+.file-image-chat {
+    border: 1px solid red;
+    padding: 10px;
+    width: 500px;
+    margin: 5px;
+}

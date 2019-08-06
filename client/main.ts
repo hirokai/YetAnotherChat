@@ -74,16 +74,16 @@ function scrollTo(id) {
 
 app.ports.scrollTo.subscribe(scrollTo);
 
-type ChatEntry = CommentTyp | SessionEvent;
+type ChatEntry = CommentTyp | SessionEvent | ChatFile;
 
 const processData = (res: ChatEntry[]): ChatEntryClient[] => {
     return map(res, (m1) => {
         console.log('processData', m1);
         const user: string = m1.user_id;
-        var v: ChatEntryClient = { id: m1.id, user, comment: "", timestamp: moment(m1.timestamp).format('YYYY/M/D HH:mm:ss'), originalUrl: "", sentTo: "", session: m1.session_id, source: "", kind: m1.kind, action: "" };
         switch (m1.kind) {
             case "comment": {
                 const m = <CommentTyp>m1;
+                var v: ChatEntryClient = { id: m.id, user, comment: "", timestamp: moment(m.timestamp).format('YYYY/M/D HH:mm:ss'), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "" };
                 v.comment = m.comment;
                 v.originalUrl = m.original_url || "";
                 v.sentTo = m.sent_to || "";
@@ -92,8 +92,17 @@ const processData = (res: ChatEntry[]): ChatEntryClient[] => {
             }
             case "event": {
                 const m = <SessionEvent>m1;
+                var v: ChatEntryClient = { id: m.id, user, comment: "", timestamp: moment(m.timestamp).format('YYYY/M/D HH:mm:ss'), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "" };
                 v.comment = "（参加しました）";
                 v.action = m.action;
+                return v;
+            }
+            case "file": {
+                const m = <ChatFile>m1;
+                var v: ChatEntryClient = { id: m.id, user, comment: "", timestamp: moment(m.timestamp).format('YYYY/M/D HH:mm:ss'), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "" };
+                v.comment = "（ファイル：" + m.url + "）";
+                console.log('file processData', v);
+                v.url = m.url;
                 return v;
             }
         }
@@ -241,8 +250,19 @@ app.ports.joinRoom.subscribe(({ session_id, user_id }) => {
 });
 
 
-app.ports.startPosterSession.subscribe((file_id) => {
+app.ports.startPosterSession.subscribe(async (file_id) => {
     console.log('startPosterSession', file_id);
+    const members: string[] = [localStorage['yacht.user_id']];
+    const name = "ポスターセッション: " + moment().format('MM/DD HH:mm')
+    const temporary_id = shortid();
+    const post_data: PostSessionsParam = { name, members, temporary_id, token, file_id };
+    const { data }: PostSessionsResponse = await $.post('/api/sessions', post_data);
+    app.ports.receiveNewRoomInfo.send(data);
+    const p1 = axios.get('/api/sessions', { params: { token } });
+    const p2 = axios.get('/api/comments', { params: { session: data.id, token } });
+    const [{ data: { data: data1 } }, { data: { data: data2 } }] = await Promise.all([p1, p2]);
+    app.ports.feedRoomInfo.send(data1);
+    app.ports.feedMessages.send(processData(data2));
 });
 
 

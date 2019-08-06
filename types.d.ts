@@ -51,6 +51,16 @@ type SessionEvent = {
     action: string,
 }
 
+type ChatFile = {
+    id: string,
+    user_id: string,
+    timestamp: number,
+    session_id: string
+    url: string,
+    file_id: string
+    kind: string,
+}
+
 interface MailgunParsed {
     id: string,
     subject: string,
@@ -83,7 +93,8 @@ interface ChatEntryClient {
     sentTo: string,
     source: string
     kind: string,
-    action: string
+    action: string,
+    url?: string
 }
 
 interface UserSlack {
@@ -153,6 +164,7 @@ interface PostSessionsParam extends AuthedParams {
     name: string,
     members: string[],
     temporary_id: string,
+    file_id?: string,
 }
 
 interface JoinSessionParam extends AuthedParams {
@@ -168,7 +180,7 @@ type JoinSessionResponse = {
 
 type PrivateUserInfo = {
     find_user: (string) => string,
-    test_myself: { name: string, email: string },
+    test_myself: { username: string, email: string, fullname: string, password: string },
     allowed_users: string[],
     allowed_passwords: string[]
 }

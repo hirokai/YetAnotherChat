@@ -320,10 +320,12 @@ app.post('/api/sessions', (req: PostRequest<PostSessionsParam>, res: JsonRespons
     const body = req.body;
     const members = body.members;
     const name = body.name;
+    const file_id = body.file_id;
     const temporary_id = body.temporary_id;
-    if (name && members) {
-        model.create_new_session(name, members).then((data) => {
-            res.json({ ok: true, data });
+    (async () => {
+        if (name && members) {
+            const data = await model.create_new_session(name, members);
+            await model.post_file_to_session(data.id, req.decoded.user_id, file_id);
             _.map(members, async (m: string) => {
                 const socket_ids: string[] = await model.getSocketIds(m);
                 console.log('emitting to', socket_ids);
@@ -331,12 +333,13 @@ app.post('/api/sessions', (req: PostRequest<PostSessionsParam>, res: JsonRespons
                     io.to(socket_id).emit("message", _.extend({}, { __type: "new_session", temporary_id }, data));
                 })
             });
-        }).catch((error) => {
-            res.json({ ok: false, error });
-        });
-    } else {
-        res.json({ ok: false, error: 'Name and members are necessary' });
-    }
+            res.json({ ok: true, data });
+        } else {
+            res.json({ ok: false, error: 'Name and members are necessary' });
+        }
+    })().catch((error) => {
+        res.json({ ok: false, error });
+    });
 });
 
 app.get('/api/comments', (req, res, next) => {
@@ -344,7 +347,7 @@ app.get('/api/comments', (req, res, next) => {
     (async () => {
         const session_id = req.query.session;
         const user_id = req.query.user;
-        const comments: (CommentTyp | SessionEvent)[] = await model.get_comments_list(session_id, user_id);
+        const comments: (CommentTyp | SessionEvent | ChatFile)[] = await model.get_comments_list(session_id, user_id);
         res.json(comments);
     })().catch(next);
 });
@@ -395,9 +398,11 @@ app.post('/api/comments', (req: MyPostRequest<PostCommentData>, res: JsonRespons
             const comment = req.body.comment;
             const session_id = req.body.session;
             const temporary_id = req.body.temporary_id;
-            const data: CommentTyp = await model.post_comment(user, session_id, ts, comment, "", "", "self");
-            res.json({ ok: true, data });
-            io.emit("message", _.extend({}, { __type: "new_comment", temporary_id }, data));
+            const r = await model.post_comment(user, session_id, ts, comment, "", "", "self");
+            res.json(r);
+            if (r.data) {
+                io.emit("message", _.extend({}, { __type: "new_comment", temporary_id }, r.data));
+            }
         });
     })().catch(() => {
         res.json({ ok: false, error: "DB error." })
