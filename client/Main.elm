@@ -592,7 +592,7 @@ update msg model =
             let
                 old_files_empty = List.isEmpty (Maybe.withDefault [] <| Dict.get user_id model.files)
                 files = Dict.insert user_id images model.files
-                first_file_id = Maybe.map (\f -> f.file_id) <| Maybe.andThen List.head <| Dict.get user_id files
+                first_file_id = Maybe.map (.file_id) <| Maybe.andThen List.head <| Dict.get user_id files
                 ups = model.userPageStatus
             in
             ({model|
@@ -1017,7 +1017,7 @@ isSelected model m =
 
 roomUsers : String -> Model -> List String
 roomUsers room model =
-    Maybe.withDefault [] <| Maybe.map (\a -> a.members) <| Dict.get room model.roomInfo
+    Maybe.withDefault [] <| Maybe.map (.members) <| Dict.get room model.roomInfo
 
 
 leftMenu : Model -> Html Msg
@@ -1153,7 +1153,7 @@ mkPeoplePanel model selected user =
                    )
         , onClick (NewSessionMsg (TogglePersonInNew user))
         ]
-        [ h3 [ class "name" ] [ text (getUserNameDisplay model user) ] , span [class "email"] [text <| Maybe.withDefault "" <| Maybe.andThen (\u -> List.head u.emails) (getUserInfo model user)]]
+        [ h3 [ class "name" ] [ text (getUserNameDisplay model user) ] , span [class "email"] [text <| Maybe.withDefault "" <| Maybe.andThen (.emails >> List.head) (getUserInfo model user)]]
 
 
 newSessionView : Model -> { title : String, body : List (Html Msg) }
@@ -1404,7 +1404,7 @@ userPageView user model =
     let
         user_files = Maybe.withDefault [] <| Dict.get user model.files
         current_file = List.Extra.find (\f -> Just f.file_id == model.userPageStatus.shownFileID) user_files
-        current_file_id = Maybe.withDefault "" <| Maybe.map (\f -> f.file_id) current_file
+        current_file_id = Maybe.withDefault "" <| Maybe.map (.file_id) current_file
     in
     { title = "Slack clone"
     , body =
@@ -1420,7 +1420,7 @@ userPageView user model =
                              ++
 
                              [button [class "btn btn-light btn-sm poster-tab-button poster-tab-button-add", onClick ( UserPageMsg <| AddNewFileBox)] [text "+"]]),
-                        div [class <| "profile-img" ++ if user == model.myself then " mine" else "", attribute "data-file_id" (Maybe.withDefault "" <| Maybe.map (\f -> f.file_id) current_file)] [img [src <| Maybe.withDefault "" <| Maybe.map (\f -> f.url) current_file] []]
+                        div [class <| "profile-img" ++ if user == model.myself then " mine" else "", attribute "data-file_id" (Maybe.withDefault "" <| Maybe.map (.file_id) current_file)] [img [src <| Maybe.withDefault "" <| Maybe.map (.url) current_file] []]
                         , div [] [
                             button [class ("btn btn-light" ++ if Maybe.Extra.isJust model.userPageStatus.shownFileID then "" else " disabled"), onClick (StartNewPosterSession (Maybe.withDefault "" model.userPageStatus.shownFileID))] [text "ポスターセッションを開始"]
                         ]
