@@ -15,6 +15,9 @@ import Set
 port getUsers : () -> Cmd msg
 
 
+port getUserImages : () -> Cmd msg
+
+
 port feedUsers : (List User -> msg) -> Sub msg
 
 
@@ -80,7 +83,13 @@ port onSocket : (Json.Value -> msg) -> Sub msg
 
 port joinRoom : { session_id : String, user_id : String } -> Cmd msg
 
+
+port feedUserImages : ({user_id : String, urls: List String} -> msg) -> Sub msg
+
+
 port logout : () -> Cmd msg
+
+
 
 type alias CommentTyp =
     { id : String
@@ -238,7 +247,10 @@ type alias NewSessionStatus =
 
 
 type alias UserPageModel =
-    { sessions : List RoomID, messages : List ChatEntry }
+    { sessions : List RoomID,
+     messages : List ChatEntry,
+     shownFileIndex: Maybe Int,
+    newFileBox: Bool }
 
 
 type FilterMode
@@ -313,6 +325,7 @@ type alias Model =
     , chatPageStatus : ChatPageModel
     , editing : Set.Set String
     , editingValue : Dict String String
+    , files : Dict String (List String)
     }
 
 
@@ -327,7 +340,7 @@ getRoomID model =
 
 
 init : Flags -> ( Model, Cmd Msg )
-init { user_id,show_top_pane } =
+init { user_id, show_top_pane } =
     ( { selected = showAll []
       , onlineUsers = []
       , myself = user_id
@@ -336,12 +349,13 @@ init { user_id,show_top_pane } =
       , page = NewSession
       , users = []
       , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
-      , userPageStatus = { sessions = [], messages = [] }
+      , userPageStatus = { sessions = [], messages = [], shownFileIndex = Nothing, newFileBox = False }
       , chatPageStatus = { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing, topPaneExpanded = show_top_pane }
       , editing = Set.empty
       , editingValue = Dict.empty
+      , files = Dict.empty
       }
-    , Cmd.batch [ getRoomInfo (), getUsers () ]
+    , Cmd.batch [ getRoomInfo (), getUsers (), getUserImages () ]
     )
 
 
@@ -376,6 +390,7 @@ type Msg
     | SetPageHash
     | HashChanged String
     | OnSocket Json.Value
+    | FeedUserImages {user_id: String, urls: List String}
     | Logout
     | NoOp
 
@@ -388,6 +403,8 @@ type NewSessionMsg
 type UserPageMsg
     = FeedSessions (List String)
     | FeedUserMessages (List ChatEntry)
+    | SetShownImageIndex Int
+    | AddNewFileBox
 
 
 type ChatPageMsg
@@ -444,7 +461,10 @@ update msg model =
             ( { model | selected = Dict.insert m v model.selected }, Cmd.none )
 
         FeedUsers users ->
-            let _ = 1 in
+            let
+                _ =
+                    1
+            in
             ( { model | users = users }, Cmd.none )
 
         FeedRoomInfo v ->
@@ -554,8 +574,15 @@ update msg model =
             else
                 ( model, Cmd.none )
 
+        FeedUserImages {user_id, urls} ->
+            ({model|
+            files = 
+                Dict.insert user_id urls model.files
+            }, Cmd.none)
+
         Logout ->
-            (model, logout ())
+            ( model, logout () )
+
 
         OnSocket v ->
             case Json.decodeValue socketDecoder v of
@@ -768,7 +795,7 @@ enterUser : String -> Model -> ( Model, Cmd Msg )
 enterUser u model =
     let
         new_model =
-            { model | page = UserPage u, userPageStatus = { sessions = [], messages = [] } }
+            { model | page = UserPage u, userPageStatus = { sessions = [], messages = [], shownFileIndex = Nothing, newFileBox = False } }
     in
     ( new_model, Cmd.batch [ updatePageHash new_model, getSessionsOf u, getUserMessages u ] )
 
@@ -815,6 +842,12 @@ updateUserPageStatus msg model =
 
         FeedUserMessages ms ->
             ( { model | messages = ms }, Cmd.none )
+
+        SetShownImageIndex idx ->
+            ( { model | shownFileIndex = Just idx }, Cmd.none )       
+        
+        AddNewFileBox ->
+            ( { model | newFileBox = True, shownFileIndex = Maybe.map (\i -> i + 1) model.shownFileIndex }, Cmd.none )
 
 
 updateChatPageStatus : ChatPageMsg -> ChatPageModel -> ( ChatPageModel, Cmd msg )
@@ -972,8 +1005,9 @@ leftMenu model =
     div [ class "d-none d-md-block col-md-5 col-lg-2", id "menu-left-wrapper" ]
         [ div [ id "menu-left" ]
             ([ div [ id "username-top" ]
-                [ text (getUserName model model.myself),
-                    a [onClick Logout, class "clickable", id "logout-button"] [text "ログアウト"] ]
+                [ text (getUserName model model.myself)
+                , a [ onClick Logout, class "clickable", id "logout-button" ] [ text "ログアウト" ]
+                ]
              , div [ id "path" ] [ text (pageToPath model.page) ]
              , div []
                 [ a [ class "btn btn-light", id "newroom-button", onClick EnterNewSessionScreen ] [ text "新しい会話" ]
@@ -999,7 +1033,8 @@ truncate n s =
 
 getUserInfo : Model -> String -> Maybe User
 getUserInfo model uid =
-    List.Extra.find (\u -> u.id == uid) model.users 
+    List.Extra.find (\u -> u.id == uid) model.users
+
 
 getUserName : Model -> String -> String
 getUserName model uid =
@@ -1008,7 +1043,7 @@ getUserName model uid =
             user.username
 
         Nothing ->
-            "<"++uid++">"
+            "<" ++ uid ++ ">"
 
 
 showChannels : Model -> List (Html Msg)
@@ -1331,14 +1366,19 @@ getMessageCount session_id model =
 
 userPageView : String -> Model -> { title : String, body : List (Html Msg) }
 userPageView user model =
-    let user_show_name uid =
+    let
+        user_show_name uid =
             case getUserInfo model uid of
                 Just u ->
                     if u.fullname == "" then
                         u.username
+
                     else
                         u.fullname ++ " (" ++ u.username ++ ")"
-                Nothing -> "(N/A)"
+
+                Nothing ->
+                    "(N/A)"
+        user_files = Maybe.withDefault [] <| Dict.get user model.files
     in
     { title = "Slack clone"
     , body =
@@ -1347,17 +1387,32 @@ userPageView user model =
                 [ leftMenu model
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text (getUserName model user) ]
-                    , div [] [ text <| String.fromInt (List.length model.userPageStatus.messages) ++ " messages in " ++ String.fromInt (List.length model.userPageStatus.sessions) ++ " rooms." ]
-                    , div [] <|
-                        List.map
-                            (\s ->
-                                div [ class "userpage-room-entry" ]
-                                    [ span [ class "session_id" ] [ text <| "ID: " ++ s ]
-                                    , h3 [ class "clickable userpage-room-name", onClick (EnterRoom s) ] [ text <| roomName s model ]
-                                    , span [] [ text <| getMessageCount s model ]
-                                    ]
-                            )
-                            model.userPageStatus.sessions
+                    , div []
+                        [ h2 [] [ text "ポスター" ],
+                        div [] (
+                            List.indexedMap (\i f -> button [class "btn btn-light btn-sm", onClick ( UserPageMsg <| SetShownImageIndex i)] [text (String.fromInt (1+i))]) user_files
+                             ++
+                                (if model.userPageStatus.newFileBox then 
+                                 [button [class "btn btn-light btn-sm"] [text (String.fromInt (1 + List.length user_files))]]
+                                 else [])
+                             ++
+                             [button [class "btn btn-light btn-sm", onClick ( UserPageMsg <| AddNewFileBox)] [text "+"]]),
+                        div [class <| "profile-img" ++ if user == model.myself then " mine" else ""] [img [src (Maybe.withDefault "" <| List.Extra.getAt (Maybe.withDefault 0 <| model.userPageStatus.shownFileIndex) user_files)] []]
+                        ]
+                    , div [ id "user-messages" ]
+                        [ h2 [] [ text "メッセージ" ]
+                        , div [] [ text <| String.fromInt (List.length model.userPageStatus.messages) ++ " messages in " ++ String.fromInt (List.length model.userPageStatus.sessions) ++ " rooms." ]
+                        , div [] <|
+                            List.map
+                                (\s ->
+                                    div [ class "userpage-room-entry" ]
+                                        [ span [ class "session_id" ] [ text <| "ID: " ++ s ]
+                                        , h3 [ class "clickable userpage-room-name", onClick (EnterRoom s) ] [ text <| roomName s model ]
+                                        , span [] [ text <| getMessageCount s model ]
+                                        ]
+                                )
+                                model.userPageStatus.sessions
+                        ]
                     ]
                 ]
             ]
@@ -1382,6 +1437,7 @@ subscriptions _ =
         , feedSessionsWithSameMembers (\s -> NewSessionMsg (FeedSessionsWithSameMembers s))
         , feedSessionsOf (\s -> UserPageMsg (FeedSessions s))
         , onSocket OnSocket
+        , feedUserImages FeedUserImages
         ]
 
 
@@ -1408,4 +1464,4 @@ showAll messages =
 
 
 type alias Flags =
-    { user_id : String, show_top_pane: Bool }
+    { user_id : String, show_top_pane : Bool }

@@ -259,3 +259,66 @@ app.ports.logout.subscribe(() => {
 
 //     console.log(height, width);
 // }, 1000);
+
+$(() => {
+    const profile_img = $('.profile-img.mine');
+    profile_img.on('dragover', (ev) => {
+        $(ev.target).addClass('dragover');
+        ev.preventDefault();
+    });
+    profile_img.on('dragleave', (ev) => {
+        $(ev.target).removeClass('dragover');
+    });
+    profile_img.on('drop', (ev: any) => {
+        const event: DragEvent = ev.originalEvent;
+        console.log(ev);
+        ev.stopPropagation();
+        ev.preventDefault();
+        $(ev.target).removeClass('dragover');
+        const files = event.dataTransfer.files;
+        map(files, function (file) {
+            var reader = new FileReader();
+            reader.onloadend = () => {
+                const formData = new FormData();
+                const imgBlob = new Blob([reader.result], { type: file.type });
+                formData.append('user_image', imgBlob, file.name);
+                postData(formData);
+            };
+            reader.readAsArrayBuffer(file);
+        });
+        console.log(files);
+    });
+});
+
+app.ports.getUserImages.subscribe(() => {
+    axios.get('/api/files', { params: { token } }).then(({ data }) => {
+        console.log('getUserImages', data);
+        map(data.files, (files, user_id) => {
+            app.ports.feedUserImages.send({ user_id, urls: map(files, 'path') });
+        });
+    });
+});
+
+function postData(formData: FormData) {
+    $.ajax({
+        url: '/api/files?token=' + token,
+        type: 'post',
+        data: formData,
+        processData: false,
+        contentType: false,
+        dataType: 'html',
+        complete: function () { },
+        success: function (r) {
+            const res = JSON.parse(r);
+            console.log(res);
+            if (res.ok) {
+                axios.get('/api/files', { params: { token } }).then(({ data }) => {
+                    console.log('getUserImages', data);
+                    map(data.files, (files, user_id) => {
+                        app.ports.feedUserImages.send({ user_id, urls: map(files, 'path') });
+                    });
+                });
+            }
+        }
+    });
+}

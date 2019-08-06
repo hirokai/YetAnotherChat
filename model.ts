@@ -104,9 +104,28 @@ export function get_session_info(session_id: string): Promise<RoomInfo> {
     });
 }
 
+export function get_user_file_list(): Promise<{ url: string }[]> {
+    return new Promise((resolve) => {
+        db.all('select * from files;', (err, rows) => {
+            const files = _.groupBy(_.map(rows || [], (row) => {
+                return row;
+            }), 'user_id');
+            resolve(files);
+        });
+    });
+}
+
+export function save_user_file(user_id: string, path: string) {
+    return new Promise((resolve) => {
+        const timestamp: number = new Date().getTime();
+        db.run('insert into files (user_id,path,timestamp) values (?,?,?);', user_id, path, timestamp);
+        resolve();
+    });
+}
+
 export function get_session_list(params: { user_id: string, of_members: string[], is_all: boolean }): Promise<RoomInfo[]> {
     const { user_id, of_members, is_all } = params;
-    console.log('get_session_list():', params);
+    // console.log('get_session_list():', params);
     if (of_members) {
         return get_session_of_members(user_id, of_members, is_all);
     }
@@ -364,7 +383,7 @@ export function decipher(cipheredText: string, password: string = credentials.ci
         var decipher = createDecipher('aes192', password);
         var dec = decipher.update(cipheredText, 'hex', 'utf8');
         dec += decipher.final('utf8');
-        console.log('deciphered length', dec.length);
+        // console.log('deciphered length', dec.length);
         return dec;
     } catch (e) {
         console.log(e, cipheredText)

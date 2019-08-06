@@ -20,6 +20,10 @@ var http = require('http').createServer(app);
 const io = require('socket.io')(http);
 const credential = require('./private/credential');
 import * as ec from './error_codes';
+import multer from 'multer';
+
+
+const upload = multer({ dest: './public/uploads/' }).single('user_image');
 
 enum Timespan {
     day,
@@ -398,7 +402,28 @@ app.post('/api/comments', (req: MyPostRequest<PostCommentData>, res: JsonRespons
     })().catch(() => {
         res.json({ ok: false, error: "DB error." })
     });
+});
 
+app.get('/api/files', (req, res) => {
+    model.get_user_file_list().then((files) => {
+        res.json({ ok: true, files: files });
+    });
+});
+
+app.post('/api/files', (req, res) => {
+    upload(req, res, function (err) {
+        console.log('/api/files', err, req.file);
+        if (!err) {
+            model.save_user_file(req.decoded.user_id, req.file.path).then(() => {
+                const file = {
+                    path: '/' + req.file.path
+                }
+                res.json({ ok: true, files: [file] });
+            });
+        } else {
+            res.json({ ok: false });
+        }
+    });
 });
 
 http.listen(port, () => {
