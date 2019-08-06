@@ -275,6 +275,7 @@ $(() => {
         ev.stopPropagation();
         ev.preventDefault();
         $(ev.target).removeClass('dragover');
+        const file_id = $(ev.target).attr('data-file_id');
         const files = event.dataTransfer.files;
         map(files, function (file) {
             var reader = new FileReader();
@@ -282,7 +283,11 @@ $(() => {
                 const formData = new FormData();
                 const imgBlob = new Blob([reader.result], { type: file.type });
                 formData.append('user_image', imgBlob, file.name);
-                postData(formData);
+                if (file_id && file_id != '') {
+                    updateData(file_id, formData);
+                } else {
+                    postData(formData);
+                }
             };
             reader.readAsArrayBuffer(file);
         });
@@ -290,13 +295,23 @@ $(() => {
     });
 });
 
-app.ports.getUserImages.subscribe(() => {
+function getUserImages() {
     axios.get('/api/files', { params: { token } }).then(({ data }) => {
         console.log('getUserImages', data);
         map(data.files, (files, user_id) => {
-            app.ports.feedUserImages.send({ user_id, urls: map(files, 'path') });
+            const dat = {
+                user_id, images: map(files, (f) => {
+                    return { file_id: f.id, url: f.path };
+                })
+            };
+            console.log(dat);
+            app.ports.feedUserImages.send(dat);
         });
     });
+}
+
+app.ports.getUserImages.subscribe(() => {
+    getUserImages();
 });
 
 function postData(formData: FormData) {
@@ -312,12 +327,26 @@ function postData(formData: FormData) {
             const res = JSON.parse(r);
             console.log(res);
             if (res.ok) {
-                axios.get('/api/files', { params: { token } }).then(({ data }) => {
-                    console.log('getUserImages', data);
-                    map(data.files, (files, user_id) => {
-                        app.ports.feedUserImages.send({ user_id, urls: map(files, 'path') });
-                    });
-                });
+                getUserImages();
+            }
+        }
+    });
+}
+
+function updateData(file_id: string, formData: FormData) {
+    $.ajax({
+        url: '/api/files/' + file_id + '?token=' + token,
+        type: 'patch',
+        data: formData,
+        processData: false,
+        contentType: false,
+        dataType: 'html',
+        complete: function () { },
+        success: function (r) {
+            const res = JSON.parse(r);
+            console.log(res);
+            if (res.ok) {
+                getUserImages();
             }
         }
     });

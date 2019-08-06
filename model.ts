@@ -115,12 +115,25 @@ export function get_user_file_list(): Promise<{ url: string }[]> {
     });
 }
 
-export function save_user_file(user_id: string, path: string): Promise<{ file_id: string }> {
+export function save_user_file(user_id: string, path: string): Promise<{ file_id: string, path: string }> {
     return new Promise((resolve) => {
         const timestamp: number = new Date().getTime();
         const file_id = shortid();
         db.run('insert into files (id,user_id,path,timestamp) values (?,?,?,?);', file_id, user_id, path, timestamp, (err) => {
-            resolve({ file_id });
+            resolve({ file_id, path });
+        });
+    });
+}
+
+export function update_user_file(user_id: string, file_id: string, new_path: string): Promise<{ file_id: string, path: string }> {
+    return new Promise((resolve) => {
+        const timestamp: number = new Date().getTime();
+        db.run('update files set path=?,timestamp=? where id=? and user_id=?;', new_path, timestamp, file_id, user_id, (err) => {
+            if (!err) {
+                resolve({ file_id, path });
+            } else {
+                resolve(null);
+            }
         });
     });
 }

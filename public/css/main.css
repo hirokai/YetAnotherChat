@@ -314,7 +314,22 @@ hr {
 }
 
 .poster-tab-button {
-    width: 100px;
+    width: 150px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
     text-align: left;
     border: 1px solid #ccc;
+    border-bottom: none;
+    margin-right: 2px;
+    border-radius: 0px;
+}
+
+.poster-tab-button.active {
+    font-weight: bold;
+}
+
+.poster-tab-button-add {
+    text-align: center;
+    font-weight: bold;
 }

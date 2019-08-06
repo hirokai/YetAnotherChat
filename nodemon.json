@@ -3,5 +3,5 @@
         "."
     ],
     "ext": "ts",
-    "exec": "node ./server.js"
+    "exec": "ts-node ./server.ts"
 }

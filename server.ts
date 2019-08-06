@@ -427,6 +427,25 @@ app.post('/api/files', (req, res) => {
     });
 });
 
+app.patch('/api/files/:id', (req, res) => {
+    upload(req, res, function (err) {
+        console.log('/api/files', err, req.file);
+        if (!err) {
+            model.update_user_file(req.decoded.user_id, req.params.id, req.file.path).then((r) => {
+                if (r != null) {
+                    const file = {
+                        path: '/' + req.file.path,
+                        file_id: r.file_id,
+                    }
+                    res.json({ ok: true, files: [file] });
+                }
+            });
+        } else {
+            res.json({ ok: false });
+        }
+    });
+});
+
 http.listen(port, () => {
     console.log("server is running at port " + port);
 })

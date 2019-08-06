@@ -84,7 +84,7 @@ port onSocket : (Json.Value -> msg) -> Sub msg
 port joinRoom : { session_id : String, user_id : String } -> Cmd msg
 
 
-port feedUserImages : ({user_id : String, urls: List String} -> msg) -> Sub msg
+port feedUserImages : ({user_id : String, images: List ({url: String, file_id: String})} -> msg) -> Sub msg
 
 
 port logout : () -> Cmd msg
@@ -249,7 +249,7 @@ type alias NewSessionStatus =
 type alias UserPageModel =
     { sessions : List RoomID,
      messages : List ChatEntry,
-     shownFileIndex: Maybe Int,
+     shownFileID: Maybe String,
     newFileBox: Bool }
 
 
@@ -325,7 +325,7 @@ type alias Model =
     , chatPageStatus : ChatPageModel
     , editing : Set.Set String
     , editingValue : Dict String String
-    , files : Dict String (List String)
+    , files : Dict String (List {file_id: String, url: String})
     }
 
 
@@ -349,7 +349,7 @@ init { user_id, show_top_pane } =
       , page = NewSession
       , users = []
       , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
-      , userPageStatus = { sessions = [], messages = [], shownFileIndex = Nothing, newFileBox = False }
+      , userPageStatus = { sessions = [], messages = [], shownFileID = Nothing, newFileBox = False }
       , chatPageStatus = { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing, topPaneExpanded = show_top_pane }
       , editing = Set.empty
       , editingValue = Dict.empty
@@ -390,7 +390,7 @@ type Msg
     | SetPageHash
     | HashChanged String
     | OnSocket Json.Value
-    | FeedUserImages {user_id: String, urls: List String}
+    | FeedUserImages {user_id: String, images: List {url:String, file_id:String}}
     | Logout
     | NoOp
 
@@ -403,7 +403,7 @@ type NewSessionMsg
 type UserPageMsg
     = FeedSessions (List String)
     | FeedUserMessages (List ChatEntry)
-    | SetShownImageIndex Int
+    | SetShownImageID String
     | AddNewFileBox
 
 
@@ -574,10 +574,10 @@ update msg model =
             else
                 ( model, Cmd.none )
 
-        FeedUserImages {user_id, urls} ->
+        FeedUserImages {user_id, images} ->
             ({model|
             files = 
-                Dict.insert user_id urls model.files
+                Dict.insert user_id images model.files
             }, Cmd.none)
 
         Logout ->
@@ -795,7 +795,7 @@ enterUser : String -> Model -> ( Model, Cmd Msg )
 enterUser u model =
     let
         new_model =
-            { model | page = UserPage u, userPageStatus = { sessions = [], messages = [], shownFileIndex = Nothing, newFileBox = False } }
+            { model | page = UserPage u, userPageStatus = { sessions = [], messages = [], shownFileID = Nothing, newFileBox = False } }
     in
     ( new_model, Cmd.batch [ updatePageHash new_model, getSessionsOf u, getUserMessages u ] )
 
@@ -843,11 +843,11 @@ updateUserPageStatus msg model =
         FeedUserMessages ms ->
             ( { model | messages = ms }, Cmd.none )
 
-        SetShownImageIndex idx ->
-            ( { model | shownFileIndex = Just idx }, Cmd.none )       
+        SetShownImageID id ->
+            ( { model | shownFileID = Just id }, Cmd.none )       
         
         AddNewFileBox ->
-            ( { model | newFileBox = True, shownFileIndex = Maybe.map (\i -> i + 1) model.shownFileIndex }, Cmd.none )
+            ( { model | newFileBox = True, shownFileID = Nothing }, Cmd.none )
 
 
 updateChatPageStatus : ChatPageMsg -> ChatPageModel -> ( ChatPageModel, Cmd msg )
@@ -1383,6 +1383,8 @@ userPageView : String -> Model -> { title : String, body : List (Html Msg) }
 userPageView user model =
     let
         user_files = Maybe.withDefault [] <| Dict.get user model.files
+        current_file = List.Extra.find (\f -> Just f.file_id == model.userPageStatus.shownFileID) user_files
+        current_file_id = Maybe.withDefault "" <| Maybe.map (\f -> f.file_id) current_file
     in
     { title = "Slack clone"
     , body =
@@ -1394,14 +1396,11 @@ userPageView user model =
                     , div []
                         [ h2 [] [ text "ポスター" ],
                         div [] (
-                            List.indexedMap (\i f -> button [class "btn btn-light btn-sm poster-tab-button", onClick ( UserPageMsg <| SetShownImageIndex i)] [text (String.fromInt (1+i))]) user_files
+                            List.indexedMap (\i f -> button [class <| "btn btn-light btn-sm poster-tab-button" ++ (if f.file_id == current_file_id then " active" else ""), onClick ( UserPageMsg <| SetShownImageID f.file_id)] [text (String.fromInt (1+i) ++ ": " ++ f.file_id)]) user_files
                              ++
-                                (if model.userPageStatus.newFileBox then 
-                                 [button [class "btn btn-light btn-sm poster-tab-button", onClick ( UserPageMsg <| SetShownImageIndex (1 +List.length user_files))] [text (String.fromInt (1 + List.length user_files))]]
-                                 else [])
-                             ++
-                             [button [class "btn btn-light btn-sm", onClick ( UserPageMsg <| AddNewFileBox)] [text "+"]]),
-                        div [class <| "profile-img" ++ if user == model.myself then " mine" else ""] [img [src (Maybe.withDefault "" <| List.Extra.getAt (Maybe.withDefault 0 <| model.userPageStatus.shownFileIndex) user_files)] []]
+
+                             [button [class "btn btn-light btn-sm poster-tab-button poster-tab-button-add", onClick ( UserPageMsg <| AddNewFileBox)] [text "+"]]),
+                        div [class <| "profile-img" ++ if user == model.myself then " mine" else "", attribute "data-file_id" (Maybe.withDefault "" <| Maybe.map (\f -> f.file_id) current_file)] [img [src <| Maybe.withDefault "" <| Maybe.map (\f -> f.url) current_file] []]
                         ]
                     , div [ id "user-messages" ]
                         [ h2 [] [ text "メッセージ" ]
