@@ -87,6 +87,8 @@ port joinRoom : { session_id : String, user_id : String } -> Cmd msg
 port feedUserImages : ({user_id : String, images: List ({url: String, file_id: String})} -> msg) -> Sub msg
 
 
+port startPosterSession : String -> Cmd msg
+
 port logout : () -> Cmd msg
 
 
@@ -391,6 +393,7 @@ type Msg
     | HashChanged String
     | OnSocket Json.Value
     | FeedUserImages {user_id: String, images: List {url:String, file_id:String}}
+    | StartNewPosterSession String
     | Logout
     | NoOp
 
@@ -575,10 +578,19 @@ update msg model =
                 ( model, Cmd.none )
 
         FeedUserImages {user_id, images} ->
+            let
+                old_files_empty = List.isEmpty (Maybe.withDefault [] <| Dict.get user_id model.files)
+                files = Dict.insert user_id images model.files
+                first_file_id = Maybe.map (\f -> f.file_id) <| Maybe.andThen List.head <| Dict.get user_id files
+                ups = model.userPageStatus
+            in
             ({model|
-            files = 
-                Dict.insert user_id images model.files
+            files = files,
+            userPageStatus = {ups|shownFileID = if old_files_empty then first_file_id else ups.shownFileID}
             }, Cmd.none)
+
+        StartNewPosterSession file_id ->
+            (model, startPosterSession file_id)
 
         Logout ->
             ( model, logout () )
@@ -1393,7 +1405,7 @@ userPageView user model =
                 [ leftMenu model
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text (getUserName model user) ]
-                    , div []
+                    , div [id "poster-div"]
                         [ h2 [] [ text "ポスター" ],
                         div [] (
                             List.indexedMap (\i f -> button [class <| "btn btn-light btn-sm poster-tab-button" ++ (if f.file_id == current_file_id then " active" else ""), onClick ( UserPageMsg <| SetShownImageID f.file_id)] [text (String.fromInt (1+i) ++ ": " ++ f.file_id)]) user_files
@@ -1401,6 +1413,9 @@ userPageView user model =
 
                              [button [class "btn btn-light btn-sm poster-tab-button poster-tab-button-add", onClick ( UserPageMsg <| AddNewFileBox)] [text "+"]]),
                         div [class <| "profile-img" ++ if user == model.myself then " mine" else "", attribute "data-file_id" (Maybe.withDefault "" <| Maybe.map (\f -> f.file_id) current_file)] [img [src <| Maybe.withDefault "" <| Maybe.map (\f -> f.url) current_file] []]
+                        , div [] [
+                            button [class ("btn btn-light" ++ if Maybe.Extra.isJust model.userPageStatus.shownFileID then "" else " disabled"), onClick (StartNewPosterSession (Maybe.withDefault "" model.userPageStatus.shownFileID))] [text "ポスターセッションを開始"]
+                        ]
                         ]
                     , div [ id "user-messages" ]
                         [ h2 [] [ text "メッセージ" ]

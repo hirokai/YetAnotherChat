@@ -241,6 +241,11 @@ app.ports.joinRoom.subscribe(({ session_id, user_id }) => {
 });
 
 
+app.ports.startPosterSession.subscribe((file_id) => {
+    console.log('startPosterSession', file_id);
+});
+
+
 app.ports.logout.subscribe(() => {
     $.post('/api/logout', { token }).then((res) => {
         if (res.ok) {
