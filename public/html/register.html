@@ -28,7 +28,7 @@
             font-size: 20px;
         }
 
-        label {
+        label.input {
             display: inline-block;
             width: 100px;
         }
@@ -40,6 +40,14 @@
         #info-username {
             height: 30px;
             margin-top: 10px;
+        }
+
+        #agreebox {
+            margin-top: 20px;
+            margin-left: auto;
+            margin-right: auto;
+            width: 300px;
+            text-align: center;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -65,22 +73,27 @@
     <h1>新規登録</h1>
     <form onsubmit='return false;'>
         <div class='input'>
-            <label>ユーザー名：</label>
+            <label class='input'>ユーザー名：</label>
             <input id='username' type="text" name="username" required />
         </div>
         <div class='input'>
-            <label>パスワード：</label>
+            <label class='input'>パスワード：</label>
             <input id='password' type="password" name="password" minlength='8' required />
         </div>
         <div id='info-username'></div>
         <div style='margin-top: 20px;'>以下は任意ですが，入れると便利です</div>
         <div class='input'>
-            <label>フルネーム：</label>
+            <label class='input'>フルネーム：</label>
             <input id='fullname' type="text" name="fullname" />
         </div>
         <div class='input'>
-            <label>Email：</label>
+            <label class='input'>Email：</label>
             <input id='email' type="email" name="email" />
+        </div>
+        <div id='agreebox'>
+            <input id='agree' type="checkbox" name="agree" required />
+            <label for='agree'><a>利用規約（「このソフトウェアを使うことによるユーザーの損害について，作者は一切の責任を負いません」）</a>に同意</label>
+
         </div>
         <div>
             <input id='submit' type="submit" value="登録" class='largebutton' />

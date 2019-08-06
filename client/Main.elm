@@ -1111,6 +1111,7 @@ homeView model =
                         [ style "clear" "both" ]
                         []
                     , div [] [ button [ class "btn btn-primary btn-lg", onClick (StartSession model.newSessionStatus.selected) ] [ text "開始" ] ]
+                    , h2 [] [text "過去の同じメンバーの会話"]
                     , ul [] (List.map (\s -> li [] [ a [ class "clickable", onClick (EnterRoom s) ] [ text (roomName s model) ] ]) model.newSessionStatus.sessions_same_members)
                     ]
                 ]
@@ -1132,7 +1133,7 @@ mkPeoplePanel model selected user =
                    )
         , onClick (NewSessionMsg (TogglePersonInNew user))
         ]
-        [ h3 [ class "name" ] [ text (getUserName model user) ] ]
+        [ h3 [ class "name" ] [ text (getUserNameDisplay model user) ] ]
 
 
 newSessionView : Model -> { title : String, body : List (Html Msg) }
@@ -1151,6 +1152,8 @@ newSessionView model =
                         [ style "clear" "both" ]
                         []
                     , div [] [ button [ class "btn btn-primary btn-lg", onClick (StartSession model.newSessionStatus.selected) ] [ text "開始" ] ]
+                    , hr [style "margin" "10px"][]
+                    , h2 [] [text "過去の同じメンバーの会話"]
                     , ul [] (List.map (\s -> li [] [ a [ class "clickable", onClick (EnterRoom s) ] [ text (roomName s model) ] ]) model.newSessionStatus.sessions_same_members)
                     ]
                 ]
@@ -1364,10 +1367,7 @@ getMessageCount session_id model =
             "N/A"
 
 
-userPageView : String -> Model -> { title : String, body : List (Html Msg) }
-userPageView user model =
-    let
-        user_show_name uid =
+getUserNameDisplay model uid =
             case getUserInfo model uid of
                 Just u ->
                     if u.fullname == "" then
@@ -1378,6 +1378,10 @@ userPageView user model =
 
                 Nothing ->
                     "(N/A)"
+
+userPageView : String -> Model -> { title : String, body : List (Html Msg) }
+userPageView user model =
+    let
         user_files = Maybe.withDefault [] <| Dict.get user model.files
     in
     { title = "Slack clone"

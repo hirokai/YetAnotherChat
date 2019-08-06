@@ -1,6 +1,6 @@
 scp *.js coisns:~
 scp *.json coisns:~
-scp -pr client/ coisns:~/client
+scp client/* coisns:~/client/
 scp *.ts coisns:~
 scp *.sh coisns:~
 scp other/* coisns:~/other/

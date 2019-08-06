@@ -422,7 +422,7 @@ export function get_users(): Promise<User[]> {
                     return {
                         emails: row['emails'].split(','),
                         username: row['name'] || row['id'],
-                        fullname: row['fullname'] || row['id'],
+                        fullname: row['fullname'] || "",
                         id: row['id'],
                         avatar: ''
                     };
