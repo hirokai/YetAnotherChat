@@ -1295,9 +1295,10 @@ chatRoomView room model =
 
                                                         messages_filtered_nonevent =
                                                             List.filter (\m -> getKind m /= "event") messages_filtered
+                                                        nonevent_count = List.length messages_filtered_nonevent
                                                     in
                                                     [ div [ id "message-count" ]
-                                                        [ text (String.fromInt (List.length messages_filtered_nonevent) ++ " messages.")
+                                                        [ text (String.fromInt nonevent_count ++ " message"++(if nonevent_count > 1 then "s" else "")++".")
                                                         , button [ class "btn-sm btn-light btn", onClick (ChatPageMsg ScrollToBottom) ] [ text "⬇⬇" ]
                                                         ]
                                                     , div [ id "chat-wrapper" ]
