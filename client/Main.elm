@@ -84,13 +84,13 @@ port onSocket : (Json.Value -> msg) -> Sub msg
 port joinRoom : { session_id : String, user_id : String } -> Cmd msg
 
 
-port feedUserImages : ({user_id : String, images: List ({url: String, file_id: String})} -> msg) -> Sub msg
+port feedUserImages : ({ user_id : String, images : List { url : String, file_id : String } } -> msg) -> Sub msg
 
 
 port startPosterSession : String -> Cmd msg
 
-port logout : () -> Cmd msg
 
+port logout : () -> Cmd msg
 
 
 type alias CommentTyp =
@@ -151,10 +151,10 @@ sessionEventTypDecoder =
 
 
 chatFileDecoder =
-        Json.map3 (\i u f -> {id = i, user = u, filename = f})
-            (Json.field "id" Json.string)
-            (Json.field "user" Json.string)
-            (Json.field "url" Json.string)
+    Json.map3 (\i u f -> { id = i, user = u, filename = f })
+        (Json.field "id" Json.string)
+        (Json.field "user" Json.string)
+        (Json.field "url" Json.string)
 
 
 chatEntryDecoder : Json.Decoder ChatEntry
@@ -170,7 +170,10 @@ chatEntryDecoder =
                         Json.map SessionEvent <| sessionEventTypDecoder
 
                     "file" ->
-                        let _ = Debug.log "chatEntryDecoder file" "" in
+                        let
+                            _ =
+                                Debug.log "chatEntryDecoder file" ""
+                        in
                         Json.map ChatFile <| chatFileDecoder
 
                     _ ->
@@ -260,10 +263,11 @@ type alias NewSessionStatus =
 
 
 type alias UserPageModel =
-    { sessions : List RoomID,
-     messages : List ChatEntry,
-     shownFileID: Maybe String,
-    newFileBox: Bool }
+    { sessions : List RoomID
+    , messages : List ChatEntry
+    , shownFileID : Maybe String
+    , newFileBox : Bool
+    }
 
 
 type FilterMode
@@ -338,7 +342,7 @@ type alias Model =
     , chatPageStatus : ChatPageModel
     , editing : Set.Set String
     , editingValue : Dict String String
-    , files : Dict String (List {file_id: String, url: String})
+    , files : Dict String (List { file_id : String, url : String })
     }
 
 
@@ -403,7 +407,7 @@ type Msg
     | SetPageHash
     | HashChanged String
     | OnSocket Json.Value
-    | FeedUserImages {user_id: String, images: List {url:String, file_id:String}}
+    | FeedUserImages { user_id : String, images : List { url : String, file_id : String } }
     | StartNewPosterSession String
     | Logout
     | NoOp
@@ -588,24 +592,40 @@ update msg model =
             else
                 ( model, Cmd.none )
 
-        FeedUserImages {user_id, images} ->
+        FeedUserImages { user_id, images } ->
             let
-                old_files_empty = List.isEmpty (Maybe.withDefault [] <| Dict.get user_id model.files)
-                files = Dict.insert user_id images model.files
-                first_file_id = Maybe.map (.file_id) <| Maybe.andThen List.head <| Dict.get user_id files
-                ups = model.userPageStatus
+                old_files_empty =
+                    List.isEmpty (Maybe.withDefault [] <| Dict.get user_id model.files)
+
+                files =
+                    Dict.insert user_id images model.files
+
+                first_file_id =
+                    Maybe.map .file_id <| Maybe.andThen List.head <| Dict.get user_id files
+
+                ups =
+                    model.userPageStatus
             in
-            ({model|
-            files = files,
-            userPageStatus = {ups|shownFileID = if old_files_empty then first_file_id else ups.shownFileID}
-            }, Cmd.none)
+            ( { model
+                | files = files
+                , userPageStatus =
+                    { ups
+                        | shownFileID =
+                            if old_files_empty then
+                                first_file_id
+
+                            else
+                                ups.shownFileID
+                    }
+              }
+            , Cmd.none
+            )
 
         StartNewPosterSession file_id ->
-            (model, startPosterSession file_id)
+            ( model, startPosterSession file_id )
 
         Logout ->
             ( model, logout () )
-
 
         OnSocket v ->
             case Json.decodeValue socketDecoder v of
@@ -867,8 +887,8 @@ updateUserPageStatus msg model =
             ( { model | messages = ms }, Cmd.none )
 
         SetShownImageID id ->
-            ( { model | shownFileID = Just id }, Cmd.none )       
-        
+            ( { model | shownFileID = Just id }, Cmd.none )
+
         AddNewFileBox ->
             ( { model | newFileBox = True, shownFileID = Nothing }, Cmd.none )
 
@@ -1003,8 +1023,7 @@ showItem model entry =
                 ]
 
         ChatFile f ->
-            div [ class "file-image-chat"] [ img [src f.filename ] []]
-
+            div [ class "file-image-chat" ] [ img [ src f.filename ] [] ]
 
         SessionEvent e ->
             div [ class "chat_entry_event", id e.id ] [ hr [] [], text <| getUserName model e.user ++ "が参加しました（" ++ e.timestamp ++ "）", hr [] [] ]
@@ -1017,7 +1036,7 @@ isSelected model m =
 
 roomUsers : String -> Model -> List String
 roomUsers room model =
-    Maybe.withDefault [] <| Maybe.map (.members) <| Dict.get room model.roomInfo
+    Maybe.withDefault [] <| Maybe.map .members <| Dict.get room model.roomInfo
 
 
 leftMenu : Model -> Html Msg
@@ -1025,7 +1044,7 @@ leftMenu model =
     div [ class "d-none d-md-block col-md-5 col-lg-2", id "menu-left-wrapper" ]
         [ div [ id "menu-left" ]
             ([ div [ id "username-top" ]
-                [ a [id "lefttop-myself-name", href <| "#/users/" ++ model.myself] [text (getUserName model model.myself)]
+                [ a [ id "lefttop-myself-name", href <| "#/users/" ++ model.myself ] [ text (getUserName model model.myself) ]
                 , a [ onClick Logout, class "clickable", id "logout-button" ] [ text "ログアウト" ]
                 ]
              , div [ id "path" ] [ text (pageToPath model.page) ]
@@ -1131,7 +1150,7 @@ homeView model =
                         [ style "clear" "both" ]
                         []
                     , div [] [ button [ class "btn btn-primary btn-lg", onClick (StartSession model.newSessionStatus.selected) ] [ text "開始" ] ]
-                    , h2 [] [text "過去の同じメンバーの会話"]
+                    , h2 [] [ text "過去の同じメンバーの会話" ]
                     , ul [] (List.map (\s -> li [] [ a [ class "clickable", onClick (EnterRoom s) ] [ text (roomName s model) ] ]) model.newSessionStatus.sessions_same_members)
                     ]
                 ]
@@ -1153,7 +1172,7 @@ mkPeoplePanel model selected user =
                    )
         , onClick (NewSessionMsg (TogglePersonInNew user))
         ]
-        [ h3 [ class "name" ] [ text (getUserNameDisplay model user) ] , span [class "email"] [text <| Maybe.withDefault "" <| Maybe.andThen (.emails >> List.head) (getUserInfo model user)]]
+        [ h3 [ class "name" ] [ text (getUserNameDisplay model user) ], span [ class "email" ] [ text <| Maybe.withDefault "" <| Maybe.andThen (.emails >> List.head) (getUserInfo model user) ] ]
 
 
 newSessionView : Model -> { title : String, body : List (Html Msg) }
@@ -1172,8 +1191,8 @@ newSessionView model =
                         [ style "clear" "both" ]
                         []
                     , div [] [ button [ class "btn btn-primary btn-lg", onClick (StartSession model.newSessionStatus.selected) ] [ text "開始" ] ]
-                    , hr [style "margin" "10px"][]
-                    , h2 [] [text "過去の同じメンバーの会話"]
+                    , hr [ style "margin" "10px" ] []
+                    , h2 [] [ text "過去の同じメンバーの会話" ]
                     , ul [] (List.map (\s -> li [] [ a [ class "clickable", onClick (EnterRoom s) ] [ text (roomName s model) ] ]) model.newSessionStatus.sessions_same_members)
                     ]
                 ]
@@ -1295,10 +1314,21 @@ chatRoomView room model =
 
                                                         messages_filtered_nonevent =
                                                             List.filter (\m -> getKind m /= "event") messages_filtered
-                                                        nonevent_count = List.length messages_filtered_nonevent
+
+                                                        nonevent_count =
+                                                            List.length messages_filtered_nonevent
                                                     in
                                                     [ div [ id "message-count" ]
-                                                        [ text (String.fromInt nonevent_count ++ " message"++(if nonevent_count > 1 then "s" else "")++".")
+                                                        [ text
+                                                            (String.fromInt nonevent_count ++ " message"
+                                                                ++ (if nonevent_count > 1 then
+                                                                        "s"
+
+                                                                    else
+                                                                        ""
+                                                                   )
+                                                                ++ "."
+                                                            )
                                                         , button [ class "btn-sm btn-light btn", onClick (ChatPageMsg ScrollToBottom) ] [ text "⬇⬇" ]
                                                         ]
                                                     , div [ id "chat-wrapper" ]
@@ -1390,23 +1420,29 @@ getMessageCount session_id model =
 
 
 getUserNameDisplay model uid =
-            case getUserInfo model uid of
-                Just u ->
-                    if u.fullname == "" then
-                        u.username
+    case getUserInfo model uid of
+        Just u ->
+            if u.fullname == "" then
+                u.username
 
-                    else
-                        u.fullname ++ " (" ++ u.username ++ ")"
+            else
+                u.fullname ++ " (" ++ u.username ++ ")"
 
-                Nothing ->
-                    "(N/A)"
+        Nothing ->
+            "(N/A)"
+
 
 userPageView : String -> Model -> { title : String, body : List (Html Msg) }
 userPageView user model =
     let
-        user_files = Maybe.withDefault [] <| Dict.get user model.files
-        current_file = List.Extra.find (\f -> Just f.file_id == model.userPageStatus.shownFileID) user_files
-        current_file_id = Maybe.withDefault "" <| Maybe.map (.file_id) current_file
+        user_files =
+            Maybe.withDefault [] <| Dict.get user model.files
+
+        current_file =
+            List.Extra.find (\f -> Just f.file_id == model.userPageStatus.shownFileID) user_files
+
+        current_file_id =
+            Maybe.withDefault "" <| Maybe.map .file_id current_file
     in
     { title = "Slack clone"
     , body =
@@ -1415,17 +1451,54 @@ userPageView user model =
                 [ leftMenu model
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text (getUserName model user) ]
-                    , div [id "poster-div"]
-                        [ h2 [] [ text "ポスター" ],
-                        div [] (
-                            List.indexedMap (\i f -> button [class <| "btn btn-light btn-sm poster-tab-button" ++ (if f.file_id == current_file_id then " active" else ""), onClick ( UserPageMsg <| SetShownImageID f.file_id)] [text (String.fromInt (1+i) ++ ": " ++ f.file_id)]) user_files
-                             ++
+                    , div [ id "poster-div" ]
+                        [ h2 [] [ text "ポスター" ]
+                        , div []
+                            (List.indexedMap
+                                (\i f ->
+                                    button
+                                        [ class <|
+                                            "btn btn-light btn-sm poster-tab-button"
+                                                ++ (if f.file_id == current_file_id then
+                                                        " active"
 
-                             [button [class "btn btn-light btn-sm poster-tab-button poster-tab-button-add", onClick ( UserPageMsg <| AddNewFileBox)] [text "+"]]),
-                        div [class <| "profile-img" ++ if user == model.myself then " mine" else "", attribute "data-file_id" (Maybe.withDefault "" <| Maybe.map (.file_id) current_file)] [img [src <| Maybe.withDefault "" <| Maybe.map (.url) current_file] []]
-                        , div [] [
-                            button [class ("btn btn-light" ++ if Maybe.Extra.isJust model.userPageStatus.shownFileID then "" else " disabled"), onClick (StartNewPosterSession (Maybe.withDefault "" model.userPageStatus.shownFileID))] [text "ポスターセッションを開始"]
-                        ]
+                                                    else
+                                                        ""
+                                                   )
+                                        , onClick (UserPageMsg <| SetShownImageID f.file_id)
+                                        ]
+                                        [ text (String.fromInt (1 + i) ++ ": " ++ f.file_id) ]
+                                )
+                                user_files
+                                ++ [ button [ class "btn btn-light btn-sm poster-tab-button poster-tab-button-add", onClick (UserPageMsg <| AddNewFileBox) ] [ text "+" ] ]
+                            )
+                        , div
+                            [ class <|
+                                "profile-img"
+                                    ++ (if user == model.myself then
+                                            " mine"
+
+                                        else
+                                            ""
+                                       )
+                            , attribute "data-file_id" (Maybe.withDefault "" <| Maybe.map .file_id current_file)
+                            ]
+                            [ img [ src <| Maybe.withDefault "" <| Maybe.map .url current_file ] [] ]
+                        , div []
+                            [ button
+                                [ class
+                                    ("btn btn-light"
+                                        ++ (if Maybe.Extra.isJust model.userPageStatus.shownFileID then
+                                                ""
+
+                                            else
+                                                " disabled"
+                                           )
+                                    )
+                                , onClick (StartNewPosterSession (Maybe.withDefault "" model.userPageStatus.shownFileID))
+                                ]
+                                [ text "ポスターセッションを開始" ]
+                            ]
                         ]
                     , div [ id "user-messages" ]
                         [ h2 [] [ text "メッセージ" ]

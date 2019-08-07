@@ -1,4 +1,4 @@
-port module Main exposing (ChatEntry(..), Flags, Member, Model, Msg(..), addComment, feedMatrix, feedMessages, getMembers, getMessages, iconOfUser, init, isSelected, main, mkComment, onKeyDown, scrollToBottom, showAll, showItem, subscriptions, update, view, getUsers)
+port module Main exposing (ChatEntry(..), Flags, Member, Model, Msg(..), addComment, feedMatrix, feedMessages, getMembers, getMessages, getUsers, iconOfUser, init, isSelected, main, mkComment, onKeyDown, scrollToBottom, showAll, showItem, subscriptions, update, view)
 
 import Browser
 import Dict exposing (Dict)
