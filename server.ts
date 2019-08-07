@@ -327,7 +327,9 @@ app.post('/api/sessions', (req: PostRequest<PostSessionsParam>, res: JsonRespons
     (async () => {
         if (name && members) {
             const data = await model.create_new_session(name, members);
-            await model.post_file_to_session(data.id, req.decoded.user_id, file_id);
+            if (file_id) {
+                await model.post_file_to_session(data.id, req.decoded.user_id, file_id);
+            }
             _.map(members, async (m: string) => {
                 const socket_ids: string[] = await model.getSocketIds(m);
                 console.log('emitting to', socket_ids);

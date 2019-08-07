@@ -42,18 +42,18 @@ socket.on("message", (msg: any) => {
         return;
     }
     if (msg.__type == "new_comment") {
-        msg.timestamp = moment(msg.timestamp).format('YYYY/M/D HH:mm:ss');
+        msg.timestamp = formatTime(msg.timestamp);
         msg = <ChatEntryClient>msg;
     } else if (msg.__type == "new_session") {
         const msg1 = <RoomInfoClient>msg;
-        msg1.timestamp = moment(msg.timestamp).format('YYYY/M/D HH:mm:ss');
+        msg1.timestamp = formatTime(msg.timestamp);
         msg1.firstMsgTime = -1;
         msg1.lastMsgTime = -1;
         msg1.numMessages = { "__total": 0 };
         msg = msg1;
     } else if (msg.__type == "new_member") {
         const msg1 = <any>msg;
-        msg1.timestamp = moment(msg.timestamp).format('YYYY/M/D HH:mm:ss');
+        msg1.timestamp = formatTime(msg.timestamp);
         msg = msg1;
     }
     app.ports.onSocket.send(msg);
@@ -74,6 +74,14 @@ app.ports.scrollTo.subscribe(scrollTo);
 
 type ChatEntry = CommentTyp | SessionEvent | ChatFile;
 
+function formatTime(timestamp: number): string {
+    if (timestamp < 0) {
+        return '(日時不明)'
+    } else {
+        return moment(timestamp).format('YYYY/M/D HH:mm:ss');
+    }
+}
+
 const processData = (res: ChatEntry[]): ChatEntryClient[] => {
     return map(res, (m1) => {
         console.log('processData', m1);
@@ -81,7 +89,7 @@ const processData = (res: ChatEntry[]): ChatEntryClient[] => {
         switch (m1.kind) {
             case "comment": {
                 const m = <CommentTyp>m1;
-                var v: ChatEntryClient = { id: m.id, user, comment: "", timestamp: moment(m.timestamp).format('YYYY/M/D HH:mm:ss'), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "" };
+                var v: ChatEntryClient = { id: m.id, user, comment: "", timestamp: formatTime(m.timestamp), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "" };
                 v.comment = m.comment;
                 v.originalUrl = m.original_url || "";
                 v.sentTo = m.sent_to || "";
@@ -90,14 +98,14 @@ const processData = (res: ChatEntry[]): ChatEntryClient[] => {
             }
             case "event": {
                 const m = <SessionEvent>m1;
-                var v: ChatEntryClient = { id: m.id, user, comment: "", timestamp: moment(m.timestamp).format('YYYY/M/D HH:mm:ss'), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "" };
+                var v: ChatEntryClient = { id: m.id, user, comment: "", timestamp: formatTime(m.timestamp), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "" };
                 v.comment = "（参加しました）";
                 v.action = m.action;
                 return v;
             }
             case "file": {
                 const m = <ChatFile>m1;
-                var v: ChatEntryClient = { id: m.id, user, comment: "", timestamp: moment(m.timestamp).format('YYYY/M/D HH:mm:ss'), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "" };
+                var v: ChatEntryClient = { id: m.id, user, comment: "", timestamp: formatTime(m.timestamp), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "" };
                 v.comment = "（ファイル：" + m.url + "）";
                 console.log('file processData', v);
                 v.url = m.url;
@@ -172,7 +180,7 @@ function getAndfeedRoolmInfo() {
         console.log('getAndfeedRoolmInfo obtained', data.data);
         app.ports.feedRoomInfo.send(map(data.data, (r): RoomInfoClient => {
             var s: any = clone(r);
-            s.timestamp = moment(r.timestamp).format('YYYY/M/D HH:mm:ss');
+            s.timestamp = formatTime(r.timestamp);
             return s;
         }));
         // scrollToBottom();

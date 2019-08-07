@@ -300,6 +300,7 @@ export async function update_db_on_mailgun_webhook(body: object, db, myio?: Sock
     const datas: MailgunParsed[] = model.parseMailgunWebhookThread(body);
     console.log('-------')
     console.log('Thread of ' + datas.length + ' emails.');
+    console.log('From: ', _.map(datas, d => d.from));
     if (datas.length == 0) {
         return;
     }
@@ -318,15 +319,21 @@ export async function update_db_on_mailgun_webhook(body: object, db, myio?: Sock
     var results: User[] = [];
     var results_comments: CommentTyp[] = [];
     for (var i = 0; i < datas.length; i++) {
-        const data: MailgunParsed = datas[0];
+        const data: MailgunParsed = datas[i];
+        const timestamp = data.timestamp || -1;
         const { name: fullname, email } = parse_email_address(data.from);
+        console.log('parsed email', { fullname, email });
         const u: User = await find_or_make_user(db, fullname, email);
-        if (u != null) {
+        console.log('find_or_make_user result', timestamp, u);
+        if (u == null) {
+            console.log('User=null');
+        } else {
             results.push(u);
-            const r1: JoinSessionResponse = await model.join_session(session_id, u.id, data.timestamp);
+            const r1: JoinSessionResponse = await model.join_session(session_id, u.id, timestamp);
             await model.join_session(session_id, myself.id, data.timestamp);
             console.log('update_db_on_mailgun_webhook', { session_id, user_id: u.id, fullname, email, 'data.from': data.from, r1 });
-            const { ok, data: data1 } = await model.post_comment(u.id, session_id, data.timestamp, data.comment, data.message_id);
+            const { ok, data: data1 } = await model.post_comment(u.id, session_id, timestamp, data.comment, data.message_id, "", "email");
+            console.log(data.comment.slice(0, 100));
             results_comments.push(data1);
             if (ok) {
                 const obj = _.extend({ __type: "new_comment" }, data1);
@@ -337,9 +344,13 @@ export async function update_db_on_mailgun_webhook(body: object, db, myio?: Sock
         }
     }
     console.log('results_comments', datas.length, results_comments);
+    console.log('results', results);
     return { added_users: results };
 }
 
+function mk_random_username() {
+    return 'ユーザー';
+}
 
 async function find_or_make_user(db, fullname: string, email: string): Promise<User> {
     // const v = Math.random();
@@ -348,8 +359,25 @@ async function find_or_make_user(db, fullname: string, email: string): Promise<U
     if (user != null) {
         return user;
     } else {
-        const name = mk_user_name(fullname);
-        const { ok, user: user1 } = await model.register_user(name, "", email, fullname);
-        return ok ? user1 : null;
+        email = email ? email : "";
+        var name_base = mk_user_name(fullname);
+        if (name_base == null || name_base == '') {
+            name_base = mk_random_username();
+        }
+        var name = name_base;
+        var user1: User = await model.find_user_from_username(name);
+        if (user1 != null) {
+            for (var i = 2; i < 10000; i++) {
+                name = name_base + i;
+                user1 = await model.find_user_from_username(name);
+                if (user1 == null) {
+                    break;
+                }
+            }
+        }
+        console.log('find_or_make_user making', fullname, email, name);
+        const { ok, user: user2, error } = await model.register_user(name, "11111111", email, fullname);
+        console.log('find_or_make_user', error);
+        return ok ? user2 : null;
     }
 }

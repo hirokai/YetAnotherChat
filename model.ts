@@ -187,6 +187,9 @@ export function update_user_file(user_id: string, file_id: string, new_path: str
 
 export function post_file_to_session(session_id: string, user_id: string, file_id: string): Promise<{ ok: boolean }> {
     return new Promise((resolve) => {
+        if (null == file_id) {
+            resolve({ ok: false })
+        }
         const timestamp = new Date().getTime();
         get_user_file(file_id).then((r) => {
             if (r != null) {
@@ -516,7 +519,7 @@ export function decipher(cipheredText: string, password: string = credentials.ci
 
 export function post_comment(user_id: string, session_id: string, ts: number, comment: string, original_url: string = "", sent_to: string = "", source = ""): Promise<{ ok: boolean, data?: CommentTyp, error?: string }> {
     return new Promise((resolve, reject) => {
-        const comment_id = shortid.generate();
+        const comment_id = shortid();
         db.run('insert into comments (id,user_id,comment,timestamp,session_id,original_url,sent_to,source) values (?,?,?,?,?,?,?,?);', comment_id, user_id, cipher(comment, credentials.cipher_secret), ts, session_id, original_url, sent_to, source, (err1) => {
             db.run('insert or ignore into session_current_members (session_id,user_id) values (?,?)', session_id, user_id, (err2) => {
                 if (!err1 && !err2) {
