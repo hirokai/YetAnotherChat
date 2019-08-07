@@ -70,11 +70,15 @@ interface MailgunParsed {
     message_id: string,
     references: string[]
     sent_to: string,
-    body: any
+    heading: string,
+    body: any,
 }
 
 type MailThreadItem = {
-    from: string, timestamp: number, comment: string
+    from: string,
+    timestamp: number,
+    comment: string,
+    heading: string
 };
 
 type MailGroup = {

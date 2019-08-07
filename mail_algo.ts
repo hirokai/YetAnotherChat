@@ -155,49 +155,58 @@ export function split_replies(txt: string): MailThreadItem[] {
             if (line.replace(/>/g, '').trim() == '') {
                 header_reading = false;
                 reply_depth += 1;
-                const { from, timestamp } = parseHead(head_txt_prev);
+                const { from, timestamp } = parseHead(reply_depth == 1 ? head_txt : head_txt_prev);
                 console.log('parseHead', { from, timestamp })
                 const comment = _.map(_.dropRight(content_lines), (l: string) => {
                     return removeQuoteMarks(l, reply_indent_prev);
                 }).join('\r\n');
                 content_lines = [];
-                replies.push({ from, timestamp, comment });
+                replies.push({ from, timestamp, comment, heading: head_txt_prev });
                 head_txt_prev = head_txt;
                 head_txt = '';
             }
         } else {
-            const m = line.replace(/\s/g, '').match(/^>+/);
-            if (m) {
-                reply_indent = Math.max(reply_indent, m[0].length);
-            }
-            if (reply_indent > reply_indent_prev) {
-                reply_depth += 1;
-                const { from, timestamp } = parseHead(head_txt_prev);
-                const comment = _.map(_.dropRight(content_lines), (l: string) => {
-                    return removeQuoteMarks(l, reply_indent_prev);
-                }).join('\r\n');
-                replies.push({ from, timestamp, comment });
-                head_txt_prev = line_prev;
-                content_lines = [];
-                reply_indent_prev = reply_indent;
-            } else if (line.match(/--+ ?Forwarded message ?--+/i) || line.match(/--+ ?Original Message ?--+/i)) {
+            const m0 = line_prev.trim().match(/----------/);
+            const m0_1 = line.match(/^From: (.+)/);
+            if (m0 && m0_1) {//Google style forwarded email
                 header_reading = true;
+                head_txt += line + '\r\n';
             } else {
-                content_lines.push(line);
+                const m = line.replace(/\s/g, '').match(/^>+/);
+                if (m) {
+                    reply_indent = Math.max(reply_indent, m[0].length);
+                }
+                if (reply_indent > reply_indent_prev) {
+                    reply_depth += 1;
+                    const { from, timestamp } = parseHead(head_txt_prev);
+                    const comment = _.map(_.dropRight(content_lines), (l: string) => {
+                        return removeQuoteMarks(l, reply_indent_prev);
+                    }).join('\r\n');
+                    replies.push({ from, timestamp, comment, heading: head_txt_prev });
+                    head_txt_prev = line_prev;
+                    content_lines = [];
+                    reply_indent_prev = reply_indent;
+                } else if (line.match(/--+ ?Forwarded message ?--+/i) || line.match(/--+ ?Original Message ?--+/i)) {
+                    header_reading = true;
+                } else {
+                    content_lines.push(line);
+                }
             }
         }
-        line_prev = line;
-        // console.log(reply_depth, reply_indent, line);
+        if (line.replace(/>/g, '').trim() != '') {
+            line_prev = line;
+        }
+        console.log(reply_depth, reply_indent, (header_reading ? '-' : ' '), line);
     });
     if (reply_depth > 0) {
         const { from, timestamp } = parseHead(head_txt_prev);
         const comment = _.map(content_lines, (l: string) => {
             return removeQuoteMarks(l, reply_indent_prev);
         }).join('\r\n');
-        replies.push({ from, timestamp, comment });
+        replies.push({ from, timestamp, comment, heading: head_txt_prev });
         return replies;
     } else {
-        return [{ from: '', timestamp: -1, comment: txt }];
+        return [{ from: '', timestamp: -1, comment: txt, heading: "" }];
     }
 }
 
@@ -207,9 +216,10 @@ export function removeQuoteMarks(s: string, indent: number) {
 
 export function parseHead(s: string): { from: string, timestamp: number } {
     if (s.indexOf('\r\n') != -1) {      //multi line.
-        const m1 = s.match(/From: (.+?)\r\n/);
-        const m2 = s.match(/Date: (.+?)\r\n/);
-        const m3 = s.match(/Sent: (.+?)\r\n/);
+        const m1 = s.match(/From: (.+?)\s*\r\n/);
+        const m2 = s.match(/Date: (.+?)\s*\r\n/);
+        const m3 = s.match(/Sent: (.+?)\s*\r\n/);
+        console.log('parseHead multiline', m1, m2, m3);
         if (m1 && (m2 || m3)) {
             const timestamp = m2 ? moment(m2[1], 'YYYY年M月D日(dddd) HH:mm').valueOf() : moment(m3[1]).valueOf();
             return { from: m1[1], timestamp };
@@ -333,7 +343,7 @@ export async function update_db_on_mailgun_webhook(body: object, db, myio?: Sock
             await model.join_session(session_id, myself.id, data.timestamp);
             console.log('update_db_on_mailgun_webhook', { session_id, user_id: u.id, fullname, email, 'data.from': data.from, r1 });
             const { ok, data: data1 } = await model.post_comment(u.id, session_id, timestamp, data.comment, data.message_id, "", "email");
-            console.log(data.comment.slice(0, 100));
+            console.log('Heading and comment beginning', data.heading, data.comment.slice(0, 100));
             results_comments.push(data1);
             if (ok) {
                 const obj = _.extend({ __type: "new_comment" }, data1);
@@ -343,8 +353,8 @@ export async function update_db_on_mailgun_webhook(body: object, db, myio?: Sock
             }
         }
     }
-    console.log('results_comments', datas.length, results_comments);
-    console.log('results', results);
+    // console.log('results_comments', datas.length, results_comments);
+    // console.log('results', results);
     return { added_users: results };
 }
 

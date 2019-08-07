@@ -350,6 +350,7 @@ export function parseMailgunWebhook(body): MailgunParsed {
         body,
         references,
         subject,
+        heading: ''
     };
     return data;
 }
@@ -383,6 +384,7 @@ export function parseMailgunWebhookThread(body): MailgunParsed[] {
             body,
             references,
             subject,
+            heading: item.heading
         };
         return data;
     });

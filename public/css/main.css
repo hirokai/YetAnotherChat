@@ -376,5 +376,8 @@ hr {
 
 #lefttop-myself-name {
     font-size: 16px;
-    color: black;
+}
+
+a {
+    color: inherit;
 }

@@ -289,6 +289,7 @@ type alias ChatPageModel =
 type Page
     = RoomPage RoomID
     | UserPage String
+    | UserListPage
     | HomePage
     | NewSession
 
@@ -301,6 +302,9 @@ pageToPath page =
 
         UserPage u ->
             "/users/" ++ u
+
+        UserListPage ->
+            "/users/"
 
         HomePage ->
             "/"
@@ -324,7 +328,11 @@ pathToPage hash =
                 RoomPage r
 
         "users" :: u :: ts ->
-            UserPage u
+            if u == "" then
+                UserListPage
+
+            else
+                UserPage u
 
         _ ->
             HomePage
@@ -582,6 +590,9 @@ update msg model =
                     UserPage u ->
                         enterUser u model
 
+                    UserListPage ->
+                        enterUserList model
+
                     RoomPage r ->
                         enterRoom r model
 
@@ -819,6 +830,10 @@ enterNewSession model =
 
 enterHome model =
     ( { model | page = HomePage }, Cmd.none )
+
+
+enterUserList model =
+    ( { model | page = UserListPage }, Cmd.none )
 
 
 enterRoom : String -> Model -> ( Model, Cmd Msg )
@@ -1070,6 +1085,7 @@ leftMenu model =
              , div []
                 [ a [ class "btn btn-light", id "newroom-button", onClick EnterNewSessionScreen ] [ text "新しい会話" ]
                 ]
+             , div [] [ a [ href "#/users/" ] [ text "ユーザー一覧" ] ]
              ]
                 ++ showChannels model
             )
@@ -1149,6 +1165,9 @@ view model =
         UserPage user ->
             userPageView user model
 
+        UserListPage ->
+            userListView model
+
         HomePage ->
             homeView model
 
@@ -1187,6 +1206,51 @@ mkPeoplePanel model selected user =
     div
         [ class <|
             "person-panel"
+                ++ (if Set.member user selected then
+                        " active"
+
+                    else
+                        ""
+                   )
+        , onClick (NewSessionMsg (TogglePersonInNew user))
+        ]
+        [ div [ class "name" ] [ text (getUserNameDisplay model user) ], div [ class "email" ] [ text email ] ]
+
+
+userListView : Model -> { title : String, body : List (Html Msg) }
+userListView model =
+    { title = "Slack clone"
+    , body =
+        [ div [ class "container-fluid" ]
+            [ div [ class "row" ]
+                [ leftMenu model
+                , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
+                    [ h1 [] [ text "ユーザー一覧" ]
+                    , div [ id "people-wrapper" ] <|
+                        List.map (\u -> mkPeopleDivInList model model.newSessionStatus.selected u.id)
+                            model.users
+                    , div
+                        [ style "clear" "both" ]
+                        []
+                    , hr [ style "margin" "10px" ] []
+                    , h2 [] [ text "過去の同じメンバーの会話" ]
+                    , ul [] (List.map (\s -> li [] [ a [ class "clickable", onClick (EnterRoom s) ] [ text (roomName s model) ] ]) model.newSessionStatus.sessions_same_members)
+                    ]
+                ]
+            ]
+        ]
+    }
+
+
+mkPeopleDivInList : Model -> Set.Set String -> String -> Html Msg
+mkPeopleDivInList model selected user =
+    let
+        email =
+            Maybe.withDefault "" <| Maybe.andThen (.emails >> List.head) (getUserInfo model user)
+    in
+    div
+        [ class <|
+            ""
                 ++ (if Set.member user selected then
                         " active"
 
