@@ -169,6 +169,7 @@ app.ports.getSessionsOf.subscribe(function (user: string) {
 function getAndfeedRoolmInfo() {
     const params: AuthedParams = { token };
     axios.get('/api/sessions', { params }).then(({ data }: AxiosResponse<GetSessionsResponse>) => {
+        console.log('getAndfeedRoolmInfo obtained', data.data);
         app.ports.feedRoomInfo.send(map(data.data, (r): RoomInfoClient => {
             var s: any = clone(r);
             s.timestamp = moment(r.timestamp).format('YYYY/M/D HH:mm:ss');

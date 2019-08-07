@@ -200,7 +200,6 @@ export function post_file_to_session(session_id: string, user_id: string, file_i
 
 export function get_session_list(params: { user_id: string, of_members: string[], is_all: boolean }): Promise<RoomInfo[]> {
     const { user_id, of_members, is_all } = params;
-    // console.log('get_session_list():', params);
     if (of_members) {
         return get_session_of_members(user_id, of_members, is_all);
     }
@@ -233,7 +232,8 @@ export function get_session_list(params: { user_id: string, of_members: string[]
                             numMessages: info.count, firstMsgTime: info.first, lastMsgTime: info.last
                         };
                     }));
-                    resolve(ss);
+                    const ss_sorted = _.orderBy(ss, 'lastMsgTime', 'desc');
+                    resolve(ss_sorted);
                 })
             });
         });
@@ -241,6 +241,7 @@ export function get_session_list(params: { user_id: string, of_members: string[]
 };
 
 export function get_session_of_members(user_id: string, members: string[], is_all: boolean): Promise<RoomInfo[]> {
+    console.log('get_session_of_members');
     var s: string = _.sortedUniq(_.sortBy([user_id].concat(members))).join(",");
     if (!is_all) {
         s = '%' + s + '%';
@@ -249,13 +250,15 @@ export function get_session_of_members(user_id: string, members: string[], is_al
         // https://stackoverflow.com/questions/1897352/sqlite-group-concat-ordering
         const q = "select id,name,timestamp,group_concat(user_id) as members from (select s.id,s.name,s.timestamp,m.user_id from sessions as s join session_current_members as m on s.id=m.session_id order by s.timestamp,m.user_id) group by id having members like ? order by timestamp desc;"
         db.all(q, s, (err, sessions) => {
-            resolve(_.map(sessions, (session) => {
+            const ss = _.map(sessions, (session) => {
                 var r: RoomInfo = {
                     id: session.id, name: session.name, timestamp: session.timestamp,
                     numMessages: s['count(timestamp)'], firstMsgTime: -1, lastMsgTime: -1, members: session.members.split(",")
                 };
                 return r;
-            }));
+            });
+            const ss_sorted = _.orderBy(ss, 'lastMsgTime', 'desc');
+            resolve(ss_sorted);
         });
     });
 };
@@ -484,11 +487,17 @@ export async function register_user(username: string, password: string, email?: 
 
 
 export function cipher(plainText: string, password: string = credentials.cipher_secret) {
-    var cipher = createCipher('aes192', password);
-    var cipheredText = cipher.update(plainText, 'utf8', 'hex');
-    cipheredText += cipher.final('hex');
-    // console.log('ciphered length', cipheredText.length);
-    return cipheredText;
+    try {
+        var cipher = createCipher('aes192', password);
+        var cipheredText = cipher.update(plainText, 'utf8', 'hex');
+        cipheredText += cipher.final('hex');
+        // console.log('ciphered length', cipheredText.length);
+        return cipheredText;
+
+    } catch (e) {
+        console.log(e, plainText);
+        return null;
+    }
 }
 
 export function decipher(cipheredText: string, password: string = credentials.cipher_secret) {
@@ -499,7 +508,7 @@ export function decipher(cipheredText: string, password: string = credentials.ci
         // console.log('deciphered length', dec.length);
         return dec;
     } catch (e) {
-        console.log(e, cipheredText)
+        console.log(e, cipheredText);
         return null;
     }
 }

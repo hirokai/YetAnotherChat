@@ -995,8 +995,12 @@ showSource s =
         "self" ->
             text "self"
 
-        _ ->
-            text "(unknown)"
+        s1 ->
+            if String.left 14 s1 == "slack:channel:" then
+                text "Slack"
+
+            else
+                text "(unknown)"
 
 
 showItem : Model -> ChatEntry -> Html Msg

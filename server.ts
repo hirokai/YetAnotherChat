@@ -96,7 +96,7 @@ app.post('/api/register', (req, res) => {
     (async () => {
         const { username, password, fullname, email } = req.body;
         console.log({ username, password, fullname, email });
-        const { user, error, error_code } = await model.register_user(username, email, fullname);
+        const { user, error, error_code } = await model.register_user(username, password, email, fullname);
         if (!user) {
             res.json({ ok: false, error: error_code == ec.USER_EXISTS ? 'User already exists' : error, error_code });
             return;
@@ -307,7 +307,6 @@ app.get('/api/sessions', (req: GetAuthRequest, res: JsonResponse<GetSessionsResp
     const ms: string = req.query.of_members;
     const of_members: string[] = ms ? ms.split(",") : undefined;
     const is_all: boolean = !(typeof req.query.is_all === 'undefined');
-    console.log(req.decoded);
     const user_id: string = req.decoded.user_id;
     model.get_session_list({ user_id, of_members, is_all }).then((r: RoomInfo[]) => {
         res.json({ ok: true, data: r });
@@ -447,6 +446,10 @@ app.patch('/api/files/:id', (req, res) => {
             res.json({ ok: false });
         }
     });
+});
+
+app.post('/internal/emit_socket', (req, res) => {
+    io.emit("message", req.body);
 });
 
 http.listen(port, () => {
