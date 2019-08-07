@@ -1085,7 +1085,7 @@ leftMenu model =
              , div []
                 [ a [ class "btn btn-light", id "newroom-button", onClick EnterNewSessionScreen ] [ text "新しい会話" ]
                 ]
-             , div [] [ a [ href "#/users/" ] [ text "ユーザー一覧" ] ]
+             , div [] [ a [ id "btn-userlist", class "btn btn-light", href "#/users/" ] [ text "ユーザー一覧" ] ]
              ]
                 ++ showChannels model
             )
@@ -1226,15 +1226,12 @@ userListView model =
                 [ leftMenu model
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text "ユーザー一覧" ]
-                    , div [ id "people-wrapper" ] <|
+                    , div [ id "list-people-wrapper" ] <|
                         List.map (\u -> mkPeopleDivInList model model.newSessionStatus.selected u.id)
                             model.users
                     , div
                         [ style "clear" "both" ]
                         []
-                    , hr [ style "margin" "10px" ] []
-                    , h2 [] [ text "過去の同じメンバーの会話" ]
-                    , ul [] (List.map (\s -> li [] [ a [ class "clickable", onClick (EnterRoom s) ] [ text (roomName s model) ] ]) model.newSessionStatus.sessions_same_members)
                     ]
                 ]
             ]
@@ -1250,7 +1247,7 @@ mkPeopleDivInList model selected user =
     in
     div
         [ class <|
-            ""
+            "userlist-person"
                 ++ (if Set.member user selected then
                         " active"
 
@@ -1259,7 +1256,12 @@ mkPeopleDivInList model selected user =
                    )
         , onClick (NewSessionMsg (TogglePersonInNew user))
         ]
-        [ div [ class "name" ] [ text (getUserNameDisplay model user) ], div [ class "email" ] [ text email ] ]
+        [ div [ class "userlist-info" ]
+            [ div [ class "name" ] [ a [ href <| "#/users/" ++ user ] [ text (getUserNameDisplay model user) ] ]
+            , div [ class "userlist-email" ] [ text email ]
+            ]
+        , div [ class "userlist-img-div" ] [ img [ class "userlist-img", src "/public/img/portrait.png" ] [] ]
+        ]
 
 
 newSessionView : Model -> { title : String, body : List (Html Msg) }
