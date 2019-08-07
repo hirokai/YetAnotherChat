@@ -34,11 +34,13 @@ function initialize() {
 }
 
 function mk_default_user() {
-    (async () => {
+    db.serialize(() => {
         const { username, email, fullname, password } = user_info.test_myself;
-        const r = await model.register_user(username, password, email, fullname);
-        console.log(r);
-    })();
+        (async () => {
+            const r = await model.register_user(username, password, email, fullname);
+            console.log(r);
+        })();
+    });
 }
 
 function _import_from_slack() {
@@ -79,4 +81,5 @@ function _import_from_gmail() {
 
 initialize();
 mk_default_user();
+db.close();
     // import_from_gmail();

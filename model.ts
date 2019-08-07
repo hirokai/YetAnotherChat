@@ -33,8 +33,8 @@ export async function save_password(user_id: string, password: string): Promise<
     // return res;
 }
 
-export function merge_users(db, users: { user_id: string, name: string, fullname: string, email: string }[]) {
-    const merge_to_user: { user_id: string, name: string, fullname: string, email: string } = _.orderBy(users, (u) => {
+export function merge_users(db, users: User[]) {
+    const merge_to_user: User = _.orderBy(users, (u) => {
         return (u.fullname ? 100 : 0) + (u.name ? 50 : 0);
     }, 'desc')[0];
 
@@ -42,7 +42,7 @@ export function merge_users(db, users: { user_id: string, name: string, fullname
     if (merge_to_user == null) {
         return;
     } else {
-        const new_id = merge_to_user.user_id;
+        const new_id = merge_to_user.id;
         db.serialize(() => {
             _.map(_.map(users, 'user_id'), (uid: string) => {
                 if (uid != new_id) {
@@ -406,24 +406,34 @@ export function join_session(session_id: string, user_id: string, timestamp: num
         }
         const ts: number = timestamp > 0 ? timestamp : new Date().getTime();
         const id: string = shortid();
-        db.serialize(() => {
-            db.run('insert into session_events (id,session_id,user_id,timestamp,action) values (?,?,?,?,?);', id, session_id, user_id, ts, 'join', (err) => {
-                // console.log('model.join_session', err);
-                const data = { id };
-                if (!err) {
-                    db.run('insert into session_current_members (session_id,user_id) values (?,?);',
-                        session_id, user_id, (err2) => {
-                            if (!err2) {
-                                resolve({ ok: true, data });
-                            } else {
-                                resolve({ ok: false, data });
-                            }
-                        });
-                } else {
-                    console.log('error')
-                    resolve({ ok: false })
-                }
-            });
+        db.serialize(async () => {
+            const is_registered_user = (await find_user_from_user_id(user_id)) != null;
+            const members: string[] = await get_members(session_id);
+            console.log(members);
+            const is_member: boolean = _.includes(members, user_id);
+            if (!is_registered_user) {
+                resolve({ ok: false, error: 'User ID invalid' })
+            } else if (is_member) {
+                resolve({ ok: false, error: 'Already member' })
+            } else {
+                db.run('insert into session_events (id,session_id,user_id,timestamp,action) values (?,?,?,?,?);', id, session_id, user_id, ts, 'join', (err) => {
+                    // console.log('model.join_session', err);
+                    const data = { id, members };
+                    if (!err) {
+                        db.run('insert into session_current_members (session_id,user_id) values (?,?);',
+                            session_id, user_id, (err2) => {
+                                if (!err2) {
+                                    resolve({ ok: true, data });
+                                } else {
+                                    resolve({ ok: false, data });
+                                }
+                            });
+                    } else {
+                        console.log('error')
+                        resolve({ ok: false })
+                    }
+                });
+            }
         });
     });
 }
@@ -446,7 +456,7 @@ export function saveSocketId(user_id: string, socket_id: string): Promise<{ ok: 
     });
 }
 
-export async function register_user(username: string, password: string, email?: string, fullname?: string): Promise<{ ok: boolean, user_id?: string, error?: string, error_code?: number }> {
+export async function register_user(username: string, password: string, email?: string, fullname?: string): Promise<{ ok: boolean, user?: User, error?: string, error_code?: number }> {
     const user_id = shortid();
     if (username) {
         const existing_user: User = await find_user_from_username(username);
@@ -462,7 +472,10 @@ export async function register_user(username: string, password: string, email?: 
                     }
                 });
             });
-            return { ok: true, user_id: user_id, };
+            const emails = email ? [email] : [];
+            const avatar = '';
+            const user: User = { id: user_id, fullname, username, emails, avatar }
+            return { ok: true, user };
         }
     } else {
         return { ok: false, error: 'User name has to be specified' };

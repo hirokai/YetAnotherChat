@@ -93,17 +93,17 @@ app.post('/api/register', (req, res) => {
     (async () => {
         const { username, password, fullname, email } = req.body;
         console.log({ username, password, fullname, email });
-        const { user_id, error, error_code } = await model.register_user(username, email, fullname);
-        if (!user_id) {
+        const { user, error, error_code } = await model.register_user(username, email, fullname);
+        if (!user) {
             res.json({ ok: false, error: error_code == ec.USER_EXISTS ? 'User already exists' : error, error_code });
             return;
         }
-        const r: boolean = await model.save_password(user_id, password);
+        const r: boolean = await model.save_password(user.id, password);
         if (!r) {
             res.json({ ok: false, error: 'Password save error' });
             return;
         }
-        const token = jwt.sign({ username, user_id }, credential.jwt_secret, { expiresIn: 604800 });
+        const token = jwt.sign({ username, user_id: user.id }, credential.jwt_secret, { expiresIn: 604800 });
         jwt.verify(token, credential.jwt_secret, function (err, decoded) {
             if (!err) {
                 res.json({ ok: true, token, decoded });
@@ -362,14 +362,11 @@ app.get('/api/sent_email', (req, res) => {
 app.post('/api/join_session', (req: PostRequest<JoinSessionParam>, res: JsonResponse<JoinSessionResponse>, next) => {
     (async () => {
         const session_id = req.body.session_id;
-        const members = await model.get_members(session_id);
-        console.log(members);
         const myself = req.decoded.user_id;
-        const is_member = _.includes(members, myself);
-        if (!is_member) {
-            const data: JoinSessionResponse = await model.join_session(session_id, req.decoded.user_id);
-            res.json(data);
-            _.map(members.concat([myself]), async (m: string) => {
+        const r: JoinSessionResponse = await model.join_session(session_id, req.decoded.user_id);
+        res.json(r);
+        if (r.ok) {
+            _.map(r.data.members.concat([myself]), async (m: string) => {
                 const socket_ids: string[] = await model.getSocketIds(m);
                 const data1 = { session_id, user_id: myself };
                 socket_ids.forEach(socket_id => {
@@ -383,9 +380,6 @@ app.post('/api/join_session', (req: PostRequest<JoinSessionParam>, res: JsonResp
             socket_ids_newmember.forEach(socket_id => {
                 io.to(socket_id).emit("message", _.extend({}, { __type: "new_session" }, data2));
             });
-
-        } else {
-            res.json({ ok: false, error: 'Already member' });
         }
     })().catch(next);
 });

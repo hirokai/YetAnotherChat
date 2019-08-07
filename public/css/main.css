@@ -358,3 +358,8 @@ hr {
     background: #cce;
     border: 3px solid black;
 }
+
+#lefttop-myself-name {
+    font-size: 16px;
+    color: black;
+}

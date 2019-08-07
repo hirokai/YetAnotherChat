@@ -174,7 +174,7 @@ interface JoinSessionParam extends AuthedParams {
 
 type JoinSessionResponse = {
     ok: boolean,
-    data?: { id: string },
+    data?: { id: string, members: string[] },
     error?: string
 }
 

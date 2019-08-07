@@ -1025,7 +1025,7 @@ leftMenu model =
     div [ class "d-none d-md-block col-md-5 col-lg-2", id "menu-left-wrapper" ]
         [ div [ id "menu-left" ]
             ([ div [ id "username-top" ]
-                [ text (getUserName model model.myself)
+                [ a [id "lefttop-myself-name", href <| "#/users/" ++ model.myself] [text (getUserName model model.myself)]
                 , a [ onClick Logout, class "clickable", id "logout-button" ] [ text "ログアウト" ]
                 ]
              , div [ id "path" ] [ text (pageToPath model.page) ]
