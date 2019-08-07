@@ -129,8 +129,11 @@ ul.menu-list li {
 }
 
 .person-panel .name {
-    margin: 10px;
-    font-size: 20px;
+    height: 70px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 10px 5px 0px 10px;
+    font-size: 16px;
     display: inline-block;
 }
 
@@ -355,7 +358,15 @@ hr {
 }
 
 .person-panel .email {
-    font-size: 14px;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-wrap: break-word;
+    display: block;
+    line-height: 1em;
+    /* a */
+    max-height: 1em;
+    /* a x number of line to show (ex : 2 line)  */
 }
 
 #chat-input.dragover {

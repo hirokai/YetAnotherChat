@@ -1176,6 +1176,10 @@ homeView model =
 
 mkPeoplePanel : Model -> Set.Set String -> String -> Html Msg
 mkPeoplePanel model selected user =
+    let
+        email =
+            Maybe.withDefault "" <| Maybe.andThen (.emails >> List.head) (getUserInfo model user)
+    in
     div
         [ class <|
             "person-panel"
@@ -1187,7 +1191,7 @@ mkPeoplePanel model selected user =
                    )
         , onClick (NewSessionMsg (TogglePersonInNew user))
         ]
-        [ h3 [ class "name" ] [ text (getUserNameDisplay model user) ], span [ class "email" ] [ text <| Maybe.withDefault "" <| Maybe.andThen (.emails >> List.head) (getUserInfo model user) ] ]
+        [ div [ class "name" ] [ text (getUserNameDisplay model user) ], div [ class "email" ] [ text email ] ]
 
 
 newSessionView : Model -> { title : String, body : List (Html Msg) }
@@ -1456,7 +1460,7 @@ getMessageCount session_id model =
 getUserNameDisplay model uid =
     case getUserInfo model uid of
         Just u ->
-            if u.fullname == "" then
+            if u.fullname == "" || u.fullname == u.username then
                 u.username
 
             else
