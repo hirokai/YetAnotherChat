@@ -282,6 +282,7 @@ type alias ChatPageModel =
     , users : List String
     , messages : Maybe (List ChatEntry)
     , topPaneExpanded : Bool
+    , shrunkEntries : Bool
     }
 
 
@@ -367,7 +368,7 @@ init { user_id, show_top_pane } =
       , users = []
       , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
       , userPageStatus = { sessions = [], messages = [], shownFileID = Nothing, newFileBox = False }
-      , chatPageStatus = { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing, topPaneExpanded = show_top_pane }
+      , chatPageStatus = { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing, topPaneExpanded = show_top_pane, shrunkEntries = False }
       , editing = Set.empty
       , editingValue = Dict.empty
       , files = Dict.empty
@@ -432,6 +433,7 @@ type ChatPageMsg
     | FeedMessages (List ChatEntry)
     | RemoveItem String
     | ExpandTopPane Bool
+    | SetShrinkEntries Bool
 
 
 onKeyDown : (Int -> msg) -> Attribute msg
@@ -940,6 +942,9 @@ updateChatPageStatus msg model =
         ExpandTopPane b ->
             ( { model | topPaneExpanded = b }, recalcElementPositions b )
 
+        SetShrinkEntries b ->
+            ( { model | shrunkEntries = b }, Cmd.none )
+
 
 removeItem : String -> ChatPageModel -> ( ChatPageModel, Cmd msg )
 removeItem id model =
@@ -998,7 +1003,17 @@ showItem : Model -> ChatEntry -> Html Msg
 showItem model entry =
     case entry of
         Comment m ->
-            div [ class "chat_entry_comment", id m.id ]
+            div
+                [ class <|
+                    "chat_entry_comment"
+                        ++ (if model.chatPageStatus.shrunkEntries then
+                                " shrunk"
+
+                            else
+                                ""
+                           )
+                , id m.id
+                ]
                 [ div [ style "float" "left" ] [ img [ class "chat_user_icon", src (iconOfUser (getUserName model m.user)) ] [] ]
                 , div [ class "chat_comment" ]
                     [ div [ class "chat_user_name" ]
@@ -1320,7 +1335,8 @@ chatRoomView room model =
                                                     in
                                                     [ div [ id "message-count" ]
                                                         [ text
-                                                            (String.fromInt nonevent_count ++ " message"
+                                                            (String.fromInt nonevent_count
+                                                                ++ " message"
                                                                 ++ (if nonevent_count > 1 then
                                                                         "s"
 
@@ -1330,12 +1346,30 @@ chatRoomView room model =
                                                                 ++ "."
                                                             )
                                                         , button [ class "btn-sm btn-light btn", onClick (ChatPageMsg ScrollToBottom) ] [ text "⬇⬇" ]
+                                                        , button [ class "btn-sm btn-light btn", onClick (ChatPageMsg (SetShrinkEntries (not model.chatPageStatus.shrunkEntries))) ]
+                                                            [ text
+                                                                (if model.chatPageStatus.shrunkEntries then
+                                                                    "展開する"
+
+                                                                 else
+                                                                    "折りたたむ"
+                                                                )
+                                                            ]
                                                         ]
                                                     , div [ id "chat-wrapper" ]
                                                         [ div
                                                             [ id "chat-entries" ]
                                                           <|
-                                                            List.map (showItem model) messages_filtered
+                                                            (if model.chatPageStatus.shrunkEntries then
+                                                                List.concatMap (\a -> [ a, hr [] [] ])
+
+                                                             else
+                                                                identity
+                                                            )
+                                                            <|
+                                                                List.map
+                                                                    (showItem model)
+                                                                    messages_filtered
                                                         ]
                                                     ]
 

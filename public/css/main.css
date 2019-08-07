@@ -26,6 +26,10 @@ div#footer {
     margin: 0px;
 }
 
+.btn-light {
+    border: 1px solid #f3f3f3;
+}
+
 @media (prefers-color-scheme: dark) {
     div#footer_wrapper {
         background: #191714;
