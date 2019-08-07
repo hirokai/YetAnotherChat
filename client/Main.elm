@@ -1481,6 +1481,9 @@ userPageView user model =
 
         current_file_id =
             Maybe.withDefault "" <| Maybe.map .file_id current_file
+
+        user_info =
+            getUserInfo model user
     in
     { title = "Slack clone"
     , body =
@@ -1489,6 +1492,9 @@ userPageView user model =
                 [ leftMenu model
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text (getUserName model user) ]
+                    , div []
+                        [ span [] [ text "Email: ", text <| Maybe.withDefault "（未登録）" <| Maybe.andThen (.emails >> List.head) user_info ]
+                        ]
                     , div [ id "poster-div" ]
                         [ h2 [] [ text "ポスター" ]
                         , div []

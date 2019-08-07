@@ -22,6 +22,9 @@ const credential = require('./private/credential');
 import * as ec from './error_codes';
 import multer from 'multer';
 
+var compression = require('compression');
+app.use(compression());
+
 
 const upload = multer({ dest: './public/uploads/' }).single('user_image');
 
