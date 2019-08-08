@@ -76,6 +76,9 @@ app.use(function (req: Request, res: MyResponse, next) {
     next();
 });
 
+app.get('/', (req, res) => {
+    res.redirect('/main');
+});
 
 app.get('/register', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/html/register.html'));
