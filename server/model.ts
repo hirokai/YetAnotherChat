@@ -464,7 +464,7 @@ export function saveSocketId(user_id: string, socket_id: string): Promise<{ ok: 
     });
 }
 
-export async function register_user(username: string, password: string, email?: string, fullname?: string): Promise<{ ok: boolean, user?: User, error?: string, error_code?: number }> {
+export async function register_user({ username, password, email, fullname, source }: { username: string, password: string, email?: string, fullname?: string, source: string }): Promise<{ ok: boolean, user?: User, error?: string, error_code?: number }> {
     const user_id = shortid();
     if (username) {
         const existing_user: User = await find_user_from_username(username);
@@ -475,7 +475,7 @@ export async function register_user(username: string, password: string, email?: 
                 db.serialize(() => {
                     if (!err) {
                         const timestamp = new Date().getTime();
-                        db.run('insert into users (id,name,password,fullname,timestamp) values (?,?,?,?,?)', user_id, username, hash, fullname, timestamp);
+                        db.run('insert into users (id,name,password,fullname,timestamp,source) values (?,?,?,?,?,?)', user_id, username, hash, fullname, timestamp, source);
                         db.run('insert into user_emails (user_id,email) values (?,?)', user_id, email);
                     }
                 });

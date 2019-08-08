@@ -7,3 +7,7 @@ client/elm-stuff
 server/public/**/*
 .fusebox
 .vscode
+public/uploads/
+not_uploaded/
+imported_data/
+elm-stuff/

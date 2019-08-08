@@ -32,7 +32,7 @@
   },
   "scripts": {
     "server:watch": "nodemon",
-    "db": "sqlite3 private/db.sqlite3",
+    "db": "sqlite3 server/private/db.sqlite3",
     "db:reset": "sh ./clear_and_import_mailgun.sh",
     "client:watch": "npx webpack -w --env.development",
     "build": "npx tsc && npx webpack --env.production",

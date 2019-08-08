@@ -333,7 +333,7 @@ export async function update_db_on_mailgun_webhook(body: object, db, myio?: Sock
         const timestamp = data.timestamp || -1;
         const { name: fullname, email } = parse_email_address(data.from);
         console.log('parsed email', { fullname, email });
-        const u: User = await find_or_make_user(db, fullname, email);
+        const u: User = await find_or_make_user_for_email(db, fullname, email);
         console.log('find_or_make_user result', timestamp, u);
         if (u == null) {
             console.log('User=null');
@@ -362,7 +362,7 @@ function mk_random_username() {
     return 'ユーザー';
 }
 
-async function find_or_make_user(db, fullname: string, email: string): Promise<User> {
+async function find_or_make_user_for_email(db, fullname: string, email: string): Promise<User> {
     // const v = Math.random();
     // console.log(v);
     const user: User = await model.find_user_from_email(email);
@@ -386,7 +386,8 @@ async function find_or_make_user(db, fullname: string, email: string): Promise<U
             }
         }
         console.log('find_or_make_user making', fullname, email, name);
-        const { ok, user: user2, error } = await model.register_user(name, "11111111", email, fullname);
+        const source = "email_thread";
+        const { ok, user: user2, error } = await model.register_user({ username: name, password: "11111111", email, fullname, source });
         console.log('find_or_make_user', error);
         return ok ? user2 : null;
     }
