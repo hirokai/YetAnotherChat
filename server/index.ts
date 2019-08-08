@@ -22,6 +22,8 @@ const credential = require('./private/credential');
 import * as ec from './error_codes';
 import multer from 'multer';
 
+app.set("view engine", "ejs");
+
 var compression = require('compression');
 app.use(compression());
 
@@ -33,7 +35,6 @@ enum Timespan {
     week,
     month
 }
-
 
 interface MyResponse extends Response {
     token: any;
@@ -88,6 +89,11 @@ app.get('/main', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/html/main.html'));
 });
 
+app.get('/email/:id', (req, res) => {
+    model.get_original_email_highlighted(req.params.id).then(({ lines, subject, range }) => {
+        res.render(path.join(__dirname, './email.ejs'), { lines, subject, range });
+    });
+});
 
 app.get('/matrix', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/html/matrix.html'));

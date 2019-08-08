@@ -1050,6 +1050,16 @@ showSource s =
                 text "(unknown)"
 
 
+makeLinkToOriginal : CommentTyp -> String
+makeLinkToOriginal c =
+    case c.source of
+        "email" ->
+            "/email/" ++ c.originalUrl
+
+        _ ->
+            c.originalUrl
+
+
 showItem : Model -> ChatEntry -> Html Msg
 showItem model entry =
     case entry of
@@ -1080,7 +1090,7 @@ showItem model entry =
                         , span [ class "chat_timestamp" ]
                             [ text m.timestamp
                             ]
-                        , a [ href m.originalUrl ] [ showSource m.source ]
+                        , a [ href (makeLinkToOriginal m) ] [ showSource m.source ]
                         , span [ class "remove-item clickable", onClick (ChatPageMsg (RemoveItem m.id)) ] [ text "×" ]
                         ]
                     , div [ classList [ ( "chat_comment_content", True ), ( "font-" ++ String.fromInt model.chatPageStatus.fontSize, True ) ] ] <| mkComment m.comment

@@ -1,6 +1,6 @@
 /// <reference path="../common/types.d.ts" />
 
-const fs = require("fs");
+import * as fs from "fs";
 const path = require('path');
 const _ = require('lodash');
 const sqlite3 = require('sqlite3');
@@ -20,6 +20,7 @@ import bcrypt from 'bcrypt';
 const saltRounds = 10;
 import * as credentials from './private/credential';
 import { createCipher, createDecipher } from 'crypto';
+import { reject } from "lodash-es";
 
 export async function save_password(user_id: string, password: string): Promise<boolean> {
     const hash = await bcrypt.hash(password, saltRounds);
@@ -405,6 +406,34 @@ export function parseMailgunWebhookThread(body): MailgunParsed[] {
             heading: item.heading
         };
         return data;
+    });
+}
+
+export function get_original_email_highlighted(mail_id: string): Promise<{ lines: { line: string, highlight: boolean }[], subject: string, range: { start: number, end: number } }> {
+    return new Promise((resolve, reject) => {
+        const m = mail_id.match(/(.+)::lines=(\d+)-(\d+)/);
+        if (m) {
+            const [message_id, start_s, end_s] = [m[1], m[2], m[3]];
+            const [start, end] = [+start_s, +end_s];
+            const file_path = path.join(__dirname, '../imported_data/mailgun/' + message_id + '.json');
+            console.log(file_path);
+            fs.readFile(file_path, 'utf8', (err, s: string) => {
+                if (err) {
+                    console.log(err);
+                    reject();
+                } else {
+                    const obj = JSON.parse(s);
+                    const subject = obj['Subject'];
+                    const lines = _.map(obj['body-plain'].split('\r\n'), (line, ii) => {
+                        const i = ii + 1;
+                        return { line, highlight: i >= start && i <= end };
+                    });
+                    resolve({ lines, subject, range: { start, end } });
+                }
+            });
+        } else {
+            reject();
+        }
     });
 }
 
