@@ -33,9 +33,9 @@ export async function save_password(user_id: string, password: string): Promise<
     // return res;
 }
 
-export function merge_users(db, users: User[]) {
+export function merge_users(db, users: UserSubset[]) {
     const merge_to_user: User = _.orderBy(users, (u) => {
-        return (u.fullname ? 100 : 0) + (u.name ? 50 : 0);
+        return (u.fullname ? 100 : 0) + (u.username ? 50 : 0);
     }, 'desc')[0];
 
     console.log('Merging to', merge_to_user);
@@ -44,14 +44,30 @@ export function merge_users(db, users: User[]) {
     } else {
         const new_id = merge_to_user.id;
         db.serialize(() => {
-            _.map(_.map(users, 'user_id'), (uid: string) => {
-                if (uid != new_id) {
-                    db.run('update comments set user_id=? where user_id=?', new_id, uid);
-                    db.run('update session_current_members set user_id=? where user_id=?', new_id, uid);
-                    db.run('update session_events set user_id=? where user_id=?', new_id, uid);
-                    db.run('update user_connections set user_id=? where user_id=?', new_id, uid);
-                    db.run('delete from user_emails where user_id=?', uid);
-                    db.run('delete from users where id=?', uid);
+            _.map(_.map(users, (u: UserSubset): string => { return u.id; }), (old_id: string) => {
+                if (old_id != new_id) {
+                    db.run('update comments set user_id=? where user_id=?', new_id, old_id);
+
+                    db.get('select * from session_current_members where user_id');
+
+                    db.all("select session_id,group_concat(user_id) as uids,count(user_id) as uid_count from session_current_members where user_id in (?,?) group by session_id having uid_count > 1;",
+                        new_id, old_id, (err, rows) => {
+                            if (rows) {
+                                const session_ids = _.map(rows, 'session_id');
+                                console.log('Removing (sessions,user)', session_ids, old_id);
+                                session_ids.forEach((sid) => {
+                                    db.run('delete from session_current_members where session_id=? and user_id=?', sid, sid, old_id);
+                                })
+                            }
+                        });
+                    db.run('update session_current_members set user_id=? where user_id=?', new_id, old_id, (err) => {
+                        if (err)
+                            console.log('update session_current_members', new_id, old_id, err)
+                    });
+                    db.run('update session_events set user_id=? where user_id=?', new_id, old_id);
+                    db.run('update user_connections set user_id=? where user_id=?', new_id, old_id);
+                    db.run('delete from user_emails where user_id=?', old_id);
+                    db.run('delete from users where id=?', old_id);
                 }
             });
         });

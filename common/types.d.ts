@@ -118,6 +118,8 @@ interface User {
     avatar: string
 }
 
+// For merge user
+interface UserSubset { username: string, fullname: string, id: string }
 
 interface JsonResponse<T> {
     json: (r: T) => void;
