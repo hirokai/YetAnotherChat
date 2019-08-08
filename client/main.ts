@@ -16,10 +16,11 @@ const socket: SocketIOClient.Socket = io('');
 require('moment/locale/ja');
 moment.locale('ja');
 
-const init_show_pane = JSON.parse(localStorage['yacht.show_toppane'] || "false") || false;
-const app = Elm.Main.init({ flags: { user_id: localStorage['yacht.user_id'] || "", show_top_pane: init_show_pane } });
+var show_toppane = JSON.parse(localStorage['yacht.show_toppane'] || "false") || false;
+
+const app = Elm.Main.init({ flags: { user_id: localStorage['yacht.user_id'] || "", show_top_pane: show_toppane } });
 window.setTimeout(() => {
-    recalcPositions(init_show_pane);
+    recalcPositions(show_toppane);
 }, 100);
 
 const token = localStorage.getItem('yacht.token') || "";
@@ -84,7 +85,7 @@ function formatTime(timestamp: number): string {
 
 const processData = (res: ChatEntry[]): ChatEntryClient[] => {
     return map(res, (m1) => {
-        console.log('processData', m1);
+        // console.log('processData', m1);
         const user: string = m1.user_id;
         switch (m1.kind) {
             case "comment": {
@@ -136,7 +137,7 @@ function getAndFeedMessages(session: string) {
     const params: GetCommentsParams = { session, token };
     axios.get('/api/comments', { params }).then(({ data }) => {
         const values = processData(data);
-        console.log(values);
+        // console.log(values);
         app.ports.feedMessages.send(values);
         // scrollToBottom();
     });
@@ -145,7 +146,7 @@ function getAndFeedMessages(session: string) {
 app.ports.getUsers.subscribe(() => {
     axios.get('/api/users', { params: { token } }).then(({ data }: AxiosResponse<GetUsersResponse>) => {
         const users: User[] = data.data.users;
-        console.log(users);
+        // console.log(users);
         app.ports.feedUsers.send(users);
     });
 });
@@ -177,7 +178,7 @@ app.ports.getSessionsOf.subscribe(function (user: string) {
 function getAndfeedRoolmInfo() {
     const params: AuthedParams = { token };
     axios.get('/api/sessions', { params }).then(({ data }: AxiosResponse<GetSessionsResponse>) => {
-        console.log('getAndfeedRoolmInfo obtained', data.data);
+        // console.log('getAndfeedRoolmInfo obtained', data.data);
         app.ports.feedRoomInfo.send(map(data.data, (r): RoomInfoClient => {
             var s: any = clone(r);
             s.timestamp = formatTime(r.timestamp);
@@ -220,8 +221,6 @@ app.ports.setPageHash.subscribe(function (hash: string) {
     // recalcPositions(show_toppane);
 });
 
-var show_toppane = true;
-
 function recalcPositions(show_toppane: boolean) {
     console.log('recalcPositions', show_toppane);
     $(() => {
@@ -254,6 +253,7 @@ app.ports.joinRoom.subscribe(({ session_id, user_id }) => {
     $.post('/api/join_session', { token, session_id }).then((res: JoinSessionResponse) => {
         console.log('join_session', res);
     });
+    recalcPositions(show_toppane);
 });
 
 
@@ -360,7 +360,7 @@ $(() => {
 
 function getUserImages() {
     axios.get('/api/files', { params: { token } }).then(({ data }) => {
-        console.log('getUserImages', data);
+        // console.log('getUserImages', data);
         map(data.files, (files, user_id) => {
             const dat = {
                 user_id, images: map(files, (f) => {
