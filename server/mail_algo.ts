@@ -251,9 +251,14 @@ export function parse_email_address(s: string): { email: string, name: string } 
         const email = ts[1].replace(/>:?\s*$/, '');
         return { name: name != '' ? name : null, email };
     } else {
-        const name = s.trim().replace(/^["'<>\s]/g, '').replace(/["'<>\s]$/g, '');;
-        const email = '';
-        return { name, email };
+        const m = s.match(/(.+)\[mailto:(.+)\]/);
+        if (m) {
+            return { name: m[1].trim(), email: m[2].trim() };
+        } else {
+            const name = s.trim().replace(/^["'<>\s]/g, '').replace(/["'<>\s]$/g, '');;
+            const email = '';
+            return { name, email };
+        }
     }
 }
 
@@ -291,8 +296,8 @@ export function mk_user_name(fullname: string): string {
         if (ts[0].match(re)) {  //Japanese -> first chunk is surname.
             return ts[0];
         } else {
-            var surname = _.find(ts, (t) => {
-                return t.toUpperCase() == t && t.length > 1;
+            var surname = _.find(ts, (t, i) => {
+                return t.toUpperCase() == t && t.length > 1 && (i == 0 || i == ts.length - 1);
             });
             surname = surname ? surname : ts[ts.length - 1];
             return surname || fullname;

@@ -7,11 +7,14 @@ const db = new sqlite3.Database(path.join(__dirname, '../server/private/db.sqlit
 
 const filename = process.argv[2];
 
+// If ignore_recipient is true, all emails are saved to test account.
+const ignore_recipient = true;
+
 fs.readFile(filename, 'utf8', (err, s) => {
     if (!err) {
         const body: object = JSON.parse(s);
         // console.log(body);
-        update_db_on_mailgun_webhook({ body, db, myio: null }).then((res) => {
+        update_db_on_mailgun_webhook({ body, db, myio: null, ignore_recipient }).then((res) => {
             console.log(res);
         }).catch((e) => {
             console.log(e);
