@@ -68,6 +68,7 @@ interface MailgunParsed {
     comment: string,
     timestamp: number,
     message_id: string,
+    lines: { start: number, end: number },
     references: string[]
     sent_to: string,
     heading: string,
@@ -78,7 +79,8 @@ type MailThreadItem = {
     from: string,
     timestamp: number,
     comment: string,
-    heading: string
+    heading: string,
+    lines: { start: number, end: number }
 };
 
 type MailGroup = {

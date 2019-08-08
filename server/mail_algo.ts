@@ -144,11 +144,15 @@ export function split_replies(txt: string): MailThreadItem[] {
     var head_txt: string = '';
     var head_txt_prev: string = '';
     var line_prev: string = '';
+    var start: number = 0;
+    var end: number = 0;
     var header_reading: boolean = false;
     if (!txt) {
         return null;
     }
-    txt.split('\r\n').forEach((line: string) => {
+    const lines = txt.split('\r\n');
+    lines.forEach((line: string, ii: number) => {
+        const i = ii + 1;
         if (header_reading) {
             // console.log('header');
             head_txt += line + '\r\n';
@@ -161,15 +165,17 @@ export function split_replies(txt: string): MailThreadItem[] {
                     return removeQuoteMarks(l, reply_indent_prev);
                 }).join('\r\n');
                 content_lines = [];
-                replies.push({ from, timestamp, comment, heading: head_txt_prev });
+                replies.push({ from, timestamp, comment, heading: head_txt_prev, lines: { start, end } });
                 head_txt_prev = head_txt;
                 head_txt = '';
+                start = i + 1;
             }
         } else {
             const m0 = line_prev.trim().match(/----------/);
             const m0_1 = line.match(/^From: (.+)/);
             if (m0 && m0_1) {//Google style forwarded email
                 header_reading = true;
+                end = i - 1;
                 head_txt += line + '\r\n';
             } else {
                 const m = line.replace(/\s/g, '').match(/^>+/);
@@ -182,12 +188,14 @@ export function split_replies(txt: string): MailThreadItem[] {
                     const comment = _.map(_.dropRight(content_lines), (l: string) => {
                         return removeQuoteMarks(l, reply_indent_prev);
                     }).join('\r\n');
-                    replies.push({ from, timestamp, comment, heading: head_txt_prev });
+                    replies.push({ from, timestamp, comment, heading: head_txt_prev, lines: { start, end } });
                     head_txt_prev = line_prev;
                     content_lines = [];
                     reply_indent_prev = reply_indent;
+                    start = i + 1;
                 } else if (line.match(/--+ ?Forwarded message ?--+/i) || line.match(/--+ ?Original Message ?--+/i)) {
                     header_reading = true;
+                    end = i - 1;
                 } else {
                     content_lines.push(line);
                 }
@@ -203,10 +211,10 @@ export function split_replies(txt: string): MailThreadItem[] {
         const comment = _.map(content_lines, (l: string) => {
             return removeQuoteMarks(l, reply_indent_prev);
         }).join('\r\n');
-        replies.push({ from, timestamp, comment, heading: head_txt_prev });
+        replies.push({ from, timestamp, comment, heading: head_txt_prev, lines: { start, end } });
         return replies;
     } else {
-        return [{ from: '', timestamp: -1, comment: txt, heading: "" }];
+        return [{ from: '', timestamp: -1, comment: txt, heading: "", lines: { start: 1, end: lines.length } }];
     }
 }
 
@@ -219,7 +227,7 @@ export function parseHead(s: string): { from: string, timestamp: number } {
         const m1 = s.match(/From: (.+?)\s*\r\n/);
         const m2 = s.match(/Date: (.+?)\s*\r\n/);
         const m3 = s.match(/Sent: (.+?)\s*\r\n/);
-        console.log('parseHead multiline', m1, m2, m3);
+        console.log('parseHead multiline', ',', m1 ? m1[1] : null, ',', m2 ? m2[1] : null, ',', m3 ? m3[1] : null);
         if (m1 && (m2 || m3)) {
             const timestamp = m2 ? moment(m2[1], 'YYYY年M月D日(dddd) HH:mm').valueOf() : moment(m3[1]).valueOf();
             return { from: m1[1], timestamp };
@@ -358,9 +366,10 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
             console.log('User=null');
         } else {
             results.push(u);
+            const url = data.message_id + '::lines=' + data.lines.start + '-' + data.lines.end;
             const r1: JoinSessionResponse = await model.join_session({ session_id, user_id: u.id, timestamp, source: 'email_thread' });
             console.log('update_db_on_mailgun_webhook', { session_id, user_id: u.id, fullname, email, 'data.from': data.from, r1 });
-            const { ok, data: data1 } = await model.post_comment(u.id, session_id, timestamp, data.comment, data.message_id, "", "email");
+            const { ok, data: data1 } = await model.post_comment(u.id, session_id, timestamp, data.comment, url, "", "email");
             console.log('Heading and comment beginning', data.heading, data.comment.slice(0, 100));
             results_comments.push(data1);
             if (ok) {
