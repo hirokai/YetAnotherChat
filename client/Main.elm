@@ -1108,7 +1108,7 @@ leftMenu model =
              , div []
                 [ a [ class "btn btn-light", id "newroom-button", onClick EnterNewSessionScreen ] [ text "新しい会話" ]
                 ]
-             , div [] [ a [ id "btn-userlist", class "btn btn-light btn-sm", href "#/users/" ] [ text "ユーザー" ], a [ id "btn-userlist", class "btn btn-light btn-sm", href "#/sessions/" ] [ text "セッション" ] ]
+             , div [] [ a [ id "btn-userlist", class "btn btn-light btn-sm", href "#/users/" ] [ text "ユーザー" ], a [ id "btn-sessionlist", class "btn btn-light btn-sm", href "#/sessions/" ] [ text "セッション" ] ]
              ]
                 ++ showChannels model
             )
@@ -1154,7 +1154,7 @@ getUserFullname model uid =
 
 showChannels : Model -> List (Html Msg)
 showChannels model =
-    [ p [] [ text "チャンネル" ]
+    [ div [] [ text "セッション一覧" ]
     , ul [ class "menu-list" ] <|
         (List.indexedMap
             (\i r ->

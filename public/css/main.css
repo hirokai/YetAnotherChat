@@ -418,3 +418,7 @@ a {
 .userlist-img {
     max-width: 100%;
 }
+
+#btn-sessionlist {
+    margin-left: 5px;
+}
