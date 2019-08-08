@@ -112,11 +112,11 @@ export function create_new_session(name: string, members: string[]): Promise<{ i
 
 export function create_session_with_id(session_id: string, name: string, members: string[]): Promise<{ id: string, name: string, timestamp: number, members: string[] }> {
     return new Promise((resolve) => {
-        const ts = new Date().getTime();
+        const timestamp = new Date().getTime();
         db.serialize(() => {
-            db.run('insert or ignore into sessions (id, name, timestamp) values (?,?,?);', session_id, cipher(name), ts);
-            Promise.all(_.map(members, (m) => join_session(session_id, m))).then(() => {
-                resolve({ id: session_id, name: cipher(name), timestamp: ts, members });
+            db.run('insert or ignore into sessions (id, name, timestamp) values (?,?,?);', session_id, cipher(name), timestamp);
+            Promise.all(_.map(members, (m) => join_session({ session_id, user_id: m, timestamp, source: 'owner' }))).then(() => {
+                resolve({ id: session_id, name: cipher(name), timestamp, members });
             });
         });
     });
@@ -423,7 +423,7 @@ export function get_members(session_id: string): Promise<string[]> {
     });
 }
 
-export function join_session(session_id: string, user_id: string, timestamp: number = -1): Promise<JoinSessionResponse> {
+export function join_session({ session_id, user_id, timestamp = -1, source }: { session_id: string, user_id: string, timestamp: number, source: string }): Promise<JoinSessionResponse> {
     return new Promise((resolve, reject) => {
         if (!session_id || !user_id) {
             reject();
@@ -431,7 +431,7 @@ export function join_session(session_id: string, user_id: string, timestamp: num
         const ts: number = timestamp > 0 ? timestamp : new Date().getTime();
         const id: string = shortid();
         db.serialize(async () => {
-            const is_registered_user = (await find_user_from_user_id(user_id)) != null;
+            const is_registered_user = (await get_user(user_id)) != null;
             const members: string[] = await get_members(session_id);
             console.log(members);
             const is_member: boolean = _.includes(members, user_id);
@@ -444,8 +444,8 @@ export function join_session(session_id: string, user_id: string, timestamp: num
                     // console.log('model.join_session', err);
                     const data = { id, members };
                     if (!err) {
-                        db.run('insert into session_current_members (session_id,user_id) values (?,?);',
-                            session_id, user_id, (err2) => {
+                        db.run('insert into session_current_members (session_id,user_id,source) values (?,?,?);',
+                            session_id, user_id, source, (err2) => {
                                 if (!err2) {
                                     resolve({ ok: true, data });
                                 } else {
@@ -604,7 +604,7 @@ export function find_user_from_username(username: string): Promise<User> {
     });
 }
 
-export function find_user_from_user_id(user_id: string): Promise<User> {
+export function get_user(user_id: string): Promise<User> {
     return new Promise((resolve) => {
         console.log('find_user_from_user_id', user_id)
         db.get('select users.id,users.name,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id where users.id=? group by users.id;', user_id, (err, row) => {

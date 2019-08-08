@@ -301,10 +301,23 @@ export function mk_user_name(fullname: string): string {
 }
 
 
-export async function update_db_on_mailgun_webhook(body: object, db, myio?: SocketIO.Server): Promise<{ added_users: User[] }> {
-    const myself = await model.find_user_from_email(user_info.test_myself.email);
-    if (myself == null) {
-        return { added_users: [] };
+export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_recipient = false }: { body: object, db, myio?: SocketIO.Server, ignore_recipient?: boolean }): Promise<{ added_users: User[] }> {
+    const recipient = body['recipient'].split('@')[0];
+    var myself;
+    if (!ignore_recipient) {
+        const user_id = recipient;
+        myself = await model.get_user(user_id);
+        if (myself == null) {
+            console.log('Recipent ID invalid.');
+            return { added_users: [] };
+        }
+        console.log('Adding to user: ', myself);
+    } else {
+        myself = await model.find_user_from_email(user_info.test_myself.email)
+        if (myself == null) {
+            console.log('Cannot find test user.');
+            return { added_users: [] };
+        }
     }
 
     const datas: MailgunParsed[] = model.parseMailgunWebhookThread(body);
@@ -328,6 +341,7 @@ export async function update_db_on_mailgun_webhook(body: object, db, myio?: Sock
     }
     var results: User[] = [];
     var results_comments: CommentTyp[] = [];
+    await model.join_session({ session_id, user_id: myself.id, timestamp: datas[datas.length - 1].timestamp, source: 'owner' });
     for (var i = 0; i < datas.length; i++) {
         const data: MailgunParsed = datas[i];
         const timestamp = data.timestamp || -1;
@@ -339,8 +353,7 @@ export async function update_db_on_mailgun_webhook(body: object, db, myio?: Sock
             console.log('User=null');
         } else {
             results.push(u);
-            const r1: JoinSessionResponse = await model.join_session(session_id, u.id, timestamp);
-            await model.join_session(session_id, myself.id, data.timestamp);
+            const r1: JoinSessionResponse = await model.join_session({ session_id, user_id: u.id, timestamp, source: 'email_thread' });
             console.log('update_db_on_mailgun_webhook', { session_id, user_id: u.id, fullname, email, 'data.from': data.from, r1 });
             const { ok, data: data1 } = await model.post_comment(u.id, session_id, timestamp, data.comment, data.message_id, "", "email");
             console.log('Heading and comment beginning', data.heading, data.comment.slice(0, 100));

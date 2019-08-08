@@ -14,7 +14,7 @@ glob.glob('imported_data/mailgun/*.json', (err, files) => {
     Promise.all(_.map(files, async (filename: string) => {
         const s = fs.readFileSync(filename, 'utf8');
         const body = JSON.parse(s);
-        return await update_db_on_mailgun_webhook(body, db);
+        return await update_db_on_mailgun_webhook({ body, db, myio: null, ignore_recipient: true });
     })).then((rss1: { added_users: User[] }[]) => {
         db.serialize(() => {
             const rss = _.compact(rss1);

@@ -9,7 +9,7 @@ import * as mail_algo from '../server/mail_algo';
 import * as model from '../server/model';
 const path = require('path');
 const sqlite3 = require('sqlite3');
-const db = new sqlite3.Database(path.join(__dirname, '../private/db.sqlite3'));
+const db = new sqlite3.Database(path.join(__dirname, '../server/private/db.sqlite3'));
 import * as _ from 'lodash';
 import axios from 'axios';
 const bodyParser = require("body-parser");
@@ -31,7 +31,7 @@ app.post('/mailgun_webhook', multer().none(), (req, res) => {
     fs.writeFile('imported_data/mailgun/' + req.body['Message-Id'] + '.json', JSON.stringify(req.body, null, 2), () => {
         res.json({ status: "ok" });
         console.log('Received email from: ', req.body['From']);
-        mail_algo.update_db_on_mailgun_webhook(req.body, db, myio).then(() => {
+        mail_algo.update_db_on_mailgun_webhook({ body: req.body, db, myio }).then(() => {
             console.log('Parsing done.');
         })
     });

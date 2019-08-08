@@ -148,7 +148,7 @@ app.get('/api/verify_token', (req, res) => {
         if (err) {
             res.status(200).json({ valid: false });
         } else {
-            model.find_user_from_user_id(decoded.user_id).then((user) => {
+            model.get_user(decoded.user_id).then((user) => {
                 if (user) {
                     req.decoded = decoded;
                     res.status(200).json({ valid: true, decoded });
@@ -209,7 +209,7 @@ app.get('/api/users', (__, res: JsonResponse<GetUsersResponse>) => {
 });
 
 app.get('/api/users/:id', (req, res: JsonResponse<GetUserResponse>) => {
-    model.find_user_from_user_id(req.params.id).then((user: User) => {
+    model.get_user(req.params.id).then((user: User) => {
         res.json({ ok: true, data: { user } });
     });
 });
@@ -369,7 +369,9 @@ app.post('/api/join_session', (req: PostRequest<JoinSessionParam>, res: JsonResp
     (async () => {
         const session_id = req.body.session_id;
         const myself = req.decoded.user_id;
-        const r: JoinSessionResponse = await model.join_session(session_id, req.decoded.user_id);
+        const source = 'manual';
+        const timestamp = new Date().getTime();
+        const r: JoinSessionResponse = await model.join_session({ session_id, user_id: req.decoded.user_id, source, timestamp });
         res.json(r);
         if (r.ok) {
             _.map(r.data.members.concat([myself]), async (m: string) => {
