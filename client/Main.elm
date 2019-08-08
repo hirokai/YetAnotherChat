@@ -93,6 +93,10 @@ port startPosterSession : String -> Cmd msg
 port logout : () -> Cmd msg
 
 
+appName =
+    "Slack clone"
+
+
 type alias CommentTyp =
     { id : String
     , user : String
@@ -288,6 +292,7 @@ type alias ChatPageModel =
 
 type Page
     = RoomPage RoomID
+    | SessionListPage
     | UserPage String
     | UserListPage
     | HomePage
@@ -299,6 +304,9 @@ pageToPath page =
     case page of
         RoomPage r ->
             "/sessions/" ++ r
+
+        SessionListPage ->
+            "/sessions/"
 
         UserPage u ->
             "/users/" ++ u
@@ -313,15 +321,14 @@ pageToPath page =
             "/sessions/new"
 
 
-
--- FIXME
-
-
 pathToPage : String -> Page
 pathToPage hash =
     case Maybe.withDefault [] <| List.tail (String.split "/" hash) of
         "sessions" :: r :: ts ->
-            if r == "new" then
+            if r == "" then
+                SessionListPage
+
+            else if r == "new" then
                 NewSession
 
             else
@@ -596,6 +603,9 @@ update msg model =
                     RoomPage r ->
                         enterRoom r model
 
+                    SessionListPage ->
+                        enterSessionList model
+
                     HomePage ->
                         enterHome model
 
@@ -834,6 +844,10 @@ enterHome model =
 
 enterUserList model =
     ( { model | page = UserListPage }, Cmd.none )
+
+
+enterSessionList model =
+    ( { model | page = SessionListPage }, Cmd.none )
 
 
 enterRoom : String -> Model -> ( Model, Cmd Msg )
@@ -1085,7 +1099,7 @@ leftMenu model =
              , div []
                 [ a [ class "btn btn-light", id "newroom-button", onClick EnterNewSessionScreen ] [ text "新しい会話" ]
                 ]
-             , div [] [ a [ id "btn-userlist", class "btn btn-light", href "#/users/" ] [ text "ユーザー一覧" ] ]
+             , div [] [ a [ id "btn-userlist", class "btn btn-light btn-sm", href "#/users/" ] [ text "ユーザー" ], a [ id "btn-userlist", class "btn btn-light btn-sm", href "#/sessions/" ] [ text "セッション" ] ]
              ]
                 ++ showChannels model
             )
@@ -1162,6 +1176,9 @@ view model =
         RoomPage room ->
             chatRoomView room model
 
+        SessionListPage ->
+            sessionListView model
+
         UserPage user ->
             userPageView user model
 
@@ -1215,6 +1232,54 @@ mkPeoplePanel model selected user =
         , onClick (NewSessionMsg (TogglePersonInNew user))
         ]
         [ div [ class "name" ] [ text (getUserNameDisplay model user) ], div [ class "email" ] [ text email ] ]
+
+
+sessionListView : Model -> { title : String, body : List (Html Msg) }
+sessionListView model =
+    { title = "List of sessions"
+    , body =
+        [ div [ class "container-fluid" ]
+            [ div [ class "row" ]
+                [ leftMenu model
+                , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
+                    [ h1 [] [ text "セッション一覧" ]
+                    , table [ id "list-sessions-wrapper", class "table" ]
+                        [ thead []
+                            [ tr []
+                                [ th [] [ text "名前" ]
+                                , th [] [ text "メンバー" ]
+                                ]
+                            ]
+                        , tbody [] <|
+                            List.map (\r -> mkSessionRowInList model r)
+                                model.rooms
+                        ]
+                    , div
+                        [ style "clear" "both" ]
+                        []
+                    ]
+                ]
+            ]
+        ]
+    }
+
+
+mkSessionRowInList : Model -> RoomID -> Html Msg
+mkSessionRowInList model room_id =
+    let
+        room_ : Maybe RoomInfo
+        room_ =
+            Dict.get room_id model.roomInfo
+    in
+    case room_ of
+        Just room ->
+            tr []
+                [ td [] [ a [ href <| "#/sessions/" ++ room.id ] [ text room.name ] ]
+                , td [] <| List.intersperse (text ", ") (List.map (\u -> a [ href <| "/main#" ++ pageToPath (UserPage u), class "clickable" ] [ text (getUserName model u) ]) (roomUsers room.id model))
+                ]
+
+        Nothing ->
+            text ""
 
 
 userListView : Model -> { title : String, body : List (Html Msg) }
@@ -1555,13 +1620,13 @@ userPageView user model =
         user_info =
             getUserInfo model user
     in
-    { title = "Slack clone"
+    { title = (Maybe.withDefault "" <| Maybe.map .fullname user_info) ++ ": " ++ appName
     , body =
         [ div [ class "container-fluid" ]
             [ div [ class "row" ]
                 [ leftMenu model
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
-                    [ h1 [] [ text (getUserName model user) ]
+                    [ h1 [] [ text <| getUserNameDisplay model user ]
                     , div []
                         [ span [] [ text "Email: ", text <| Maybe.withDefault "（未登録）" <| Maybe.andThen (.emails >> List.head) user_info ]
                         ]

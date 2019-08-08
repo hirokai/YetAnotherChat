@@ -53,8 +53,8 @@ app.post('/slack_endpoint', (req, res) => {
         console.log(err, res1.body);
         const msg = _.find(res1.body.messages, (m) => { return m.client_msg_id == event.client_msg_id });
         if (msg != null) {
-            const session_id = 'a_mXIodqg';
-            const user_id = 'Fg4a$m6Cr';
+            const session_id = 'gsTeps7Y8';
+            const user_id = 'tRX3JzQEv';
             const id = shortid();
             const comment = msg.text;
             const timestamp = Math.floor(timestamp_us * 1000);
