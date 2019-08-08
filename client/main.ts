@@ -353,6 +353,9 @@ $(() => {
             reader.readAsArrayBuffer(file);
         });
     });
+
+    // @ts-ignore
+    $('[data-toggle="tooltip"]').tooltip();
 });
 
 function getUserImages() {

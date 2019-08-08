@@ -1,6 +1,7 @@
 port module Main exposing (ChatEntry(..), Flags, Member, Model, Msg(..), addComment, feedMessages, feedUserMessages, getMembers, getMessages, getUserMessages, iconOfUser, init, isSelected, main, mkComment, onKeyDown, scrollTo, showAll, showItem, subscriptions, update, view)
 
 import Browser
+import DateFormat
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -10,6 +11,8 @@ import Json.Decode.Extra as JE
 import List.Extra
 import Maybe.Extra exposing (..)
 import Set
+import Task
+import Time exposing (Posix, Zone, utc)
 
 
 port getUsers : () -> Cmd msg
@@ -359,6 +362,7 @@ type alias Model =
     , editing : Set.Set String
     , editingValue : Dict String String
     , files : Dict String (List { file_id : String, url : String })
+    , timezone : Zone
     }
 
 
@@ -387,8 +391,9 @@ init { user_id, show_top_pane } =
       , editing = Set.empty
       , editingValue = Dict.empty
       , files = Dict.empty
+      , timezone = utc
       }
-    , Cmd.batch [ getRoomInfo (), getUsers (), getUserImages () ]
+    , Cmd.batch [ getRoomInfo (), getUsers (), getUserImages (), Task.perform SetTimeZone Time.here ]
     )
 
 
@@ -426,6 +431,7 @@ type Msg
     | FeedUserImages { user_id : String, images : List { url : String, file_id : String } }
     | StartNewPosterSession String
     | Logout
+    | SetTimeZone Zone
     | NoOp
 
 
@@ -587,6 +593,9 @@ update msg model =
 
                 _ ->
                     ( model, Cmd.none )
+
+        SetTimeZone zone ->
+            ( { model | timezone = zone }, Cmd.none )
 
         SetPageHash ->
             ( model, setPageHash (pageToPath model.page) )
@@ -1049,7 +1058,7 @@ showItem model entry =
                 ]
                 [ div [ style "float" "left" ] [ img [ class "chat_user_icon", src (iconOfUser (getUserName model m.user)) ] [] ]
                 , div [ class "chat_comment" ]
-                    [ div [ class "chat_user_name" ]
+                    [ div [ class "chat_user_name", attribute "data-toggle" "tooltip", title <| getUserFullname model m.user ]
                         [ text
                             (getUserName model m.user
                                 ++ (if m.sentTo /= "" then
@@ -1126,9 +1135,18 @@ getUserInfo model uid =
 
 getUserName : Model -> String -> String
 getUserName model uid =
-    case List.Extra.find (\u -> u.id == uid) model.users of
+    case getUserInfo model uid of
         Just user ->
             user.username
+
+        Nothing ->
+            "<" ++ uid ++ ">"
+
+
+getUserFullname model uid =
+    case getUserInfo model uid of
+        Just user ->
+            user.fullname
 
         Nothing ->
             "<" ++ uid ++ ">"
@@ -1248,6 +1266,7 @@ sessionListView model =
                             [ tr []
                                 [ th [] [ text "名前" ]
                                 , th [] [ text "メンバー" ]
+                                , th [] [ text "最終更新" ]
                                 ]
                             ]
                         , tbody [] <|
@@ -1264,6 +1283,23 @@ sessionListView model =
     }
 
 
+ourFormatter : Zone -> Int -> String
+ourFormatter zone t =
+    DateFormat.format
+        [ DateFormat.yearNumber
+        , DateFormat.text "/"
+        , DateFormat.monthNumber
+        , DateFormat.text "/"
+        , DateFormat.dayOfMonthNumber
+        , DateFormat.text " "
+        , DateFormat.hourMilitaryNumber
+        , DateFormat.text ":"
+        , DateFormat.minuteFixed
+        ]
+        zone
+        (Time.millisToPosix t)
+
+
 mkSessionRowInList : Model -> RoomID -> Html Msg
 mkSessionRowInList model room_id =
     let
@@ -1276,6 +1312,7 @@ mkSessionRowInList model room_id =
             tr []
                 [ td [] [ a [ href <| "#/sessions/" ++ room.id ] [ text room.name ] ]
                 , td [] <| List.intersperse (text ", ") (List.map (\u -> a [ href <| "/main#" ++ pageToPath (UserPage u), class "clickable" ] [ text (getUserName model u) ]) (roomUsers room.id model))
+                , td [] [ text <| ourFormatter model.timezone room.lastMsgTime ]
                 ]
 
         Nothing ->
