@@ -1,4 +1,4 @@
-/// <reference path="./types.d.ts" />
+/// <reference path="../common/types.d.ts" />
 
 const fs = require("fs");
 const path = require('path');

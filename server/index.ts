@@ -1,4 +1,4 @@
-/// <reference path="./types.d.ts" />
+/// <reference path="../common/types.d.ts" />
 
 import * as model from './model'
 
@@ -56,7 +56,9 @@ const port = process.env.PORT || 3000;
 
 const pretty = require('express-prettify');
 
-app.use('/public', express.static(path.join(__dirname, 'public')))
+// app.use('/public', express.static(__dirname + '/../public'))
+
+app.use('/public', express.static('/Users/hiroyuki/repos/slacklike-elm/public'))
 
 app.use(pretty({ query: 'pretty' }));
 
@@ -75,20 +77,20 @@ app.use(function (req: Request, res: MyResponse, next) {
 
 
 app.get('/register', (req, res) => {
-    res.sendFile(path.join(__dirname, './public/html/register.html'));
+    res.sendFile(path.join(__dirname, '../public/html/register.html'));
 });
 
 app.get('/login', (req, res) => {
-    res.sendFile(path.join(__dirname, './public/html/login.html'));
+    res.sendFile(path.join(__dirname, '../public/html/login.html'));
 });
 
 app.get('/main', (req, res) => {
-    res.sendFile(path.join(__dirname, './public/html/main.html'));
+    res.sendFile(path.join(__dirname, '../public/html/main.html'));
 });
 
 
 app.get('/matrix', (req, res) => {
-    res.sendFile(path.join(__dirname, './public/html/matrix.html'));
+    res.sendFile(path.join(__dirname, '../public/html/matrix.html'));
 });
 
 app.post('/api/register', (req, res) => {

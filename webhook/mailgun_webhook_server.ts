@@ -1,19 +1,19 @@
-/// <reference path="../types.d.ts" />
+/// <reference path="../common/types.d.ts" />
 
 
 const express = require('express');
 const app = express();
 const fs = require('fs');
 const multer = require('multer');
-import * as mail_algo from '../mail_algo';
-import * as model from '../model';
+import * as mail_algo from '../server/mail_algo';
+import * as model from '../server/model';
 const path = require('path');
 const sqlite3 = require('sqlite3');
 const db = new sqlite3.Database(path.join(__dirname, '../private/db.sqlite3'));
 import * as _ from 'lodash';
 import axios from 'axios';
 const bodyParser = require("body-parser");
-import * as credential from '../private/credential';
+import * as credential from '../server/private/credential';
 import request from 'request';
 import Axios from 'axios';
 const shortid_ = require('shortid');

@@ -1,4 +1,4 @@
-/// <reference path="../types.d.ts" />
+/// <reference path="../common/types.d.ts" />
 
 // @ts-ignore
 import { Elm } from './Main.elm';

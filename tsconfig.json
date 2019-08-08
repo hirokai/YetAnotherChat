@@ -21,6 +21,6 @@
     "client/**/*"
   ],
   "files": [
-    "types.d.ts"
+    "./common/types.d.ts"
   ]
 }
