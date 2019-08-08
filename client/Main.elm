@@ -360,10 +360,16 @@ type alias Model =
     , newSessionStatus : NewSessionStatus
     , userPageStatus : UserPageModel
     , chatPageStatus : ChatPageModel
+    , userListPageStatus : UserListPageStatus
     , editing : Set.Set String
     , editingValue : Dict String String
     , files : Dict String (List { file_id : String, url : String })
     , timezone : Zone
+    }
+
+
+type alias UserListPageStatus =
+    { userWithIdOnly : Bool
     }
 
 
@@ -389,6 +395,7 @@ init { user_id, show_top_pane } =
       , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
       , userPageStatus = { sessions = [], messages = [], shownFileID = Nothing, newFileBox = False }
       , chatPageStatus = { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing, topPaneExpanded = show_top_pane, shrunkEntries = False, fontSize = 3 }
+      , userListPageStatus = { userWithIdOnly = True }
       , editing = Set.empty
       , editingValue = Dict.empty
       , files = Dict.empty
@@ -415,6 +422,7 @@ type Msg
     | NewSessionMsg NewSessionMsg
     | UserPageMsg UserPageMsg
     | ChatPageMsg ChatPageMsg
+    | UserListPageMsg UserListPageMsg
     | StartSession (Set.Set Member)
     | ReceiveNewSessionId { timestamp : Int, name : String, id : RoomID }
     | FeedRoomInfo Json.Value
@@ -446,6 +454,10 @@ type UserPageMsg
     | FeedUserMessages (List ChatEntry)
     | SetShownImageID String
     | AddNewFileBox
+
+
+type UserListPageMsg
+    = CheckUserWithIdOnly Bool
 
 
 type ChatPageMsg
@@ -542,6 +554,13 @@ update msg model =
                     updateUserPageStatus msg1 model.userPageStatus
             in
             ( { model | userPageStatus = m }, c )
+
+        UserListPageMsg msg1 ->
+            let
+                ( m, c ) =
+                    updateUserListPageStatus msg1 model.userListPageStatus
+            in
+            ( { model | userListPageStatus = m }, c )
 
         ChatPageMsg msg1 ->
             let
@@ -934,6 +953,13 @@ updateUserPageStatus msg model =
 
         AddNewFileBox ->
             ( { model | newFileBox = True, shownFileID = Nothing }, Cmd.none )
+
+
+updateUserListPageStatus : UserListPageMsg -> UserListPageStatus -> ( UserListPageStatus, Cmd msg )
+updateUserListPageStatus msg model =
+    case msg of
+        CheckUserWithIdOnly b ->
+            ( { model | userWithIdOnly = b }, Cmd.none )
 
 
 updateChatPageStatus : ChatPageMsg -> ChatPageModel -> ( ChatPageModel, Cmd msg )
@@ -1340,6 +1366,15 @@ mkSessionRowInList model room_id =
 
 userListView : Model -> { title : String, body : List (Html Msg) }
 userListView model =
+    let
+        f : User -> Bool
+        f u =
+            let
+                _ =
+                    Debug.log "emails" u.emails
+            in
+            Just "" /= List.head u.emails
+    in
     { title = "Slack clone"
     , body =
         [ div [ class "container-fluid" ]
@@ -1347,9 +1382,15 @@ userListView model =
                 [ leftMenu model
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text "ユーザー一覧" ]
+                    , div [] [ input [ type_ "checkbox", id "check-user-with-id-only", checked model.userListPageStatus.userWithIdOnly, onCheck (CheckUserWithIdOnly >> UserListPageMsg) ] [], label [ for "check-user-with-id-only" ] [ text "不明ユーザーを隠す" ] ]
                     , div [ id "list-people-wrapper" ] <|
                         List.map (\u -> mkPeopleDivInList model model.newSessionStatus.selected u.id)
-                            model.users
+                            (if model.userListPageStatus.userWithIdOnly then
+                                List.filter f model.users
+
+                             else
+                                model.users
+                            )
                     , div
                         [ style "clear" "both" ]
                         []
