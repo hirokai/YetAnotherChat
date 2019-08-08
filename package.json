@@ -39,8 +39,8 @@
     "build": "npx tsc && npx webpack --env.production",
     "deploy": "gcloud app deploy",
     "start": "npx ts-node server/index.ts",
-    "forever": "nohup sudo PORT=80 forever -c node server.js &",
-    "forever:nohup": "nohup sudo PORT=80 forever -c node server.js &"
+    "forever": "sudo PORT=80 forever -c node ./server/index.js",
+    "forever:nohup": "nohup sudo PORT=80 forever -c node ./server/index.js &"
   },
   "devDependencies": {
     "@types/axios": "^0.14.0",

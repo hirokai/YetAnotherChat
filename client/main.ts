@@ -10,6 +10,12 @@ import 'bootstrap';
 import io from "socket.io-client";
 const shortid = require('shortid').generate;
 
+const token = localStorage.getItem('yacht.token') || "";
+
+if (!token || token == '') {
+    location.href = '/login' + location.hash;
+}
+
 // @ts-ignore
 const socket: SocketIOClient.Socket = io('');
 
@@ -23,9 +29,9 @@ window.setTimeout(() => {
     recalcPositions(show_toppane);
 }, 100);
 
-const token = localStorage.getItem('yacht.token') || "";
 
 socket.emit('subscribe', { token });
+
 
 axios.get('/api/verify_token', { params: { token } }).then(({ data }) => {
     if (!data.valid) {

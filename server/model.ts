@@ -432,7 +432,7 @@ export function get_original_email_highlighted(mail_id: string): Promise<{ lines
                 }
             });
         } else {
-            reject();
+            reject('Mail url is wrong.');
         }
     });
 }

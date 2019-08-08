@@ -15,7 +15,8 @@
     }
   },
   "include": [
-    "*",
+    "common/*.ts",
+    "server/*.ts",
   ],
   "exclude": [
     "client/**/*"

@@ -16,7 +16,29 @@ const db = new sqlite3.Database(path.join(__dirname, 'private/db.sqlite3'));
 const fs = require('fs');
 const moment = require('moment');
 const jwt = require('jsonwebtoken');
-var http = require('http').createServer(app);
+
+
+
+// https://itnext.io/node-express-letsencrypt-generate-a-free-ssl-certificate-and-run-an-https-server-in-5-minutes-a730fbe528ca
+const privateKey = fs.readFileSync('/etc/letsencrypt/live/coi-sns.com/privkey.pem', 'utf8');
+const certificate = fs.readFileSync('/etc/letsencrypt/live/coi-sns.com/cert.pem', 'utf8');
+const ca = fs.readFileSync('/etc/letsencrypt/live/coi-sns.com/chain.pem', 'utf8');
+
+const credentials = {
+    key: privateKey,
+    cert: certificate,
+    ca: ca
+};
+
+const production = true; //process.env.PRODUCTION;
+
+const http = require('http').createServer(app);
+var https;
+if (production) {
+    console.log('Production (HTTPS)')
+    https = require('https').createServer(credentials, app);
+}
+
 const io = require('socket.io')(http);
 const credential = require('./private/credential');
 import * as ec from './error_codes';
@@ -28,7 +50,7 @@ var compression = require('compression');
 app.use(compression());
 
 
-const upload = multer({ dest: './public/uploads/' }).single('user_image');
+const upload = multer({ dest: './uploads/' }).single('user_image');
 
 enum Timespan {
     day,
@@ -59,7 +81,8 @@ const pretty = require('express-prettify');
 
 // app.use('/public', express.static(__dirname + '/../public'))
 
-app.use('/public', express.static('/Users/hiroyuki/repos/slacklike-elm/public'))
+app.use('/public', express.static(path.join(__dirname, '../public')))
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
 
 app.use(pretty({ query: 'pretty' }));
 
@@ -74,6 +97,10 @@ app.use(function (req: Request, res: MyResponse, next) {
     res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, X-Access-Token");
     res.header('Access-Control-Allow-Methods', 'PUT, POST, GET, DELETE, PATCH, OPTIONS');
     next();
+});
+
+app.get('/.well-known/acme-challenge/QGHcMRRCmxHp5-pvGxCorKDreEX8CuWOPgIUelUPPww', (req, res) => {
+    res.send('QGHcMRRCmxHp5-pvGxCorKDreEX8CuWOPgIUelUPPww.RmGjYrLQ6ArB1jFRESCFgvLvQImuoIXVUWklPV4Ivtc');
 });
 
 app.get('/', (req, res) => {
@@ -95,6 +122,9 @@ app.get('/main', (req, res) => {
 app.get('/email/:id', (req, res) => {
     model.get_original_email_highlighted(req.params.id).then(({ lines, subject, range }) => {
         res.render(path.join(__dirname, './email.ejs'), { lines, subject, range });
+    }).catch((err) => {
+        console.log(err);
+        res.send('Error.');
     });
 });
 
@@ -470,6 +500,12 @@ app.post('/internal/emit_socket', (req, res) => {
 http.listen(port, () => {
     console.log("server is running at port " + port);
 })
+
+if (production) {
+    https.listen(443, () => {
+        console.log("HTTPS server is running at port " + 443);
+    })
+}
 
 io.on('connection', function (socket) {
     console.log('A user connected');
