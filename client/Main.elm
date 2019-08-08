@@ -290,6 +290,7 @@ type alias ChatPageModel =
     , messages : Maybe (List ChatEntry)
     , topPaneExpanded : Bool
     , shrunkEntries : Bool
+    , fontSize : Int -- 1 to 5
     }
 
 
@@ -387,7 +388,7 @@ init { user_id, show_top_pane } =
       , users = []
       , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
       , userPageStatus = { sessions = [], messages = [], shownFileID = Nothing, newFileBox = False }
-      , chatPageStatus = { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing, topPaneExpanded = show_top_pane, shrunkEntries = False }
+      , chatPageStatus = { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing, topPaneExpanded = show_top_pane, shrunkEntries = False, fontSize = 3 }
       , editing = Set.empty
       , editingValue = Dict.empty
       , files = Dict.empty
@@ -455,6 +456,8 @@ type ChatPageMsg
     | RemoveItem String
     | ExpandTopPane Bool
     | SetShrinkEntries Bool
+    | SmallerFont
+    | LargerFont
 
 
 onKeyDown : (Int -> msg) -> Attribute msg
@@ -983,6 +986,12 @@ updateChatPageStatus msg model =
         SetShrinkEntries b ->
             ( { model | shrunkEntries = b }, Cmd.none )
 
+        SmallerFont ->
+            ( { model | fontSize = Basics.max 1 (model.fontSize - 1) }, Cmd.none )
+
+        LargerFont ->
+            ( { model | fontSize = Basics.min 5 (model.fontSize + 1) }, Cmd.none )
+
 
 removeItem : String -> ChatPageModel -> ( ChatPageModel, Cmd msg )
 removeItem id model =
@@ -1074,7 +1083,7 @@ showItem model entry =
                         , a [ href m.originalUrl ] [ showSource m.source ]
                         , span [ class "remove-item clickable", onClick (ChatPageMsg (RemoveItem m.id)) ] [ text "×" ]
                         ]
-                    , div [ class "chat_comment_content" ] <| mkComment m.comment
+                    , div [ classList [ ( "chat_comment_content", True ), ( "font-" ++ String.fromInt model.chatPageStatus.fontSize, True ) ] ] <| mkComment m.comment
                     ]
                 , div [ style "clear" "both" ] [ text "" ]
                 ]
@@ -1441,6 +1450,10 @@ topPane model =
                 , button [ klass Thread, onClick (ChatPageMsg <| SetFilterMode Thread) ] [ text "スレッド" ]
                 , button [ klass Person, onClick (ChatPageMsg <| SetFilterMode Person) ] [ text "人" ]
                 , button [ klass Date, onClick (ChatPageMsg <| SetFilterMode Date) ] [ text "日付" ]
+                , div [ id "topright-buttons" ]
+                    [ button [ class "btn btn-sm btn-light", onClick (ChatPageMsg <| SmallerFont) ] [ i [ class "fas fa-font fa-xs " ] [] ]
+                    , button [ class "btn btn-sm btn-light", onClick (ChatPageMsg <| LargerFont) ] [ i [ class "fas fa-font fa-lg " ] [] ]
+                    ]
                 ]
             , if model.chatPageStatus.topPaneExpanded then
                 case model.chatPageStatus.filterMode of

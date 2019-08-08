@@ -28,7 +28,7 @@ app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.use(bodyParser.json());
 
 app.post('/mailgun_webhook', multer().none(), (req, res) => {
-    fs.writeFile('mailgun/' + req.body['Message-Id'] + '.json', JSON.stringify(req.body, null, 2), () => {
+    fs.writeFile('imported_data/mailgun/' + req.body['Message-Id'] + '.json', JSON.stringify(req.body, null, 2), () => {
         res.json({ status: "ok" });
         console.log('Received email from: ', req.body['From']);
         mail_algo.update_db_on_mailgun_webhook(req.body, db, myio).then(() => {

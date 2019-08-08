@@ -422,3 +422,14 @@ a {
 #btn-sessionlist {
     margin-left: 5px;
 }
+
+#topright-buttons {
+    float: right;
+    margin: 5px 10px 0px 0px;
+}
+
+#topright-buttons button {
+    height: 25px;
+    width: 25px;
+    padding: 0px;
+}
