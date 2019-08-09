@@ -1747,7 +1747,9 @@ userPageView user model =
                                                    )
                                         , onClick (UserPageMsg <| SetShownImageID f.file_id)
                                         ]
-                                        [ text (String.fromInt (1 + i) ++ ": " ++ f.file_id) ]
+                                        [ text (String.fromInt (1 + i) ++ ": " ++ f.file_id)
+                                        , span [ class "clickable delete-poster" ] [ text "×" ]
+                                        ]
                                 )
                                 user_files
                                 ++ [ button [ class "btn btn-light btn-sm poster-tab-button poster-tab-button-add", onClick (UserPageMsg <| AddNewFileBox) ] [ text "+" ] ]
