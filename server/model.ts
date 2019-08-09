@@ -168,12 +168,16 @@ export function get_user_file_list(): Promise<{ url: string }[]> {
 }
 
 export function save_user_file(user_id: string, path: string, kind: string, session_id?: string): Promise<{ file_id: string, path: string }> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         const timestamp: number = new Date().getTime();
         const file_id = shortid();
         const abs_path = '/' + path;
-        db.run('insert into files (id,user_id,path,timestamp,kind) values (?,?,?,?);', file_id, user_id, abs_path, timestamp, kind, (err) => {
-            if (session_id != null) {
+        // resolve({ file_id: null, path: null });
+        db.run('insert into files (id,user_id,path,timestamp,kind) values (?,?,?,?,?);', file_id, user_id, abs_path, timestamp, kind, (err) => {
+            if (err) {
+                console.log('save_user_file error', err);
+                reject();
+            } else if (session_id != null) {
                 const comment_id = shortid();
                 const comment = '<__file::' + file_id + '::' + path + '>';
                 db.run('insert into comments (id,user_id,session_id,timestamp,comment) values (?,?,?,?,?)',
@@ -181,6 +185,8 @@ export function save_user_file(user_id: string, path: string, kind: string, sess
                     (err2) => {
                         if (!err && !err2) {
                             resolve({ file_id, path });
+                        } else {
+                            reject({ err, err2 });
                         }
                     }
                 )

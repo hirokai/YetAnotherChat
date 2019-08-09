@@ -324,7 +324,7 @@ $(() => {
                 if (file_id && file_id != '') {
                     updateData(file_id, formData);
                 } else {
-                    postData(formData);
+                    postPosterData(formData);
                 }
             };
             reader.readAsArrayBuffer(file);
@@ -390,31 +390,34 @@ function postFileToSession(session_id: string, formData: FormData) {
         data: formData,
         processData: false,
         contentType: false,
-        dataType: 'html',
-        complete: function () { },
-        success: function (r) {
-            const res = JSON.parse(r);
-            console.log(res);
-        }
+        dataType: 'html'
+    }).then((r) => {
+        const res = JSON.parse(r);
+        console.log(res);
+
+    }, (err) => {
+        console.log('error', err);
     });
 }
 
-function postData(formData: FormData) {
+function postPosterData(formData: FormData) {
     $.ajax({
         url: '/api/files?kind=poster&token=' + token,
         type: 'post',
         data: formData,
         processData: false,
         contentType: false,
-        dataType: 'html',
-        complete: function () { },
-        success: function (r) {
-            const res = JSON.parse(r);
-            console.log(res);
-            if (res.ok) {
-                getUserImages();
-            }
+        dataType: 'html'
+    }).then((r) => {
+        const res = JSON.parse(r);
+        console.log('postPosterData success', res);
+        if (res.ok) {
+            getUserImages();
         }
+    }, (err) => {
+        console.log('postPosterData error', err);
+    }).catch((e) => {
+        console.log('postPosterData error', e);
     });
 }
 

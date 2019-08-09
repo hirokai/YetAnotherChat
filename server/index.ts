@@ -19,27 +19,29 @@ const jwt = require('jsonwebtoken');
 
 
 
-// https://itnext.io/node-express-letsencrypt-generate-a-free-ssl-certificate-and-run-an-https-server-in-5-minutes-a730fbe528ca
-const privateKey = fs.readFileSync('/etc/letsencrypt/live/coi-sns.com/privkey.pem', 'utf8');
-const certificate = fs.readFileSync('/etc/letsencrypt/live/coi-sns.com/cert.pem', 'utf8');
-const ca = fs.readFileSync('/etc/letsencrypt/live/coi-sns.com/chain.pem', 'utf8');
 
-const credentials = {
-    key: privateKey,
-    cert: certificate,
-    ca: ca
-};
-
-const production = true; //process.env.PRODUCTION;
+// const production = true; //process.env.PRODUCTION;
+const production = false;
 
 const http = require('http').createServer(app);
 var https;
 if (production) {
     console.log('Production (HTTPS)')
+
+    // https://itnext.io/node-express-letsencrypt-generate-a-free-ssl-certificate-and-run-an-https-server-in-5-minutes-a730fbe528ca
+    const privateKey = fs.readFileSync('/etc/letsencrypt/live/coi-sns.com/privkey.pem', 'utf8');
+    const certificate = fs.readFileSync('/etc/letsencrypt/live/coi-sns.com/cert.pem', 'utf8');
+    const ca = fs.readFileSync('/etc/letsencrypt/live/coi-sns.com/chain.pem', 'utf8');
+
+    const credentials = {
+        key: privateKey,
+        cert: certificate,
+        ca: ca
+    };
     https = require('https').createServer(credentials, app);
 }
 
-const io = require('socket.io')(http);
+const io = require('socket.io')(production ? https : http);
 const credential = require('./private/credential');
 import * as ec from './error_codes';
 import multer from 'multer';
@@ -467,6 +469,9 @@ app.post('/api/files', (req, res) => {
                     file_id,
                 }
                 res.json({ ok: true, files: [file] });
+            }).catch((e) => {
+                console.log(e);
+                res.json({ ok: false });
             });
         } else {
             res.json({ ok: false });
