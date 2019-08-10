@@ -62,6 +62,10 @@ socket.on("message", (msg: any) => {
         const msg1 = <any>msg;
         msg1.timestamp = formatTime(msg.timestamp);
         msg = msg1;
+    } else if (msg.__type == "new_file") {
+        const msg1 = <any>msg;
+        // msg1.timestamp = formatTime(msg.timestamp);
+        msg = msg1;
     }
     app.ports.onSocket.send(msg);
 });
@@ -300,6 +304,8 @@ app.ports.logout.subscribe(() => {
 
 $(() => {
     const profile_img = $('.profile-img.mine');
+    profile_img.addClass('droppable')
+
     profile_img.on('dragover', (ev) => {
         $(ev.target).addClass('dragover');
         ev.preventDefault();
@@ -381,6 +387,14 @@ function getUserImages() {
 
 app.ports.getUserImages.subscribe(() => {
     getUserImages();
+});
+
+app.ports.deleteFile.subscribe((file_id: string) => {
+    const user_id = localStorage['yacht.user_id'];
+    console.log('deleteFile', user_id, file_id);
+    axios.delete('/api/files/' + file_id, { data: { token, user_id } }).then(({ data }: AxiosResponse<DeleteFileResponse>) => {
+        console.log(data);
+    });
 });
 
 function postFileToSession(session_id: string, formData: FormData) {

@@ -137,7 +137,20 @@ interface GetSessionsOfParams extends AuthedParams {
 
 type GetSessionResponse = { ok: boolean, data: RoomInfo }
 type PatchSessionResponse = { ok: boolean }
+
 type DeleteCommentResponse = { ok: boolean, data?: DeleteCommentData }
+
+type PostFileResponse = { ok: boolean, data?: PostFileResponseData }
+type PostFileResponseData = {
+    user_id: string,
+    file_id: string,
+    path: string
+}
+type DeleteFileRequestParam = { id: string }
+type DeleteFileRequestData = { user_id: string }
+type DeleteFileResponse = { ok: boolean, data?: DeleteFileData }
+type DeleteFileData = { user_id: string, file_id: string }
+
 type DeleteCommentData = { comment_id: string, session_id: string }
 type GetSessionsResponse = { ok: boolean, data: RoomInfo[] }
 type GetUsersResponse = {

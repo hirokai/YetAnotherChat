@@ -93,6 +93,9 @@ port feedUserImages : ({ user_id : String, images : List { url : String, file_id
 port startPosterSession : String -> Cmd msg
 
 
+port deleteFile : String -> Cmd msg
+
+
 port logout : () -> Cmd msg
 
 
@@ -454,6 +457,7 @@ type UserPageMsg
     | FeedUserMessages (List ChatEntry)
     | SetShownImageID String
     | AddNewFileBox
+    | DeletePosterImage String
 
 
 type UserListPageMsg
@@ -738,6 +742,23 @@ update msg model =
                             Nothing ->
                                 ( model, Cmd.none )
 
+                Ok (NewFileSocket { file_id, user_id }) ->
+                    let
+                        user_files =
+                            Maybe.withDefault [] <| Dict.get user_id model.files
+
+                        ups =
+                            model.userPageStatus
+                    in
+                    ( { model | files = Dict.insert file_id ([ { file_id = file_id, url = user_id } ] ++ user_files) model.files, userPageStatus = { ups | shownFileID = Just file_id, newFileBox = False } }, Cmd.none )
+
+                Ok (DeleteFileSocket { file_id, user_id }) ->
+                    let
+                        user_files =
+                            Maybe.withDefault [] <| Dict.get user_id model.files
+                    in
+                    ( { model | files = Dict.insert user_id (List.filter (.file_id >> (/=) file_id) user_files) model.files }, Cmd.none )
+
                 Ok (NewSessionSocket info) ->
                     ( { model | roomInfo = Dict.insert info.id info model.roomInfo, rooms = info.id :: model.rooms }, Cmd.none )
 
@@ -802,6 +823,8 @@ type SocketMsg
     | DeleteComment DeleteCommentMsg
     | NewSessionSocket RoomInfo
     | NewMemberSocket { session_id : String, user_id : String, timestamp : String }
+    | NewFileSocket { file_id : String, user_id : String, url : String }
+    | DeleteFileSocket { file_id : String, user_id : String }
 
 
 socketDecoder : Json.Decoder SocketMsg
@@ -856,6 +879,27 @@ socketMsg m =
                     (Json.field "session_id" Json.string)
                     (Json.field "user_id" Json.string)
                     (Json.field "timestamp" Json.string)
+
+        "new_file" ->
+            let
+                _ =
+                    Debug.log "new_file, OK so far" ""
+            in
+            Json.map NewFileSocket <|
+                Json.map3 (\a b c -> { file_id = a, user_id = b, url = c })
+                    (Json.field "file_id" Json.string)
+                    (Json.field "user_id" Json.string)
+                    (Json.field "url" Json.string)
+
+        "delete_file" ->
+            let
+                _ =
+                    Debug.log "delete_file, OK so far" ""
+            in
+            Json.map DeleteFileSocket <|
+                Json.map2 (\a b -> { file_id = a, user_id = b })
+                    (Json.field "file_id" Json.string)
+                    (Json.field "user_id" Json.string)
 
         s ->
             Json.fail ("Message <" ++ s ++ "> Not implemented yet")
@@ -953,6 +997,9 @@ updateUserPageStatus msg model =
 
         AddNewFileBox ->
             ( { model | newFileBox = True, shownFileID = Nothing }, Cmd.none )
+
+        DeletePosterImage file_id ->
+            ( model, deleteFile file_id )
 
 
 updateUserListPageStatus : UserListPageMsg -> UserListPageStatus -> ( UserListPageStatus, Cmd msg )
@@ -1748,7 +1795,7 @@ userPageView user model =
                                         , onClick (UserPageMsg <| SetShownImageID f.file_id)
                                         ]
                                         [ text (String.fromInt (1 + i) ++ ": " ++ f.file_id)
-                                        , span [ class "clickable delete-poster" ] [ text "×" ]
+                                        , span [ class "clickable delete-poster", onClick (UserPageMsg <| DeletePosterImage f.file_id) ] [ text "×" ]
                                         ]
                                 )
                                 user_files

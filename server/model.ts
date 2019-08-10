@@ -173,11 +173,14 @@ export function save_user_file(user_id: string, path: string, kind: string, sess
         const file_id = shortid();
         const abs_path = '/' + path;
         // resolve({ file_id: null, path: null });
+        console.log('save_user_file 1');
         db.run('insert into files (id,user_id,path,timestamp,kind) values (?,?,?,?,?);', file_id, user_id, abs_path, timestamp, kind, (err) => {
+            console.log('save_user_file 2');
             if (err) {
                 console.log('save_user_file error', err);
                 reject();
             } else if (session_id != null) {
+                console.log('save_user_file 3');
                 const comment_id = shortid();
                 const comment = '<__file::' + file_id + '::' + path + '>';
                 db.run('insert into comments (id,user_id,session_id,timestamp,comment) values (?,?,?,?,?)',
@@ -190,6 +193,8 @@ export function save_user_file(user_id: string, path: string, kind: string, sess
                         }
                     }
                 )
+            } else {
+                resolve({ file_id, path });
             }
         });
     });
@@ -296,7 +301,7 @@ export function get_comments_list(session_id: string, user_id: string): Promise<
             const r = emoji_dict[$1];
             return r ? r.emoji : $1;
         });
-        console.log('get_comments_list comment', comment);
+        // console.log('get_comments_list comment', comment);
         if (comment.slice(0, 9) == '<__file::') {
             const m = comment.match(/<__file::(.+?)::(.+)>/);
             const file_id = m[1] || "";

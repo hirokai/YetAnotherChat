@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title><%- subject %></title>
+    <style>
+        p {
+            margin: 0px;
+            font-size: 13px;
+        }
+        p.hl {
+            color: red;
+        }
+    </style>
+</head>
+
+<body>
+<% lines.forEach( (line,i) => { %>
+    <p class=<%- line.highlight ? 'hl' : '' %> id=<%- range.start == i + 1 ? 'start' : '' %> ><%- line.line %></p>
+<% }) %>
+
+<script>
+document.getElementById('start').scrollIntoView();
+</script>
+</body>
+
+</html>

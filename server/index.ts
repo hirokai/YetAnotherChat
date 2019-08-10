@@ -316,6 +316,7 @@ app.get('/api/sessions/:id', (req, res: JsonResponse<GetSessionResponse>) => {
 });
 
 
+
 app.delete('/api/comments/:id', (req, res: JsonResponse<DeleteCommentResponse>) => {
     console.log('delete comment');
     const comment_id = req.params.id;
@@ -360,6 +361,13 @@ interface PostRequest<T> {
     decoded: { user_id: string, username: string },
     body: T
 }
+
+interface DeleteRequest<T, U> {
+    decoded: { user_id: string, username: string },
+    body: U,
+    params: T
+}
+
 
 app.post('/api/sessions', (req: PostRequest<PostSessionsParam>, res: JsonResponse<PostSessionsResponse>) => {
     const body = req.body;
@@ -464,6 +472,7 @@ app.post('/api/files', (req, res) => {
         console.log('/api/files', err, req.file);
         if (!err) {
             model.save_user_file(req.decoded.user_id, req.file.path, kind, session_id).then(({ file_id }) => {
+                console.log('save_user_file done', file_id)
                 const file = {
                     path: '/' + req.file.path,
                     file_id,
@@ -479,23 +488,44 @@ app.post('/api/files', (req, res) => {
     });
 });
 
-app.patch('/api/files/:id', (req, res) => {
-    upload(req, res, function (err) {
+app.patch('/api/files/:id', (req, res: JsonResponse<PostFileResponse>) => {
+    upload(req, <any>res, function (err) {
         console.log('/api/files', err, req.file);
         if (!err) {
             model.update_user_file(req.decoded.user_id, req.params.id, req.file.path).then((r) => {
                 if (r != null) {
-                    const file = {
+                    const data: PostFileResponseData = {
                         path: '/' + req.file.path,
                         file_id: r.file_id,
-                    }
-                    res.json({ ok: true, files: [file] });
+                        user_id: req.decoded.user_id
+                    };
+                    res.json({ ok: true, data });
+                    const obj = _.extend({}, { __type: "new_file" }, data);
+                    console.log('/api/files/:id emitting', obj);
+                    io.emit("message", obj);
                 }
             });
         } else {
             res.json({ ok: false });
         }
     });
+});
+
+app.delete('/api/files/:id', (req: DeleteRequest<DeleteFileRequestParam, DeleteFileRequestData>, res: JsonResponse<DeleteFileResponse>) => {
+    console.log('delete comment');
+    const file_id = req.params.id;
+    const user_id = req.body.user_id;
+
+    db.run('delete from files where id=? and user_id=?;', file_id, user_id, (err) => {
+        if (!err) {
+            const data: DeleteFileData = { file_id, user_id };
+            res.json({ ok: true, data });
+            io.emit("message", _.extend({}, { __type: "delete_file" }, data));
+        } else {
+            res.json({ ok: true });
+        }
+    });
+
 });
 
 app.post('/internal/emit_socket', (req, res) => {

@@ -437,3 +437,7 @@ a {
 .delete-poster {
     float: right;
 }
+
+.droppable {
+    background: #eee;
+}
