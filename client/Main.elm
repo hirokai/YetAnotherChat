@@ -48,6 +48,9 @@ port feedSessionsOf : (List String -> msg) -> Sub msg
 port scrollTo : String -> Cmd msg
 
 
+port scrollToBottom : () -> Cmd msg
+
+
 port createNewSession : ( String, List Member ) -> Cmd msg
 
 
@@ -294,6 +297,7 @@ type alias ChatPageModel =
     , topPaneExpanded : Bool
     , shrunkEntries : Bool
     , fontSize : Int -- 1 to 5
+    , numRowsChatInput : Int
     }
 
 
@@ -386,6 +390,11 @@ getRoomID model =
             Nothing
 
 
+initialChatPageStatus : Bool -> ChatPageModel
+initialChatPageStatus show_top_pane =
+    { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing, topPaneExpanded = show_top_pane, shrunkEntries = False, fontSize = 3, numRowsChatInput = 1 }
+
+
 init : Flags -> ( Model, Cmd Msg )
 init { user_id, show_top_pane } =
     ( { selected = showAll []
@@ -397,7 +406,7 @@ init { user_id, show_top_pane } =
       , users = []
       , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
       , userPageStatus = { sessions = [], messages = [], shownFileID = Nothing, newFileBox = False }
-      , chatPageStatus = { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing, topPaneExpanded = show_top_pane, shrunkEntries = False, fontSize = 3 }
+      , chatPageStatus = initialChatPageStatus show_top_pane
       , userListPageStatus = { userWithIdOnly = True }
       , editing = Set.empty
       , editingValue = Dict.empty
@@ -965,7 +974,11 @@ enterUser u model =
 
 finishEditing : String -> (Model -> Model) -> Cmd Msg -> Model -> ( Model, Cmd Msg )
 finishEditing id updateFunc updatePort model =
-    ( updateFunc { model | editing = Set.remove id model.editing }, updatePort )
+    let
+        _ =
+            Debug.log "finishEditing" id
+    in
+    ( updateFunc { model | editing = Set.remove id model.editing, editingValue = Dict.insert id "" model.editingValue }, updatePort )
 
 
 toggleSet : comparable -> Set.Set comparable -> Set.Set comparable
@@ -1046,16 +1059,7 @@ updateChatPageStatus msg model =
             )
 
         ScrollToBottom ->
-            let
-                messages_filtered =
-                    List.filter (\m -> Set.member (getUser m) model.filter) (Maybe.withDefault [] model.messages)
-            in
-            case List.Extra.last messages_filtered of
-                Just item ->
-                    ( model, scrollTo (getId item) )
-
-                Nothing ->
-                    ( model, Cmd.none )
+            ( model, scrollToBottom () )
 
         FeedMessages ms ->
             let
@@ -1672,16 +1676,18 @@ chatRoomView room model =
                                                 [ div
                                                     [ id "chat-entries" ]
                                                   <|
-                                                    (if model.chatPageStatus.shrunkEntries then
+                                                    ((if model.chatPageStatus.shrunkEntries then
                                                         List.concatMap (\a -> [ a, hr [] [] ])
 
-                                                     else
+                                                      else
                                                         identity
-                                                    )
-                                                    <|
+                                                     )
+                                                     <|
                                                         List.map
                                                             (showItem model)
                                                             messages_filtered
+                                                    )
+                                                        ++ [ hr [] [], div [ id "end-line" ] [ text "（最新のメッセージです）" ] ]
                                                 ]
                                             ]
 
@@ -1695,8 +1701,7 @@ chatRoomView room model =
                         [ div [ class "col-md-12 col-lg-12", id "footer" ]
                             [ textarea
                                 [ id "chat-input"
-                                , rows 1
-                                , value (Maybe.withDefault "" <| Dict.get "chat" model.editingValue)
+                                , rows model.chatPageStatus.numRowsChatInput
                                 , onInput (UpdateEditingValue "chat")
                                 , onKeyDown
                                     (case Dict.get "chat" model.editingValue of
@@ -1715,7 +1720,7 @@ chatRoomView room model =
                                             \_ -> NoOp
                                     )
                                 ]
-                                []
+                                [ text <| Maybe.withDefault "" <| Dict.get "chat" model.editingValue ]
                             , button [ class "btn btn-primary", onClick SubmitComment ] [ text "送信" ]
                             ]
                         ]

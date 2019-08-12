@@ -81,6 +81,14 @@ function scrollTo(id) {
     }, 50);
 }
 
+function scrollToBottom() {
+    const el = document.getElementById('end-line');
+    el.scrollIntoView(true);
+}
+
+app.ports.scrollToBottom.subscribe(scrollToBottom);
+
+
 app.ports.scrollTo.subscribe(scrollTo);
 
 type ChatEntry = CommentTyp | SessionEvent | ChatFile;
@@ -194,7 +202,7 @@ function getAndfeedRoolmInfo() {
             s.timestamp = formatTime(r.timestamp);
             return s;
         }));
-        // scrollToBottom();
+        scrollToBottom();
     });
 }
 
@@ -233,12 +241,14 @@ app.ports.setPageHash.subscribe(function (hash: string) {
 
 function recalcPositions(show_toppane: boolean) {
     console.log('recalcPositions', show_toppane);
+    const height1 = 260;
+    const height2 = 100;
     $(() => {
-        $('#chat-outer').height(window.innerHeight - (show_toppane ? 260 : 100));
+        $('#chat-outer').height(window.innerHeight - (show_toppane ? height1 : height2));
     });
 
     window.addEventListener('resize', () => {
-        $('#chat-outer').height(window.innerHeight - (show_toppane ? 260 : 100));
+        $('#chat-outer').height(window.innerHeight - (show_toppane ? height1 : height2));
         console.log(window.innerHeight);
     });
 }

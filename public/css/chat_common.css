@@ -105,3 +105,8 @@ div.chat_comment_content.font-5 {
 div.chat_comment {
     margin-left: 50px;
 }
+
+#end-line {
+    font-size: 12px;
+    text-align: center;
+}
