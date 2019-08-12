@@ -318,19 +318,23 @@ app.get('/api/sessions/:id', (req, res: JsonResponse<GetSessionResponse>) => {
 
 
 app.delete('/api/comments/:id', (req, res: JsonResponse<DeleteCommentResponse>) => {
-    console.log('delete comment');
     const comment_id = req.params.id;
-    db.get('select session_id from comments where id=?', comment_id, (err, row) => {
-        const session_id = row['session_id'];
-        db.run('delete from comments where id=?;', comment_id, (err) => {
-            if (!err) {
-                res.json({ ok: true, data: { comment_id, session_id } });
-                const data: DeleteCommentData = { comment_id, session_id };
-                io.emit("message", _.extend({}, { __type: "delete_comment" }, data));
-            } else {
-                res.json({ ok: true });
-            }
-        });
+    db.get('select * from comments where id=?;', comment_id, (err, row) => {
+        if (row) {
+            const session_id = row['session_id'];
+            db.run('delete from comments where id=?;', comment_id, (err) => {
+                if (!err) {
+                    res.json({ ok: true, data: { comment_id, session_id } });
+                    const data: DeleteCommentData = { comment_id, session_id };
+                    io.emit("message", _.extend({}, { __type: "delete_comment" }, data));
+                } else {
+                    res.json({ ok: true });
+                }
+            });
+        } else {
+            console.log('DELETE /api/comments/ Error', err);
+            res.json({ ok: false, error: 'Comment ' + comment_id + ' does not belong to any session.' })
+        }
     });
 });
 
