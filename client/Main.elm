@@ -1605,64 +1605,74 @@ chatRoomView room model =
                                         text <| Maybe.withDefault "(N/A)" (Maybe.map (\a -> a.name) (Dict.get room model.roomInfo))
                                     , a [ id "edit-roomname", class "clickable", onClick (StartEditing "room-title" (roomName room model)) ] [ text "Edit" ]
                                     ]
-                                , div [] ([ text <| "参加者：" ] ++ List.intersperse (text ", ") (List.map (\u -> a [ onClick (EnterUser u), class "clickable" ] [ text (getUserName model u) ]) (roomUsers room model)))
                                 , div []
-                                    (text ("Session ID: " ++ room)
-                                        :: (case model.chatPageStatus.messages of
-                                                Just messages ->
-                                                    let
-                                                        messages_filtered =
-                                                            List.filter (\m -> Set.member (getUser m) model.chatPageStatus.filter) messages
+                                    ([ text <| "参加者：" ]
+                                        ++ List.map
+                                            (\u ->
+                                                case getUserInfo model u of
+                                                    Just user ->
+                                                        li [] [ a [ onClick (EnterUser u), class "clickable" ] [ text user.username ], text "(", a [] [ text <| String.join "," <| List.intersperse "," user.emails ], text ")" ]
 
-                                                        messages_filtered_nonevent =
-                                                            List.filter (\m -> getKind m /= "event") messages_filtered
+                                                    Nothing ->
+                                                        li [] []
+                                            )
+                                            (roomUsers room model)
+                                    )
+                                , div []
+                                    (case model.chatPageStatus.messages of
+                                        Just messages ->
+                                            let
+                                                messages_filtered =
+                                                    List.filter (\m -> Set.member (getUser m) model.chatPageStatus.filter) messages
 
-                                                        nonevent_count =
-                                                            List.length messages_filtered_nonevent
-                                                    in
-                                                    [ div [ id "message-count" ]
-                                                        [ text
-                                                            (String.fromInt nonevent_count
-                                                                ++ " message"
-                                                                ++ (if nonevent_count > 1 then
-                                                                        "s"
+                                                messages_filtered_nonevent =
+                                                    List.filter (\m -> getKind m /= "event") messages_filtered
 
-                                                                    else
-                                                                        ""
-                                                                   )
-                                                                ++ "."
-                                                            )
-                                                        , button [ class "btn-sm btn-light btn", onClick (ChatPageMsg ScrollToBottom) ] [ text "⬇⬇" ]
-                                                        , button [ class "btn-sm btn-light btn", onClick (ChatPageMsg (SetShrinkEntries (not model.chatPageStatus.shrunkEntries))) ]
-                                                            [ text
-                                                                (if model.chatPageStatus.shrunkEntries then
-                                                                    "展開する"
+                                                nonevent_count =
+                                                    List.length messages_filtered_nonevent
+                                            in
+                                            [ div [ id "message-count" ]
+                                                [ text
+                                                    (String.fromInt nonevent_count
+                                                        ++ " message"
+                                                        ++ (if nonevent_count > 1 then
+                                                                "s"
 
-                                                                 else
-                                                                    "折りたたむ"
-                                                                )
-                                                            ]
-                                                        ]
-                                                    , div [ id "chat-wrapper" ]
-                                                        [ div
-                                                            [ id "chat-entries" ]
-                                                          <|
-                                                            (if model.chatPageStatus.shrunkEntries then
-                                                                List.concatMap (\a -> [ a, hr [] [] ])
+                                                            else
+                                                                ""
+                                                           )
+                                                        ++ "."
+                                                    )
+                                                , button [ class "btn-sm btn-light btn", onClick (ChatPageMsg ScrollToBottom) ] [ text "⬇⬇" ]
+                                                , button [ class "btn-sm btn-light btn", onClick (ChatPageMsg (SetShrinkEntries (not model.chatPageStatus.shrunkEntries))) ]
+                                                    [ text
+                                                        (if model.chatPageStatus.shrunkEntries then
+                                                            "展開する"
 
-                                                             else
-                                                                identity
-                                                            )
-                                                            <|
-                                                                List.map
-                                                                    (showItem model)
-                                                                    messages_filtered
-                                                        ]
+                                                         else
+                                                            "折りたたむ"
+                                                        )
                                                     ]
+                                                ]
+                                            , div [ id "chat-wrapper" ]
+                                                [ div
+                                                    [ id "chat-entries" ]
+                                                  <|
+                                                    (if model.chatPageStatus.shrunkEntries then
+                                                        List.concatMap (\a -> [ a, hr [] [] ])
 
-                                                Nothing ->
-                                                    []
-                                           )
+                                                     else
+                                                        identity
+                                                    )
+                                                    <|
+                                                        List.map
+                                                            (showItem model)
+                                                            messages_filtered
+                                                ]
+                                            ]
+
+                                        Nothing ->
+                                            []
                                     )
                                 ]
                             ]
