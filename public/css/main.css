@@ -30,23 +30,26 @@ div#footer {
     border: 1px solid #f3f3f3;
 }
 
+#chat-input {
+    display: inline-block;
+    margin-left: 0px;
+    margin-right: auto;
+    width: calc(100% - 100px) ! important;
+    resize: none;
+}
+
 @media (prefers-color-scheme: dark) {
     div#footer_wrapper {
         background: #191714;
     }
 
-    div#footer input {
+    #chat-input {
         background: #222;
         color: #ccc;
     }
 }
 
-div#footer input {
-    display: inline-block;
-    margin-left: 0px;
-    margin-right: auto;
-    width: calc(100% - 100px) ! important;
-}
+
 
 div#footer button {
     margin-left: 10px;

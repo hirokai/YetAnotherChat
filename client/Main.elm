@@ -435,7 +435,7 @@ type Msg
     | UpdateEditingValue String String
     | FinishEditing String (Model -> Model) (Cmd Msg)
     | AbortEditing String
-    | EditingKeyDown String (Model -> Model) (Cmd Msg) Int
+    | EditingKeyDown String (Model -> Model) (Cmd Msg) { code : Int, shiftKey : Bool }
     | SubmitComment
     | SetPageHash
     | HashChanged String
@@ -476,9 +476,15 @@ type ChatPageMsg
     | LargerFont
 
 
-onKeyDown : (Int -> msg) -> Attribute msg
+onKeyDown : ({ code : Int, shiftKey : Bool } -> msg) -> Attribute msg
 onKeyDown tagger =
-    on "keydown" (Json.map tagger keyCode)
+    let
+        decoder =
+            Json.map2 (\code shift -> { code = code, shiftKey = shift })
+                (Json.field "keyCode" Json.int)
+                (Json.field "shiftKey" Json.bool)
+    in
+    on "keydown" (Json.map tagger decoder)
 
 
 addComment : String -> Model -> Model
@@ -605,11 +611,19 @@ update msg model =
         UpdateEditingValue id newValue ->
             ( { model | editingValue = Dict.insert id newValue model.editingValue }, Cmd.none )
 
-        EditingKeyDown id updateFunc updatePort code ->
+        EditingKeyDown id updateFunc updatePort { code, shiftKey } ->
             if code == 13 then
-                finishEditing id updateFunc updatePort model
+                if shiftKey then
+                    finishEditing id updateFunc updatePort model
+
+                else
+                    ( model, Cmd.none )
 
             else
+                let
+                    _ =
+                        Debug.log "EditingKeyDown" code
+                in
                 ( model, Cmd.none )
 
         SubmitComment ->
@@ -1679,8 +1693,9 @@ chatRoomView room model =
                         ]
                     , div [ class "row", id "footer_wrapper" ]
                         [ div [ class "col-md-12 col-lg-12", id "footer" ]
-                            [ input
+                            [ textarea
                                 [ id "chat-input"
+                                , rows 1
                                 , value (Maybe.withDefault "" <| Dict.get "chat" model.editingValue)
                                 , onInput (UpdateEditingValue "chat")
                                 , onKeyDown

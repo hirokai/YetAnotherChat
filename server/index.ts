@@ -331,7 +331,6 @@ app.delete('/api/comments/:id', (req, res: JsonResponse<DeleteCommentResponse>) 
                 res.json({ ok: true });
             }
         });
-
     });
 });
 
