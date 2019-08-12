@@ -483,6 +483,7 @@ type ChatPageMsg
     | SetShrinkEntries Bool
     | SmallerFont
     | LargerFont
+    | ClickExpandInput
 
 
 onKeyDown : ({ code : Int, shiftKey : Bool } -> msg) -> Attribute msg
@@ -1082,6 +1083,18 @@ updateChatPageStatus msg model =
 
         LargerFont ->
             ( { model | fontSize = Basics.min 5 (model.fontSize + 1) }, Cmd.none )
+
+        ClickExpandInput ->
+            ( { model
+                | numRowsChatInput =
+                    if model.numRowsChatInput == 1 then
+                        5
+
+                    else
+                        1
+              }
+            , Cmd.none
+            )
 
 
 removeItem : String -> ChatPageModel -> ( ChatPageModel, Cmd msg )
@@ -1699,7 +1712,9 @@ chatRoomView room model =
                         ]
                     , div [ class "row", id "footer_wrapper" ]
                         [ div [ class "col-md-12 col-lg-12", id "footer" ]
-                            [ textarea
+                            [ button [ class "btn btn-light", id "chat-input-expand", onClick (ChatPageMsg <| ClickExpandInput) ]
+                                [ i [ class "fas fa-angle-double-up" ] [] ]
+                            , textarea
                                 [ id "chat-input"
                                 , rows model.chatPageStatus.numRowsChatInput
                                 , onInput (UpdateEditingValue "chat")

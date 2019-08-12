@@ -34,7 +34,8 @@ div#footer {
     display: inline-block;
     margin-left: 0px;
     margin-right: auto;
-    width: calc(100% - 100px) ! important;
+    margin-bottom: -10px;
+    width: calc(100% - 150px) ! important;
     resize: none;
 }
 
