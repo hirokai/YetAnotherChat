@@ -23,10 +23,12 @@ require('moment/locale/ja');
 moment.locale('ja');
 
 var show_toppane = JSON.parse(localStorage['yacht.show_toppane'] || "false") || false;
+var expand_chatinput = JSON.parse(localStorage['yacht.expand_chatinput'] || "false") || false;
 
-const app = Elm.Main.init({ flags: { user_id: localStorage['yacht.user_id'] || "", show_top_pane: show_toppane } });
+const app = Elm.Main.init({ flags: { user_id: localStorage['yacht.user_id'] || "", show_top_pane: show_toppane, expand_chatinput } });
+
 window.setTimeout(() => {
-    recalcPositions(show_toppane);
+    recalcPositions(show_toppane, expand_chatinput);
 }, 100);
 
 
@@ -239,16 +241,15 @@ app.ports.setPageHash.subscribe(function (hash: string) {
     // recalcPositions(show_toppane);
 });
 
-function recalcPositions(show_toppane: boolean) {
-    console.log('recalcPositions', show_toppane);
-    const height1 = 260;
-    const height2 = 100;
+function recalcPositions(show_toppane: boolean, expand_chatinput: boolean) {
+    console.log('recalcPositions', show_toppane, expand_chatinput);
+    const height = 100 + (show_toppane ? 160 : 0) + (expand_chatinput ? 90 : 0);
     $(() => {
-        $('#chat-outer').height(window.innerHeight - (show_toppane ? height1 : height2));
+        $('#chat-outer').height(window.innerHeight - height);
     });
 
     window.addEventListener('resize', () => {
-        $('#chat-outer').height(window.innerHeight - (show_toppane ? height1 : height2));
+        $('#chat-outer').height(window.innerHeight - height);
         console.log(window.innerHeight);
     });
 }
@@ -256,24 +257,26 @@ function recalcPositions(show_toppane: boolean) {
 window.addEventListener('hashchange', () => {
     console.log('hashChange', location.hash, app.ports.hashChanged);
     app.ports.hashChanged.send(location.hash);
-    recalcPositions(show_toppane);
+    recalcPositions(show_toppane, expand_chatinput);
     return null;
 });
 
 app.ports.hashChanged.send(location.hash);
 
-app.ports.recalcElementPositions.subscribe((_show_toppane: boolean) => {
-    console.log("recalcElementPositions");
+app.ports.recalcElementPositions.subscribe(({ show_toppane: _show_toppane, expand_chatinput: _expand_chatinput }: { show_toppane: boolean, expand_chatinput: boolean }) => {
+    console.log("recalcElementPositions", { _show_toppane, _expand_chatinput });
     show_toppane = _show_toppane;
+    expand_chatinput = _expand_chatinput;
     localStorage['yacht.show_toppane'] = JSON.stringify(show_toppane);
-    recalcPositions(_show_toppane);
+    localStorage['yacht.expand_chatinput'] = JSON.stringify(_expand_chatinput);
+    recalcPositions(_show_toppane, expand_chatinput);
 });
 
-app.ports.joinRoom.subscribe(({ session_id, user_id }) => {
+app.ports.joinRoom.subscribe(({ session_id }) => {
     $.post('/api/join_session', { token, session_id }).then((res: JoinSessionResponse) => {
         console.log('join_session', res);
     });
-    recalcPositions(show_toppane);
+    recalcPositions(show_toppane, expand_chatinput);
 });
 
 

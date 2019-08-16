@@ -81,7 +81,7 @@ port sendRoomName : { id : String, new_name : String } -> Cmd msg
 port setPageHash : String -> Cmd msg
 
 
-port recalcElementPositions : Bool -> Cmd msg
+port recalcElementPositions : { show_toppane : Bool, expand_chatinput : Bool } -> Cmd msg
 
 
 port onSocket : (Json.Value -> msg) -> Sub msg
@@ -297,7 +297,7 @@ type alias ChatPageModel =
     , topPaneExpanded : Bool
     , shrunkEntries : Bool
     , fontSize : Int -- 1 to 5
-    , numRowsChatInput : Int
+    , expandChatInput : Bool
     }
 
 
@@ -390,13 +390,13 @@ getRoomID model =
             Nothing
 
 
-initialChatPageStatus : Bool -> ChatPageModel
-initialChatPageStatus show_top_pane =
-    { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing, topPaneExpanded = show_top_pane, shrunkEntries = False, fontSize = 3, numRowsChatInput = 1 }
+initialChatPageStatus : Bool -> Bool -> ChatPageModel
+initialChatPageStatus show_top_pane expand_chatinput =
+    { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing, topPaneExpanded = show_top_pane, shrunkEntries = False, fontSize = 3, expandChatInput = expand_chatinput }
 
 
 init : Flags -> ( Model, Cmd Msg )
-init { user_id, show_top_pane } =
+init { user_id, show_top_pane, expand_chatinput } =
     ( { selected = showAll []
       , onlineUsers = []
       , myself = user_id
@@ -406,7 +406,7 @@ init { user_id, show_top_pane } =
       , users = []
       , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
       , userPageStatus = { sessions = [], messages = [], shownFileID = Nothing, newFileBox = False }
-      , chatPageStatus = initialChatPageStatus show_top_pane
+      , chatPageStatus = initialChatPageStatus show_top_pane expand_chatinput
       , userListPageStatus = { userWithIdOnly = True }
       , editing = Set.empty
       , editingValue = Dict.empty
@@ -619,6 +619,10 @@ update msg model =
             ( { model | editing = Set.remove id model.editing }, Cmd.none )
 
         UpdateEditingValue id newValue ->
+            let
+                _ =
+                    Debug.log "UpdateEditingValue" newValue
+            in
             ( { model | editingValue = Dict.insert id newValue model.editingValue }, Cmd.none )
 
         EditingKeyDown id updateFunc updatePort { code, shiftKey } ->
@@ -1073,7 +1077,7 @@ updateChatPageStatus msg model =
             removeItem id model
 
         ExpandTopPane b ->
-            ( { model | topPaneExpanded = b }, recalcElementPositions b )
+            ( { model | topPaneExpanded = b }, recalcElementPositions { show_toppane = b, expand_chatinput = model.expandChatInput } )
 
         SetShrinkEntries b ->
             ( { model | shrunkEntries = b }, Cmd.none )
@@ -1085,15 +1089,14 @@ updateChatPageStatus msg model =
             ( { model | fontSize = Basics.min 5 (model.fontSize + 1) }, Cmd.none )
 
         ClickExpandInput ->
+            let
+                new_v =
+                    not model.expandChatInput
+            in
             ( { model
-                | numRowsChatInput =
-                    if model.numRowsChatInput == 1 then
-                        5
-
-                    else
-                        1
+                | expandChatInput = new_v
               }
-            , Cmd.none
+            , recalcElementPositions { show_toppane = model.topPaneExpanded, expand_chatinput = new_v }
             )
 
 
@@ -1716,7 +1719,13 @@ chatRoomView room model =
                                 [ i [ class "fas fa-angle-double-up" ] [] ]
                             , textarea
                                 [ id "chat-input"
-                                , rows model.chatPageStatus.numRowsChatInput
+                                , rows
+                                    (if model.chatPageStatus.expandChatInput then
+                                        5
+
+                                     else
+                                        1
+                                    )
                                 , onInput (UpdateEditingValue "chat")
                                 , onKeyDown
                                     (case Dict.get "chat" model.editingValue of
@@ -1939,4 +1948,4 @@ showAll messages =
 
 
 type alias Flags =
-    { user_id : String, show_top_pane : Bool }
+    { user_id : String, show_top_pane : Bool, expand_chatinput : Bool }
