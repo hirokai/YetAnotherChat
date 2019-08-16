@@ -381,7 +381,22 @@ $(() => {
 
     // @ts-ignore
     $('[data-toggle="tooltip"]').tooltip();
+
+    const subject = $('#toppane-subject');
+    const chat_outer = $('#chat-outer');
+    chat_outer.on('scroll', (ev) => {
+        const pos_threshold = 40;
+        const pos = chat_outer.scrollTop();
+        if (prev_pos < pos_threshold && pos >= pos_threshold) {
+            subject.removeClass('hidden');
+        } else if (prev_pos > pos_threshold && pos <= pos_threshold) {
+            subject.addClass('hidden');
+        }
+        prev_pos = pos;
+    });
 });
+
+let prev_pos = 0;
 
 function getUserImages() {
     axios.get('/api/files', { params: { token } }).then(({ data }) => {
@@ -466,3 +481,4 @@ function updateData(file_id: string, formData: FormData) {
         }
     });
 }
+

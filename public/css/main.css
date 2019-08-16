@@ -104,6 +104,19 @@ div#footer button {
     overflow: auto;
 }
 
+#toppane-subject {
+    display: inline-block;
+    vertical-align: middle;
+    padding: 0px 0px 0px 10px;
+    font-size: 18px;
+    transition: linear 0.2s;
+}
+
+#toppane-subject.hidden {
+    color: rgba(0, 0, 0, 0);
+    transition: linear 0.2s;
+}
+
 
 .current-room {
     font-weight: bold;

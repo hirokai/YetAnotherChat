@@ -1558,6 +1558,9 @@ topPane model =
                         else
                             ""
                        )
+
+        roomId =
+            Maybe.withDefault "" <| getRoomID model
     in
     div [ class "row" ]
         [ div
@@ -1582,6 +1585,7 @@ topPane model =
                 , button [ klass Thread, onClick (ChatPageMsg <| SetFilterMode Thread) ] [ text "スレッド" ]
                 , button [ klass Person, onClick (ChatPageMsg <| SetFilterMode Person) ] [ text "人" ]
                 , button [ klass Date, onClick (ChatPageMsg <| SetFilterMode Date) ] [ text "日付" ]
+                , span [ id "toppane-subject" ] [ text (roomName roomId model) ]
                 , div [ id "topright-buttons" ]
                     [ button [ class "btn btn-sm btn-light", onClick (ChatPageMsg <| SmallerFont) ] [ i [ class "fas fa-font fa-xs " ] [] ]
                     , button [ class "btn btn-sm btn-light", onClick (ChatPageMsg <| LargerFont) ] [ i [ class "fas fa-font fa-lg " ] [] ]
