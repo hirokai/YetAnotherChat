@@ -97,7 +97,7 @@ div#footer button {
 
 #chat-container {
     position: relative;
-    height: calc(100%-300px);
+    height: calc(100% - 300px);
 }
 
 #chat-wrapper {
@@ -106,9 +106,13 @@ div#footer button {
 
 #toppane-subject {
     display: inline-block;
+    width: calc(100% - 360px);
     vertical-align: middle;
     padding: 0px 0px 0px 10px;
     font-size: 18px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     transition: linear 0.2s;
 }
 
