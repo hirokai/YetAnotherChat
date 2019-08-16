@@ -218,8 +218,9 @@ app.ports.sendCommentToServer.subscribe(function ({ comment, user, session }: { 
     const temporary_id = shortid();
     temporary_id_list.push(temporary_id);
     $.post('/api/comments', { comment, user, session, temporary_id, token }).then((res: PostCommentResponse) => {
+        app.ports.sendCommentToServerDone.send(null);
         getAndfeedRoolmInfo();
-        scrollTo(res.data.id);
+        scrollToBottom();
     });
 });
 

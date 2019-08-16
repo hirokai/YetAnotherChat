@@ -72,6 +72,9 @@ port hashChanged : (String -> msg) -> Sub msg
 port sendCommentToServer : { user : String, comment : String, session : String } -> Cmd msg
 
 
+port sendCommentToServerDone : (() -> msg) -> Sub msg
+
+
 port removeItemRemote : String -> Cmd msg
 
 
@@ -298,6 +301,7 @@ type alias ChatPageModel =
     , shrunkEntries : Bool
     , fontSize : Int -- 1 to 5
     , expandChatInput : Bool
+    , chatInputActive : Bool
     }
 
 
@@ -392,7 +396,7 @@ getRoomID model =
 
 initialChatPageStatus : Bool -> Bool -> ChatPageModel
 initialChatPageStatus show_top_pane expand_chatinput =
-    { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing, topPaneExpanded = show_top_pane, shrunkEntries = False, fontSize = 3, expandChatInput = expand_chatinput }
+    { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing, topPaneExpanded = show_top_pane, shrunkEntries = False, fontSize = 3, expandChatInput = expand_chatinput, chatInputActive = True }
 
 
 init : Flags -> ( Model, Cmd Msg )
@@ -453,6 +457,7 @@ type Msg
     | StartNewPosterSession String
     | Logout
     | SetTimeZone Zone
+    | SendCommentDone ()
     | NoOp
 
 
@@ -508,8 +513,14 @@ addComment comment model =
 
                     msgs =
                         Just <| List.append messages [ Comment { id = "__latest", user = model.myself, comment = comment, originalUrl = "", sentTo = "all", timestamp = "", session = "", source = "self" } ]
+
+                    new_ev =
+                        Dict.insert "chat" "" model.editingValue
+
+                    _ =
+                        Debug.log "addComment: editingValue" new_ev
                 in
-                { model | chatPageStatus = { chatPageStatus | messages = msgs }, editingValue = Dict.insert "chat" "" model.editingValue }
+                { model | chatPageStatus = { chatPageStatus | messages = msgs, chatInputActive = False }, editingValue = new_ev }
 
             Nothing ->
                 model
@@ -622,8 +633,15 @@ update msg model =
             let
                 _ =
                     Debug.log "UpdateEditingValue" newValue
+
+                nev =
+                    if model.chatPageStatus.chatInputActive then
+                        Dict.insert id newValue model.editingValue
+
+                    else
+                        model.editingValue
             in
-            ( { model | editingValue = Dict.insert id newValue model.editingValue }, Cmd.none )
+            ( { model | editingValue = nev }, Cmd.none )
 
         EditingKeyDown id updateFunc updatePort { code, shiftKey } ->
             if code == 13 then
@@ -641,12 +659,7 @@ update msg model =
                 ( model, Cmd.none )
 
         SubmitComment ->
-            case ( Dict.get "chat" model.editingValue, getRoomID model ) of
-                ( Just comment, Just room ) ->
-                    ( addComment comment model, Cmd.batch [ scrollTo "__latest", sendCommentToServer { comment = comment, user = model.myself, session = room } ] )
-
-                _ ->
-                    ( model, Cmd.none )
+            submitComment model
 
         SetTimeZone zone ->
             ( { model | timezone = zone }, Cmd.none )
@@ -712,6 +725,13 @@ update msg model =
 
         Logout ->
             ( model, logout () )
+
+        SendCommentDone _ ->
+            let
+                csp =
+                    model.chatPageStatus
+            in
+            ( { model | chatPageStatus = { csp | chatInputActive = True } }, Cmd.none )
 
         OnSocket v ->
             case Json.decodeValue socketDecoder v of
@@ -835,6 +855,19 @@ update msg model =
                             Debug.log "Error in OnSocket parsing: " e
                     in
                     ( model, Cmd.none )
+
+
+submitComment model =
+    case ( Dict.get "chat" model.editingValue, getRoomID model ) of
+        ( Just comment, Just room ) ->
+            let
+                _ =
+                    Debug.log "SubmitComment" model.editingValue
+            in
+            ( addComment comment model, Cmd.batch [ scrollTo "__latest", sendCommentToServer { comment = comment, user = model.myself, session = room } ] )
+
+        _ ->
+            ( model, Cmd.none )
 
 
 
@@ -981,7 +1014,7 @@ finishEditing : String -> (Model -> Model) -> Cmd Msg -> Model -> ( Model, Cmd M
 finishEditing id updateFunc updatePort model =
     let
         _ =
-            Debug.log "finishEditing" id
+            Debug.log "finishEditing" model.editingValue
     in
     ( updateFunc { model | editing = Set.remove id model.editing, editingValue = Dict.insert id "" model.editingValue }, updatePort )
 
@@ -1731,24 +1764,17 @@ chatRoomView room model =
                                         1
                                     )
                                 , onInput (UpdateEditingValue "chat")
-                                , onKeyDown
-                                    (case Dict.get "chat" model.editingValue of
-                                        Just c ->
-                                            if c /= "" then
-                                                EditingKeyDown "chat"
-                                                    (addComment c)
-                                                    (sendCommentToServer
-                                                        { comment = c, user = model.myself, session = room }
-                                                    )
-
-                                            else
-                                                \_ -> NoOp
-
-                                        Nothing ->
-                                            \_ -> NoOp
+                                , onKeyDown (onKeyDownTextArea model room)
+                                , disabled (not model.chatPageStatus.chatInputActive)
+                                , value
+                                    (let
+                                        _ =
+                                            Debug.log "chatRoomView" model.editingValue
+                                     in
+                                     Maybe.withDefault "" <| Dict.get "chat" model.editingValue
                                     )
                                 ]
-                                [ text <| Maybe.withDefault "" <| Dict.get "chat" model.editingValue ]
+                                []
                             , button [ class "btn btn-primary", onClick SubmitComment ] [ text "送信" ]
                             ]
                         ]
@@ -1757,6 +1783,23 @@ chatRoomView room model =
             ]
         ]
     }
+
+
+onKeyDownTextArea model room =
+    case Dict.get "chat" model.editingValue of
+        Just c ->
+            if c /= "" then
+                EditingKeyDown "chat"
+                    (addComment c)
+                    (sendCommentToServer
+                        { comment = c, user = model.myself, session = room }
+                    )
+
+            else
+                \_ -> NoOp
+
+        Nothing ->
+            \_ -> NoOp
 
 
 numSessionMessages : RoomID -> Model -> Int
@@ -1926,6 +1969,7 @@ subscriptions _ =
         , feedSessionsOf (\s -> UserPageMsg (FeedSessions s))
         , onSocket OnSocket
         , feedUserImages FeedUserImages
+        , sendCommentToServerDone SendCommentDone
         ]
 
 

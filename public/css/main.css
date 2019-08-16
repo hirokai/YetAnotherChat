@@ -462,3 +462,7 @@ a {
 .droppable {
     background: #eee;
 }
+
+textarea[disabled] {
+    background: #ccc;
+}
