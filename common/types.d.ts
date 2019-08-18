@@ -138,6 +138,8 @@ interface GetSessionsOfParams extends AuthedParams {
 type GetSessionResponse = { ok: boolean, data: RoomInfo }
 type PatchSessionResponse = { ok: boolean }
 
+type GetCommentsResponse = { ok: boolean, data: CommentTyp[] }
+
 type DeleteCommentResponse = { ok: boolean, data?: DeleteCommentData, error?: string }
 
 type PostFileResponse = { ok: boolean, data?: PostFileResponseData }

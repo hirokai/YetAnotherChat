@@ -209,16 +209,16 @@ app.ports.joinRoom.subscribe(({ session_id }) => {
 });
 
 
-app.ports.startPosterSession.subscribe(async (file_id) => {
+app.ports.startPosterSession.subscribe(async (file_id: string) => {
     console.log('startPosterSession', file_id);
     const members: string[] = [localStorage['yacht.user_id']];
-    const name = "ポスターセッション: " + moment().format('MM/DD HH:mm')
-    const temporary_id = shortid();
+    const name: string = "ポスターセッション: " + moment().format('MM/DD HH:mm')
+    const temporary_id: string = shortid();
     const post_data: PostSessionsParam = { name, members, temporary_id, token, file_id };
     const { data }: PostSessionsResponse = await $.post('/api/sessions', post_data);
     app.ports.receiveNewRoomInfo.send(data);
-    const p1 = axios.get('/api/sessions', { params: { token } });
-    const p2 = axios.get('/api/comments', { params: { session: data.id, token } });
+    const p1: Promise<AxiosResponse<GetSessionResponse>> = axios.get('/api/sessions', { params: { token } });
+    const p2: Promise<AxiosResponse<GetCommentsResponse>> = axios.get('/api/comments', { params: { session: data.id, token } });
     const [{ data: { data: data1 } }, { data: { data: data2 } }] = await Promise.all([p1, p2]);
     app.ports.feedRoomInfo.send(data1);
     app.ports.feedMessages.send(processData(data2));
@@ -235,14 +235,6 @@ app.ports.logout.subscribe(() => {
         }
     })
 });
-// window.setTimeout(() => {
-//     var test = document.getElementById("measure-width");
-//     test.innerText = "hoge";
-//     var height = (test.clientHeight + 1);
-//     var width = (test.clientWidth + 1);
-
-//     console.log(height, width);
-// }, 1000);
 
 $(() => {
     const profile_img = $('.profile-img.mine');
