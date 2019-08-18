@@ -44,34 +44,10 @@ axios.get('/api/verify_token', { params: { token } }).then(({ data }) => {
     }
 });
 
+socket.on("message", (msg: any) => model.changeHandler(msg, app.ports.onSocket.send));
 
-
-socket.on("message", (msg: any) => {
-    console.log('Socket.io message', msg);
-    if (includes(temporary_id_list, msg.temporary_id)) {
-        pull(temporary_id_list, msg.temporary_id);
-        return;
-    }
-    if (msg.__type == "new_comment") {
-        msg.timestamp = formatTime(msg.timestamp);
-        msg = <ChatEntryClient>msg;
-    } else if (msg.__type == "new_session") {
-        const msg1 = <RoomInfoClient>msg;
-        msg1.timestamp = formatTime(msg.timestamp);
-        msg1.firstMsgTime = -1;
-        msg1.lastMsgTime = -1;
-        msg1.numMessages = { "__total": 0 };
-        msg = msg1;
-    } else if (msg.__type == "new_member") {
-        const msg1 = <any>msg;
-        msg1.timestamp = formatTime(msg.timestamp);
-        msg = msg1;
-    } else if (msg.__type == "new_file") {
-        const msg1 = <any>msg;
-        // msg1.timestamp = formatTime(msg.timestamp);
-        msg = msg1;
-    }
-    app.ports.onSocket.send(msg);
+socket.on("comments.new", (msg: CommentUpdateSocket) => {
+    model.comments.on_change(msg, app.ports.onChangeComments);
 });
 
 function scrollTo(id: string) {
@@ -116,11 +92,11 @@ app.ports.getUsers.subscribe(() => {
 });
 
 app.ports.getMessages.subscribe((session: string) => {
-    model.messages.list_of_session(session).then(app.ports.feedMessages.send);
+    model.comments.list_for_session(session).then(app.ports.feedMessages.send);
 });
 
 app.ports.getUserMessages.subscribe(async function (user: string) {
-    model.messages.list_of_user(user).then(app.ports.feedUserMessages.send);
+    model.comments.list_for_user(user).then(app.ports.feedUserMessages.send);
 });
 
 app.ports.getSessionsWithSameMembers.subscribe(function ({ members, is_all }: { members: Array<string>, is_all: boolean }) {

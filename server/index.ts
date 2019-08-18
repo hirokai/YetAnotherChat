@@ -454,8 +454,22 @@ app.post('/api/comments', (req: MyPostRequest<PostCommentData>, res: JsonRespons
             const temporary_id = req.body.temporary_id;
             const r = await model.post_comment(user, session_id, ts, comment, "", "", "self");
             res.json(r);
-            if (r.data) {
-                io.emit("message", _.extend({}, { __type: "new_comment", temporary_id }, r.data));
+            const { data: d, ok, error } = r;
+            if (d) {
+                const obj: CommentUpdateSocket = {
+                    __type: 'comment.new',
+                    temporary_id,
+                    id: d.id,
+                    user: d.user_id,
+                    comment: d.comment,
+                    session_id: d.session_id,
+                    timestamp: d.timestamp,
+                    original_url: d.original_url,
+                    sent_to: d.sent_to,
+                    kind: "comment",
+                    source: d.source,
+                };
+                io.emit("comments.new", obj);
             }
         });
     })().catch(() => {

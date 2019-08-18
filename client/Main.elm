@@ -24,6 +24,9 @@ port getUserImages : () -> Cmd msg
 port feedUsers : (List User -> msg) -> Sub msg
 
 
+port onChangeComments : (RoomID -> msg) -> Sub msg
+
+
 port getMessages : RoomID -> Cmd msg
 
 
@@ -458,6 +461,7 @@ type Msg
     | Logout
     | SetTimeZone Zone
     | SendCommentDone ()
+    | OnChangeComments String
     | NoOp
 
 
@@ -725,6 +729,20 @@ update msg model =
 
         Logout ->
             ( model, logout () )
+
+        OnChangeComments room ->
+            let
+                _ =
+                    Debug.log "OnChangeComments" room
+
+                cmd =
+                    if getRoomID model == Just room then
+                        getMessages room
+
+                    else
+                        Cmd.none
+            in
+            ( model, cmd )
 
         SendCommentDone _ ->
             let
@@ -1970,6 +1988,7 @@ subscriptions _ =
         , onSocket OnSocket
         , feedUserImages FeedUserImages
         , sendCommentToServerDone SendCommentDone
+        , onChangeComments OnChangeComments
         ]
 
 

@@ -208,4 +208,33 @@ type PrivateUserInfo = {
 
 type UserTableFromEmail = {
     [email: string]: { name: string, names: string[], id: string, email: string }
-} 
+}
+
+type CommentUpdateSocket = {
+    __type: string,
+    temporary_id: string,
+    id: string,
+    user: string,
+    comment: string,
+    session_id: string,
+    timestamp: number,
+    original_url: string
+    sent_to: string,
+    kind: string,
+    source: string
+}
+
+interface ElmAppPorts {
+    getMessages: (any) => any;
+    onChangeComments: {
+        send: (any) => void
+    }
+}
+
+interface ElmApp {
+    ports: ElmAppPorts;
+}
+
+interface PortFn {
+    send: (any) => void;
+}
