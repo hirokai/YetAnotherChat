@@ -44,32 +44,33 @@ axios.get('/api/verify_token', { params: { token } }).then(({ data }) => {
     }
 });
 
-socket.on("sessions.new", (msg: SessionsNewSocket) => {
-    model.sessions.on_new(msg).then(() => {
-        app.ports.onChangeData.send({ resource: "sessions", id: "" });
-    });
+socket.on("users.update", async (msg: SessionsNewSocket) => {
+    await model.sessions.on_new(msg);
+    app.ports.onChangeData.send({ resource: "sessions", id: "" });
 });
 
-socket.on("sessions.update", (msg: SessionsUpdateSocket) => {
-    model.sessions.on_update(msg).then(() => {
-        app.ports.onChangeData.send({ resource: "sessions", id: "" });
-    });
+socket.on("sessions.new", async (msg: SessionsNewSocket) => {
+    await model.sessions.on_new(msg);
+    app.ports.onChangeData.send({ resource: "sessions", id: "" });
 });
 
-socket.on("comments.new", (msg: CommentsNewSocket) => {
-    model.comments.on_new(msg).then((session_id) => {
-        if (session_id != null) {
-            app.ports.onChangeData.send({ resource: "comments", id: session_id });
-        }
-    });
+socket.on("sessions.update", async (msg: SessionsUpdateSocket) => {
+    await model.sessions.on_update(msg);
+    app.ports.onChangeData.send({ resource: "sessions", id: "" });
 });
 
-socket.on("comments.delete", (msg: CommentsDeleteSocket) => {
-    model.comments.on_delete(msg).then(({ id, session_id }) => {
-        if (session_id != null) {
-            app.ports.onChangeData.send({ resource: "comments", id: session_id });
-        }
-    });
+socket.on("comments.new", async (msg: CommentsNewSocket) => {
+    const session_id = await model.comments.on_new(msg);
+    if (session_id != null) {
+        app.ports.onChangeData.send({ resource: "comments", id: session_id });
+    }
+});
+
+socket.on("comments.delete", async (msg: CommentsDeleteSocket) => {
+    const { id, session_id } = await model.comments.on_delete(msg);
+    if (session_id != null) {
+        app.ports.onChangeData.send({ resource: "comments", id: session_id });
+    }
 });
 
 function scrollTo(id: string) {
