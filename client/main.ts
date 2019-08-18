@@ -93,15 +93,10 @@ app.ports.createNewSession.subscribe(async function (args: any[]) {
     if (name == "") {
         name = "会話: " + moment().format('MM/DD HH:mm')
     }
-    const temporary_id = shortid();
-    const post_data: PostSessionsParam = { name, members, temporary_id, token };
-    const { data }: PostSessionsResponse = await $.post('/api/sessions', post_data);
-    app.ports.receiveNewRoomInfo.send(data);
-    const p1 = axios.get('/api/sessions', { params: { token } });
-    const p2 = axios.get('/api/comments', { params: { session: data.id, token } });
-    const [{ data: { data: data1 } }, { data: { data: data2 } }] = await Promise.all([p1, p2]);
-    app.ports.feedRoomInfo.send(data1);
-    app.ports.feedMessages.send(processData(data2));
+    const { newRoom, messages } = await model.sessions.new({ name, members });
+
+    app.ports.feedRoomInfo.send(newRoom);
+    app.ports.feedMessages.send(processData(messages));
 });
 
 app.ports.getUsers.subscribe(() => {
@@ -141,10 +136,10 @@ app.ports.getRoomInfo.subscribe(getAndfeedRoomInfo);
 
 var temporary_id_list = [];
 
-app.ports.sendCommentToServer.subscribe(function ({ comment, user, session }: { comment: string, user: string, session: string }) {
+app.ports.sendCommentToServer.subscribe(({ comment, user, session }: { comment: string, user: string, session: string }) => {
     const temporary_id = shortid();
     temporary_id_list.push(temporary_id);
-    $.post('/api/comments', { comment, user, session, temporary_id, token }).then((res: PostCommentResponse) => {
+    model.comments.new({ comment, user, session }).then(() => {
         app.ports.sendCommentToServerDone.send(null);
         getAndfeedRoomInfo();
         scrollToBottom();

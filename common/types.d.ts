@@ -225,7 +225,9 @@ type CommentsNewSocket = {
 }
 
 type SessionsNewSocket = {
-
+    __type: 'sessions.new',
+    id: string,
+    temporary_id: string,
 }
 
 type SessionsUpdateSocket = {

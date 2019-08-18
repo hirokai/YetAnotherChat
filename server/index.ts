@@ -392,16 +392,19 @@ app.post('/api/sessions', (req: PostRequest<PostSessionsParam>, res: JsonRespons
             if (file_id) {
                 await model.post_file_to_session(data.id, req.decoded.user_id, file_id);
             }
+            const obj: SessionsNewSocket = {
+                __type: 'sessions.new',
+                temporary_id,
+                id: data.id
+            };
+            io.emit("sessions.new", obj);
             _.map(members, async (m: string) => {
                 const socket_ids: string[] = await model.getSocketIds(m);
                 console.log('emitting to', socket_ids);
                 socket_ids.forEach(socket_id => {
-                    const obj: SessionsNewSocket = {
-                        __type: 'sessions.new',
-                        temporary_id
-                    };
+
                     console.log('sessions.new socket', obj);
-                    io.to(socket_id).emit("sessions.new", obj);
+                    // io.to(socket_id).emit("sessions.new", obj);
                 })
             });
             res.json({ ok: true, data });
