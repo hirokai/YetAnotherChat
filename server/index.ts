@@ -4,6 +4,7 @@ import * as model from './model'
 
 
 const express = require('express');
+const logger = require('morgan');
 const app = express();
 const glob = require("glob");
 const bodyParser = require("body-parser");
@@ -16,9 +17,6 @@ const db = new sqlite3.Database(path.join(__dirname, 'private/db.sqlite3'));
 const fs = require('fs');
 const moment = require('moment');
 const jwt = require('jsonwebtoken');
-
-
-
 
 // const production = true; //process.env.PRODUCTION;
 const production = false;
@@ -39,6 +37,8 @@ if (production) {
         ca: ca
     };
     https = require('https').createServer(credentials, app);
+} else {
+    app.use(logger("short"));
 }
 
 const io = require('socket.io')(production ? https : http);
