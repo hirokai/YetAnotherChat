@@ -753,36 +753,6 @@ update msg model =
 
         OnSocket v ->
             case Json.decodeValue socketDecoder v of
-                Ok (NewComment v1) ->
-                    let
-                        _ =
-                            Debug.log "OnSocket NewComment" v1
-                    in
-                    if RoomPage v1.session /= model.page then
-                        ( model, Cmd.none )
-
-                    else
-                        let
-                            f : CommentTyp -> ChatEntry
-                            f { id, user, comment, timestamp, session, originalUrl, sentTo, source } =
-                                Comment { id = id, user = user, comment = comment, timestamp = timestamp, originalUrl = originalUrl, sentTo = sentTo, session = session, source = source }
-
-                            cm =
-                                model.chatPageStatus
-                        in
-                        ( { model
-                            | chatPageStatus =
-                                { cm
-                                    | messages =
-                                        Just
-                                            (Maybe.withDefault [] cm.messages
-                                                ++ [ f v1 ]
-                                            )
-                                }
-                          }
-                        , scrollTo v1.id
-                        )
-
                 Ok (DeleteComment { session_id, comment_id }) ->
                     if RoomPage session_id /= model.page then
                         ( model, Cmd.none )
@@ -898,8 +868,7 @@ type alias DeleteCommentMsg =
 
 
 type SocketMsg
-    = NewComment CommentTyp
-    | DeleteComment DeleteCommentMsg
+    = DeleteComment DeleteCommentMsg
     | NewSessionSocket RoomInfo
     | NewMemberSocket { session_id : String, user_id : String, timestamp : String }
     | NewFileSocket { file_id : String, user_id : String, url : String }
@@ -914,23 +883,6 @@ socketDecoder =
 
 socketMsg m =
     case m of
-        "new_comment" ->
-            let
-                _ =
-                    Debug.log "new_comment, OK so far" ""
-            in
-            Json.map NewComment <|
-                (Json.succeed CommentTyp
-                    |> JE.andMap (Json.field "id" Json.string)
-                    |> JE.andMap (Json.field "user_id" Json.string)
-                    |> JE.andMap (Json.field "comment" Json.string)
-                    |> JE.andMap (Json.field "session_id" Json.string)
-                    |> JE.andMap (Json.field "timestamp" Json.string)
-                    |> JE.andMap (Json.field "original_url" Json.string)
-                    |> JE.andMap (Json.field "sent_to" Json.string)
-                    |> JE.andMap (Json.field "source" Json.string)
-                )
-
         "delete_comment" ->
             let
                 _ =
