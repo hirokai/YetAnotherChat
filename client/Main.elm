@@ -90,9 +90,6 @@ port setPageHash : String -> Cmd msg
 port recalcElementPositions : { show_toppane : Bool, expand_chatinput : Bool } -> Cmd msg
 
 
-port onSocket : (Json.Value -> msg) -> Sub msg
-
-
 port joinRoom : { session_id : String, user_id : String } -> Cmd msg
 
 
@@ -455,7 +452,6 @@ type Msg
     | SubmitComment
     | SetPageHash
     | HashChanged String
-    | OnSocket Json.Value
     | FeedUserImages { user_id : String, images : List { url : String, file_id : String } }
     | StartNewPosterSession String
     | Logout
@@ -754,99 +750,6 @@ update msg model =
             in
             ( { model | chatPageStatus = { csp | chatInputActive = True } }, Cmd.none )
 
-        OnSocket v ->
-            case Json.decodeValue socketDecoder v of
-                Ok (DeleteComment { session_id, comment_id }) ->
-                    if RoomPage session_id /= model.page then
-                        ( model, Cmd.none )
-
-                    else
-                        let
-                            cm =
-                                model.chatPageStatus
-                        in
-                        case cm.messages of
-                            Just msgs ->
-                                ( { model
-                                    | chatPageStatus =
-                                        { cm
-                                            | messages =
-                                                Just <|
-                                                    List.filter (\m -> getId m /= comment_id) msgs
-                                        }
-                                  }
-                                , Cmd.none
-                                )
-
-                            Nothing ->
-                                ( model, Cmd.none )
-
-                Ok (NewFileSocket { file_id, user_id }) ->
-                    let
-                        user_files =
-                            Maybe.withDefault [] <| Dict.get user_id model.files
-
-                        ups =
-                            model.userPageStatus
-                    in
-                    ( { model | files = Dict.insert file_id ([ { file_id = file_id, url = user_id } ] ++ user_files) model.files, userPageStatus = { ups | shownFileID = Just file_id, newFileBox = False } }, Cmd.none )
-
-                Ok (DeleteFileSocket { file_id, user_id }) ->
-                    let
-                        user_files =
-                            Maybe.withDefault [] <| Dict.get user_id model.files
-                    in
-                    ( { model | files = Dict.insert user_id (List.filter (.file_id >> (/=) file_id) user_files) model.files }, Cmd.none )
-
-                Ok (NewSessionSocket info) ->
-                    ( { model | roomInfo = Dict.insert info.id info model.roomInfo, rooms = info.id :: model.rooms }, Cmd.none )
-
-                Ok (NewMemberSocket { session_id, user_id, timestamp }) ->
-                    if RoomPage session_id /= model.page then
-                        ( model, Cmd.none )
-
-                    else
-                        let
-                            f : String -> String -> String -> ChatEntry
-                            f session user ts =
-                                let
-                                    a =
-                                        SessionEvent { id = "", user = user, timestamp = ts, session = session, action = "join" }
-
-                                    _ =
-                                        Debug.log "sessionevent" a
-                                in
-                                a
-
-                            cm =
-                                model.chatPageStatus
-
-                            _ =
-                                Debug.log "cm length" ( List.length (Maybe.withDefault [] cm.messages), List.length new_msgs )
-
-                            new_msgs =
-                                Maybe.withDefault [] cm.messages
-                                    ++ [ f session_id user_id timestamp ]
-                        in
-                        ( { model
-                            | chatPageStatus =
-                                { cm
-                                    | messages =
-                                        Just new_msgs
-                                    , filter = Set.insert user_id cm.filter
-                                    , users = cm.users ++ [ user_id ]
-                                }
-                          }
-                        , Cmd.none
-                        )
-
-                Err e ->
-                    let
-                        _ =
-                            Debug.log "Error in OnSocket parsing: " e
-                    in
-                    ( model, Cmd.none )
-
 
 submitComment model =
     case ( Dict.get "chat" model.editingValue, getRoomID model ) of
@@ -868,75 +771,6 @@ submitComment model =
 
 type alias DeleteCommentMsg =
     { comment_id : String, session_id : String }
-
-
-type SocketMsg
-    = DeleteComment DeleteCommentMsg
-    | NewSessionSocket RoomInfo
-    | NewMemberSocket { session_id : String, user_id : String, timestamp : String }
-    | NewFileSocket { file_id : String, user_id : String, url : String }
-    | DeleteFileSocket { file_id : String, user_id : String }
-
-
-socketDecoder : Json.Decoder SocketMsg
-socketDecoder =
-    Json.field "__type" Json.string
-        |> Json.andThen socketMsg
-
-
-socketMsg m =
-    case m of
-        "delete_comment" ->
-            let
-                _ =
-                    Debug.log "delete_comment, OK so far" ""
-            in
-            Json.map DeleteComment <|
-                Json.map2 DeleteCommentMsg
-                    (Json.field "comment_id" Json.string)
-                    (Json.field "session_id" Json.string)
-
-        "new_session" ->
-            let
-                _ =
-                    Debug.log "new_session, OK so far" ""
-            in
-            Json.map NewSessionSocket <| roomInfoDecoder
-
-        "new_member" ->
-            let
-                _ =
-                    Debug.log "new_member, OK so far" ""
-            in
-            Json.map NewMemberSocket <|
-                Json.map3 (\a b c -> { session_id = a, user_id = b, timestamp = c })
-                    (Json.field "session_id" Json.string)
-                    (Json.field "user_id" Json.string)
-                    (Json.field "timestamp" Json.string)
-
-        "new_file" ->
-            let
-                _ =
-                    Debug.log "new_file, OK so far" ""
-            in
-            Json.map NewFileSocket <|
-                Json.map3 (\a b c -> { file_id = a, user_id = b, url = c })
-                    (Json.field "file_id" Json.string)
-                    (Json.field "user_id" Json.string)
-                    (Json.field "url" Json.string)
-
-        "delete_file" ->
-            let
-                _ =
-                    Debug.log "delete_file, OK so far" ""
-            in
-            Json.map DeleteFileSocket <|
-                Json.map2 (\a b -> { file_id = a, user_id = b })
-                    (Json.field "file_id" Json.string)
-                    (Json.field "user_id" Json.string)
-
-        s ->
-            Json.fail ("Message <" ++ s ++ "> Not implemented yet")
 
 
 enterNewSession model =
@@ -1935,7 +1769,6 @@ subscriptions _ =
         , feedRoomInfo FeedRoomInfo
         , feedSessionsWithSameMembers (\s -> NewSessionMsg (FeedSessionsWithSameMembers s))
         , feedSessionsOf (\s -> UserPageMsg (FeedSessions s))
-        , onSocket OnSocket
         , feedUserImages FeedUserImages
         , sendCommentToServerDone SendCommentDone
         , onChangeData OnChangeData

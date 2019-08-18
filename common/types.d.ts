@@ -237,6 +237,16 @@ type SessionsUpdateSocket = {
     timestamp: number
 }
 
+type CommentsDeleteSocket = {
+    __type: 'comments.delete',
+    id: string,
+    session_id: string,
+}
+
+type FilesDeleteSocket = {
+    __type: 'files.delete',
+}
+
 interface ElmAppPorts {
     getMessages: (any) => any;
     onChangeComments: {

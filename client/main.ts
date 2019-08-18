@@ -44,8 +44,6 @@ axios.get('/api/verify_token', { params: { token } }).then(({ data }) => {
     }
 });
 
-socket.on("message", (msg: any) => model.changeHandler(msg, app.ports.onSocket.send));
-
 socket.on("sessions.new", (msg: SessionsNewSocket) => {
     model.sessions.on_new(msg).then(() => {
         app.ports.onChangeData.send({ resource: "sessions", id: "" });
@@ -66,6 +64,13 @@ socket.on("comments.new", (msg: CommentsNewSocket) => {
     });
 });
 
+socket.on("comments.delete", (msg: CommentsDeleteSocket) => {
+    model.comments.on_delete(msg).then(({ id, session_id }) => {
+        if (session_id != null) {
+            app.ports.onChangeData.send({ resource: "comments", id: session_id });
+        }
+    });
+});
 
 function scrollTo(id: string) {
     console.log('scrollTo', id);

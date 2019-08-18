@@ -326,7 +326,12 @@ app.delete('/api/comments/:id', (req, res: JsonResponse<DeleteCommentResponse>) 
                 if (!err) {
                     res.json({ ok: true, data: { comment_id, session_id } });
                     const data: DeleteCommentData = { comment_id, session_id };
-                    io.emit("message", _.extend({}, { __type: "delete_comment" }, data));
+                    const obj: CommentsDeleteSocket = {
+                        __type: 'comments.delete',
+                        id: comment_id,
+                        session_id
+                    };
+                    io.emit("comments.delete", obj);
                 } else {
                     res.json({ ok: true });
                 }
@@ -553,7 +558,10 @@ app.delete('/api/files/:id', (req: DeleteRequest<DeleteFileRequestParam, DeleteF
         if (!err) {
             const data: DeleteFileData = { file_id, user_id };
             res.json({ ok: true, data });
-            io.emit("message", _.extend({}, { __type: "delete_file" }, data));
+            const obj: FilesDeleteSocket = {
+                __type: 'files.delete'
+            };
+            io.emit("files.delete", obj);
         } else {
             res.json({ ok: true });
         }
