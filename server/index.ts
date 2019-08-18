@@ -344,8 +344,16 @@ app.patch('/api/sessions/:id', (req, res: JsonResponse<PatchSessionResponse>) =>
     const id = req.params.id;
     const { name, members } = req.body;
     console.log(name, members);
+    const timestamp = new Date().getTime();
     db.run('update sessions set name=? where id=?;', model.cipher(name), id, () => {
         res.json({ ok: true });
+        const data: SessionsUpdateSocket = {
+            __type: 'sessions.update',
+            id,
+            name,
+            timestamp
+        };
+        io.emit('sessions.update', data);
     });
 });
 
@@ -388,7 +396,12 @@ app.post('/api/sessions', (req: PostRequest<PostSessionsParam>, res: JsonRespons
                 const socket_ids: string[] = await model.getSocketIds(m);
                 console.log('emitting to', socket_ids);
                 socket_ids.forEach(socket_id => {
-                    io.to(socket_id).emit("message", _.extend({}, { __type: "new_session", temporary_id }, data));
+                    const obj: SessionsNewSocket = {
+                        __type: 'sessions.new',
+                        temporary_id
+                    };
+                    console.log('sessions.new socket', obj);
+                    io.to(socket_id).emit("sessions.new", obj);
                 })
             });
             res.json({ ok: true, data });
@@ -456,7 +469,7 @@ app.post('/api/comments', (req: MyPostRequest<PostCommentData>, res: JsonRespons
             res.json(r);
             const { data: d, ok, error } = r;
             if (d) {
-                const obj: CommentUpdateSocket = {
+                const obj: CommentsNewSocket = {
                     __type: 'comment.new',
                     temporary_id,
                     id: d.id,
@@ -584,3 +597,8 @@ function clientErrorHandler(err, req, res, next) {
 }
 
 app.use(clientErrorHandler);
+
+// setInterval(() => {
+//     console.log('interval');
+//     io.emit('sessions.new', { valid: false })
+// }, 1000);

@@ -46,9 +46,26 @@ axios.get('/api/verify_token', { params: { token } }).then(({ data }) => {
 
 socket.on("message", (msg: any) => model.changeHandler(msg, app.ports.onSocket.send));
 
-socket.on("comments.new", (msg: CommentUpdateSocket) => {
-    model.comments.on_change(msg, app.ports.onChangeComments);
+socket.on("sessions.new", (msg: SessionsNewSocket) => {
+    model.sessions.on_new(msg).then(() => {
+        app.ports.onChangeData.send({ resource: "sessions", id: "" });
+    });
 });
+
+socket.on("sessions.update", (msg: SessionsUpdateSocket) => {
+    model.sessions.on_update(msg).then(() => {
+        app.ports.onChangeData.send({ resource: "sessions", id: "" });
+    });
+});
+
+socket.on("comments.new", (msg: CommentsNewSocket) => {
+    model.comments.on_new(msg).then((session_id) => {
+        if (session_id != null) {
+            app.ports.onChangeData.send({ resource: "comments", id: session_id });
+        }
+    });
+});
+
 
 function scrollTo(id: string) {
     console.log('scrollTo', id);
@@ -153,7 +170,7 @@ app.ports.setPageHash.subscribe(function (hash: string) {
 });
 
 function recalcPositions(show_toppane: boolean, expand_chatinput: boolean) {
-    console.log('recalcPositions', show_toppane, expand_chatinput);
+    // console.log('recalcPositions', show_toppane, expand_chatinput);
     const height = 100 + (show_toppane ? 160 : 0) + (expand_chatinput ? 90 : 0);
     $(() => {
         $('#chat-outer').height(window.innerHeight - height);

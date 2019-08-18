@@ -24,7 +24,7 @@ port getUserImages : () -> Cmd msg
 port feedUsers : (List User -> msg) -> Sub msg
 
 
-port onChangeComments : (RoomID -> msg) -> Sub msg
+port onChangeData : ({ resource : String, id : String } -> msg) -> Sub msg
 
 
 port getMessages : RoomID -> Cmd msg
@@ -461,7 +461,7 @@ type Msg
     | Logout
     | SetTimeZone Zone
     | SendCommentDone ()
-    | OnChangeComments String
+    | OnChangeData { resource : String, id : String }
     | NoOp
 
 
@@ -730,14 +730,17 @@ update msg model =
         Logout ->
             ( model, logout () )
 
-        OnChangeComments room ->
+        OnChangeData { resource, id } ->
             let
                 _ =
-                    Debug.log "OnChangeComments" room
+                    Debug.log "OnChangeData" ( resource, id )
 
                 cmd =
-                    if getRoomID model == Just room then
-                        getMessages room
+                    if resource == "comments" && getRoomID model == Just id then
+                        getMessages id
+
+                    else if resource == "sessions" then
+                        getRoomInfo ()
 
                     else
                         Cmd.none
@@ -1737,12 +1740,7 @@ chatRoomView room model =
                                 , onKeyDown (onKeyDownTextArea model room)
                                 , disabled (not model.chatPageStatus.chatInputActive)
                                 , value
-                                    (let
-                                        _ =
-                                            Debug.log "chatRoomView" model.editingValue
-                                     in
-                                     Maybe.withDefault "" <| Dict.get "chat" model.editingValue
-                                    )
+                                    (Maybe.withDefault "" <| Dict.get "chat" model.editingValue)
                                 ]
                                 []
                             , button [ class "btn btn-primary", onClick SubmitComment ] [ text "送信" ]
@@ -1940,7 +1938,7 @@ subscriptions _ =
         , onSocket OnSocket
         , feedUserImages FeedUserImages
         , sendCommentToServerDone SendCommentDone
-        , onChangeComments OnChangeComments
+        , onChangeData OnChangeData
         ]
 
 

@@ -210,7 +210,7 @@ type UserTableFromEmail = {
     [email: string]: { name: string, names: string[], id: string, email: string }
 }
 
-type CommentUpdateSocket = {
+type CommentsNewSocket = {
     __type: string,
     temporary_id: string,
     id: string,
@@ -222,6 +222,17 @@ type CommentUpdateSocket = {
     sent_to: string,
     kind: string,
     source: string
+}
+
+type SessionsNewSocket = {
+
+}
+
+type SessionsUpdateSocket = {
+    __type: 'sessions.update',
+    id: string,
+    name: string,
+    timestamp: number
 }
 
 interface ElmAppPorts {
