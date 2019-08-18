@@ -8,9 +8,11 @@ import $ from 'jquery';
 import moment from 'moment';
 import 'bootstrap';
 import io from "socket.io-client";
+import { Model, processData, formatTime, ChatEntry } from './client_model';
 const shortid = require('shortid').generate;
 
 const token = localStorage.getItem('yacht.token') || "";
+const model = new Model(token);
 
 if (!token || token == '') {
     location.href = '/login' + location.hash;
@@ -72,7 +74,7 @@ socket.on("message", (msg: any) => {
     app.ports.onSocket.send(msg);
 });
 
-function scrollTo(id) {
+function scrollTo(id: string) {
     console.log('scrollTo', id);
     window.setTimeout(() => {
         const el = document.getElementById(id);
@@ -90,51 +92,7 @@ function scrollToBottom() {
 
 app.ports.scrollToBottom.subscribe(scrollToBottom);
 
-
 app.ports.scrollTo.subscribe(scrollTo);
-
-type ChatEntry = CommentTyp | SessionEvent | ChatFile;
-
-function formatTime(timestamp: number): string {
-    if (timestamp < 0) {
-        return '(日時不明)'
-    } else {
-        return moment(timestamp).format('YYYY/M/D HH:mm:ss');
-    }
-}
-
-const processData = (res: ChatEntry[]): ChatEntryClient[] => {
-    return map(res, (m1) => {
-        // console.log('processData', m1);
-        const user: string = m1.user_id;
-        switch (m1.kind) {
-            case "comment": {
-                const m = <CommentTyp>m1;
-                var v: ChatEntryClient = { id: m.id, user, comment: "", timestamp: formatTime(m.timestamp), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "" };
-                v.comment = m.comment;
-                v.originalUrl = m.original_url || "";
-                v.sentTo = m.sent_to || "";
-                v.source = m.source;
-                return v;
-            }
-            case "event": {
-                const m = <SessionEvent>m1;
-                var v: ChatEntryClient = { id: m.id, user, comment: "", timestamp: formatTime(m.timestamp), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "" };
-                v.comment = "（参加しました）";
-                v.action = m.action;
-                return v;
-            }
-            case "file": {
-                const m = <ChatFile>m1;
-                var v: ChatEntryClient = { id: m.id, user, comment: "", timestamp: formatTime(m.timestamp), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "" };
-                v.comment = "（ファイル：" + m.url + "）";
-                console.log('file processData', v);
-                v.url = m.url;
-                return v;
-            }
-        }
-    });
-};
 
 app.ports.createNewSession.subscribe(async function (args: any[]) {
     var name: string = args[0];
@@ -153,29 +111,16 @@ app.ports.createNewSession.subscribe(async function (args: any[]) {
     app.ports.feedMessages.send(processData(data2));
 });
 
-function getAndFeedMessages(session: string) {
-    const params: GetCommentsParams = { session, token };
-    axios.get('/api/comments', { params }).then(({ data }) => {
-        const values = processData(data);
-        // console.log(values);
-        app.ports.feedMessages.send(values);
-        // scrollToBottom();
-    });
-}
-
 app.ports.getUsers.subscribe(() => {
-    axios.get('/api/users', { params: { token } }).then(({ data }: AxiosResponse<GetUsersResponse>) => {
-        const users: User[] = data.data.users;
-        // console.log(users);
-        app.ports.feedUsers.send(users);
-    });
+    model.users.get().then(app.ports.feedUsers.send);
 });
 
-app.ports.getMessages.subscribe(getAndFeedMessages);
+app.ports.getMessages.subscribe((session: string) => {
+    model.messages.list_of_session(session).then(app.ports.feedMessages.send);
+});
 
 app.ports.getUserMessages.subscribe(async function (user: string) {
-    const { data } = await axios.get('/api/comments', { params: { user, token } });
-    app.ports.feedUserMessages.send(processData(data));
+    model.messages.list_of_user(user).then(app.ports.feedUserMessages.send);
 });
 
 app.ports.getSessionsWithSameMembers.subscribe(function ({ members, is_all }: { members: Array<string>, is_all: boolean }) {
@@ -195,22 +140,11 @@ app.ports.getSessionsOf.subscribe(function (user: string) {
     });
 });
 
-function getAndfeedRoolmInfo() {
-    const params: AuthedParams = { token };
-    axios.get('/api/sessions', { params }).then(({ data }: AxiosResponse<GetSessionsResponse>) => {
-        // console.log('getAndfeedRoolmInfo obtained', data.data);
-        app.ports.feedRoomInfo.send(map(data.data, (r): RoomInfoClient => {
-            var s: any = clone(r);
-            s.timestamp = formatTime(r.timestamp);
-            return s;
-        }));
-        scrollToBottom();
-    });
+function getAndfeedRoomInfo() {
+    model.sessions.list().then(app.ports.feedRoomInfo.send);
 }
 
-app.ports.getRoomInfo.subscribe(function () {
-    getAndfeedRoolmInfo();
-});
+app.ports.getRoomInfo.subscribe(getAndfeedRoomInfo);
 
 var temporary_id_list = [];
 
@@ -219,7 +153,7 @@ app.ports.sendCommentToServer.subscribe(function ({ comment, user, session }: { 
     temporary_id_list.push(temporary_id);
     $.post('/api/comments', { comment, user, session, temporary_id, token }).then((res: PostCommentResponse) => {
         app.ports.sendCommentToServerDone.send(null);
-        getAndfeedRoolmInfo();
+        getAndfeedRoomInfo();
         scrollToBottom();
     });
 });
