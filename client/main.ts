@@ -27,7 +27,53 @@ moment.locale('ja');
 var show_toppane = JSON.parse(localStorage['yacht.show_toppane'] || "false") || false;
 var expand_chatinput = JSON.parse(localStorage['yacht.expand_chatinput'] || "false") || false;
 
-const app = Elm.Main.init({ flags: { user_id: localStorage['yacht.user_id'] || "", show_top_pane: show_toppane, expand_chatinput } });
+
+type ElmSend = {
+    send: (any) => void;
+}
+
+type ElmSub = {
+    subscribe: (any) => void;
+}
+
+interface ElmAppPorts {
+    getMessages: ElmSub;
+    onChangeData: ElmSend;
+    scrollToBottom: ElmSub;
+    scrollTo: ElmSub;
+    createNewSession: ElmSub;
+    feedRoomInfo: ElmSend;
+    feedMessages: ElmSend;
+    getUsers: ElmSub;
+    feedUsers: ElmSend;
+    getUserMessages: ElmSub;
+    feedUserMessages: ElmSend;
+    getSessionsWithSameMembers: ElmSub;
+    feedSessionsWithSameMembers: ElmSend;
+    getSessionsOf: ElmSub;
+    feedSessionsOf: ElmSend;
+    sendCommentToServer: ElmSub;
+    sendCommentToServerDone: ElmSend;
+    getRoomInfo: ElmSub;
+    removeItemRemote: ElmSub;
+    sendRoomName: ElmSub;
+    setPageHash: ElmSub;
+    hashChanged: ElmSend;
+    recalcElementPositions: ElmSub;
+    joinRoom: ElmSub;
+    startPosterSession: ElmSub;
+    receiveNewRoomInfo: ElmSend;
+    logout: ElmSub;
+    feedUserImages: ElmSend;
+    getUserImages: ElmSub;
+    deleteFile: ElmSub;
+}
+
+interface ElmApp {
+    ports: ElmAppPorts;
+}
+
+const app: ElmApp = Elm.Main.init({ flags: { user_id: localStorage['yacht.user_id'] || "", show_top_pane: show_toppane, expand_chatinput } });
 
 window.setTimeout(() => {
     recalcPositions(show_toppane, expand_chatinput);
