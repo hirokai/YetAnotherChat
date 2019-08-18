@@ -28,45 +28,45 @@ var show_toppane = JSON.parse(localStorage['yacht.show_toppane'] || "false") || 
 var expand_chatinput = JSON.parse(localStorage['yacht.expand_chatinput'] || "false") || false;
 
 
-type ElmSend = {
-    send: (any) => void;
+type ElmSend<T> = {
+    send: (arg: T) => void;
 }
 
-type ElmSub = {
-    subscribe: (any) => void;
+type ElmSub<T> = {
+    subscribe: (fn: (arg: T) => void) => void;
 }
 
 interface ElmAppPorts {
-    getMessages: ElmSub;
-    onChangeData: ElmSend;
-    scrollToBottom: ElmSub;
-    scrollTo: ElmSub;
-    createNewSession: ElmSub;
-    feedRoomInfo: ElmSend;
-    feedMessages: ElmSend;
-    getUsers: ElmSub;
-    feedUsers: ElmSend;
-    getUserMessages: ElmSub;
-    feedUserMessages: ElmSend;
-    getSessionsWithSameMembers: ElmSub;
-    feedSessionsWithSameMembers: ElmSend;
-    getSessionsOf: ElmSub;
-    feedSessionsOf: ElmSend;
-    sendCommentToServer: ElmSub;
-    sendCommentToServerDone: ElmSend;
-    getRoomInfo: ElmSub;
-    removeItemRemote: ElmSub;
-    sendRoomName: ElmSub;
-    setPageHash: ElmSub;
-    hashChanged: ElmSend;
-    recalcElementPositions: ElmSub;
-    joinRoom: ElmSub;
-    startPosterSession: ElmSub;
-    receiveNewRoomInfo: ElmSend;
-    logout: ElmSub;
-    feedUserImages: ElmSend;
-    getUserImages: ElmSub;
-    deleteFile: ElmSub;
+    getMessages: ElmSub<string>;
+    onChangeData: ElmSend<{ resource: string, id: string }>;
+    scrollToBottom: ElmSub<void>;
+    scrollTo: ElmSub<string>;
+    createNewSession: ElmSub<any[]>;
+    feedRoomInfo: ElmSend<RoomInfoClient[]>;
+    feedMessages: ElmSend<ChatEntryClient[]>;
+    getUsers: ElmSub<void>;
+    feedUsers: ElmSend<User[]>;
+    getUserMessages: ElmSub<string>;
+    feedUserMessages: ElmSend<ChatEntryClient[]>;
+    getSessionsWithSameMembers: ElmSub<{ members: Array<string>, is_all: boolean }>;
+    feedSessionsWithSameMembers: ElmSend<string[]>;
+    getSessionsOf: ElmSub<string>;
+    feedSessionsOf: ElmSend<string[]>;
+    sendCommentToServer: ElmSub<{ comment: string, user: string, session: string }>;
+    sendCommentToServerDone: ElmSend<void>;
+    getRoomInfo: ElmSub<string>;
+    removeItemRemote: ElmSub<string>;
+    sendRoomName: ElmSub<{ id: string, new_name: string }>;
+    setPageHash: ElmSub<string>;
+    hashChanged: ElmSend<string>;
+    recalcElementPositions: ElmSub<{ show_toppane: boolean, expand_chatinput: boolean }>;
+    joinRoom: ElmSub<{ session_id: string }>;
+    startPosterSession: ElmSub<string>;
+    receiveNewRoomInfo: ElmSend<{ id: string }>;
+    logout: ElmSub<void>;
+    feedUserImages: ElmSend<UserImages>;
+    getUserImages: ElmSub<void>;
+    deleteFile: ElmSub<string>;
 }
 
 interface ElmApp {
@@ -204,7 +204,7 @@ app.ports.removeItemRemote.subscribe((comment_id: string) => {
     });
 });
 
-app.ports.sendRoomName.subscribe(({ id, new_name }: { id: string, new_name: string }) => {
+app.ports.sendRoomName.subscribe(({ id, new_name }) => {
     axios.patch('/api/sessions/' + id, { name: new_name, token }).then(({ data }: AxiosResponse<PatchSessionResponse>) => {
         console.log(data, data.ok, id, new_name);
     })
@@ -263,14 +263,25 @@ app.ports.startPosterSession.subscribe(async (file_id: string) => {
     const post_data: PostSessionsParam = { name, members, temporary_id, token, file_id };
     const { data }: PostSessionsResponse = await $.post('/api/sessions', post_data);
     app.ports.receiveNewRoomInfo.send(data);
-    const p1: Promise<AxiosResponse<GetSessionResponse>> = axios.get('/api/sessions', { params: { token } });
+    const p1: Promise<AxiosResponse<GetSessionsResponse>> = axios.get('/api/sessions', { params: { token } });
     const p2: Promise<AxiosResponse<GetCommentsResponse>> = axios.get('/api/comments', { params: { session: data.id, token } });
     const [{ data: { data: data1 } }, { data: { data: data2 } }] = await Promise.all([p1, p2]);
-    app.ports.feedRoomInfo.send(data1);
+    app.ports.feedRoomInfo.send(map(data1, processSessionInfo));
     app.ports.feedMessages.send(processData(data2));
 });
 
-
+function processSessionInfo(d: RoomInfo): RoomInfoClient {
+    const r: RoomInfoClient = {
+        name: d.name,
+        numMessages: d.numMessages,
+        firstMsgTime: d.firstMsgTime,
+        lastMsgTime: d.lastMsgTime,
+        id: d.id,
+        timestamp: formatTime(d.timestamp),
+        members: d.members
+    };
+    return r;
+}
 app.ports.logout.subscribe(() => {
     $.post('/api/logout', { token }).then((res) => {
         if (res.ok) {
@@ -365,11 +376,19 @@ $(() => {
 
 let prev_pos = 0;
 
+type UserImages = {
+    user_id: string;
+    images: {
+        file_id: any;
+        url: any;
+    }[];
+}
+
 function getUserImages() {
     axios.get('/api/files', { params: { token } }).then(({ data }) => {
         // console.log('getUserImages', data);
         map(data.files, (files, user_id) => {
-            const dat = {
+            const dat: UserImages = {
                 user_id, images: map(files, (f) => {
                     return { file_id: f.id, url: f.path };
                 })

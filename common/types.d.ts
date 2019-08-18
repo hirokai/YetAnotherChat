@@ -135,12 +135,23 @@ interface GetSessionsOfParams extends AuthedParams {
     of_members: string,
 }
 
+type GetSessionsResponse = { ok: boolean, data: RoomInfo[] }
 type GetSessionResponse = { ok: boolean, data: RoomInfo }
 type PatchSessionResponse = { ok: boolean }
 
-type GetCommentsResponse = { ok: boolean, data: CommentTyp[] }
 
+type PostCommentData = {
+    user: string,
+    session: string,
+    comment: string,
+    temporary_id: string,   //generated at client to avoid duplicate addition by socket notification.
+}
+interface GetCommentsParams extends AuthedParams {
+    session: string
+}
+type GetCommentsResponse = { ok: boolean, data: CommentTyp[] }
 type DeleteCommentResponse = { ok: boolean, data?: DeleteCommentData, error?: string }
+type DeleteCommentData = { comment_id: string, session_id: string }
 
 type PostFileResponse = { ok: boolean, data?: PostFileResponseData }
 type PostFileResponseData = {
@@ -153,8 +164,6 @@ type DeleteFileRequestData = { user_id: string }
 type DeleteFileResponse = { ok: boolean, data?: DeleteFileData }
 type DeleteFileData = { user_id: string, file_id: string }
 
-type DeleteCommentData = { comment_id: string, session_id: string }
-type GetSessionsResponse = { ok: boolean, data: RoomInfo[] }
 type GetUsersResponse = {
     ok: boolean, data?: {
         users: User[]
@@ -169,18 +178,6 @@ type PostSessionsResponse = {
     ok: boolean,
     data?: { id: string },
     error?: string
-}
-
-type PostCommentData = {
-    user: string,
-    session: string,
-    comment: string,
-    temporary_id: string,   //generated at client to avoid duplicate addition by socket notification.
-}
-
-
-interface GetCommentsParams extends AuthedParams {
-    session: string
 }
 
 interface PostSessionsParam extends AuthedParams {
