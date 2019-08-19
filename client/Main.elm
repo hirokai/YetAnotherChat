@@ -1311,7 +1311,11 @@ userListView model =
                 True
 
             else
-                String.contains model.searchKeyword u.fullname || String.contains model.searchKeyword u.username || String.contains model.searchKeyword (String.join "," u.emails)
+                let
+                    kw =
+                        String.toLower model.searchKeyword
+                in
+                String.contains kw (String.toLower u.fullname) || String.contains kw (String.toLower u.username) || String.contains kw (String.toLower <| String.join "," u.emails)
 
         userFilter =
             if model.userListPageStatus.userWithIdOnly then
