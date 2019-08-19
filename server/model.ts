@@ -77,7 +77,7 @@ export function merge_users(db, users: UserSubset[]) {
 }
 
 export function make_email_content(c: CommentTyp): string {
-    return c.comment + '\r\n\r\n--------\r\n' + 'COI SNSで返信： ' + 'https://coi-sns.com/main#/sessions/' + c.session_id;
+    return c.comment + '\r\n\r\n--------\r\n' + 'このメールに返信すると，COI SNS上で会話を続けられます。\r\n' + 'COI SNSでリアルタイムチャット： ' + 'https://coi-sns.com/main#/sessions/' + c.session_id;
 }
 
 export function get_sent_mail(q: string): Promise<any[]> {
