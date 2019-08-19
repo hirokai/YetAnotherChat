@@ -10,6 +10,7 @@ import Json.Decode as Json
 import Json.Decode.Extra as JE
 import List.Extra
 import Maybe.Extra exposing (..)
+import Regex exposing (..)
 import Set
 import Task
 import Time exposing (Zone, utc)
@@ -1006,14 +1007,32 @@ removeItem id model =
 mkComment : String -> List (Html.Html msg)
 mkComment s =
     let
+        mre =
+            fromString "http(s)?://([\\w-]+\\.)+[\\w-]+(/[\\w- ./?%&=]*)?"
+
         f s1 =
             if s1 == "\n" then
-                br [] []
+                [ br [] [] ]
 
             else
-                text s1
+                case mre of
+                    Just re ->
+                        let
+                            plains =
+                                Regex.split re s1
+
+                            urls =
+                                List.map (\m -> m.match) <| Regex.find re s1
+
+                            _ =
+                                Debug.log "mkComment" ( plains, urls )
+                        in
+                        List.concatMap (\( p, u ) -> [ text p, a [ href u ] [ text u ] ]) <| List.Extra.zip plains (urls ++ [ "" ])
+
+                    Nothing ->
+                        [ text s1 ]
     in
-    List.map f <| List.intersperse "\n" <| String.split "\n" s
+    List.concatMap f <| List.intersperse "\n" <| String.split "\n" s
 
 
 
