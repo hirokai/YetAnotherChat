@@ -1193,6 +1193,7 @@ homeView model =
         [ div [ class "container-fluid" ]
             [ div [ class "row" ]
                 [ leftMenu model
+                , smallMenu
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text "新しい会話を開始" ]
                     , div [ id "people-wrapper" ] <|
@@ -1238,6 +1239,7 @@ sessionListView model =
         [ div [ class "container-fluid" ]
             [ div [ class "row" ]
                 [ leftMenu model
+                , smallMenu
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text "セッション一覧" ]
                     , table [ id "list-sessions-wrapper", class "table" ]
@@ -1329,6 +1331,7 @@ userListView model =
         [ div [ class "container-fluid" ]
             [ div [ class "row" ]
                 [ leftMenu model
+                , smallMenu
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text "ユーザー一覧" ]
                     , div [ class "btn-group" ] [ input [ type_ "input", id "search-user", class "form-control", onInput SearchUser, value model.searchKeyword, placeholder "検索", autocomplete False ] [], i [ class "searchclear far fa-times-circle", onClick (SearchUser "") ] [] ]
@@ -1378,6 +1381,7 @@ newSessionView model =
         [ div [ class "container-fluid" ]
             [ div [ class "row" ]
                 [ leftMenu model
+                , smallMenu
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text "新しい会話を開始" ]
                     , div [ id "people-wrapper" ] <|
@@ -1410,6 +1414,16 @@ updateRoomName room newName model =
     { model | roomInfo = Dict.map f model.roomInfo }
 
 
+smallMenu : Html Msg
+smallMenu =
+    div [ id "smallmenu", class "d-block d-md-none" ]
+        [ a [ class "clickable smallmenu-item", href "#/users/" ] [ text "ユーザー" ]
+        , a [ class "clickable smallmenu-item", href "#/sessions/" ] [ text "セッション" ]
+        , a [ class "clickable smallmenu-item", href "#/sessions/new" ] [ text "新しい会話" ]
+        , a [ class "clickable smallmenu-item right", onClick Logout ] [ text "ログアウト" ]
+        ]
+
+
 topPane : Model -> Html Msg
 topPane model =
     let
@@ -1427,7 +1441,8 @@ topPane model =
             Maybe.withDefault "" <| getRoomID model
     in
     div [ class "row" ]
-        [ div
+        [ smallMenu
+        , div
             [ id "top-pane"
             , class
                 ("col-md-12 col-lg-12"
@@ -1701,6 +1716,7 @@ userPageView user model =
         [ div [ class "container-fluid" ]
             [ div [ class "row" ]
                 [ leftMenu model
+                , smallMenu
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text <| getUserNameDisplay model user ]
                     , div []

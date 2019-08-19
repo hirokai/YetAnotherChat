@@ -484,3 +484,16 @@ textarea[disabled] {
     cursor: pointer;
     color: #ccc;
 }
+
+#smallmenu {
+    width: 100%;
+    background: #756683;
+}
+
+.smallmenu-item {
+    margin-left: 10px;
+}
+
+.smallmenu-item.right {
+    float: right;
+}
