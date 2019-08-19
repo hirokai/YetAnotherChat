@@ -1008,7 +1008,7 @@ mkComment : String -> List (Html.Html msg)
 mkComment s =
     let
         mre =
-            fromString "http(s)?://([\\w-]+\\.)+[\\w-]+(/[\\w- ./?%&=]*)?"
+            fromString "http(s)?://([\\w-]+\\.)+[\\w-]+(/[\\w- ./?#\\$%&=]*)?"
 
         f s1 =
             if s1 == "\n" then
