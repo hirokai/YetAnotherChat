@@ -36,9 +36,9 @@ if (production) {
         ca: ca
     };
     https = require('https').createServer(credentials, app);
-} else {
-    app.use(logger("short"));
 }
+
+app.use(logger("short"));
 
 const io = require('socket.io')(production ? https : http);
 const credential = require('./private/credential');
@@ -338,8 +338,6 @@ app.delete('/api/comments/:id', (req, res: JsonResponse<DeleteCommentResponse>) 
         }
     });
 });
-
-
 
 app.patch('/api/sessions/:id', (req, res: JsonResponse<PatchSessionResponse>) => {
     const id = req.params.id;

@@ -489,17 +489,23 @@ export function is_member(session_id: string, user_id: string): Promise<boolean>
     });
 }
 
-export function get_member_ids(session_id: string): Promise<string[]> {
+export function get_member_ids({ session_id, only_registered = true }: { session_id: string, only_registered?: boolean }): Promise<string[]> {
     return new Promise((resolve) => {
-        db.all('select user_id from session_current_members where session_id=?', session_id, (err, rows) => {
-            resolve(map(rows, 'user_id'));
-        });
+        if (only_registered) {
+            db.all("select user_id from session_current_members where session_id=? and source<>'email_thread'", session_id, (err, rows) => {
+                resolve(map(rows, 'user_id'));
+            });
+        } else {
+            db.all('select user_id from session_current_members where session_id=?', session_id, (err, rows) => {
+                resolve(map(rows, 'user_id'));
+            });
+        }
     });
 }
 
-export function get_members(session_id: string): Promise<User[]> {
+export function get_members({ session_id, only_registered = true }: { session_id: string, only_registered?: boolean }): Promise<User[]> {
     return new Promise((resolve) => {
-        get_member_ids(session_id).then((ids) => {
+        get_member_ids({ session_id }).then((ids) => {
             const ps = map(ids, (uid: string) => {
                 return get_user(uid);
             });
@@ -511,6 +517,7 @@ export function get_members(session_id: string): Promise<User[]> {
 }
 
 export function join_session({ session_id, user_id, timestamp = -1, source }: { session_id: string, user_id: string, timestamp: number, source: string }): Promise<JoinSessionResponse> {
+    console.log('join_session source', source, user_id);
     return new Promise((resolve, reject) => {
         if (!session_id || !user_id) {
             reject();
@@ -519,7 +526,7 @@ export function join_session({ session_id, user_id, timestamp = -1, source }: { 
         const id: string = shortid();
         db.serialize(async () => {
             const is_registered_user = (await get_user(user_id)) != null;
-            const members: string[] = await get_member_ids(session_id);
+            const members: string[] = await get_member_ids({ session_id });
             console.log(members);
             const is_member: boolean = _.includes(members, user_id);
             if (!is_registered_user) {
