@@ -312,6 +312,7 @@ type Page
     = RoomPage RoomID
     | SessionListPage
     | UserPage String
+    | UserProfilePage String
     | UserListPage
     | HomePage
     | NewSession
@@ -329,6 +330,9 @@ pageToPath page =
 
         UserPage u ->
             "/users/" ++ u
+
+        UserProfilePage u ->
+            "/profiles/" ++ u
 
         UserListPage ->
             "/users/"
@@ -362,6 +366,13 @@ pathToPage hash =
 
             else
                 UserPage u
+
+        "profiles" :: u :: ts ->
+            if u == "" then
+                NotFound
+
+            else
+                UserProfilePage u
 
         _ ->
             NotFound
@@ -684,6 +695,9 @@ update msg model =
                     UserPage u ->
                         enterUser u model
 
+                    UserProfilePage u ->
+                        enterUserProfile u model
+
                     UserListPage ->
                         enterUserList model
 
@@ -839,6 +853,15 @@ enterUser u model =
             { model | page = UserPage u, userPageStatus = { sessions = [], messages = [], shownFileID = Nothing, newFileBox = False } }
     in
     ( new_model, Cmd.batch [ updatePageHash new_model, getSessionsOf u, getUserMessages u ] )
+
+
+enterUserProfile : String -> Model -> ( Model, Cmd Msg )
+enterUserProfile u model =
+    let
+        new_model =
+            { model | page = UserProfilePage u }
+    in
+    ( new_model, Cmd.batch [ updatePageHash new_model ] )
 
 
 finishEditing : String -> (Model -> Model) -> Cmd Msg -> Model -> ( Model, Cmd Msg )
@@ -1189,6 +1212,9 @@ view model =
 
         UserPage user ->
             userPageView user model
+
+        UserProfilePage user ->
+            userProfileView user model
 
         UserListPage ->
             userListView model
@@ -1716,8 +1742,8 @@ getUserNameDisplay model uid =
             "(N/A)"
 
 
-userPageView : String -> Model -> { title : String, body : List (Html Msg) }
-userPageView user model =
+userProfileView : String -> Model -> { title : String, body : List (Html Msg) }
+userProfileView user model =
     let
         user_files =
             Maybe.withDefault [] <| Dict.get user model.files
@@ -1763,7 +1789,12 @@ userPageView user model =
                                         ]
                                 )
                                 user_files
-                                ++ [ button [ class "btn btn-light btn-sm poster-tab-button poster-tab-button-add", onClick (UserPageMsg <| AddNewFileBox) ] [ text "+" ] ]
+                                ++ (if user == model.myself then
+                                        [ button [ class "btn btn-light btn-sm poster-tab-button poster-tab-button-add", onClick (UserPageMsg <| AddNewFileBox) ] [ text "+" ] ]
+
+                                    else
+                                        []
+                                   )
                             )
                         , div
                             [ class <|
@@ -1793,6 +1824,40 @@ userPageView user model =
                                 [ text "ポスターセッションを開始" ]
                             ]
                         ]
+                    ]
+                ]
+            ]
+        ]
+    }
+
+
+userPageView : String -> Model -> { title : String, body : List (Html Msg) }
+userPageView user model =
+    let
+        user_files =
+            Maybe.withDefault [] <| Dict.get user model.files
+
+        current_file =
+            List.Extra.find (\f -> Just f.file_id == model.userPageStatus.shownFileID) user_files
+
+        current_file_id =
+            Maybe.withDefault "" <| Maybe.map .file_id current_file
+
+        user_info =
+            getUserInfo model user
+    in
+    { title = (Maybe.withDefault "" <| Maybe.map .fullname user_info) ++ ": " ++ appName
+    , body =
+        [ div [ class "container-fluid" ]
+            [ div [ class "row" ]
+                [ leftMenu model
+                , smallMenu
+                , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
+                    [ h1 [] [ text <| getUserNameDisplay model user ]
+                    , div []
+                        [ span [] [ text "Email: ", text <| Maybe.withDefault "（未登録）" <| Maybe.andThen (.emails >> List.head) user_info ]
+                        ]
+                    , div [] [ a [ class "clickable", href <| "#/profiles/" ++ user ] [ text "プロフィールを見る" ] ]
                     , div [ id "user-messages" ]
                         [ h2 [] [ text "メッセージ" ]
                         , div [] [ text <| String.fromInt (List.length model.userPageStatus.messages) ++ " messages in " ++ String.fromInt (List.length model.userPageStatus.sessions) ++ " rooms." ]
