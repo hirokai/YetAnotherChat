@@ -65,6 +65,7 @@
     "nodemon": "^1.19.1",
     "prettier": "^1.18.2",
     "style-loader": "^0.23.1",
+    "terser-webpack-plugin": "^1.4.1",
     "ts-loader": "^6.0.4",
     "ts-node-dev": "^1.0.0-pre.40",
     "uglify-js": "^3.6.0",

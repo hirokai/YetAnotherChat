@@ -1,10 +1,12 @@
 // const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin
 const webpack = require('webpack');
 const path = require('path');
+const TerserPlugin = require('terser-webpack-plugin');
 
 module.exports = env => {
+    const mode = (env && env.production) ? 'production' : 'development';
     return {
-        mode: ((env && env.production) ? 'production' : 'development'),
+        mode,
         // mode: 'development',
         entry: {
             main: './client/main.ts',
@@ -26,6 +28,14 @@ module.exports = env => {
                     },
                 },
             },
+            minimizer: [
+                new TerserPlugin({
+                    terserOptions: {
+                        extractComments: 'all',
+                        compress: { drop_console: true }
+                    },
+                }),
+            ]
         },
         plugins: [
             // new BundleAnalyzerPlugin({ analyzerPort: 4000, }),

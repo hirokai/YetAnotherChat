@@ -1030,9 +1030,6 @@ mkComment s =
 
                             urls =
                                 List.map (\m -> m.match) <| Regex.find re s1
-
-                            _ =
-                                Debug.log "mkComment" ( plains, urls )
                         in
                         List.concatMap (\( p, u ) -> [ text p, a [ href u ] [ text u ] ]) <| List.Extra.zip plains (urls ++ [ "" ])
 
