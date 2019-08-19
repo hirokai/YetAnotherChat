@@ -501,3 +501,14 @@ textarea[disabled] {
 #chat-participants {
     font-size: 15px;
 }
+
+#chat-participants ul {
+    list-style-type: disc;
+    padding: 0px;
+}
+
+#chat-participants li {
+    display: inline;
+    margin-left: 20px;
+    padding-right: 10px;
+}

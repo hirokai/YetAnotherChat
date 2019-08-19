@@ -1567,9 +1567,10 @@ chatRoomView room model =
                                     , a [ id "edit-roomname", class "clickable", onClick (StartEditing "room-title" (roomName room model)) ] [ text "Edit" ]
                                     , a [ id "delete-room", class "clickable", onClick (DeleteRoom room) ] [ text "Delete" ]
                                     ]
-                                , div [ id "chat-participants" ] <|
-                                    (text <| "参加者：")
-                                        :: List.map
+                                , div [ id "chat-participants" ]
+                                    [ text <| "参加者："
+                                    , ul [] <|
+                                        List.map
                                             (\u ->
                                                 case getUserInfo model u of
                                                     Just user ->
@@ -1579,6 +1580,8 @@ chatRoomView room model =
                                                         li [] []
                                             )
                                             (roomUsers room model)
+                                    ]
+                                , hr [] []
                                 , div []
                                     (case model.chatPageStatus.messages of
                                         Just messages ->
