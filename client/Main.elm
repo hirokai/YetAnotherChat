@@ -1327,7 +1327,7 @@ userListView model =
                 [ leftMenu model
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text "ユーザー一覧" ]
-                    , div [] [ input [ type_ "input", id "search-user", onInput SearchUser, value model.searchKeyword ] [] ]
+                    , div [ class "btn-group" ] [ input [ type_ "input", id "search-user", class "form-control", onInput SearchUser, value model.searchKeyword, placeholder "検索", autocomplete False ] [], i [ class "searchclear far fa-times-circle", onClick (SearchUser "") ] [] ]
                     , div [] [ input [ type_ "checkbox", id "check-user-with-id-only", checked model.userListPageStatus.userWithIdOnly, onCheck (CheckUserWithIdOnly >> UserListPageMsg) ] [], label [ for "check-user-with-id-only" ] [ text "不明ユーザーを隠す" ] ]
                     , div [ id "list-people-wrapper" ] <|
                         List.map (\u -> mkPeopleDivInList model model.newSessionStatus.selected u.id) <|
