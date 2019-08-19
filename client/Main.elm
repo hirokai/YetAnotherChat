@@ -12,7 +12,7 @@ import List.Extra
 import Maybe.Extra exposing (..)
 import Set
 import Task
-import Time exposing (Posix, Zone, utc)
+import Time exposing (Zone, utc)
 
 
 port getUsers : () -> Cmd msg
@@ -108,6 +108,7 @@ port deleteSession : { id : String } -> Cmd msg
 port logout : () -> Cmd msg
 
 
+appName : String
 appName =
     "Slack clone"
 
@@ -134,7 +135,12 @@ type alias SessionEventTyp =
 
 
 type alias User =
-    { username : String, id : String, fullname : String, emails : List String, avatar : String }
+    { username : String
+    , id : String
+    , fullname : String
+    , emails : List String
+    , avatar : String
+    }
 
 
 type ChatEntry
@@ -148,6 +154,7 @@ chatEntriesDecoder =
     Json.list chatEntryDecoder
 
 
+commentTypDecoder : Json.Decoder CommentTyp
 commentTypDecoder =
     Json.succeed CommentTyp
         |> JE.andMap (Json.field "id" Json.string)
@@ -160,6 +167,7 @@ commentTypDecoder =
         |> JE.andMap (Json.field "source" Json.string)
 
 
+sessionEventTypDecoder : Json.Decoder SessionEventTyp
 sessionEventTypDecoder =
     Json.succeed SessionEventTyp
         |> JE.andMap (Json.field "id" Json.string)
@@ -169,6 +177,7 @@ sessionEventTypDecoder =
         |> JE.andMap (Json.field "action" Json.string)
 
 
+chatFileDecoder : Json.Decoder { id : String, user : String, filename : String }
 chatFileDecoder =
     Json.map3 (\i u f -> { id = i, user = u, filename = f })
         (Json.field "id" Json.string)
@@ -350,7 +359,7 @@ pageToPath page =
 pathToPage : String -> Page
 pathToPage hash =
     case Maybe.withDefault [] <| List.tail (String.split "/" hash) of
-        "sessions" :: r :: ts ->
+        "sessions" :: r :: _ ->
             if r == "" then
                 SessionListPage
 
@@ -360,14 +369,14 @@ pathToPage hash =
             else
                 RoomPage r
 
-        "users" :: u :: ts ->
+        "users" :: u :: _ ->
             if u == "" then
                 UserListPage
 
             else
                 UserPage u
 
-        "profiles" :: u :: ts ->
+        "profiles" :: u :: _ ->
             if u == "" then
                 NotFound
 
@@ -392,15 +401,20 @@ type alias Model =
     , userListPageStatus : UserListPageStatus
     , editing : Set.Set String
     , editingValue : Dict String String
-    , files : Dict String (List { file_id : String, url : String })
+    , files :
+        Dict String
+            (List
+                { file_id : String
+                , url : String
+                }
+            )
     , timezone : Zone
     , searchKeyword : String
     }
 
 
 type alias UserListPageStatus =
-    { userWithIdOnly : Bool
-    }
+    { userWithIdOnly : Bool }
 
 
 getRoomID : Model -> Maybe RoomID
@@ -585,7 +599,7 @@ update msg model =
                 Ok rs ->
                     ( { model | roomInfo = Dict.fromList (List.map (\r -> ( r.id, r )) rs), rooms = List.map (\r -> r.id) rs }, Cmd.none )
 
-                Err err ->
+                Err _ ->
                     ( model, Cmd.none )
 
         EnterRoom r ->
@@ -633,9 +647,6 @@ update msg model =
             let
                 newRoomInfo =
                     { id = id, name = name, timestamp = timestamp, members = [], numMessages = Dict.empty, firstMsgTime = -1, lastMsgTime = -1 }
-
-                _ =
-                    Debug.log "newRoomInfo" newRoomInfo
             in
             enterRoom id model
 
@@ -653,9 +664,6 @@ update msg model =
 
         UpdateEditingValue id newValue ->
             let
-                _ =
-                    Debug.log "UpdateEditingValue" newValue
-
                 nev =
                     if model.chatPageStatus.chatInputActive then
                         Dict.insert id newValue model.editingValue
@@ -759,9 +767,6 @@ update msg model =
 
         OnChangeData { resource, id } ->
             let
-                _ =
-                    Debug.log "OnChangeData" ( resource, id )
-
                 cmd =
                     if resource == "comments" && getRoomID model == Just id then
                         getMessages id
@@ -785,6 +790,7 @@ update msg model =
             ( { model | searchKeyword = q }, Cmd.none )
 
 
+submitComment : Model -> ( Model, Cmd Msg )
 submitComment model =
     case ( Dict.get "chat" model.editingValue, getRoomID model ) of
         ( Just comment, Just room ) ->
@@ -798,15 +804,7 @@ submitComment model =
             ( model, Cmd.none )
 
 
-
--- type alias NewCommentMsg =
---     { id : String, session : String, user : String, timestamp : String, comment : String, originalUrl : String, sentTo : String, source : String }
-
-
-type alias DeleteCommentMsg =
-    { comment_id : String, session_id : String }
-
-
+enterNewSession : Model -> ( Model, Cmd Msg )
 enterNewSession model =
     let
         new_model =
@@ -815,18 +813,22 @@ enterNewSession model =
     ( new_model, updatePageHash new_model )
 
 
+notFound : Model -> ( Model, Cmd Msg )
 notFound model =
     ( { model | page = NotFound }, Cmd.none )
 
 
+enterHome : Model -> ( Model, Cmd Msg )
 enterHome model =
     ( { model | page = HomePage }, Cmd.none )
 
 
+enterUserList : Model -> ( Model, Cmd Msg )
 enterUserList model =
     ( { model | page = UserListPage }, Cmd.none )
 
 
+enterSessionList : Model -> ( Model, Cmd Msg )
 enterSessionList model =
     ( { model | page = SessionListPage }, Cmd.none )
 
@@ -1128,11 +1130,7 @@ leftMenu model =
         ]
 
 
-showUsers room model =
-    ul [ class "menu-list", id "room-memberlist" ] <|
-        List.map (\u -> li [] [ a [ class "clickable", onClick (EnterUser u) ] [ text u ] ]) (roomUsers room model)
-
-
+truncate : Int -> String -> String
 truncate n s =
     if String.length s > n then
         String.left n s ++ "..."
@@ -1156,6 +1154,7 @@ getUserName model uid =
             "<" ++ uid ++ ">"
 
 
+getUserFullname : Model -> String -> String
 getUserFullname model uid =
     case getUserInfo model uid of
         Just user ->
@@ -1169,7 +1168,7 @@ showChannels : Model -> List (Html Msg)
 showChannels model =
     [ div [] [ text "セッション一覧" ]
     , ul [ class "menu-list" ] <|
-        (List.indexedMap
+        List.indexedMap
             (\i r ->
                 li []
                     [ hr [] []
@@ -1188,8 +1187,6 @@ showChannels model =
                     ]
             )
             model.rooms
-         -- ++ [li [] [div [ class "chatlist-name" ] [a [id "measure-width"] []]]]
-        )
     ]
 
 
@@ -1226,7 +1223,8 @@ view model =
             notFoundView model
 
 
-notFoundView model =
+notFoundView : Model -> { title : String, body : List (Html Msg) }
+notFoundView _ =
     { title = "Not found"
     , body = [ div [] [ text "Not found" ] ]
     }
@@ -1234,7 +1232,7 @@ notFoundView model =
 
 homeView : Model -> { title : String, body : List (Html Msg) }
 homeView model =
-    { title = "Slack clone"
+    { title = appName
     , body =
         [ div [ class "container-fluid" ]
             [ div [ class "row" ]
@@ -1372,7 +1370,7 @@ userListView model =
             else
                 filterWithName
     in
-    { title = "Slack clone"
+    { title = appName
     , body =
         [ div [ class "container-fluid" ]
             [ div [ class "row" ]
@@ -1422,7 +1420,7 @@ mkPeopleDivInList model selected user =
 
 newSessionView : Model -> { title : String, body : List (Html Msg) }
 newSessionView model =
-    { title = "Slack clone"
+    { title = appName
     , body =
         [ div [ class "container-fluid" ]
             [ div [ class "row" ]
@@ -1539,7 +1537,7 @@ topPane model =
 
 chatRoomView : RoomID -> Model -> { title : String, body : List (Html Msg) }
 chatRoomView room model =
-    { title = "Slack clone"
+    { title = appName
     , body =
         [ div [ class "container-fluid" ]
             [ div [ class "row" ]
@@ -1569,9 +1567,9 @@ chatRoomView room model =
                                     , a [ id "edit-roomname", class "clickable", onClick (StartEditing "room-title" (roomName room model)) ] [ text "Edit" ]
                                     , a [ id "delete-room", class "clickable", onClick (DeleteRoom room) ] [ text "Delete" ]
                                     ]
-                                , div []
-                                    ([ text <| "参加者：" ]
-                                        ++ List.map
+                                , div [ id "chat-participants" ] <|
+                                    (text <| "参加者：")
+                                        :: List.map
                                             (\u ->
                                                 case getUserInfo model u of
                                                     Just user ->
@@ -1581,7 +1579,6 @@ chatRoomView room model =
                                                         li [] []
                                             )
                                             (roomUsers room model)
-                                    )
                                 , div []
                                     (case model.chatPageStatus.messages of
                                         Just messages ->
@@ -1673,6 +1670,7 @@ chatRoomView room model =
     }
 
 
+onKeyDownTextArea : Model -> String -> ({ code : Int, shiftKey : Bool } -> Msg)
 onKeyDownTextArea model room =
     case Dict.get "chat" model.editingValue of
         Just c ->
@@ -1729,6 +1727,7 @@ getMessageCount session_id model =
             "N/A"
 
 
+getUserNameDisplay : Model -> String -> String
 getUserNameDisplay model uid =
     case getUserInfo model uid of
         Just u ->
@@ -1834,15 +1833,6 @@ userProfileView user model =
 userPageView : String -> Model -> { title : String, body : List (Html Msg) }
 userPageView user model =
     let
-        user_files =
-            Maybe.withDefault [] <| Dict.get user model.files
-
-        current_file =
-            List.Extra.find (\f -> Just f.file_id == model.userPageStatus.shownFileID) user_files
-
-        current_file_id =
-            Maybe.withDefault "" <| Maybe.map .file_id current_file
-
         user_info =
             getUserInfo model user
     in
@@ -1877,11 +1867,6 @@ userPageView user model =
             ]
         ]
     }
-
-
-messageFilter : ChatEntry -> ChatEntry
-messageFilter =
-    identity
 
 
 subscriptions : Model -> Sub Msg
@@ -1924,4 +1909,7 @@ showAll messages =
 
 
 type alias Flags =
-    { user_id : String, show_top_pane : Bool, expand_chatinput : Bool }
+    { user_id : String
+    , show_top_pane : Bool
+    , expand_chatinput : Bool
+    }

@@ -497,3 +497,7 @@ textarea[disabled] {
 .smallmenu-item.right {
     float: right;
 }
+
+#chat-participants {
+    font-size: 15px;
+}
