@@ -379,6 +379,7 @@ type alias Model =
     , editingValue : Dict String String
     , files : Dict String (List { file_id : String, url : String })
     , timezone : Zone
+    , searchKeyword : String
     }
 
 
@@ -419,6 +420,7 @@ init { user_id, show_top_pane, expand_chatinput } =
       , editingValue = Dict.empty
       , files = Dict.empty
       , timezone = utc
+      , searchKeyword = ""
       }
     , Cmd.batch [ getRoomInfo (), getUsers (), getUserImages (), Task.perform SetTimeZone Time.here ]
     )
@@ -462,6 +464,7 @@ type Msg
     | SendCommentDone ()
     | OnChangeData { resource : String, id : String }
     | DeleteRoom String
+    | SearchUser String
     | NoOp
 
 
@@ -756,6 +759,9 @@ update msg model =
                     model.chatPageStatus
             in
             ( { model | chatPageStatus = { csp | chatInputActive = True } }, Cmd.none )
+
+        SearchUser q ->
+            ( { model | searchKeyword = q }, Cmd.none )
 
 
 submitComment model =
@@ -1295,13 +1301,24 @@ mkSessionRowInList model room_id =
 userListView : Model -> { title : String, body : List (Html Msg) }
 userListView model =
     let
-        f : User -> Bool
-        f u =
-            let
-                _ =
-                    Debug.log "emails" u.emails
-            in
+        filterWithEmailExists : User -> Bool
+        filterWithEmailExists u =
             Just "" /= List.head u.emails
+
+        filterWithName : User -> Bool
+        filterWithName u =
+            if model.searchKeyword == "" then
+                True
+
+            else
+                String.contains model.searchKeyword u.fullname || String.contains model.searchKeyword u.username || String.contains model.searchKeyword (String.join "," u.emails)
+
+        userFilter =
+            if model.userListPageStatus.userWithIdOnly then
+                \u -> filterWithEmailExists u && filterWithName u
+
+            else
+                filterWithName
     in
     { title = "Slack clone"
     , body =
@@ -1310,15 +1327,11 @@ userListView model =
                 [ leftMenu model
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text "ユーザー一覧" ]
+                    , div [] [ input [ type_ "input", id "search-user", onInput SearchUser, value model.searchKeyword ] [] ]
                     , div [] [ input [ type_ "checkbox", id "check-user-with-id-only", checked model.userListPageStatus.userWithIdOnly, onCheck (CheckUserWithIdOnly >> UserListPageMsg) ] [], label [ for "check-user-with-id-only" ] [ text "不明ユーザーを隠す" ] ]
                     , div [ id "list-people-wrapper" ] <|
-                        List.map (\u -> mkPeopleDivInList model model.newSessionStatus.selected u.id)
-                            (if model.userListPageStatus.userWithIdOnly then
-                                List.filter f model.users
-
-                             else
-                                model.users
-                            )
+                        List.map (\u -> mkPeopleDivInList model model.newSessionStatus.selected u.id) <|
+                            List.filter userFilter model.users
                     , div
                         [ style "clear" "both" ]
                         []
