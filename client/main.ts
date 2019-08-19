@@ -30,7 +30,7 @@ moment.locale('ja');
 
 var show_toppane = JSON.parse(localStorage['yacht.show_toppane'] || "false") || false;
 var expand_chatinput = JSON.parse(localStorage['yacht.expand_chatinput'] || "false") || false;
-
+var show_users_with_email_only = JSON.parse(localStorage['yacht.show_users_with_email_only'] || "false") || false;
 
 type ElmSend<T> = {
     send: (arg: T) => void;
@@ -72,13 +72,14 @@ interface ElmAppPorts {
     getUserImages: ElmSub<void>;
     deleteFile: ElmSub<string>;
     deleteSession: ElmSub<{ id: string }>;
+    saveConfig: ElmSub<{ userWithEmailOnly: boolean }>;
 }
 
 interface ElmApp {
     ports: ElmAppPorts;
 }
 
-const app: ElmApp = Elm.Main.init({ flags: { user_id: localStorage['yacht.user_id'] || "", show_top_pane: show_toppane, expand_chatinput } });
+const app: ElmApp = Elm.Main.init({ flags: { user_id: localStorage['yacht.user_id'] || "", show_toppane, expand_chatinput, show_users_with_email_only } });
 
 window.setTimeout(() => {
     recalcPositions(show_toppane, expand_chatinput);
@@ -88,6 +89,12 @@ window.setTimeout(() => {
 socket.on('connect', () => {
     socket.emit('subscribe', { token });
 })
+
+app.ports.saveConfig.subscribe(({ userWithEmailOnly }) => {
+    console.log('saveConfig', { userWithEmailOnly });
+    show_users_with_email_only = userWithEmailOnly;
+    localStorage['yacht.show_users_with_email_only'] = JSON.stringify(show_users_with_email_only);
+});
 
 
 axios.get('/api/verify_token', { params: { token } }).then(({ data }) => {

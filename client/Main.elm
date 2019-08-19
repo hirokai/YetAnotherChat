@@ -91,6 +91,9 @@ port setPageHash : String -> Cmd msg
 port recalcElementPositions : { show_toppane : Bool, expand_chatinput : Bool } -> Cmd msg
 
 
+port saveConfig : { userWithEmailOnly : Bool } -> Cmd msg
+
+
 port joinRoom : { session_id : String, user_id : String } -> Cmd msg
 
 
@@ -435,7 +438,7 @@ initialChatPageStatus show_top_pane expand_chatinput =
 
 
 init : Flags -> ( Model, Cmd Msg )
-init { user_id, show_top_pane, expand_chatinput } =
+init { user_id, show_toppane, expand_chatinput, show_users_with_email_only } =
     ( { selected = showAll []
       , onlineUsers = []
       , myself = user_id
@@ -445,8 +448,8 @@ init { user_id, show_top_pane, expand_chatinput } =
       , users = []
       , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
       , userPageStatus = { sessions = [], messages = [], shownFileID = Nothing, newFileBox = False }
-      , chatPageStatus = initialChatPageStatus show_top_pane expand_chatinput
-      , userListPageStatus = { userWithIdOnly = True }
+      , chatPageStatus = initialChatPageStatus show_toppane expand_chatinput
+      , userListPageStatus = { userWithIdOnly = show_users_with_email_only }
       , editing = Set.empty
       , editingValue = Dict.empty
       , files = Dict.empty
@@ -932,7 +935,7 @@ updateUserListPageStatus : UserListPageMsg -> UserListPageStatus -> ( UserListPa
 updateUserListPageStatus msg model =
     case msg of
         CheckUserWithIdOnly b ->
-            ( { model | userWithIdOnly = b }, Cmd.none )
+            ( { model | userWithIdOnly = b }, saveConfig { userWithEmailOnly = b } )
 
 
 updateChatPageStatus : ChatPageMsg -> ChatPageModel -> ( ChatPageModel, Cmd msg )
@@ -1083,39 +1086,49 @@ showItem : Model -> ChatEntry -> Html Msg
 showItem model entry =
     case entry of
         Comment m ->
-            div
-                [ class <|
-                    "chat_entry_comment"
-                        ++ (if model.chatPageStatus.shrunkEntries then
-                                " shrunk"
-
-                            else
-                                ""
-                           )
-                , id m.id
-                ]
-                [ div [ style "float" "left" ] [ img [ class "chat_user_icon", src (iconOfUser (getUserName model m.user)) ] [] ]
-                , div [ class "chat_comment" ]
-                    [ div [ class "chat_user_name", attribute "data-toggle" "tooltip", title <| getUserFullname model m.user ]
-                        [ text
-                            (getUserName model m.user
-                                ++ (if m.sentTo /= "" then
-                                        " to " ++ getUserName model m.sentTo
+            case getUserInfo model m.user of
+                Just userInfo ->
+                    div
+                        [ class <|
+                            "chat_entry_comment"
+                                ++ (if model.chatPageStatus.shrunkEntries then
+                                        " shrunk"
 
                                     else
                                         ""
                                    )
-                            )
-                        , span [ class "chat_timestamp" ]
-                            [ text m.timestamp
-                            ]
-                        , a [ href (makeLinkToOriginal m) ] [ showSource m.source ]
-                        , span [ class "remove-item clickable", onClick (ChatPageMsg (RemoveItem m.id)) ] [ text "×" ]
+                        , id m.id
                         ]
-                    , div [ classList [ ( "chat_comment_content", True ), ( "font-" ++ String.fromInt model.chatPageStatus.fontSize, True ) ] ] <| mkComment m.comment
-                    ]
-                , div [ style "clear" "both" ] [ text "" ]
-                ]
+                        [ div [ style "float" "left" ] [ img [ class "chat_user_icon", src (iconOfUser (getUserName model m.user)) ] [] ]
+                        , div [ class "chat_comment" ]
+                            [ div [ class "chat_user_name", attribute "data-toggle" "tooltip", title <| getUserFullname model m.user ]
+                                [ text
+                                    (getUserName model m.user
+                                        ++ (if m.sentTo /= "" then
+                                                " to " ++ getUserName model m.sentTo
+
+                                            else
+                                                ""
+                                           )
+                                    )
+                                , if userInfo.online then
+                                    span [ class "online-mark" ] [ text "●" ]
+
+                                  else
+                                    text ""
+                                , span [ class "chat_timestamp" ]
+                                    [ text m.timestamp
+                                    ]
+                                , a [ href (makeLinkToOriginal m) ] [ showSource m.source ]
+                                , span [ class "remove-item clickable", onClick (ChatPageMsg (RemoveItem m.id)) ] [ text "×" ]
+                                ]
+                            , div [ classList [ ( "chat_comment_content", True ), ( "font-" ++ String.fromInt model.chatPageStatus.fontSize, True ) ] ] <| mkComment m.comment
+                            ]
+                        , div [ style "clear" "both" ] [ text "" ]
+                        ]
+
+                Nothing ->
+                    div [] [ text "User info not found" ]
 
         ChatFile f ->
             div [ class "file-image-chat" ] [ img [ src f.filename ] [] ]
@@ -1402,7 +1415,7 @@ userListView model =
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text "ユーザー一覧" ]
                     , div [ class "btn-group" ] [ input [ type_ "input", id "search-user", class "form-control", onInput SearchUser, value model.searchKeyword, placeholder "検索", autocomplete False ] [], i [ class "searchclear far fa-times-circle", onClick (SearchUser "") ] [] ]
-                    , div [] [ input [ type_ "checkbox", id "check-user-with-id-only", checked model.userListPageStatus.userWithIdOnly, onCheck (CheckUserWithIdOnly >> UserListPageMsg) ] [], label [ for "check-user-with-id-only" ] [ text "不明ユーザーを隠す" ] ]
+                    , div [] [ input [ type_ "checkbox", id "check-user-with-id-only", checked model.userListPageStatus.userWithIdOnly, onCheck (CheckUserWithIdOnly >> UserListPageMsg) ] [], label [ for "check-user-with-id-only" ] [ text "メールアドレスの無いユーザーを隠す" ] ]
                     , div [ id "list-people-wrapper" ] <|
                         List.map (\u -> mkPeopleDivInList model model.newSessionStatus.selected u.id) <|
                             List.filter userFilter model.users
@@ -1429,7 +1442,16 @@ mkPeopleDivInList model selected user =
                 , onClick (NewSessionMsg (TogglePersonInNew user))
                 ]
                 [ div [ class "userlist-info" ]
-                    [ div [ class "name" ] [ a [ href <| "#/users/" ++ user ] [ text (getUserNameDisplay model user) ] ]
+                    [ div [ class "name" ]
+                        [ a [ href <| "#/users/" ++ user ]
+                            [ text (getUserNameDisplay model user)
+                            , if userInfo.online then
+                                span [ class "online-mark" ] [ text "●" ]
+
+                              else
+                                text ""
+                            ]
+                        ]
                     , div [ class "userlist-email" ] [ text email ]
                     ]
                 , div [ class "userlist-img-div" ] [ img [ class "userlist-img", src "/public/img/portrait.png" ] [] ]
@@ -1934,6 +1956,7 @@ showAll messages =
 
 type alias Flags =
     { user_id : String
-    , show_top_pane : Bool
+    , show_toppane : Bool
     , expand_chatinput : Bool
+    , show_users_with_email_only : Bool
     }

@@ -415,9 +415,7 @@ a {
     box-shadow: rgba(0, 0, 0, 0.5) 3px 3px 5px;
 }
 
-.userlist-person.online {
-    border: 4px solid #ccf;
-}
+.userlist-person.online {}
 
 .userlist-info {
     float: left;
@@ -516,4 +514,10 @@ textarea[disabled] {
     display: inline;
     margin-left: 20px;
     padding-right: 10px;
+}
+
+.online-mark {
+    color: #65B343;
+    font-size: 10px;
+    margin-left: 5px;
 }

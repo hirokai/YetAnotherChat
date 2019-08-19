@@ -579,15 +579,19 @@ export async function list_online_users(): Promise<string[]> {
 export async function delete_connection(socket_id: string): Promise<{ user_id: string, online: boolean, timestamp: number }> {
     return new Promise((resolve) => {
         db.get('select user_id from user_connections where socket_id=?;', socket_id, (err, row) => {
-            const user_id = row['user_id'];
-            const timestamp = new Date().getTime();
-            db.run('delete from user_connections where socket_id=?;', socket_id, (err) => {
-                db.get('select count(*) from user_connections where user_id=?;', user_id, (err1, row1) => {
-                    console.log('select count(*) from user_connections', user_id, err1, row1);
-                    const online: boolean = !!(row1 && row1['count(*)'] > 0);
-                    resolve({ user_id, online, timestamp });
+            if (row) {
+                const user_id = row['user_id'];
+                const timestamp = new Date().getTime();
+                db.run('delete from user_connections where socket_id=?;', socket_id, (err) => {
+                    db.get('select count(*) from user_connections where user_id=?;', user_id, (err1, row1) => {
+                        console.log('select count(*) from user_connections', user_id, err1, row1);
+                        const online: boolean = !!(row1 && row1['count(*)'] > 0);
+                        resolve({ user_id, online, timestamp });
+                    });
                 });
-            });
+            } else {
+                resolve({ user_id: null, online: false, timestamp: null });
+            }
         });
     });
 }
