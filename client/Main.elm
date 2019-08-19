@@ -315,6 +315,7 @@ type Page
     | UserListPage
     | HomePage
     | NewSession
+    | NotFound
 
 
 pageToPath : Page -> String
@@ -338,6 +339,9 @@ pageToPath page =
         NewSession ->
             "/sessions/new"
 
+        NotFound ->
+            "/404"
+
 
 pathToPage : String -> Page
 pathToPage hash =
@@ -360,7 +364,7 @@ pathToPage hash =
                 UserPage u
 
         _ ->
-            HomePage
+            NotFound
 
 
 type alias Model =
@@ -695,6 +699,9 @@ update msg model =
                     NewSession ->
                         enterNewSession model
 
+                    NotFound ->
+                        notFound model
+
             else
                 ( model, Cmd.none )
 
@@ -792,6 +799,10 @@ enterNewSession model =
             { model | page = NewSession, newSessionStatus = { selected = Set.empty, sessions_same_members = [] } }
     in
     ( new_model, updatePageHash new_model )
+
+
+notFound model =
+    ( { model | page = NotFound }, Cmd.none )
 
 
 enterHome model =
@@ -1184,6 +1195,15 @@ view model =
 
         HomePage ->
             homeView model
+
+        NotFound ->
+            notFoundView model
+
+
+notFoundView model =
+    { title = "Not found"
+    , body = [ div [] [ text "Not found" ] ]
+    }
 
 
 homeView : Model -> { title : String, body : List (Html Msg) }
