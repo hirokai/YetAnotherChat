@@ -106,7 +106,7 @@ app.get('/.well-known/acme-challenge/QGHcMRRCmxHp5-pvGxCorKDreEX8CuWOPgIUelUPPww
 });
 
 app.get('/', (req, res) => {
-    res.redirect('/main');
+    res.redirect('/main#/');
 });
 
 app.get('/register', (req, res) => {

@@ -388,6 +388,9 @@ pathToPage hash =
             else
                 UserProfilePage u
 
+        "" :: _ ->
+            HomePage
+
         _ ->
             NotFound
 
@@ -1259,7 +1262,7 @@ view model =
 notFoundView : Model -> { title : String, body : List (Html Msg) }
 notFoundView _ =
     { title = "Not found"
-    , body = [ div [] [ text "Not found" ] ]
+    , body = [ div [] [ text "Not found" ], div [] [ a [ href "/main#/" ] [ text "ホームに戻る" ] ] ]
     }
 
 
@@ -1296,15 +1299,12 @@ mkPeoplePanel model selected user =
             Maybe.withDefault "" <| Maybe.andThen (.emails >> List.head) (getUserInfo model user)
     in
     div
-        [ class <|
-            "person-panel"
-                ++ (if Set.member user selected then
-                        " active"
+        [ classList [ ( "person-panel", True ), ( "active", Set.member user selected || user == model.myself ) ]
+        , if user == model.myself then
+            attribute "_" "_"
 
-                    else
-                        ""
-                   )
-        , onClick (NewSessionMsg (TogglePersonInNew user))
+          else
+            onClick (NewSessionMsg (TogglePersonInNew user))
         ]
         [ div [ class "name" ] [ text (getUserNameDisplay model user) ], div [ class "email" ] [ text email ] ]
 
