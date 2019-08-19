@@ -3,6 +3,8 @@
 import * as fs from "fs";
 const path = require('path');
 const _ = require('lodash');
+import { map } from 'lodash';
+
 const sqlite3 = require('sqlite3');
 const db = new sqlite3.Database(path.join(__dirname, './private/db.sqlite3'));
 // const ulid = require('ulid').ulid;
@@ -20,7 +22,6 @@ import bcrypt from 'bcrypt';
 const saltRounds = 10;
 import * as credentials from './private/credential';
 import { createCipher, createDecipher } from 'crypto';
-import { reject } from "lodash-es";
 
 export async function save_password(user_id: string, password: string): Promise<boolean> {
     const hash = await bcrypt.hash(password, saltRounds);
@@ -73,6 +74,10 @@ export function merge_users(db, users: UserSubset[]) {
             });
         });
     }
+}
+
+export function make_email_content(c: CommentTyp): string {
+    return c.comment + '\r\n\r\n--------\r\n' + 'COI SNSで返信： ' + 'https://coi-sns.com/main#/sessions/' + c.session_id;
 }
 
 export function get_sent_mail(q: string): Promise<any[]> {
@@ -483,10 +488,23 @@ export function is_member(session_id: string, user_id: string): Promise<boolean>
     });
 }
 
-export function get_members(session_id: string): Promise<string[]> {
+export function get_member_ids(session_id: string): Promise<string[]> {
     return new Promise((resolve) => {
-        db.all('select * from session_current_members where session_id=?', session_id, (err, rows) => {
-            resolve(_.map(rows, 'user_id'));
+        db.all('select user_id from session_current_members where session_id=?', session_id, (err, rows) => {
+            resolve(map(rows, 'user_id'));
+        });
+    });
+}
+
+export function get_members(session_id: string): Promise<User[]> {
+    return new Promise((resolve) => {
+        get_member_ids(session_id).then((ids) => {
+            const ps = map(ids, (uid: string) => {
+                return get_user(uid);
+            });
+            Promise.all(ps).then((users) => {
+                resolve(users);
+            })
         });
     });
 }
@@ -500,7 +518,7 @@ export function join_session({ session_id, user_id, timestamp = -1, source }: { 
         const id: string = shortid();
         db.serialize(async () => {
             const is_registered_user = (await get_user(user_id)) != null;
-            const members: string[] = await get_members(session_id);
+            const members: string[] = await get_member_ids(session_id);
             console.log(members);
             const is_member: boolean = _.includes(members, user_id);
             if (!is_registered_user) {

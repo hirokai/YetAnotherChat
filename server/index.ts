@@ -1,8 +1,6 @@
 /// <reference path="../common/types.d.ts" />
 
 import * as model from './model'
-
-
 const express = require('express');
 const logger = require('morgan');
 const app = express();
@@ -17,6 +15,7 @@ const db = new sqlite3.Database(path.join(__dirname, 'private/db.sqlite3'));
 const fs = require('fs');
 const moment = require('moment');
 const jwt = require('jsonwebtoken');
+import * as email from './email';
 
 // const production = true; //process.env.PRODUCTION;
 const production = false;
@@ -67,7 +66,8 @@ interface MyResponse extends Response {
 
 interface MyPostRequest<T> {
     token: any;
-    body: T
+    body: T;
+    decoded?: { username: string, user_id: string, iap: number, exp: number }
 }
 
 interface GetAuthRequest {
@@ -491,7 +491,7 @@ app.post('/api/comments', (req: MyPostRequest<PostCommentData>, res: JsonRespons
     (async () => {
         db.serialize(async () => {
             const ts = new Date().getTime();
-            const user = req.body.user;
+            const user = req.decoded.user_id;
             const comment = req.body.comment;
             const session_id = req.body.session;
             const temporary_id = req.body.temporary_id;
@@ -499,6 +499,7 @@ app.post('/api/comments', (req: MyPostRequest<PostCommentData>, res: JsonRespons
             res.json(r);
             const { data: d, ok, error } = r;
             if (d) {
+                await email.send_emails_to_session_members({ session_id, user_id: user, comment: model.make_email_content(d) });
                 const obj: CommentsNewSocket = {
                     __type: 'comment.new',
                     temporary_id,
