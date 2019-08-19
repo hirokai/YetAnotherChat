@@ -102,6 +102,9 @@ port startPosterSession : String -> Cmd msg
 port deleteFile : String -> Cmd msg
 
 
+port deleteSession : { id : String } -> Cmd msg
+
+
 port logout : () -> Cmd msg
 
 
@@ -458,6 +461,7 @@ type Msg
     | SetTimeZone Zone
     | SendCommentDone ()
     | OnChangeData { resource : String, id : String }
+    | DeleteRoom String
     | NoOp
 
 
@@ -719,6 +723,9 @@ update msg model =
               }
             , Cmd.none
             )
+
+        DeleteRoom room ->
+            ( { model | rooms = List.filter (\r -> r /= room) model.rooms, page = SessionListPage }, deleteSession { id = room } )
 
         StartNewPosterSession file_id ->
             ( model, startPosterSession file_id )
@@ -1482,6 +1489,7 @@ chatRoomView room model =
                                       else
                                         text <| Maybe.withDefault "(N/A)" (Maybe.map (\a -> a.name) (Dict.get room model.roomInfo))
                                     , a [ id "edit-roomname", class "clickable", onClick (StartEditing "room-title" (roomName room model)) ] [ text "Edit" ]
+                                    , a [ id "delete-room", class "clickable", onClick (DeleteRoom room) ] [ text "Delete" ]
                                     ]
                                 , div []
                                     ([ text <| "参加者：" ]

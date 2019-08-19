@@ -67,6 +67,7 @@ interface ElmAppPorts {
     feedUserImages: ElmSend<UserImages>;
     getUserImages: ElmSub<void>;
     deleteFile: ElmSub<string>;
+    deleteSession: ElmSub<{ id: string }>;
 }
 
 interface ElmApp {
@@ -134,6 +135,11 @@ function scrollToBottom() {
     const el = document.getElementById('end-line');
     el.scrollIntoView(true);
 }
+
+app.ports.deleteSession.subscribe(async ({ id }) => {
+    const r = await model.sessions.delete(id);
+    console.log('deleteSession', r);
+})
 
 app.ports.scrollToBottom.subscribe(scrollToBottom);
 

@@ -24,6 +24,10 @@ interface PostCommentResponse {
     error?: string
 }
 
+interface CommentsDeleteResponse {
+    ok: boolean
+}
+
 
 interface AxiosResponse<T> {
     data: T
@@ -125,6 +129,7 @@ interface UserSubset { username: string, fullname: string, id: string }
 
 interface JsonResponse<T> {
     json: (r: T) => void;
+    status: (s: number) => JsonResponse<T>;
 }
 
 interface AuthedParams {
@@ -136,7 +141,7 @@ interface GetSessionsOfParams extends AuthedParams {
 }
 
 type GetSessionsResponse = { ok: boolean, data: RoomInfo[] }
-type GetSessionResponse = { ok: boolean, data: RoomInfo }
+type GetSessionResponse = { ok: boolean, data?: RoomInfo }
 type PatchSessionResponse = { ok: boolean }
 
 

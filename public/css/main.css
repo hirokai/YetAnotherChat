@@ -466,3 +466,9 @@ a {
 textarea[disabled] {
     background: #ccc;
 }
+
+#delete-room {
+    margin-left: 10px;
+    font-size: 14px;
+    color: red;
+}

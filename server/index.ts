@@ -311,7 +311,12 @@ app.get('/api/comments_by_date_user', (req, res) => {
 
 app.get('/api/sessions/:id', (req, res: JsonResponse<GetSessionResponse>) => {
     model.get_session_info(req.params.id).then((data) => {
-        res.json({ ok: true, data });
+        console.log('GET result /api/sessions/', data);
+        if (data) {
+            res.json({ ok: true, data });
+        } else {
+            res.status(404).json({ ok: false });
+        }
     })
 });
 
@@ -359,6 +364,23 @@ app.patch('/api/sessions/:id', (req, res: JsonResponse<PatchSessionResponse>) =>
             timestamp
         };
         io.emit('sessions.update', data);
+    });
+});
+
+app.delete('/api/sessions/:id', (req, res: JsonResponse<CommentsDeleteResponse>) => {
+    const id = req.params.id;
+    db.run('delete from sessions where id=?;', id, (err) => {
+        db.run('delete from comments where session_id=?;', id, (err2) => {
+            db.run('delete from session_current_members where session_id=?;', id, (err3) => {
+                db.run('delete from session_events where session_id=?;', id, (err4) => {
+                    if (!err && !err2 && !err3 && !err4) {
+                        res.json({ ok: true });
+                    } else {
+                        res.json({ ok: false });
+                    }
+                });
+            });
+        });
     });
 });
 
