@@ -234,15 +234,6 @@ app.get('/api/matrix', (req, res) => {
     res.send(fs.readFileSync('private/slack_count_' + span + '.json', 'utf8'));
 });
 
-app.get('/api/users_old', (_, res: JsonResponse<User>) => {
-    const users: UserSlack[] = JSON.parse(fs.readFileSync('private/slack_users.json', 'utf8'));
-    res.json(_.map(users, (u: UserSlack): User => {
-        const ts = u.real_name.split(" ");
-        const letter = ts[ts.length - 1][0].toLowerCase();
-        return { id: u.id, fullname: u.real_name, username: u.name, avatar: '/public/img/letter/' + letter + '.png', emails: [] };
-    }));
-});
-
 app.get('/api/users', (__, res: JsonResponse<GetUsersResponse>) => {
     model.get_users().then(users => {
         res.json({ ok: true, data: { users } });
@@ -591,9 +582,12 @@ app.post('/internal/emit_socket', (req, res) => {
     io.emit("message", req.body);
 });
 
-http.listen(port, () => {
-    console.log("server is running at port " + port);
-})
+model.delete_all_connections().then((ok) => {
+    http.listen(port, () => {
+        console.log("server is running at port " + port);
+    })
+});
+
 
 if (production) {
     https.listen(443, () => {
@@ -601,20 +595,28 @@ if (production) {
     })
 }
 
-io.on('connection', function (socket) {
-    console.log('A user connected');
+io.on('connection', function (socket: SocketIO.Socket) {
+    console.log('A user connected', socket.id);
     socket.on('subscribe', ({ token }) => {
         console.log('subscribe');
         jwt.verify(token, credential.jwt_secret, function (err, decoded) {
             if (decoded) {
-                const user_id = decoded.username;
+                const user_id = decoded.user_id;
                 model.saveSocketId(user_id, socket.id).then((r) => {
                     console.log('saveSocketId', r)
                     console.log('socket id', user_id, socket.id);
+                    const obj: UsersUpdateSocket = { __type: "users.update", user_id, online: true, timestamp: r.timestamp }
+                    io.emit('users.update', obj);
                 });
             }
         });
     });
+    socket.on('disconnect', () => {
+        console.log('disconnected', socket.id);
+        model.delete_connection(socket.id).then(({ user_id, online, timestamp }) => {
+            io.emit('users.update', { user_id, online, timestamp });
+        });
+    })
 });
 
 function clientErrorHandler(err, req, res, next) {
@@ -628,6 +630,6 @@ function clientErrorHandler(err, req, res, next) {
 app.use(clientErrorHandler);
 
 // setInterval(() => {
-//     console.log('interval');
-//     io.emit('sessions.new', { valid: false })
-// }, 1000);
+//     var clients = Object.keys(io.sockets.clients().connected);
+//     console.log(clients);
+// }, 3000);

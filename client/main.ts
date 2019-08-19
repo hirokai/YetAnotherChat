@@ -9,6 +9,10 @@ import moment from 'moment';
 import 'bootstrap';
 import io from "socket.io-client";
 import { Model, processData, formatTime, ChatEntry } from './client_model';
+import * as crypto from './cryptography';
+
+crypto.test_crypto();
+
 const shortid = require('shortid').generate;
 
 const token = localStorage.getItem('yacht.token') || "";
@@ -81,7 +85,9 @@ window.setTimeout(() => {
 }, 100);
 
 
-socket.emit('subscribe', { token });
+socket.on('connect', () => {
+    socket.emit('subscribe', { token });
+})
 
 
 axios.get('/api/verify_token', { params: { token } }).then(({ data }) => {
@@ -91,9 +97,9 @@ axios.get('/api/verify_token', { params: { token } }).then(({ data }) => {
     }
 });
 
-socket.on("users.update", async (msg: SessionsNewSocket) => {
-    await model.sessions.on_new(msg);
-    app.ports.onChangeData.send({ resource: "sessions", id: "" });
+socket.on("users.update", async (msg: UsersUpdateSocket) => {
+    await model.users.on_update(msg);
+    app.ports.onChangeData.send({ resource: "users", id: msg.user_id });
 });
 
 socket.on("sessions.new", async (msg: SessionsNewSocket) => {
@@ -158,7 +164,10 @@ app.ports.createNewSession.subscribe(async function (args: any[]) {
 });
 
 app.ports.getUsers.subscribe(() => {
-    model.users.get().then(app.ports.feedUsers.send);
+    model.users.get().then((us) => {
+        console.log('model.users.get()', us);
+        app.ports.feedUsers.send(us);
+    });
 });
 
 app.ports.getMessages.subscribe((session: string) => {

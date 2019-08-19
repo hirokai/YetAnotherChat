@@ -149,6 +149,7 @@ ul.menu-list li {
     background: #55f;
 }
 
+
 .person-panel .name {
     height: 70px;
     overflow: hidden;
@@ -412,6 +413,10 @@ a {
     border-radius: 5px;
     padding: 5px;
     box-shadow: rgba(0, 0, 0, 0.5) 3px 3px 5px;
+}
+
+.userlist-person.online {
+    border: 4px solid #ccf;
 }
 
 .userlist-info {

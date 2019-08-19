@@ -3,7 +3,7 @@
 import * as fs from "fs";
 const path = require('path');
 const _ = require('lodash');
-import { map } from 'lodash';
+import { map, includes } from 'lodash';
 
 const sqlite3 = require('sqlite3');
 const db = new sqlite3.Database(path.join(__dirname, './private/db.sqlite3'));
@@ -327,6 +327,7 @@ export function get_session_of_members(user_id: string, members: string[], is_al
 
 export function get_comments_list(session_id: string, user_id: string): Promise<(CommentTyp | SessionEvent | ChatFile)[]> {
     const processRow = (row): CommentTyp | SessionEvent | ChatFile => {
+        // const comment_deciphered = row.comment;
         const comment_deciphered = decipher(row.comment, credentials.cipher_secret);
         const comment = comment_deciphered.replace(/(:.+?:)/g, function (m, $1) {
             const r = emoji_dict[$1];
@@ -556,12 +557,44 @@ export function getSocketIds(user_id: string): Promise<string[]> {
     });
 }
 
-export function saveSocketId(user_id: string, socket_id: string): Promise<{ ok: boolean }> {
+export function saveSocketId(user_id: string, socket_id: string): Promise<{ ok: boolean, timestamp: number }> {
     return new Promise((resolve) => {
-        const ts: number = new Date().getTime();
-        db.run('insert into user_connections (socket_id,user_id, timestamp) values (?,?,?);', socket_id, user_id, ts, (err) => {
-            console.log('saveSocketId', err);
-            resolve({ ok: !err });
+        const timestamp: number = new Date().getTime();
+        db.run('insert into user_connections (socket_id,user_id, timestamp) values (?,?,?);', socket_id, user_id, timestamp, (err) => {
+            console.log('saveSocketId error=', err);
+            const ok = !err;
+            resolve({ ok: !err, timestamp: ok ? timestamp : null });
+        });
+    });
+}
+
+export async function list_online_users(): Promise<string[]> {
+    return new Promise((resolve) => {
+        db.all('select user_id from user_connections;', (err, rows) => {
+            resolve(map(rows, 'user_id'));
+        });
+    });
+}
+
+export async function delete_connection(socket_id: string): Promise<{ user_id: string, online: boolean, timestamp: number }> {
+    return new Promise((resolve) => {
+        db.get('select user_id from user_connections where socket_id=?;', socket_id, (err, row) => {
+            const user_id = row['user_id'];
+            const timestamp = new Date().getTime();
+            db.run('delete from user_connections where socket_id=?;', socket_id, (err) => {
+                db.get('select count(*) from user_connections where user_id=?;', user_id, (err1, row1) => {
+                    console.log('select count(*) from user_connections', user_id, err1, row1);
+                    const online: boolean = !!(row1 && row1['count(*)'] > 0);
+                    resolve({ user_id, online, timestamp });
+                });
+            });
+        });
+    });
+}
+export async function delete_all_connections(): Promise<boolean> {
+    return new Promise((resolve) => {
+        db.run('delete from user_connections;', (err) => {
+            resolve(!err);
         });
     });
 }
@@ -584,7 +617,7 @@ export async function register_user({ username, password, email, fullname, sourc
             });
             const emails = email ? [email] : [];
             const avatar = '';
-            const user: User = { id: user_id, fullname, username, emails, avatar }
+            const user: User = { id: user_id, fullname, username, emails, avatar, online: false }
             return { ok: true, user };
         }
     } else {
@@ -645,16 +678,20 @@ export function get_users(): Promise<User[]> {
             if (err) {
                 reject();
             } else {
-                const users: User[] = _.map(rows, (row) => {
-                    return {
-                        emails: row['emails'].split(','),
-                        username: row['name'] || row['id'],
-                        fullname: row['fullname'] || "",
-                        id: row['id'],
-                        avatar: ''
-                    };
+                list_online_users().then((online_users) => {
+                    const users: User[] = _.map(rows, (row): User => {
+                        const id = row['id'];
+                        return {
+                            emails: row['emails'].split(','),
+                            username: row['name'] || row['id'],
+                            fullname: row['fullname'] || "",
+                            id,
+                            avatar: '',
+                            online: includes(online_users, id)
+                        }
+                    });
+                    resolve(users);
                 });
-                resolve(users);
             }
         });
     });
@@ -667,12 +704,15 @@ export function find_user_from_email(email: string): Promise<User> {
         } else {
             db.get('select users.id,users.name,users.fullname,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id group by users.id having emails like ?;', '%' + email + '%', (err, row) => {
                 if (!err && row) {
-                    resolve({ username: row['name'], fullname: row['fullname'], id: row['id'], emails: row['emails'], avatar: '' });
+                    list_online_users().then((online_users) => {
+                        const id = row['id']
+                        const online: boolean = includes(online_users, id);
+                        resolve({ username: row['name'], fullname: row['fullname'], id, emails: row['emails'], avatar: '', online });
+                    });
                 } else {
                     resolve(null);
                 }
             });
-
         }
     });
 }
@@ -682,7 +722,11 @@ export function find_user_from_username(username: string): Promise<User> {
         db.get('select users.id,users.name,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id where users.name=? group by users.id;', username, (err, row) => {
             if (row) {
                 const emails = row['emails'].split(',');
-                resolve({ username: row['name'], id: row['id'], emails, avatar: "", fullname: row['fullname'] });
+                list_online_users().then((online_users) => {
+                    const id = row['id']
+                    const online: boolean = includes(online_users, id);
+                    resolve({ username: row['name'], id, emails, avatar: "", fullname: row['fullname'], online });
+                });
             } else {
                 resolve(null);
             }
@@ -696,7 +740,11 @@ export function get_user(user_id: string): Promise<User> {
         db.get('select users.id,users.name,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id where users.id=? group by users.id;', user_id, (err, row) => {
             if (row) {
                 const emails = row['emails'].split(',');
-                resolve({ username: row['name'], id: row['id'], emails, avatar: "", fullname: row['fullname'] });
+                list_online_users().then((online_users) => {
+                    const id = row['id']
+                    const online: boolean = includes(online_users, id);
+                    resolve({ username: row['name'], id, emails, avatar: "", fullname: row['fullname'], online });
+                });
             } else {
                 resolve(null);
             }

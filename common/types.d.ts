@@ -116,12 +116,13 @@ interface UserSlack {
 }
 
 
-interface User {
+type User = {
     id: string,
     fullname: string,
     username: string,
     emails: string[],
-    avatar: string
+    avatar: string,
+    online: boolean,
 }
 
 // For merge user
@@ -170,15 +171,18 @@ type DeleteFileResponse = { ok: boolean, data?: DeleteFileData }
 type DeleteFileData = { user_id: string, file_id: string }
 
 type GetUsersResponse = {
-    ok: boolean, data?: {
+    ok: boolean,
+    data?: {
         users: User[]
     }
 }
 type GetUserResponse = {
-    ok: boolean, data: {
+    ok: boolean,
+    data: {
         user: User
     }
 }
+
 type PostSessionsResponse = {
     ok: boolean,
     data?: { id: string },
@@ -250,6 +254,15 @@ type CommentsDeleteSocket = {
 type FilesDeleteSocket = {
     __type: 'files.delete',
 }
+
+type UsersUpdateSocket = {
+    __type: 'users.update',
+    user_id: string,
+    online?: boolean,
+    timestamp: number
+}
+
+type UserOnlineStatus = { [key: string]: boolean }
 
 interface ElmAppPorts {
     getMessages: (any) => any;

@@ -141,6 +141,7 @@ type alias User =
     , fullname : String
     , emails : List String
     , avatar : String
+    , online : Bool
     }
 
 
@@ -775,6 +776,9 @@ update msg model =
                     else if resource == "sessions" then
                         getRoomInfo ()
 
+                    else if resource == "users" then
+                        getUsers ()
+
                     else
                         Cmd.none
             in
@@ -1135,7 +1139,7 @@ leftMenu model =
     div [ class "d-none d-md-block col-md-5 col-lg-2", id "menu-left-wrapper" ]
         [ div [ id "menu-left" ]
             ([ div [ id "username-top" ]
-                [ a [ id "lefttop-myself-name", href <| "#/users/" ++ model.myself ] [ text (getUserName model model.myself) ]
+                [ a [ id "lefttop-myself-name", href <| "#/profiles/" ++ model.myself ] [ text (getUserName model model.myself) ]
                 , a [ onClick Logout, class "clickable", id "logout-button" ] [ text "ログアウト" ]
                 ]
              , div [ id "path" ] [ text (pageToPath model.page) ]
@@ -1418,23 +1422,21 @@ mkPeopleDivInList model selected user =
         email =
             Maybe.withDefault "" <| Maybe.andThen (.emails >> List.head) (getUserInfo model user)
     in
-    div
-        [ class <|
-            "userlist-person"
-                ++ (if Set.member user selected then
-                        " active"
+    case getUserInfo model user of
+        Just userInfo ->
+            div
+                [ classList [ ( "userlist-person", True ), ( "active", Set.member user selected ), ( "online", userInfo.online ) ]
+                , onClick (NewSessionMsg (TogglePersonInNew user))
+                ]
+                [ div [ class "userlist-info" ]
+                    [ div [ class "name" ] [ a [ href <| "#/users/" ++ user ] [ text (getUserNameDisplay model user) ] ]
+                    , div [ class "userlist-email" ] [ text email ]
+                    ]
+                , div [ class "userlist-img-div" ] [ img [ class "userlist-img", src "/public/img/portrait.png" ] [] ]
+                ]
 
-                    else
-                        ""
-                   )
-        , onClick (NewSessionMsg (TogglePersonInNew user))
-        ]
-        [ div [ class "userlist-info" ]
-            [ div [ class "name" ] [ a [ href <| "#/users/" ++ user ] [ text (getUserNameDisplay model user) ] ]
-            , div [ class "userlist-email" ] [ text email ]
-            ]
-        , div [ class "userlist-img-div" ] [ img [ class "userlist-img", src "/public/img/portrait.png" ] [] ]
-        ]
+        Nothing ->
+            text ""
 
 
 newSessionView : Model -> { title : String, body : List (Html Msg) }
