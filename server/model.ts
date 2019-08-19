@@ -147,6 +147,32 @@ export function get_session_info(session_id: string): Promise<RoomInfo> {
     });
 }
 
+export async function delete_file({ user_id, file_id }): Promise<{ ok: boolean, data?: DeleteFileData }> {
+    return new Promise((resolve) => {
+        db.get('select path from files where id=? and user_id=?;', file_id, user_id, (err1, row1) => {
+            db.run('delete from files where id=? and user_id=?;', file_id, user_id, (err) => {
+                if (!err1 && !err) {
+                    const data: DeleteFileData = { file_id, user_id };
+                    const path = row1 ? row1['path'] : null;
+                    if (path) {
+                        fs.unlink(path, (err2) => {
+                            if (!err2) {
+                                resolve({ ok: true, data });
+                            } else {
+                                resolve({ ok: false });
+                            }
+                        });
+                    } else {
+                        resolve({ ok: false });
+                    }
+                } else {
+                    resolve({ ok: false });
+                }
+            });
+        });
+    });
+}
+
 export function get_user_file(file_id: string): Promise<{ url: string }> {
     return new Promise((resolve) => {
         db.get('select path from files where id=?;', file_id, (err, row) => {

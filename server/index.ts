@@ -553,20 +553,15 @@ app.delete('/api/files/:id', (req: DeleteRequest<DeleteFileRequestParam, DeleteF
     console.log('delete comment');
     const file_id = req.params.id;
     const user_id = req.body.user_id;
-
-    db.run('delete from files where id=? and user_id=?;', file_id, user_id, (err) => {
-        if (!err) {
-            const data: DeleteFileData = { file_id, user_id };
-            res.json({ ok: true, data });
+    model.delete_file({ user_id, file_id }).then((r) => {
+        res.json(r);
+        if (r.ok) {
             const obj: FilesDeleteSocket = {
                 __type: 'files.delete'
             };
             io.emit("files.delete", obj);
-        } else {
-            res.json({ ok: true });
         }
     });
-
 });
 
 app.post('/internal/emit_socket', (req, res) => {
