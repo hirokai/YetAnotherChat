@@ -137,6 +137,11 @@ interface AuthedParams {
     token: string
 }
 
+interface PostPublicKeyParams extends AuthedParams {
+    publicKey: JsonWebKey,
+    for_user: string
+}
+
 interface GetSessionsOfParams extends AuthedParams {
     of_members: string,
 }

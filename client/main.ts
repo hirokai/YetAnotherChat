@@ -11,8 +11,6 @@ import io from "socket.io-client";
 import { Model, processData, formatTime, ChatEntry } from './client_model';
 import * as crypto from './cryptography';
 
-crypto.test_crypto();
-
 const shortid = require('shortid').generate;
 
 const token = localStorage.getItem('yacht.token') || "";
@@ -88,7 +86,25 @@ window.setTimeout(() => {
 
 socket.on('connect', () => {
     socket.emit('subscribe', { token });
-})
+});
+
+(async () => {
+    const publicKey = JSON.parse(localStorage['yacht.publicKey'] || "null");
+    const privateKey = JSON.parse(localStorage['yacht.privateKey'] || "null");
+    console.log('public and private keys', publicKey, privateKey);
+    if (privateKey && privateKey.crv && publicKey && publicKey.crv) {
+        console.log('Uploading a previously made public key.');
+        const { data } = await axios.post('/api/public_keys', { publicKey, token });
+    } else {
+        console.log('Generating a new public/private keys.')
+        const { publicKey, privateKey } = await crypto.generatePublicKey();
+        console.log('privateKey', JSON.stringify(privateKey));
+        localStorage['yacht.publicKey'] = JSON.stringify(publicKey);
+        localStorage['yacht.privateKey'] = JSON.stringify(privateKey);
+        console.log('posting ', publicKey);
+        const { data } = await axios.post('/api/public_keys', { publicKey, token });
+    }
+})();
 
 app.ports.saveConfig.subscribe(({ userWithEmailOnly }) => {
     console.log('saveConfig', { userWithEmailOnly });

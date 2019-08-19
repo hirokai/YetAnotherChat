@@ -576,9 +576,21 @@ app.delete('/api/files/:id', (req: DeleteRequest<DeleteFileRequestParam, DeleteF
     });
 });
 
-app.post('/internal/emit_socket', (req, res) => {
-    io.emit("message", req.body);
+app.post('/api/public_keys', (req: MyPostRequest<PostPublicKeyParams>, res) => {
+    const user_id = req.decoded.user_id;
+    const jwk = req.body.publicKey;
+    const for_user = req.body.for_user;
+    model.register_public_key({ user_id, for_user, jwk }).then((ok) => {
+        res.json({ ok });
+    });
 });
+
+if (!production) {
+    app.post('/debug/emit_socket', (req, res) => {
+        io.emit("message", req.body);
+    });
+}
+
 
 model.delete_all_connections().then((ok) => {
     http.listen(port, () => {

@@ -22,6 +22,7 @@ import bcrypt from 'bcrypt';
 const saltRounds = 10;
 import * as credentials from './private/credential';
 import { createCipher, createDecipher } from 'crypto';
+import { resolve } from "path";
 
 export async function save_password(user_id: string, password: string): Promise<boolean> {
     const hash = await bcrypt.hash(password, saltRounds);
@@ -792,4 +793,20 @@ export async function passwordMatch(username: string, password: string): Promise
     } else {
         return false;
     }
+}
+
+export async function register_public_key({ user_id, for_user, jwk }: { user_id: string, for_user: string, jwk: JsonWebKey }): Promise<boolean> {
+    return new Promise((resolve) => {
+        const timestamp = new Date().getTime();
+        for_user = for_user != null ? for_user : '';
+        console.log('register_public_key', { user_id, for_user, jwk })
+        if (user_id != null && jwk != null) {
+            db.run('insert into public_keys (user_id,for_user,key,timestamp) values (?,?,?,?)', user_id, for_user, JSON.stringify(jwk), timestamp, (err) => {
+                console.log(user_id);
+                resolve(true);
+            });
+        } else {
+            resolve(false);
+        }
+    });
 }

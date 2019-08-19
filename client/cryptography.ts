@@ -1,19 +1,19 @@
 // https://qiita.com/tomoyukilabs/items/eac94fdb2d0ca92f443a
 
-export async function generatePublicKey(): Promise<{ publicKey: JsonWebKey, localKeyPair: CryptoKeyPair }> {
+export async function generatePublicKey(): Promise<{ publicKey: JsonWebKey, privateKey: JsonWebKey }> {
     return new Promise((resolve) => {
-        let localKeyPair;
+        let privateKey;
         crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveKey', 'deriveBits'])
             .then((keyPair: CryptoKeyPair) => {   // 鍵ペアを生成
                 crypto.subtle.exportKey('jwk', keyPair.privateKey).then((r) => {
                     console.log('private key', r);
+                    privateKey = r;
                 }, (e) => {
                     console.log('private key error', e);
                 });
-                localKeyPair = keyPair;
                 return crypto.subtle.exportKey('jwk', keyPair.publicKey);
             }).then(jwk => { // 公開鍵をJWKとしてエクスポート
-                resolve({ publicKey: jwk, localKeyPair });
+                resolve({ publicKey: jwk, privateKey });
             });
     });
 
@@ -35,11 +35,11 @@ export async function importKey(jwk: JsonWebKey): Promise<CryptoKey> {
     });
 }
 
-function getEncryptionKey(remotePublicKey: CryptoKey, localKeyPair: CryptoKeyPair): Promise<CryptoKey> {
+function getEncryptionKey(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey): Promise<CryptoKey> {
     return new Promise((resolve) => {
         crypto.subtle.deriveBits(  // 鍵共有による共有鍵生成
             { name: 'ECDH', public: remotePublicKey },
-            localKeyPair.privateKey,
+            localPrivateKey,
             128
         ).then(bits => {           // 共有鍵のSHA-256ハッシュ値を生成
             return crypto.subtle.digest(
@@ -65,10 +65,10 @@ type EncryptedData = {
     data: string
 }
 
-export async function encrypt(remotePublicKey: CryptoKey, localKeyPair: CryptoKeyPair, input: Uint8Array): Promise<EncryptedData> {
+export async function encrypt(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey, input: Uint8Array): Promise<EncryptedData> {
     return new Promise((resolve) => {
         let iv = crypto.getRandomValues(new Uint8Array(12));
-        getEncryptionKey(remotePublicKey, localKeyPair).then((encryptionKey) => {
+        getEncryptionKey(remotePublicKey, localPrivateKey).then((encryptionKey) => {
             return crypto.subtle.encrypt(
                 { name: 'AES-GCM', iv, tagLength: 128 },
                 encryptionKey,
@@ -85,9 +85,9 @@ export async function encrypt(remotePublicKey: CryptoKey, localKeyPair: CryptoKe
     });
 }
 
-export async function decrypt(remotePublicKey: CryptoKey, localKeyPair: CryptoKeyPair, encrypted: EncryptedData): Promise<Uint8Array> {
+export async function decrypt(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey, encrypted: EncryptedData): Promise<Uint8Array> {
     return new Promise((resolve) => {
-        getEncryptionKey(remotePublicKey, localKeyPair).then((encryptionKey) => {
+        getEncryptionKey(remotePublicKey, localPrivateKey).then((encryptionKey) => {
             console.log('encryptionKey', encryptionKey);
             // AES-GCMによる復号
             return crypto.subtle.decrypt(
@@ -129,15 +129,17 @@ function fromUint8Aarray(arr: Uint8Array): string {
 
 //Encrypt at A side with A's secret and B's public key.
 async function test_encrypt(input, lk_a, pk_b) {
+    const imported_a = await importKey(lk_a);
     const imported_b = await importKey(pk_b);
-    const encrypted = await encrypt(imported_b, lk_a, input);
+    const encrypted = await encrypt(imported_b, imported_a, input);
     return encrypted;
 }
 
 //Decrypt at B side with B's secret and A's public key.
 async function test_decrypt(input, lk_b, pk_a) {
     const imported_a = await importKey(pk_a);
-    const decrypted = await decrypt(imported_a, lk_b, input);
+    const imported_b = await importKey(lk_b);
+    const decrypted = await decrypt(imported_a, imported_b, input);
     return decrypted;
 }
 
@@ -145,8 +147,8 @@ export function test_crypto() {
     (async () => {
         const input_string = "いいね";
         const input_array = toUint8Aarray(input_string);
-        const { publicKey: pk_a, localKeyPair: lk_a } = await generatePublicKey();
-        const { publicKey: pk_b, localKeyPair: lk_b } = await generatePublicKey();
+        const { publicKey: pk_a, privateKey: lk_a } = await generatePublicKey();
+        const { publicKey: pk_b, privateKey: lk_b } = await generatePublicKey();
 
         //Encrypt at A side with A's secret and B's public key.
         const encrypted = await test_encrypt(input_array, lk_a, pk_b);
