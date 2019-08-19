@@ -60,11 +60,6 @@ function getEncryptionKey(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey
     });
 }
 
-type EncryptedData = {
-    iv: string,
-    data: string
-}
-
 export async function encrypt(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey, input: Uint8Array): Promise<EncryptedData> {
     return new Promise((resolve) => {
         let iv = crypto.getRandomValues(new Uint8Array(12));
@@ -118,12 +113,12 @@ function encodeBase64URL(data: Uint8Array): string {
 }
 
 // https://stackoverflow.com/questions/34946642/convert-string-to-uint8array-in-javascript
-function toUint8Aarray(s: string): Uint8Array {
+export function toUint8Aarray(s: string): Uint8Array {
     let uint8Array = new TextEncoder().encode(s);
     return Uint8Array.from(uint8Array)
 }
 
-function fromUint8Aarray(arr: Uint8Array): string {
+export function fromUint8Aarray(arr: Uint8Array): string {
     return new TextDecoder().decode(arr);
 }
 

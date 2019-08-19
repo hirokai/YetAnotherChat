@@ -1,11 +1,11 @@
 type RoomInfo = {
     name: string,
-    numMessages: Map<string, number>,
+    numMessages: { [key: string]: number },
     firstMsgTime: number,
     lastMsgTime: number,
     id: string,
     timestamp: number,
-    members: Array<string>
+    members: { id: string, publicKey: JsonWebKey }[]
 }
 
 type RoomInfoClient = {
@@ -123,6 +123,7 @@ type User = {
     emails: string[],
     avatar: string,
     online: boolean,
+    publicKey: JsonWebKey
 }
 
 // For merge user
@@ -135,6 +136,11 @@ interface JsonResponse<T> {
 
 interface AuthedParams {
     token: string
+}
+
+interface LoginParams extends AuthedParams {
+    username: string,
+    password: string,
 }
 
 interface PostPublicKeyParams extends AuthedParams {
@@ -151,10 +157,10 @@ type GetSessionResponse = { ok: boolean, data?: RoomInfo }
 type PatchSessionResponse = { ok: boolean }
 
 
-type PostCommentData = {
-    user: string,
+interface PostCommentData extends AuthedParams {
     session: string,
-    comment: string,
+    comments: { for_user: string, content: string }[],     //Encrypted by different public keys.
+    encrypt: string, //Encryption method (ECDH, etc.)
     temporary_id: string,   //generated at client to avoid duplicate addition by socket notification.
 }
 interface GetCommentsParams extends AuthedParams {
@@ -282,4 +288,10 @@ interface ElmApp {
 
 interface PortFn {
     send: (any) => void;
+}
+
+
+type EncryptedData = {
+    iv: string,
+    data: string
 }

@@ -137,9 +137,9 @@ app.get('/matrix', (req, res) => {
 app.post('/api/register', (req, res) => {
     // res.json({ ok: false });
     (async () => {
-        const { username, password, fullname, email } = req.body;
-        console.log({ username, password, fullname, email });
-        const { user, error, error_code } = await model.register_user({ username, password, email, fullname, source: 'self_register' });
+        const { username, password, fullname, email, publicKey } = req.body;
+        console.log({ username, password, fullname, email, publicKey });
+        const { user, error, error_code } = await model.register_user({ username, password, email, fullname, source: 'self_register', publicKey });
         if (!user) {
             res.json({ ok: false, error: error_code == ec.USER_EXISTS ? 'User already exists' : error, error_code });
             return;
@@ -160,12 +160,13 @@ app.post('/api/register', (req, res) => {
     })();
 });
 
-app.post('/api/login', (req, res) => {
+app.post('/api/login', (req: MyPostRequest<LoginParams>, res) => {
     const { username, password } = req.body;
-    model.passwordMatch(username, password).then((matched) => {
+    console.log({ username, password })
+    model.passwordMatch(null, username, password).then((matched) => {
         if (matched) {
             console.log("login ok", username, password);
-            model.find_user_from_username(username).then((user) => {
+            model.find_user_from_username({ myself: null, username }).then((user) => {
                 if (user != null) {
                     console.log('find_user_from_username', user);
                     const token = jwt.sign({ username, user_id: user.id }, credential.jwt_secret, { expiresIn: 604800 });
@@ -189,7 +190,7 @@ app.get('/api/verify_token', (req, res) => {
         if (err) {
             res.status(200).json({ valid: false });
         } else {
-            model.get_user(decoded.user_id).then((user) => {
+            model.get_user({ myself: decoded.user_id, user_id: decoded.user_id }).then((user) => {
                 if (user) {
                     req.decoded = decoded;
                     res.status(200).json({ valid: true, decoded });
@@ -234,8 +235,8 @@ app.get('/api/matrix', (req, res) => {
     res.send(fs.readFileSync('private/slack_count_' + span + '.json', 'utf8'));
 });
 
-app.get('/api/users', (__, res: JsonResponse<GetUsersResponse>) => {
-    model.get_users().then(users => {
+app.get('/api/users', (req: GetAuthRequest, res: JsonResponse<GetUsersResponse>) => {
+    model.get_users(req.decoded.user_id).then(users => {
         res.json({ ok: true, data: { users } });
     });
 });
@@ -468,7 +469,7 @@ app.post('/api/join_session', (req: PostRequest<JoinSessionParam>, res: JsonResp
             const socket_ids_newmember: string[] = await model.getSocketIds(myself);
             console.log('emitting to new member', socket_ids_newmember);
 
-            const data2: { id: string, name: string, timestamp: number, members: string[] } = await model.get_session_info(session_id);
+            const data2: RoomInfo = await model.get_session_info(session_id);
             socket_ids_newmember.forEach(socket_id => {
                 io.to(socket_id).emit("message", _.extend({}, { __type: "new_session" }, data2));
             });
@@ -479,16 +480,21 @@ app.post('/api/join_session', (req: PostRequest<JoinSessionParam>, res: JsonResp
 app.post('/api/comments', (req: MyPostRequest<PostCommentData>, res: JsonResponse<PostCommentResponse>) => {
     (async () => {
         db.serialize(async () => {
-            const ts = new Date().getTime();
-            const user = req.decoded.user_id;
-            const comment = req.body.comment;
+            const timestamp = new Date().getTime();
+            const user_id = req.decoded.user_id;
+            const comments = req.body.comments;
             const session_id = req.body.session;
             const temporary_id = req.body.temporary_id;
-            const r = await model.post_comment(user, session_id, ts, comment, "", "", "self");
-            res.json(r);
+            const ps = _.map(comments, ({ for_user, content }) => {
+                return model.post_comment({ user_id, session_id, timestamp, comment: content, encrypt: "ecdh.v1", for_user, source: "self" });
+            });
+            Promise.all(ps).then((rs) => {
+                res.json({ ok: true });
+            });
+            /*
             const { data: d, ok, error } = r;
             if (d) {
-                await email.send_emails_to_session_members({ session_id, user_id: user, comment: model.make_email_content(d) });
+                await email.send_emails_to_session_members({ session_id, user_id, comment: model.make_email_content(d) });
                 const obj: CommentsNewSocket = {
                     __type: 'comment.new',
                     temporary_id,
@@ -504,6 +510,7 @@ app.post('/api/comments', (req: MyPostRequest<PostCommentData>, res: JsonRespons
                 };
                 io.emit("comments.new", obj);
             }
+            */
         });
     })().catch(() => {
         res.json({ ok: false, error: "DB error." })

@@ -326,7 +326,7 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
         }
         console.log('Adding to user: ', myself);
     } else {
-        myself = await model.find_user_from_email(user_info.test_myself.email)
+        myself = await model.find_user_from_email({ myself: null, email: user_info.test_myself.email })
         if (myself == null) {
             console.log('Cannot find test user.');
             return { added_users: [] };
@@ -369,7 +369,7 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
             const url = data.message_id + '::lines=' + data.lines.start + '-' + data.lines.end;
             const r1: JoinSessionResponse = await model.join_session({ session_id, user_id: u.id, timestamp, source: 'email_thread' });
             console.log('update_db_on_mailgun_webhook', { session_id, user_id: u.id, fullname, email, 'data.from': data.from, r1 });
-            const { ok, data: data1 } = await model.post_comment(u.id, session_id, timestamp, data.comment, url, "", "email");
+            const { ok, data: data1 } = await model.post_comment({ user_id: u.id, session_id, timestamp, comment: data.comment, original_url: url, source: "email", for_user: u.id, encrypt: 'ecdh.v1' });
             console.log('Heading and comment beginning', data.heading, data.comment.slice(0, 100));
             results_comments.push(data1);
             if (ok) {
@@ -392,7 +392,7 @@ function mk_random_username() {
 async function find_or_make_user_for_email(db, fullname: string, email: string): Promise<User> {
     // const v = Math.random();
     // console.log(v);
-    const user: User = await model.find_user_from_email(email);
+    const user: User = await model.find_user_from_email({ myself: null, email });
     if (user != null) {
         return user;
     } else {
@@ -402,11 +402,11 @@ async function find_or_make_user_for_email(db, fullname: string, email: string):
             name_base = mk_random_username();
         }
         var name = name_base;
-        var user1: User = await model.find_user_from_username(name);
+        var user1: User = await model.find_user_from_username({ myself: null, username: name });
         if (user1 != null) {
             for (var i = 2; i < 10000; i++) {
                 name = name_base + i;
-                user1 = await model.find_user_from_username(name);
+                user1 = await model.find_user_from_username({ myself: null, username: name });
                 if (user1 == null) {
                     break;
                 }
@@ -414,7 +414,7 @@ async function find_or_make_user_for_email(db, fullname: string, email: string):
         }
         console.log('find_or_make_user making', fullname, email, name);
         const source = "email_thread";
-        const { ok, user: user2, error } = await model.register_user({ username: name, password: "11111111", email, fullname, source });
+        const { ok, user: user2, error } = await model.register_user({ username: name, password: "11111111", email, fullname, source, publicKey: null });
         console.log('find_or_make_user', error);
         return ok ? user2 : null;
     }

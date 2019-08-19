@@ -140,7 +140,7 @@ export function get_session_info(session_id: string): Promise<RoomInfo> {
                 } else {
                     db.all('select * from session_current_members where session_id=?', session_id, (err, r2) => {
                         const members = _.map(r2, 'user_id');
-                        const numMessages: Map<string, number> = new Map<string, number>();
+                        const numMessages: { [key: string]: number } = {};
                         const firstMsgTime = -1;
                         const lastMsgTime = -1;
                         const id = session_id;
@@ -253,7 +253,7 @@ export function post_file_to_session(session_id: string, user_id: string, file_i
         const timestamp = new Date().getTime();
         get_user_file(file_id).then((r) => {
             if (r != null) {
-                post_comment(user_id, session_id, timestamp, "<__file::" + file_id + "::" + r.url + ">").then(() => {
+                post_comment({ user_id, session_id, timestamp, comment: "<__file::" + file_id + "::" + r.url + ">", for_user: "", encrypt: 'none' }).then(() => {
                     resolve({ ok: true });
                 });
             }
@@ -504,11 +504,11 @@ export function get_member_ids({ session_id, only_registered = true }: { session
     });
 }
 
-export function get_members({ session_id, only_registered = true }: { session_id: string, only_registered?: boolean }): Promise<User[]> {
+export function get_members({ myself, session_id, only_registered = true }: { myself: string, session_id: string, only_registered?: boolean }): Promise<User[]> {
     return new Promise((resolve) => {
         get_member_ids({ session_id }).then((ids) => {
-            const ps = map(ids, (uid: string) => {
-                return get_user(uid);
+            const ps = map(ids, (user_id: string) => {
+                return get_user({ user_id, myself });
             });
             Promise.all(ps).then((users) => {
                 resolve(users);
@@ -526,7 +526,7 @@ export function join_session({ session_id, user_id, timestamp = -1, source }: { 
         const ts: number = timestamp > 0 ? timestamp : new Date().getTime();
         const id: string = shortid();
         db.serialize(async () => {
-            const is_registered_user = (await get_user(user_id)) != null;
+            const is_registered_user = (await get_user({ user_id, myself: user_id })) != null;
             const members: string[] = await get_member_ids({ session_id });
             console.log(members);
             const is_member: boolean = _.includes(members, user_id);
@@ -611,10 +611,10 @@ export async function delete_all_connections(): Promise<boolean> {
     });
 }
 
-export async function register_user({ username, password, email, fullname, source }: { username: string, password: string, email?: string, fullname?: string, source: string }): Promise<{ ok: boolean, user?: User, error?: string, error_code?: number }> {
+export async function register_user({ username, password, email, fullname, source, publicKey }: { username: string, password: string, email?: string, fullname?: string, source: string, publicKey: JsonWebKey }): Promise<{ ok: boolean, user?: User, error?: string, error_code?: number }> {
     const user_id = shortid();
-    if (username) {
-        const existing_user: User = await find_user_from_username(username);
+    if (username && publicKey) {
+        const existing_user: User = await find_user_from_username({ myself: user_id, username });
         if (existing_user) {
             return { ok: false, error_code: error_code.USER_EXISTS, error: 'User name already exists' }
         } else {
@@ -629,7 +629,7 @@ export async function register_user({ username, password, email, fullname, sourc
             });
             const emails = email ? [email] : [];
             const avatar = '';
-            const user: User = { id: user_id, fullname, username, emails, avatar, online: false }
+            const user: User = { id: user_id, fullname, username, emails, avatar, online: false, publicKey }
             return { ok: true, user };
         }
     } else {
@@ -666,14 +666,14 @@ export function decipher(cipheredText: string, password: string = credentials.ci
 }
 
 
-export function post_comment(user_id: string, session_id: string, ts: number, comment: string, original_url: string = "", sent_to: string = "", source = ""): Promise<{ ok: boolean, data?: CommentTyp, error?: string }> {
+export function post_comment({ user_id, session_id, timestamp, comment, for_user, sent_to, original_url = "", source = "", encrypt = "none" }: { user_id: string, session_id: string, timestamp: number, comment: string, for_user: string, original_url?: string, sent_to?: string, source?: string, encrypt: string }): Promise<{ ok: boolean, data?: CommentTyp, error?: string }> {
     return new Promise((resolve, reject) => {
         const comment_id = shortid();
-        db.run('insert into comments (id,user_id,comment,timestamp,session_id,original_url,sent_to,source) values (?,?,?,?,?,?,?,?);', comment_id, user_id, cipher(comment, credentials.cipher_secret), ts, session_id, original_url, sent_to, source, (err1) => {
+        db.run('insert into comments (id,user_id,comment,timestamp,session_id,original_url,sent_to,source) values (?,?,?,?,?,?,?,?);', comment_id, user_id, cipher(comment, credentials.cipher_secret), timestamp, session_id, original_url, sent_to, source, (err1) => {
             db.run('insert or ignore into session_current_members (session_id,user_id) values (?,?)', session_id, user_id, (err2) => {
                 if (!err1 && !err2) {
                     const data: CommentTyp = {
-                        id: comment_id, timestamp: ts, user_id, comment: comment, session_id, original_url, sent_to, source, kind: "comment"
+                        id: comment_id, timestamp: timestamp, user_id, comment: comment, session_id, original_url, sent_to, source, kind: "comment"
                     };
                     resolve({ ok: true, data });
                 } else {
@@ -684,42 +684,53 @@ export function post_comment(user_id: string, session_id: string, ts: number, co
     });
 }
 
-export function get_users(): Promise<User[]> {
-    return new Promise((resolve, reject) => {
-        db.all('select users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname from users join user_emails on users.id=user_emails.user_id group by users.id;', (err, rows) => {
+export async function get_users(myself: string): Promise<User[]> {
+    const rows = await new Promise((resolve, reject) => {
+        db.all('select users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname from users join user_emails on users.id=user_emails.user_id group by users.id;', (err, rows: object) => {
             if (err) {
                 reject();
             } else {
-                list_online_users().then((online_users) => {
-                    const users: User[] = _.map(rows, (row): User => {
-                        const id = row['id'];
-                        return {
-                            emails: row['emails'].split(','),
-                            username: row['name'] || row['id'],
-                            fullname: row['fullname'] || "",
-                            id,
-                            avatar: '',
-                            online: includes(online_users, id)
-                        }
-                    });
-                    resolve(users);
-                });
+                resolve(rows);
             }
         });
     });
+    const online_users = list_online_users();
+    const users = await Promise.all(_.map(rows, (row): Promise<User> => {
+        const user_id = row['id'];
+        let publicKey: JsonWebKey;
+        (async () => {
+            publicKey = await get_public_key({ user_id, for_user: myself });
+        })();
+        const obj: User = {
+            emails: row['emails'].split(','),
+            username: row['name'] || row['id'],
+            fullname: row['fullname'] || "",
+            id: user_id,
+            avatar: '',
+            publicKey,
+            online: includes(online_users, user_id)
+        }
+        return new Promise((resolve) => {
+            resolve(obj);
+        });
+    }));
+    //@ts-ignore
+    return users;
 }
 
-export function find_user_from_email(email: string): Promise<User> {
+export function find_user_from_email({ myself, email }: { myself: string, email: string }): Promise<User> {
     return new Promise((resolve, reject) => {
         if (!email || email.trim() == "") {
             resolve(null);
         } else {
             db.get('select users.id,users.name,users.fullname,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id group by users.id having emails like ?;', '%' + email + '%', (err, row) => {
                 if (!err && row) {
-                    list_online_users().then((online_users) => {
-                        const id = row['id']
-                        const online: boolean = includes(online_users, id);
-                        resolve({ username: row['name'], fullname: row['fullname'], id, emails: row['emails'], avatar: '', online });
+                    const user_id = row['id']
+                    get_public_key({ user_id, for_user: myself }).then((publicKey) => {
+                        list_online_users().then((online_users) => {
+                            const online: boolean = includes(online_users, user_id);
+                            resolve({ username: row['name'], fullname: row['fullname'], id: user_id, emails: row['emails'], avatar: '', online, publicKey });
+                        });
                     });
                 } else {
                     resolve(null);
@@ -729,15 +740,18 @@ export function find_user_from_email(email: string): Promise<User> {
     });
 }
 
-export function find_user_from_username(username: string): Promise<User> {
+export function find_user_from_username({ myself, username }: { myself: string, username: string }): Promise<User> {
     return new Promise((resolve) => {
         db.get('select users.id,users.name,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id where users.name=? group by users.id;', username, (err, row) => {
             if (row) {
+                console.log('find_user_from_username', row);
+                const user_id = row['id']
                 const emails = row['emails'].split(',');
-                list_online_users().then((online_users) => {
-                    const id = row['id']
-                    const online: boolean = includes(online_users, id);
-                    resolve({ username: row['name'], id, emails, avatar: "", fullname: row['fullname'], online });
+                get_public_key({ user_id, for_user: myself }).then((publicKey) => {
+                    list_online_users().then((online_users) => {
+                        const online: boolean = includes(online_users, user_id);
+                        resolve({ username: row['name'], id: user_id, emails, avatar: "", fullname: row['fullname'], online, publicKey });
+                    });
                 });
             } else {
                 resolve(null);
@@ -746,16 +760,18 @@ export function find_user_from_username(username: string): Promise<User> {
     });
 }
 
-export function get_user(user_id: string): Promise<User> {
+export function get_user({ myself, user_id }: { myself: string, user_id: string }): Promise<User> {
     return new Promise((resolve) => {
         console.log('find_user_from_user_id', user_id)
         db.get('select users.id,users.name,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id where users.id=? group by users.id;', user_id, (err, row) => {
             if (row) {
                 const emails = row['emails'].split(',');
-                list_online_users().then((online_users) => {
-                    const id = row['id']
-                    const online: boolean = includes(online_users, id);
-                    resolve({ username: row['name'], id, emails, avatar: "", fullname: row['fullname'], online });
+                get_public_key({ user_id, for_user: myself }).then((publicKey) => {
+                    list_online_users().then((online_users) => {
+                        const id = row['id']
+                        const online: boolean = includes(online_users, id);
+                        resolve({ username: row['name'], id, emails, avatar: "", fullname: row['fullname'], online, publicKey });
+                    });
                 });
             } else {
                 resolve(null);
@@ -777,8 +793,8 @@ export function get_user_password_hash(user_id: string): Promise<string> {
     });
 }
 
-export async function passwordMatch(username: string, password: string): Promise<boolean> {
-    const user = await find_user_from_username(username);
+export async function passwordMatch(myself: string, username: string, password: string): Promise<boolean> {
+    const user = await find_user_from_username({ myself, username });
     if (user != null) {
         console.log('passwordMatch', user);
         const hash = await get_user_password_hash(user.id);
@@ -808,5 +824,17 @@ export async function register_public_key({ user_id, for_user, jwk }: { user_id:
         } else {
             resolve(false);
         }
+    });
+}
+
+export async function get_public_key({ user_id, for_user }: { user_id: string, for_user: string }): Promise<JsonWebKey> {
+    return new Promise((resolve) => {
+        db.get('select * from public_keys where user_id=? and for_user=? order by timestamp desc', user_id, for_user, (err, row) => {
+            if (!err && row) {
+                resolve(JSON.parse(row['key']));
+            } else {
+                resolve(null);
+            }
+        });
     });
 }

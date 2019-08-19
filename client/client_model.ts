@@ -1,21 +1,24 @@
 /// <reference path="../common/types.d.ts" />
 
 import axios from 'axios';
-import { map, clone, includes, pull, without, sortBy, take, find, min, filter } from 'lodash-es';
+import { map, clone, includes, pull, without, sortBy, take, find, min, filter, keyBy } from 'lodash-es';
 import moment from 'moment';
 const shortid = require('shortid').generate;
 import $ from 'jquery';
-const CryptoJS = require("crypto-js");
 import * as credentials from '../server/private/credential';
+import * as crypto from './cryptography';
 
 export type ChatEntry = CommentTyp | SessionEvent | ChatFile;
 
 export class Model {
     token: string
+    privateKey: JsonWebKey
+    publicKeys: { [key: string]: JsonWebKey } = {}
     snapshot: { [key: string]: { [key: number]: any } };
     readonly MAX_SAVE_SNAPSHOT: number = 2;
-    constructor(token: string) {
+    constructor(token: string, privateKey: JsonWebKey) {
         this.token = token;
+        this.privateKey = privateKey;
         this.snapshot = {};
     }
     getSnapshot(resource: string, timestamp: number = -1): any {
@@ -124,13 +127,26 @@ export class Model {
                 return processData(data);
             });
         },
-        new: ({ comment, user, session }: { comment: string, user: string, session: string }): Promise<void> => {
-            return new Promise((resolve) => {
-                const temporary_id = shortid();
-                $.post('/api/comments', { comment, user, session, temporary_id, token: this.token }).then((res: PostCommentResponse) => {
-                    resolve();
-                });
-            });
+        new: async ({ comment, session }: { comment: string, session: string }): Promise<void> => {
+            const room: RoomInfo = await this.sessions.get(session);
+            const temporary_id = shortid();
+            const users: User[] = this.getSnapshot('users') || [];
+            const userDict: { [key: string]: User } = keyBy(users, (u: User) => u.id);
+            const comment_encoded = crypto.toUint8Aarray(comment);
+            const ds = await Promise.all(map(room.members, ({ id, publicKey }) => {
+                const imp_pub = crypto.importKey(publicKey);
+                const imp_prv = crypto.importKey(this.privateKey);
+                return Promise.all([imp_pub, imp_prv]);
+            })).then((ps) => {
+                return Promise.all(map(ps, ([imp_pub, imp_prv]) => {
+                    return crypto.encrypt(imp_pub, imp_prv, comment_encoded);
+                }));
+            })
+            const comments = map(ds, (d: EncryptedData, i: number) => {
+                return { for_user: room.members[i].id, content: d.data };
+            })
+            const obj: PostCommentData = { comments, session, temporary_id, encrypt: 'ecdh.v1', token: this.token };
+            const { data: { data } }: AxiosResponse<PostCommentResponse> = await axios.post('/api/comments', obj);
         },
         on_new: async (msg: CommentsNewSocket): Promise<string> => {
             const timestamp = msg.timestamp;
@@ -180,6 +196,11 @@ export class Model {
                 return values1;
             });
         },
+        get: async (id: string): Promise<RoomInfo> => {
+            const params: AuthedParams = { token: this.token };
+            const { data: r }: { data: GetSessionResponse } = await axios.get('/api/sessions/' + id, { params });
+            return r.data;
+        },
         new: async ({ name, members }: { name: string, members: string[] }): Promise<{ newRoom: any, sessions: any, messages: any }> => {
             const temporary_id = shortid();
             const post_data: PostSessionsParam = { name, members, temporary_id, token: this.token };
@@ -209,16 +230,6 @@ export class Model {
             this.setSnapshot('sessions', msg.timestamp, new_values);
             return;
         }
-    }
-}
-
-function decipher_client(ciphertext: string, secret: string) {
-    try {
-        var bytes = CryptoJS.AES.decrypt(ciphertext.toString(), secret);
-        var plaintext = bytes.toString(CryptoJS.enc.Utf8);
-        return plaintext;
-    } catch (e) {
-        return ciphertext;
     }
 }
 

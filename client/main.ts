@@ -14,7 +14,28 @@ import * as crypto from './cryptography';
 const shortid = require('shortid').generate;
 
 const token = localStorage.getItem('yacht.token') || "";
-const model = new Model(token);
+
+let privateKey;
+let model;
+(async () => {
+    const publicKey = JSON.parse(localStorage['yacht.publicKey'] || "null");
+    privateKey = JSON.parse(localStorage['yacht.privateKey'] || "null");
+    model = new Model(token, privateKey);
+    console.log('public and private keys', publicKey, privateKey);
+
+    if (privateKey && privateKey.crv && publicKey && publicKey.crv) {
+        console.log('Uploading a previously made public key.');
+        const { data } = await axios.post('/api/public_keys', { publicKey, token });
+    } else {
+        console.log('Generating a new public/private keys.')
+        const { publicKey, privateKey } = await crypto.generatePublicKey();
+        console.log('privateKey', JSON.stringify(privateKey));
+        localStorage['yacht.publicKey'] = JSON.stringify(publicKey);
+        localStorage['yacht.privateKey'] = JSON.stringify(privateKey);
+        console.log('posting ', publicKey);
+        const { data } = await axios.post('/api/public_keys', { publicKey, token });
+    }
+})();
 
 if (!token || token == '') {
     location.href = '/login' + location.hash;
@@ -87,24 +108,6 @@ window.setTimeout(() => {
 socket.on('connect', () => {
     socket.emit('subscribe', { token });
 });
-
-(async () => {
-    const publicKey = JSON.parse(localStorage['yacht.publicKey'] || "null");
-    const privateKey = JSON.parse(localStorage['yacht.privateKey'] || "null");
-    console.log('public and private keys', publicKey, privateKey);
-    if (privateKey && privateKey.crv && publicKey && publicKey.crv) {
-        console.log('Uploading a previously made public key.');
-        const { data } = await axios.post('/api/public_keys', { publicKey, token });
-    } else {
-        console.log('Generating a new public/private keys.')
-        const { publicKey, privateKey } = await crypto.generatePublicKey();
-        console.log('privateKey', JSON.stringify(privateKey));
-        localStorage['yacht.publicKey'] = JSON.stringify(publicKey);
-        localStorage['yacht.privateKey'] = JSON.stringify(privateKey);
-        console.log('posting ', publicKey);
-        const { data } = await axios.post('/api/public_keys', { publicKey, token });
-    }
-})();
 
 app.ports.saveConfig.subscribe(({ userWithEmailOnly }) => {
     console.log('saveConfig', { userWithEmailOnly });
@@ -316,7 +319,7 @@ function processSessionInfo(d: RoomInfo): RoomInfoClient {
         lastMsgTime: d.lastMsgTime,
         id: d.id,
         timestamp: formatTime(d.timestamp),
-        members: d.members
+        members: map(d.members, (m) => m.id)
     };
     return r;
 }
