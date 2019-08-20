@@ -282,6 +282,10 @@ export async function decrypt_str(remotePublicKey: CryptoKey, localPrivateKey: C
 }
 
 export async function decrypt(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey, encrypted: EncryptedData, info?: any): Promise<Uint8Array> {
+    const fp1 = await fingerPrint1(remotePublicKey);
+    const fp2 = await fingerPrint1(localPrivateKey);
+    console.log('decrypt() start', encrypted.iv, fp1, fp2)
+
     return new Promise((resolve, reject) => {
         getEncryptionKey(remotePublicKey, localPrivateKey).then((encryptionKey) => {
             console.log('getEncryptionKey', { remotePublicKey, localPrivateKey, encryptionKey })
@@ -315,6 +319,11 @@ export function encodeBase64URL(data: Uint8Array): string {
     for (let i = 0; i < data.length; i++)
         output += String.fromCharCode(data[i]);
     return btoa(output.replace(/\+/g, '-').replace(/\//g, '_')).replace(/=+$/, '');
+}
+
+export async function fingerPrint1(key: CryptoKey): Promise<string> {
+    const jwk = await exportKey(key);
+    return fingerPrint(jwk);
 }
 
 // https://stackoverflow.com/a/42590106

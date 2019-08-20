@@ -241,7 +241,7 @@ app.get('/api/matrix', (req, res) => {
 });
 
 app.get('/api/users', (req: GetAuthRequest, res: JsonResponse<GetUsersResponse>) => {
-    model.get_users(req.decoded.user_id).then(users => {
+    model.list_users(req.decoded.user_id).then(users => {
         res.json({ ok: true, data: { users } });
     });
 });
@@ -588,7 +588,7 @@ app.delete('/api/files/:id', (req: DeleteRequest<DeleteFileRequestParam, DeleteF
     });
 });
 
-app.get('/api/public_keys', (req: GetAuthRequest, res: JsonResponse<GetPublicKeysResponse>) => {
+app.get('/api/public_keys/me', (req: GetAuthRequest, res: JsonResponse<GetPublicKeysResponse>) => {
     const user_id = req.decoded.user_id;
     const for_user = req.query.for_user || user_id;
     model.get_public_key({ user_id, for_user }).then((jwk) => {

@@ -710,7 +710,7 @@ export function post_comment({ user_id, session_id, timestamp, comment, for_user
     });
 }
 
-export async function get_users(myself: string): Promise<User[]> {
+export async function list_users(myself: string): Promise<User[]> {
     const rows: { [key: string]: any } = await new Promise((resolve, reject) => {
         db.all('select users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname from users join user_emails on users.id=user_emails.user_id group by users.id;', (err, rows: object) => {
             if (err) {
@@ -722,22 +722,40 @@ export async function get_users(myself: string): Promise<User[]> {
     });
     const online_users = list_online_users();
     const users = await Promise.all(map(rows, (row): Promise<User> => {
-        const user_id = row['id'];
-        let publicKey: JsonWebKey;
-        (async () => {
-            publicKey = await get_public_key({ user_id, for_user: myself });
-        })();
-        const obj: User = {
-            emails: row['emails'].split(','),
-            username: row['name'] || row['id'],
-            fullname: row['fullname'] || "",
-            id: user_id,
-            avatar: '',
-            publicKey,
-            online: includes(online_users, user_id)
-        }
         return new Promise((resolve) => {
-            resolve(obj);
+            const user_id = row['id'];
+            get_public_key({ user_id, for_user: myself }).then((pk1) => {
+                if (pk1) {
+                    console.log('model.list_users() publicKey', user_id, myself, pk1);
+                    const obj: User = {
+                        emails: row['emails'].split(','),
+                        username: row['name'] || row['id'],
+                        fullname: row['fullname'] || "",
+                        id: user_id,
+                        avatar: '',
+                        publicKey: pk1,
+                        online: includes(online_users, user_id)
+                    }
+                    resolve(obj);
+                } else {
+                    //ToDo: Currently default public key has for_user=user_id.
+                    //But 1-to-1 communication better requires different public keys for every sent-to user.
+                    get_public_key({ user_id, for_user: user_id }).then((pk2) => {
+                        console.log('model.list_users() publicKey', user_id, user_id, pk2);
+                        const obj: User = {
+                            emails: row['emails'].split(','),
+                            username: row['name'] || row['id'],
+                            fullname: row['fullname'] || "",
+                            id: user_id,
+                            avatar: '',
+                            publicKey: pk2,
+                            online: includes(online_users, user_id)
+                        }
+                        console.log('returning', obj);
+                        resolve(obj);
+                    });
+                }
+            });
         });
     }));
     //@ts-ignore

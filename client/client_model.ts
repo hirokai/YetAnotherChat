@@ -111,7 +111,7 @@ export class Model {
             const key = 'comments.session.' + session;
             const params: GetCommentsParams = { session, token: this.token };
             const timestamp = new Date().getTime();
-            const snapshot: ChatEntryClient[] = this.getSnapshot(key, -1);
+            const snapshot: ChatEntryClient[] = this.getSnapshot(key);
             if (snapshot) {
                 console.log('Returning snapshot.')
                 return new Promise((resolve) => {
@@ -119,7 +119,7 @@ export class Model {
                 });
             } else {
                 const { data }: { data: ChatEntry[] } = await axios.get('/api/comments', { params });
-                const comments: ChatEntryClient[] = await processData(data, this.keyPair.privateKey);
+                const comments: ChatEntryClient[] = await processData(data, this);
                 console.log('comments', comments);
                 this.setSnapshot(key, timestamp, comments);
                 return comments;
@@ -127,7 +127,7 @@ export class Model {
         },
         list_for_user: (user: string): Promise<ChatEntryClient[]> => {
             return axios.get('/api/comments', { params: { user, token: this.token } }).then(({ data }) => {
-                return processData(data, this.keyPair.privateKey);
+                return processData(data, this);
             });
         },
         new: async ({ comment, session }: { comment: string, session: string }): Promise<void> => {
@@ -136,9 +136,14 @@ export class Model {
             const temporary_id = shortid();
             const comment_encoded = crypto.toUint8Aarray(comment);
             const prv_key = (await crypto.loadMyKeys()).privateKey;
-            const ds = await Promise.all(map(room.members, ({ id, publicKey }) => {
-                console.log({ pub: publicKey, prv: prv_key });
-                return crypto.importKey(publicKey, true);
+            const ds = await Promise.all(map(room.members, ({ id, publicKey: jwk }) => {
+                return new Promise((resolve) => {
+                    if (jwk) {
+                        crypto.importKey(jwk, true).then(resolve);
+                    } else {
+                        this.keys.get(id).then(resolve);
+                    }
+                });
             })).then((ps) => {
                 console.log('imported keys', ps)
                 return Promise.all(map(ps, (imp_pub: CryptoKey) => {
@@ -154,7 +159,8 @@ export class Model {
         },
         on_new: async (msg: CommentsNewSocket): Promise<string> => {
             const timestamp = msg.timestamp;
-            const deciphered_comment = await crypto.decrypt_str(this.keyPair.publicKey, this.keyPair.privateKey, msg.comment).catch(() => { console.log('Error decrypting'); return msg.comment });
+            const publicKey = await this.keys.get(msg.user);
+            const deciphered_comment = await crypto.decrypt_str(publicKey, this.keyPair.privateKey, msg.comment).catch(() => { console.log('Error decrypting'); return msg.comment });
             var msg1: ChatEntryClient = {
                 id: msg.id,
                 user: msg.user,
@@ -244,10 +250,21 @@ export class Model {
         }
     }
     keys = {
+        get: async (user_id: string): Promise<CryptoKey> => {
+            const users: User[] = this.getSnapshot('users');
+            if (!users) {
+                return null;
+            } else {
+                const user: User = find(users, (u) => u.id == user_id);
+                const jwk = user ? user.publicKey : null;
+                const key = await crypto.importKey(jwk, true, true);
+                return key;
+            }
+        },
         get_my_public_key: async (): Promise<CryptoKey> => {
             const params: GetPublicKeysParams = { user_id: this.user_id, token: this.token };
 
-            const { data: { data } } = <AxiosResponse<GetPublicKeysResponse>>await axios.get('/api/public_keys', { params });
+            const { data: { data } } = <AxiosResponse<GetPublicKeysResponse>>await axios.get('/api/public_keys/me', { params });
             console.log('Importing', data);
             return crypto.importKey(data, true);
         },
@@ -265,13 +282,13 @@ export class Model {
     }
 }
 
-async function processComment(m1: ChatEntry, privateKey: CryptoKey): Promise<ChatEntryClient> {
+async function processComment(m1: ChatEntry, model: Model): Promise<ChatEntryClient> {
     const user: string = m1.user_id;
     const m = <CommentTyp>m1;
     // console.log('Processing comment by ', m.user_id);
-    const publicKey = await crypto.loadPublicKey(m.user_id);
+    const publicKey = await model.keys.get(m.user_id);
     // const deciphered_comment = m.comment;
-    const deciphered_comment = await crypto.decrypt_str(publicKey, privateKey, m.comment, m.user_id).catch(() => { console.log('Error decrypting'); return m.comment });
+    const deciphered_comment = await crypto.decrypt_str(publicKey, model.keyPair.privateKey, m.comment, m.user_id).catch(() => { console.log('Error decrypting'); return m.comment });
     // console.log('decrypted', deciphered_comment);
     var v: ChatEntryClient = { id: m.id, user, comment: deciphered_comment, timestamp: formatTime(m.timestamp), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "" };
     v.originalUrl = m.original_url || "";
@@ -298,12 +315,12 @@ async function processFile(m1: ChatEntry): Promise<ChatEntryClient> {
     return v;
 }
 
-export async function processData(res: ChatEntry[], privateKey: CryptoKey): Promise<ChatEntryClient[]> {
+export async function processData(res: ChatEntry[], model: Model): Promise<ChatEntryClient[]> {
     return Promise.all(map(res, (m1) => {
         // console.log('processData', m1);
         switch (m1.kind) {
             case "comment": {
-                return processComment(m1, privateKey);
+                return processComment(m1, model);
             }
             case "event": {
                 return processEvent(m1);
