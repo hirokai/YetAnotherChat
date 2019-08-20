@@ -2,7 +2,7 @@
 
 // @ts-ignore
 import { Elm } from './Main.elm';
-import { map } from 'lodash-es';
+import { map, chunk } from 'lodash-es';
 import axios from 'axios';
 import $ from 'jquery';
 import moment from 'moment';
@@ -30,8 +30,10 @@ if (!token || token == '') {
     location.href = '/login' + location.hash;
 }
 
-// crypto.test_crypto3();
+// crypto.test_crypto();
 // crypto.test_crypto1();
+// crypto.test_crypto2();
+// crypto.test_crypto3();
 // throw new Error('Abort');
 
 (async () => {
@@ -48,7 +50,7 @@ if (!token || token == '') {
         await axios.post('/api/public_keys', obj);
     } else {
         console.log('Generating a new public/private keys.')
-        const localKey = await crypto.generatePublicKey(false);
+        const localKey = await crypto.generatePublicKey(true);
         console.log('Generated', localKey)
         crypto.saveMyKeys(localKey).then(() => {
             console.log('Key pair saved to DB');
@@ -59,8 +61,20 @@ if (!token || token == '') {
         const obj: PostPublicKeyParams = { publicKey: jwk, for_user: user_id, token }
         await axios.post('/api/public_keys', obj);
     }
-    window['model'] = model;
+    console.log('Private key', model.keyPair.privateKey);
+    /*
+    const pub_exported = await crypto.exportKeySPKI(model.keyPair.publicKey);
+    const pub_exported_b64 = crypto.encodeBase64URL(new Uint8Array(pub_exported));
+    const pub_exported_b64_2 = pub_exported_b64.match(/.{1,32}/g).join('\n');
+    const pub_exported2 = crypto.decodeBase64URL(pub_exported_b64);
+    // const fp = await crypto.fingerPrint(prv_exported);
+    console.log('Private key exported', prv_exported);
+    console.log('Public key exported', pub_exported, pub_exported2, pub_exported_b64_2);
+    */
+    const prv_exported = await crypto.exportKey(model.keyPair.privateKey);
+    model.privateKeyJson = prv_exported;
 
+    window['model'] = model;
 
     const app: ElmApp = Elm.Main.init({ flags: { user_id, show_toppane, expand_chatinput, show_users_with_email_only } });
 
@@ -283,6 +297,12 @@ if (!token || token == '') {
         app.ports.feedMessages.send(processed);
     });
 
+    app.ports.downloadPrivateKey.subscribe(() => {
+        console.log('downloadPrivateKey()')
+        const content = JSON.stringify(model.privateKeyJson, null, 2);
+        handleDownload(content);
+    });
+
     app.ports.logout.subscribe(() => {
         $.post('/api/logout', { token }).then((res) => {
             if (res.ok) {
@@ -373,6 +393,8 @@ if (!token || token == '') {
             }
             prev_pos = pos;
         });
+        $('#upload-private-key').change(handleFileSelect);
+
     });
 
     let prev_pos = 0;
@@ -443,9 +465,30 @@ if (!token || token == '') {
             }
         });
     }
-
-
 })();
+
+function handleFileSelect(evt) {
+    var files = evt.target.files; // FileList object
+
+    var reader = new FileReader();
+
+    // Closure to capture the file information.
+    reader.onload = () => {
+        (async () => {
+            //@ts-ignore
+            const prv_jwk = JSON.parse(reader.result);
+            const { data: { data: pub_jwk } } = await axios.get('/api/public_keys', { params: { for_user: user_id, token } });
+            console.log(prv_jwk, pub_jwk);
+            const pub = await crypto.importKey(pub_jwk, true, true)
+            const prv = await crypto.importKey(prv_jwk, false, true)
+            await crypto.saveMyKeys({ privateKey: prv, publicKey: pub });
+        })();
+    }
+
+    // Read in the image file as a data URL.
+    reader.readAsText(files[0]);
+}
+
 
 const socket: SocketIOClient.Socket = io('');
 
@@ -503,6 +546,7 @@ interface ElmAppPorts {
     deleteFile: ElmSub<string>;
     deleteSession: ElmSub<{ id: string }>;
     saveConfig: ElmSub<{ userWithEmailOnly: boolean }>;
+    downloadPrivateKey: ElmSub<void>;
 }
 
 interface ElmApp {
@@ -526,3 +570,11 @@ function postFileToSession(session_id: string, formData: FormData) {
     });
 }
 
+
+// https://qiita.com/wadahiro/items/eb50ac6bbe2e18cf8813
+function handleDownload(content: string) {
+    var blob = new Blob([content], { "type": "application/json" });
+
+    const el = <HTMLAnchorElement>document.getElementById("download-private-key");
+    el.href = window.URL.createObjectURL(blob);
+}

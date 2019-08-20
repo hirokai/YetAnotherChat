@@ -4,31 +4,38 @@ const storeName = 'yacht.keyPair';
 
 
 export async function saveMyKeys(keyPair: CryptoKeyPair): Promise<void> {
+    console.log('saveMyKeys()', keyPair);
     return new Promise((resolve) => {
-        const openReq = indexedDB.open(storeName);
 
-        openReq.onupgradeneeded = function (event: any) {
-            var db = event.target.result;
-            const objectStore = db.createObjectStore(storeName, { keyPath: 'id' });
-            console.log('objectStore', objectStore);
+        const prv_e_p = exportKey(keyPair.privateKey);
+        const pub_e_p = exportKey(keyPair.publicKey);
+        Promise.all([prv_e_p, pub_e_p]).then((ks) => {
+            return Promise.all([fingerPrint(ks[0]), fingerPrint(ks[1])]);
+        }).then((fps) => {
+            const openReq = indexedDB.open(storeName);
+            const fp = { privateKey: fps[0], publicKey: fps[1] };
 
-        }
-        openReq.onsuccess = function (event: any) {
-            // console.log('openReq.onsuccess');
-            var db = event.target.result;
-            var trans = db.transaction(storeName, 'readwrite');
-            var store = trans.objectStore(storeName);
-            var putReq = store.put({ id: 'myself', keyPair });
+            openReq.onupgradeneeded = function (event: any) {
+                var db = event.target.result;
+                const objectStore = db.createObjectStore(storeName, { keyPath: 'id' });
+                console.log('objectStore', objectStore);
 
-            putReq.onsuccess = function () {
-                // console.log('put data success');
-                resolve();
             }
-
-            trans.oncomplete = function () {
-                // console.log('transaction complete');
+            openReq.onsuccess = function (event: any) {
+                // console.log('openReq.onsuccess');
+                var db = event.target.result;
+                var trans = db.transaction(storeName, 'readwrite');
+                var store = trans.objectStore(storeName);
+                var putReq = store.put({ id: 'myself', keyPair, fingerPrint: fp });
+                putReq.onsuccess = function () {
+                    // console.log('put data success');
+                    resolve();
+                }
+                trans.oncomplete = function () {
+                    // console.log('transaction complete');
+                }
             }
-        }
+        });
     });
 }
 
@@ -176,18 +183,24 @@ export async function importKey(data: ExportedFormat, is_publicKey: boolean, exp
     });
 }
 
+//For private key
 export async function exportKeyPKCS8(key: CryptoKey): Promise<ArrayBuffer> {
     return crypto.subtle.exportKey('pkcs8', key);
 }
 
-export async function importKeyPKCS8(data: ArrayBuffer, exportable = false): Promise<CryptoKey> {
+//For public key
+export async function exportKeySPKI(key: CryptoKey): Promise<ArrayBuffer> {
+    return crypto.subtle.exportKey('spki', key);
+}
+
+export async function importKeyPKCS8(data: ArrayBuffer, is_publicKey: boolean, exportable = false): Promise<CryptoKey> {
     return new Promise((resolve) => {
         crypto.subtle.importKey(
             'pkcs8',
             data,
             { name: 'ECDH', namedCurve: 'P-256' },
             exportable,
-            ['deriveKey', 'deriveBits']
+            (is_publicKey ? [] : ['deriveKey', 'deriveBits'])
         ).then(key => {
             // console.log('Imported', jwk, key);
             resolve(key);
@@ -295,6 +308,14 @@ export function encodeBase64URL(data: Uint8Array): string {
     return btoa(output.replace(/\+/g, '-').replace(/\//g, '_')).replace(/=+$/, '');
 }
 
+// https://stackoverflow.com/a/42590106
+export async function fingerPrint(jwk: JsonWebKey): Promise<string> {
+    const s = '{"crv":"' + jwk.crv + '","kty":"' + jwk.kty + '","x":"' + jwk.x + '","y":"' + jwk.y + '"}';
+    const arr = new TextEncoder().encode(s);
+    const hash_arr = await crypto.subtle.digest('SHA-256', arr);
+    return encodeBase64URL(new Uint8Array(hash_arr));
+}
+
 // https://stackoverflow.com/questions/34946642/convert-string-to-uint8array-in-javascript
 export function toUint8Aarray(s: string): Uint8Array {
     let uint8Array = new TextEncoder().encode(s);
@@ -308,7 +329,7 @@ export function fromUint8Aarray(arr: Uint8Array): string {
 //Encrypt at A side with A's secret and B's public key.
 async function test_encrypt(lk_a: CryptoKey, pk_b: ExportedFormat, input: string): Promise<string> {
     try {
-        const imported_b = await importKey(pk_b);
+        const imported_b = await importKey(pk_b, true);
         return encrypt_str(imported_b, lk_a, input);
     } catch (e) {
         console.log(e);
@@ -317,7 +338,7 @@ async function test_encrypt(lk_a: CryptoKey, pk_b: ExportedFormat, input: string
 
 //Decrypt at B side with B's secret and A's public key.
 async function test_decrypt(lk_b: CryptoKey, pk_a: ExportedFormat, input: string): Promise<string> {
-    const imported_a = await importKey(pk_a);
+    const imported_a = await importKey(pk_a, true);
     return decrypt_str(imported_a, lk_b, input);
 }
 
@@ -344,7 +365,7 @@ export function test_crypto() {
         const lk_a = await generatePublicKey(true);
         const exported = await exportKey(lk_a.privateKey);
         console.log('test_crypto(): Exported', exported, JSON.stringify(exported));
-        const imported_a = await importKey(exported, true);
+        const imported_a = await importKey(exported, false);
         console.log('test_crypto(): Imported', imported_a)
 
         const lk_b = await generatePublicKey(true);
@@ -359,7 +380,7 @@ export function test_crypto() {
     })();
 }
 
-// This does NOT work. Key import does not work in this function
+// This works
 export function test_crypto1() {
     (async () => {
         console.log('test_crypto start');
@@ -381,7 +402,7 @@ export function test_crypto1() {
     })();
 }
 
-// This works
+// This works now
 export function test_crypto2() {
     (async () => {
         console.log('test_crypto start');
@@ -390,7 +411,7 @@ export function test_crypto2() {
         const lk_a = await generatePublicKey(true);
         const exported = await exportKeyPKCS8(lk_a.privateKey);
         console.log('test_crypto2(): Exported', exported, JSON.stringify(exported));
-        const imported_a = await importKeyPKCS8(exported, true);
+        const imported_a = await importKeyPKCS8(exported, false);
         console.log('test_crypto2(): Imported', imported_a)
 
         const lk_b = await generatePublicKey(true);
@@ -405,7 +426,7 @@ export function test_crypto2() {
     })();
 }
 
-// This does not work
+// This does NOT work. imported_a cannot be got.
 export function test_crypto3() {
     (async () => {
         console.log('test_crypto start');
@@ -413,17 +434,17 @@ export function test_crypto3() {
 
         const lk_a = await generatePublicKey(true);
         const exported_a = await exportKeyPKCS8(lk_a.publicKey);
-        const imported_a = await importKeyPKCS8(exported_a);
+        const imported_a = await importKeyPKCS8(exported_a, true);
 
         const lk_b = await generatePublicKey(true);
-        const exported_b = await exportKeyPKCS8(lk_b.publicKey);
-        const imported_b = await importKeyPKCS8(exported_b);
+        // const exported_b = await exportKeyPKCS8(lk_b.publicKey);
+        // const imported_b = await importKeyPKCS8(exported_b, true);
 
         //Encrypt at A side with A's secret and B's public key.
-        const encrypted = await test_encrypt2(lk_a.privateKey, imported_b, input_string);
+        const encrypted = await test_encrypt2(lk_a.privateKey, lk_b.publicKey, input_string);
         console.log('test_crypto', encrypted);
         //Decrypt at B side with B's secret and A's public key.
-        const decrypted = await test_decrypt2(lk_b.privateKey, imported_a, encrypted);
+        const decrypted = await test_decrypt2(lk_b.privateKey, lk_a.publicKey, encrypted);
 
         console.log('test_crypto', input_string, decrypted);
     })();

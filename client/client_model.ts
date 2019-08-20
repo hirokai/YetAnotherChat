@@ -12,6 +12,7 @@ export type ChatEntry = CommentTyp | SessionEvent | ChatFile;
 export class Model {
     token: string
     keyPair: CryptoKeyPair
+    privateKeyJson: object
     publicKeys: { [key: string]: CryptoKey } = {}
     snapshot: { [key: string]: { [key: number]: any } };
     readonly MAX_SAVE_SNAPSHOT: number = 2;

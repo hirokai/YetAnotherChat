@@ -590,6 +590,14 @@ app.delete('/api/files/:id', (req: DeleteRequest<DeleteFileRequestParam, DeleteF
     });
 });
 
+app.get('/api/public_keys', (req: GetAuthRequest, res) => {
+    const user_id = req.decoded.user_id;
+    const for_user = req.query.for_user;
+    model.get_public_key({ user_id, for_user }).then((jwk) => {
+        res.json({ ok: jwk != null, data: jwk });
+    });
+});
+
 app.post('/api/public_keys', (req: MyPostRequest<PostPublicKeyParams>, res) => {
     const user_id = req.decoded.user_id;
     const jwk = req.body.publicKey;

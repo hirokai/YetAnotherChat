@@ -835,12 +835,18 @@ export async function register_public_key({ user_id, for_user, jwk }: { user_id:
         for_user = for_user != null ? for_user : '';
         console.log('register_public_key', { user_id, for_user, jwk })
         if (user_id != null && jwk != null) {
-            db.run('insert into public_keys (user_id,for_user,key,timestamp) values (?,?,?,?)', user_id, for_user, JSON.stringify(jwk), timestamp, (err) => {
-                if (!err) {
-                    console.log(user_id);
-                    resolve(true);
-                } else {
+            db.get('select count(*) from public_keys where user_id=? and for_user=?', user_id, for_user, (err, row) => {
+                if (row['count(*)'] > 0) {
                     resolve(false);
+                } else {
+                    db.run('insert into public_keys (user_id,for_user,key,timestamp) values (?,?,?,?)', user_id, for_user, JSON.stringify(jwk), timestamp, (err) => {
+                        if (!err) {
+                            console.log(user_id);
+                            resolve(true);
+                        } else {
+                            resolve(false);
+                        }
+                    });
                 }
             });
         } else {

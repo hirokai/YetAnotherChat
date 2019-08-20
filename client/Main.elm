@@ -112,6 +112,9 @@ port deleteFile : String -> Cmd msg
 port deleteSession : { id : String } -> Cmd msg
 
 
+port downloadPrivateKey : () -> Cmd msg
+
+
 port logout : () -> Cmd msg
 
 
@@ -505,6 +508,7 @@ type Msg
     | OnChangeData { resource : String, id : String }
     | DeleteRoom String
     | SearchUser String
+    | DownloadPrivateKey
     | NoOp
 
 
@@ -795,6 +799,9 @@ update msg model =
                     model.chatPageStatus
             in
             ( { model | chatPageStatus = { csp | chatInputActive = True } }, Cmd.none )
+
+        DownloadPrivateKey ->
+            ( model, downloadPrivateKey () )
 
         SearchUser q ->
             ( { model | searchKeyword = q }, Cmd.none )
@@ -1809,6 +1816,18 @@ userProfileView user model =
                     , div []
                         [ span [] [ text "Email: ", text <| Maybe.withDefault "（未登録）" <| Maybe.andThen (.emails >> List.head) user_info ]
                         ]
+                    , if user == model.myself then
+                        div []
+                            [ a [ class "btn btn-primary", onClick DownloadPrivateKey, download "private_key.json", id "download-private-key" ] [ text "秘密鍵をダウンロード" ]
+                            , label [ for "upload-private-key" ]
+                                [ text "秘密鍵を取り込み" ]
+                            , input
+                                [ id "upload-private-key", type_ "file" ]
+                                []
+                            ]
+
+                      else
+                        text ""
                     , div [ id "poster-div" ]
                         [ h2 [] [ text "ポスター" ]
                         , div []
