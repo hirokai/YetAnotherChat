@@ -521,3 +521,19 @@ textarea[disabled] {
     font-size: 10px;
     margin-left: 5px;
 }
+
+.material-icons {
+    margin-left: -5px;
+}
+
+.smaller-font-btn {
+    font-size: 13px;
+    font-weight: bold;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+.bigger-font-btn {
+    font-size: 18px;   
+    font-weight: bold;
+    font-family: Arial, Helvetica, sans-serif;
+}
