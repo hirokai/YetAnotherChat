@@ -681,12 +681,19 @@ export function decipher(cipheredText: string, password: string = credentials.ci
     }
 }
 
-
-export function post_comment({ user_id, session_id, timestamp, comment, for_user, sent_to, original_url = "", source = "", encrypt = "none" }: { user_id: string, session_id: string, timestamp: number, comment: string, for_user: string, original_url?: string, sent_to?: string, source?: string, encrypt: string }): Promise<{ ok: boolean, data?: CommentTyp, error?: string }> {
-    console.log('post_comment start')
-    return new Promise((resolve, reject) => {
+export async function post_comment_for_session_members(user_id: string, session_id: string, timestamp: number, comments: { for_user: string; content: string; }[]): Promise<{ ok: boolean, data?: CommentTyp, error?: string }[]> {
+    const encrypt_group = shortid();
+    return Promise.all(map(comments, ({ for_user, content }) => {
         const comment_id = shortid();
-        db.run('insert into comments (id,user_id,comment,for_user,encrypt,timestamp,session_id,original_url,sent_to,source) values (?,?,?,?,?,?,?,?,?,?);', comment_id, user_id, comment, for_user, encrypt, timestamp, session_id, original_url, sent_to, source, (err1) => {
+        return post_comment({ comment_id, user_id, session_id, timestamp, comment: content, encrypt: "ecdh.v1", for_user, source: "self", encrypt_group });
+    }));
+}
+
+export function post_comment({ user_id, session_id, timestamp, comment, for_user, sent_to, original_url = "", source = "", encrypt = "none", comment_id, encrypt_group }: { user_id: string, session_id: string, timestamp: number, comment: string, for_user: string, original_url?: string, sent_to?: string, source?: string, encrypt: string, comment_id?: string, encrypt_group?: string }): Promise<{ ok: boolean, data?: CommentTyp, error?: string }> {
+    console.log('post_comment start');
+    comment_id = comment_id || shortid();
+    return new Promise((resolve, reject) => {
+        db.run('insert into comments (id,user_id,comment,for_user,encrypt,timestamp,session_id,original_url,sent_to,source,encrypt_group) values (?,?,?,?,?,?,?,?,?,?,?);', comment_id, user_id, comment, for_user, encrypt, timestamp, session_id, original_url, sent_to, source, encrypt_group, (err1) => {
             db.run('insert or ignore into session_current_members (session_id,user_id) values (?,?)', session_id, user_id, (err2) => {
                 if (!err1 && !err2) {
                     const data: CommentTyp = {

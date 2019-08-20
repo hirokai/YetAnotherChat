@@ -168,7 +168,7 @@ interface GetCommentsParams extends AuthedParams {
 }
 type GetCommentsResponse = { ok: boolean, data: CommentTyp[] }
 type DeleteCommentResponse = { ok: boolean, data?: DeleteCommentData, error?: string }
-type DeleteCommentData = { comment_id: string, session_id: string }
+type DeleteCommentData = { comment_id: string, encrypt_group: string, session_id: string }
 
 type PostFileResponse = { ok: boolean, data?: PostFileResponseData }
 type PostFileResponseData = {

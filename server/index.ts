@@ -324,9 +324,10 @@ app.delete('/api/comments/:id', (req, res: JsonResponse<DeleteCommentResponse>) 
     db.get('select * from comments where id=?;', comment_id, (err, row) => {
         if (row) {
             const session_id = row['session_id'];
-            db.run('delete from comments where id=?;', comment_id, (err) => {
+            const encrypt_group = row['encrypt_group'];
+            db.run('delete from comments where encrypt_group=?;', encrypt_group, (err) => {
                 if (!err) {
-                    const data: DeleteCommentData = { comment_id, session_id };
+                    const data: DeleteCommentData = { comment_id, encrypt_group, session_id };
                     res.json({ ok: true, data });
                     const obj: CommentsDeleteSocket = {
                         __type: 'comments.delete',
@@ -491,10 +492,9 @@ app.post('/api/comments', (req: MyPostRequest<PostCommentData>, res: JsonRespons
             const session_id = req.body.session;
             const temporary_id = req.body.temporary_id;
             console.log('/api/comments');
-            const ps = _.map(comments, ({ for_user, content }) => {
-                return model.post_comment({ user_id, session_id, timestamp, comment: content, encrypt: "ecdh.v1", for_user, source: "self" });
-            });
-            Promise.all(ps).then((rs) => {
+
+            const ps = model.post_comment_for_session_members(user_id, session_id, timestamp, comments);
+            ps.then((rs) => {
                 console.log('ps result', rs);
                 res.json({ ok: true });
                 const { data: d, ok, error } = rs[0];
@@ -509,7 +509,7 @@ app.post('/api/comments', (req: MyPostRequest<PostCommentData>, res: JsonRespons
                         session_id: d.session_id,
                         timestamp: d.timestamp,
                         original_url: d.original_url,
-                        sent_to: d.sent_to,
+                        sent_to: d.sent_to || '',
                         kind: "comment",
                         source: d.source,
                     };
