@@ -15,14 +15,14 @@ export async function saveMyKeys(keyPair: CryptoKeyPair): Promise<void> {
 
         }
         openReq.onsuccess = function (event: any) {
-            console.log('openReq.onsuccess');
+            // console.log('openReq.onsuccess');
             var db = event.target.result;
             var trans = db.transaction(storeName, 'readwrite');
             var store = trans.objectStore(storeName);
             var putReq = store.put({ id: 'myself', keyPair });
 
             putReq.onsuccess = function () {
-                console.log('put data success');
+                // console.log('put data success');
                 resolve();
             }
 
@@ -44,7 +44,7 @@ export async function loadMyKeys(): Promise<CryptoKeyPair> {
 
         }
         openReq.onsuccess = function (event: any) {
-            console.log('openReq.onsuccess');
+            // console.log('openReq.onsuccess');
             var db = event.target.result;
             var trans = db.transaction(storeName, 'readonly');
             var store = trans.objectStore(storeName);
@@ -71,18 +71,18 @@ export async function savePublicKey(user_id: string, jwk: JsonWebKey): Promise<v
         openReq.onupgradeneeded = function (event: any) {
             var db = event.target.result;
             const objectStore = db.createObjectStore(storeName, { keyPath: 'id' });
-            console.log('objectStore', objectStore);
+            // console.log('objectStore', objectStore);
 
         }
         openReq.onsuccess = function (event: any) {
-            console.log('openReq.onsuccess');
+            // console.log('openReq.onsuccess');
             var db = event.target.result;
             var trans = db.transaction(storeName, 'readwrite');
             var store = trans.objectStore(storeName);
             var putReq = store.put({ id: user_id, publicKey });
 
             putReq.onsuccess = function () {
-                console.log('put data success');
+                // console.log('put data success');
                 resolve();
             }
 
@@ -104,14 +104,14 @@ export async function loadPublicKey(user_id: string): Promise<CryptoKey> {
 
         }
         openReq.onsuccess = function (event: any) {
-            console.log('openReq.onsuccess');
+            // console.log('openReq.onsuccess');
             var db = event.target.result;
             var trans = db.transaction(storeName, 'readonly');
             var store = trans.objectStore(storeName);
             var getReq = store.get(user_id);
 
             getReq.onsuccess = function () {
-                console.log('get data success', getReq.result);
+                // console.log('get data success', getReq.result);
                 resolve(getReq.result ? getReq.result.publicKey : null);
             }
 
@@ -173,7 +173,7 @@ export async function importKey(jwk: JsonWebKey): Promise<CryptoKey> {
             false,
             []
         ).then(key => {
-            console.log('Imported', jwk, key);
+            // console.log('Imported', jwk, key);
             resolve(key);
         }, (err) => {
             console.log('importKey error', err);
@@ -183,7 +183,7 @@ export async function importKey(jwk: JsonWebKey): Promise<CryptoKey> {
 }
 
 function getEncryptionKey(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey): Promise<CryptoKey> {
-    console.log('getEncryptionKey', { remotePublicKey, localPrivateKey })
+    // console.log('getEncryptionKey', { remotePublicKey, localPrivateKey })
     return new Promise((resolve) => {
         crypto.subtle.deriveBits(  // 鍵共有による共有鍵生成
             { name: 'ECDH', public: remotePublicKey },
@@ -243,7 +243,7 @@ export async function decrypt_str(remotePublicKey: CryptoKey, localPrivateKey: C
 export async function decrypt(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey, encrypted: EncryptedData, info?: any): Promise<Uint8Array> {
     return new Promise((resolve, reject) => {
         getEncryptionKey(remotePublicKey, localPrivateKey).then((encryptionKey) => {
-            console.log('decrypt start', encryptionKey, remotePublicKey, localPrivateKey, encrypted);
+            // console.log('decrypt start', encryptionKey, remotePublicKey, localPrivateKey, encrypted);
             // AES-GCMによる復号
             return crypto.subtle.decrypt(
                 { name: 'AES-GCM', iv: decodeBase64URL(encrypted.iv), tagLength: 128 },

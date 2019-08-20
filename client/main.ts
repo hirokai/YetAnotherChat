@@ -116,7 +116,7 @@ if (!token || token == '') {
         window.setTimeout(() => {
             const el = document.getElementById(id);
             if (el) {
-                console.log('scrollTo', id);
+                // console.log('scrollTo', id);
                 el.scrollIntoView(true);
             }
         }, 50);
@@ -230,7 +230,7 @@ if (!token || token == '') {
 
         window.addEventListener('resize', () => {
             $('#chat-outer').height(window.innerHeight - height);
-            console.log(window.innerHeight);
+            // console.log(window.innerHeight);
         });
     }
 
@@ -383,7 +383,7 @@ if (!token || token == '') {
                         return { file_id: f.id, url: f.path };
                     })
                 };
-                console.log(dat);
+                // console.log(dat);
                 app.ports.feedUserImages.send(dat);
             });
         });

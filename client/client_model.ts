@@ -241,11 +241,11 @@ export class Model {
 async function processComment(m1: ChatEntry, privateKey: CryptoKey): Promise<ChatEntryClient> {
     const user: string = m1.user_id;
     const m = <CommentTyp>m1;
-    console.log('Processing comment by ', m.user_id);
+    // console.log('Processing comment by ', m.user_id);
     const publicKey = await crypto.loadPublicKey(m.user_id);
     // const deciphered_comment = m.comment;
     const deciphered_comment = await crypto.decrypt_str(publicKey, privateKey, m.comment, m.user_id).catch(() => { return m.comment });
-    console.log('decrypted', deciphered_comment);
+    // console.log('decrypted', deciphered_comment);
     var v: ChatEntryClient = { id: m.id, user, comment: deciphered_comment, timestamp: formatTime(m.timestamp), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "" };
     v.originalUrl = m.original_url || "";
     v.sentTo = m.sent_to || "";
