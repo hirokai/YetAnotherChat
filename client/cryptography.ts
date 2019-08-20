@@ -276,6 +276,7 @@ export async function decrypt_str(remotePublicKey: CryptoKey, localPrivateKey: C
 export async function decrypt(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey, encrypted: EncryptedData, info?: any): Promise<Uint8Array> {
     return new Promise((resolve, reject) => {
         getEncryptionKey(remotePublicKey, localPrivateKey).then((encryptionKey) => {
+            console.log('getEncryptionKey', { remotePublicKey, localPrivateKey, encryptionKey })
             // console.log('decrypt start', encryptionKey, remotePublicKey, localPrivateKey, encrypted);
             // AES-GCMによる復号
             return crypto.subtle.decrypt(

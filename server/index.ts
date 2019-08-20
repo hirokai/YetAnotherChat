@@ -8,7 +8,7 @@ const glob = require("glob");
 const bodyParser = require("body-parser");
 // const _ = require('lodash');
 import * as _ from 'lodash';
-import { uniq } from 'lodash';
+import { uniq, includes } from 'lodash';
 const path = require('path');
 const sqlite3 = require('sqlite3');
 const db = new sqlite3.Database(path.join(__dirname, 'private/db.sqlite3'));
@@ -497,27 +497,25 @@ app.post('/api/comments', (req: MyPostRequest<PostCommentData>, res: JsonRespons
             Promise.all(ps).then((rs) => {
                 console.log('ps result', rs);
                 res.json({ ok: true });
+                const { data: d, ok, error } = rs[0];
+                if (d) {
+                    // await email.send_emails_to_session_members({ session_id, user_id, comment: model.make_email_content(d) });
+                    const obj: CommentsNewSocket = {
+                        __type: 'comment.new',
+                        temporary_id,
+                        id: d.id,
+                        user: d.user_id,
+                        comment: d.comment,
+                        session_id: d.session_id,
+                        timestamp: d.timestamp,
+                        original_url: d.original_url,
+                        sent_to: d.sent_to,
+                        kind: "comment",
+                        source: d.source,
+                    };
+                    io.emit("comments.new", obj);
+                }
             });
-            /*
-            const { data: d, ok, error } = r;
-            if (d) {
-                await email.send_emails_to_session_members({ session_id, user_id, comment: model.make_email_content(d) });
-                const obj: CommentsNewSocket = {
-                    __type: 'comment.new',
-                    temporary_id,
-                    id: d.id,
-                    user: d.user_id,
-                    comment: d.comment,
-                    session_id: d.session_id,
-                    timestamp: d.timestamp,
-                    original_url: d.original_url,
-                    sent_to: d.sent_to,
-                    kind: "comment",
-                    source: d.source,
-                };
-                io.emit("comments.new", obj);
-            }
-            */
         });
     })().catch(() => {
         res.json({ ok: false, error: "DB error." })
@@ -635,11 +633,16 @@ io.on('connection', function (socket: SocketIO.Socket) {
         jwt.verify(token, credential.jwt_secret, function (err, decoded) {
             if (decoded) {
                 const user_id = decoded.user_id;
-                model.saveSocketId(user_id, socket.id).then((r) => {
-                    console.log('saveSocketId', r)
-                    console.log('socket id', user_id, socket.id);
-                    const obj: UsersUpdateSocket = { __type: "users.update", user_id, online: true, timestamp: r.timestamp }
-                    io.emit('users.update', obj);
+                model.list_online_users().then((previous) => {
+                    model.saveSocketId(user_id, socket.id).then((r) => {
+                        console.log('saveSocketId', r)
+                        console.log('socket id', user_id, socket.id);
+                        if (!includes(previous, user_id)) {
+                            const obj: UsersUpdateSocket = { __type: "users.update", user_id, online: true, timestamp: r.timestamp }
+                            io.emit('users.update', obj);
+                        }
+                    });
+
                 });
             }
         });

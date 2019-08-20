@@ -82,8 +82,10 @@ if (!token || token == '') {
         recalcPositions(show_toppane, expand_chatinput);
     }, 100);
 
+    const socket: SocketIOClient.Socket = io('');
 
     socket.on('connect', () => {
+        console.log('subscribing on socket');
         socket.emit('subscribe', { token });
     });
 
@@ -115,20 +117,20 @@ if (!token || token == '') {
 
     socket.on("sessions.update", async (msg: SessionsUpdateSocket) => {
         await model.sessions.on_update(msg);
-        app.ports.onChangeData.send({ resource: "sessions", id: "" });
+        app.ports.onChangeData.send({ resource: "sessions", id: msg.id });
     });
 
     socket.on("comments.new", async (msg: CommentsNewSocket) => {
         const session_id = await model.comments.on_new(msg);
         if (session_id != null) {
-            app.ports.onChangeData.send({ resource: "comments", id: session_id });
+            app.ports.onChangeData.send({ resource: "sessions", id: session_id });
         }
     });
 
     socket.on("comments.delete", async (msg: CommentsDeleteSocket) => {
         const { session_id } = await model.comments.on_delete(msg);
         if (session_id != null) {
-            app.ports.onChangeData.send({ resource: "comments", id: session_id });
+            app.ports.onChangeData.send({ resource: "sessions", id: session_id });
         }
     });
 
@@ -182,7 +184,10 @@ if (!token || token == '') {
     });
 
     app.ports.getMessages.subscribe((session: string) => {
-        model.comments.list_for_session(session).then(app.ports.feedMessages.send);
+        model.comments.list_for_session(session).then((comments) => {
+            console.log('feedMessages args:', comments);
+            app.ports.feedMessages.send(comments)
+        });
     });
 
     app.ports.getUserMessages.subscribe(async function (user: string) {
@@ -490,7 +495,6 @@ function handleFileSelect(evt) {
 }
 
 
-const socket: SocketIOClient.Socket = io('');
 
 var show_toppane = JSON.parse(localStorage['yacht.show_toppane'] || "false") || false;
 var expand_chatinput = JSON.parse(localStorage['yacht.expand_chatinput'] || "false") || false;

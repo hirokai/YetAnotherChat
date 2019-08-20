@@ -783,7 +783,7 @@ update msg model =
                         getMessages id
 
                     else if resource == "sessions" then
-                        getRoomInfo ()
+                        Cmd.batch [ getRoomInfo (), getMessages id ]
 
                     else if resource == "users" then
                         getUsers ()
