@@ -152,10 +152,11 @@ export class Model {
         },
         on_new: async (msg: CommentsNewSocket): Promise<string> => {
             const timestamp = msg.timestamp;
+            const deciphered_comment = await crypto.decrypt_str(this.keyPair.publicKey, this.keyPair.privateKey, msg.comment).catch(() => { console.log('Error decrypting'); return msg.comment });
             var msg1: ChatEntryClient = {
                 id: msg.id,
                 user: msg.user,
-                comment: msg.comment,
+                comment: deciphered_comment,
                 session: msg.session_id,
                 timestamp: formatTime(msg.timestamp),
                 originalUrl: msg.original_url,
