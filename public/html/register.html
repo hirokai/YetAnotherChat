@@ -115,20 +115,23 @@
                     const password = $('#password').val();
                     const fullname = $('#fullname').val();
                     const email = $('#email').val();
-                    console.log({ username, password, fullname, email })
-                    $.post('/api/register', { username, password, fullname, email }).then((res) => {
-                        console.log(res);
-                        if (res.ok && res.token && res.decoded) {
-                            localStorage.setItem("yacht.token", res.token);
-                            localStorage.setItem("yacht.user_id", res.decoded.user_id);
-                            localStorage.setItem("yacht.username", res.decoded.username);
-                            location.href = '/main' + location.hash;
-                        } else {
-                            if (res.error == "User already exists") {
-                                $('#info-username').html('ユーザー名がすでに使われています。')
-                            }
-                        }
-
+                    crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveKey', 'deriveBits']).then((keyPair) => {
+                        crypto.subtle.exportKey('jwk', keyPair.publicKey).then((publicKey) => {
+                            console.log({ username, password, fullname, email, publicKey });
+                            $.post('/api/register', { username, password, fullname, email, publicKey }).then((res) => {
+                                console.log(res);
+                                if (res.ok && res.token && res.decoded) {
+                                    localStorage.setItem("yacht.token", res.token);
+                                    localStorage.setItem("yacht.user_id", res.decoded.user_id);
+                                    localStorage.setItem("yacht.username", res.decoded.username);
+                                    location.href = '/main' + location.hash;
+                                } else {
+                                    if (res.error == "User already exists") {
+                                        $('#info-username').html('ユーザー名がすでに使われています。')
+                                    }
+                                }
+                            });
+                        });
                     });
                 }
             });

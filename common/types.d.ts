@@ -143,10 +143,23 @@ interface LoginParams extends AuthedParams {
     password: string,
 }
 
+type GetPublicKeysParams = {
+    token: string,
+    user_id: string
+}
+
+type GetPublicKeysResponse = {
+    ok: boolean,
+    data?: JsonWebKey
+}
+
 interface PostPublicKeyParams extends AuthedParams {
     publicKey: JsonWebKey,
     for_user: string
+    user_id: string
 }
+
+type UpdatePublicKeyParams = PostPublicKeyParams
 
 interface GetSessionsOfParams extends AuthedParams {
     of_members: string,

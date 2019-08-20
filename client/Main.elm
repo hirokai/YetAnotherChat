@@ -114,6 +114,8 @@ port deleteSession : { id : String } -> Cmd msg
 
 port downloadPrivateKey : () -> Cmd msg
 
+port resetKeys: () -> Cmd msg
+
 
 port logout : () -> Cmd msg
 
@@ -509,6 +511,7 @@ type Msg
     | DeleteRoom String
     | SearchUser String
     | DownloadPrivateKey
+    | ResetKeys
     | NoOp
 
 
@@ -802,6 +805,9 @@ update msg model =
 
         DownloadPrivateKey ->
             ( model, downloadPrivateKey () )
+
+        ResetKeys ->
+            (model, resetKeys ())
 
         SearchUser q ->
             ( { model | searchKeyword = q }, Cmd.none )
@@ -1824,6 +1830,11 @@ userProfileView user model =
                             , input
                                 [ id "upload-private-key", type_ "file" ]
                                 []
+                            , a [ class "btn btn-danger", onClick ResetKeys ] [ text "鍵を生成し直す" ]
+                            , div []
+                                [ h4 [] [ text "鍵の生成履歴" ]
+                                , ul [] []
+                                ]
                             ]
 
                       else

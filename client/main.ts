@@ -37,40 +37,19 @@ if (!token || token == '') {
 // throw new Error('Abort');
 
 (async () => {
-    const model = new Model(token, { privateKey: null, publicKey: null });
     const keyPair = await crypto.loadMyKeys();
+    const model = new Model(user_id, token, keyPair);
     console.log('public and private keys', keyPair);
-    if (keyPair) {
-        model.keyPair = keyPair;
-        console.log('Uploading a previously made public key.');
-        const jwk = await crypto.exportKey(keyPair.publicKey);
-        const obj: PostPublicKeyParams = {
-            publicKey: jwk, token, for_user: user_id
-        };
-        await axios.post('/api/public_keys', obj);
-    } else {
-        console.log('Generating a new public/private keys.')
-        const localKey = await crypto.generatePublicKey(true);
-        console.log('Generated', localKey)
+    if (!keyPair) {
+        console.log('Loading a public key from server.');
+        const publicKey: CryptoKey = await model.keys.get_my_public_key();
+        const localKey = { publicKey, privateKey: null };
+        console.log('Saving local key', localKey);
         crypto.saveMyKeys(localKey).then(() => {
-            console.log('Key pair saved to DB');
+            console.log('Key pair saved to DB (private key has to be imported by user)');
         });
         model.keyPair = localKey;
-        console.log('posting ', localKey);
-        const jwk = await crypto.exportKey(localKey.publicKey);
-        const obj: PostPublicKeyParams = { publicKey: jwk, for_user: user_id, token }
-        await axios.post('/api/public_keys', obj);
     }
-    console.log('Private key', model.keyPair.privateKey);
-    /*
-    const pub_exported = await crypto.exportKeySPKI(model.keyPair.publicKey);
-    const pub_exported_b64 = crypto.encodeBase64URL(new Uint8Array(pub_exported));
-    const pub_exported_b64_2 = pub_exported_b64.match(/.{1,32}/g).join('\n');
-    const pub_exported2 = crypto.decodeBase64URL(pub_exported_b64);
-    // const fp = await crypto.fingerPrint(prv_exported);
-    console.log('Private key exported', prv_exported);
-    console.log('Public key exported', pub_exported, pub_exported2, pub_exported_b64_2);
-    */
     const prv_exported = await crypto.exportKey(model.keyPair.privateKey);
     model.privateKeyJson = prv_exported;
 
@@ -149,6 +128,12 @@ if (!token || token == '') {
         const el = document.getElementById('end-line');
         el.scrollIntoView(true);
     }
+
+    app.ports.resetKeys.subscribe(() => {
+        model.keys.reset().then(() => {
+
+        });
+    });
 
     app.ports.deleteSession.subscribe(async ({ id }) => {
         const r = await model.sessions.delete(id);
@@ -551,6 +536,7 @@ interface ElmAppPorts {
     deleteSession: ElmSub<{ id: string }>;
     saveConfig: ElmSub<{ userWithEmailOnly: boolean }>;
     downloadPrivateKey: ElmSub<void>;
+    resetKeys: ElmSub<void>;
 }
 
 interface ElmApp {

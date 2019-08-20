@@ -4,9 +4,8 @@ const storeName = 'yacht.keyPair';
 
 
 export async function saveMyKeys(keyPair: CryptoKeyPair): Promise<void> {
-    console.log('saveMyKeys()', keyPair);
+    console.log('saveMyKeys(): keyPair', keyPair);
     return new Promise((resolve) => {
-
         const prv_e_p = exportKey(keyPair.privateKey);
         const pub_e_p = exportKey(keyPair.publicKey);
         Promise.all([prv_e_p, pub_e_p]).then((ks) => {
@@ -14,6 +13,7 @@ export async function saveMyKeys(keyPair: CryptoKeyPair): Promise<void> {
         }).then((fps) => {
             const openReq = indexedDB.open(storeName);
             const fp = { privateKey: fps[0], publicKey: fps[1] };
+            console.log('saveMyKeys(): fingerprint', fp);
 
             openReq.onupgradeneeded = function (event: any) {
                 var db = event.target.result;
@@ -153,14 +153,18 @@ export async function removeSavedKeys() {
 }
 
 
-export async function generatePublicKey(exportable = false): Promise<CryptoKeyPair> {
+export async function generateKeyPair(exportable = false): Promise<CryptoKeyPair> {
     return crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, exportable, ['deriveKey', 'deriveBits']);
 }
 
 type ExportedFormat = JsonWebKey;
 
 export async function exportKey(key: CryptoKey): Promise<ExportedFormat> {
-    return crypto.subtle.exportKey('jwk', key);
+    if (key == null) {
+        return null
+    } else {
+        return crypto.subtle.exportKey('jwk', key);
+    }
 }
 
 export async function importKey(data: ExportedFormat, is_publicKey: boolean, exportable = false): Promise<CryptoKey> {
@@ -213,6 +217,9 @@ export async function importKeyPKCS8(data: ArrayBuffer, is_publicKey: boolean, e
 
 function getEncryptionKey(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey): Promise<CryptoKey> {
     // console.log('getEncryptionKey', { remotePublicKey, localPrivateKey })
+    if (remotePublicKey == null || localPrivateKey == null) {
+        return null;
+    }
     return new Promise((resolve) => {
         crypto.subtle.deriveBits(  // 鍵共有による共有鍵生成
             { name: 'ECDH', public: remotePublicKey },
@@ -311,10 +318,14 @@ export function encodeBase64URL(data: Uint8Array): string {
 
 // https://stackoverflow.com/a/42590106
 export async function fingerPrint(jwk: JsonWebKey): Promise<string> {
-    const s = '{"crv":"' + jwk.crv + '","kty":"' + jwk.kty + '","x":"' + jwk.x + '","y":"' + jwk.y + '"}';
-    const arr = new TextEncoder().encode(s);
-    const hash_arr = await crypto.subtle.digest('SHA-256', arr);
-    return encodeBase64URL(new Uint8Array(hash_arr));
+    if (jwk == null) {
+        return null;
+    } else {
+        const s = '{"crv":"' + jwk.crv + '","kty":"' + jwk.kty + '","x":"' + jwk.x + '","y":"' + jwk.y + '"}';
+        const arr = new TextEncoder().encode(s);
+        const hash_arr = await crypto.subtle.digest('SHA-256', arr);
+        return encodeBase64URL(new Uint8Array(hash_arr));
+    }
 }
 
 // https://stackoverflow.com/questions/34946642/convert-string-to-uint8array-in-javascript
@@ -363,13 +374,13 @@ export function test_crypto() {
         console.log('test_crypto start');
         const input_string = "暗号化する文字列１";
 
-        const lk_a = await generatePublicKey(true);
+        const lk_a = await generateKeyPair(true);
         const exported = await exportKey(lk_a.privateKey);
         console.log('test_crypto(): Exported', exported, JSON.stringify(exported));
         const imported_a = await importKey(exported, false);
         console.log('test_crypto(): Imported', imported_a)
 
-        const lk_b = await generatePublicKey(true);
+        const lk_b = await generateKeyPair(true);
 
         //Encrypt at A side with A's secret and B's public key.
         const encrypted = await test_encrypt2(imported_a, lk_b.publicKey, input_string);
@@ -387,10 +398,10 @@ export function test_crypto1() {
         console.log('test_crypto start');
         const input_string = "２番めの暗号化試験";
 
-        const lk_a = await generatePublicKey(true);
+        const lk_a = await generateKeyPair(true);
         const exported_a = await exportKey(lk_a.publicKey);
 
-        const lk_b = await generatePublicKey(true);
+        const lk_b = await generateKeyPair(true);
         const exported_b = await exportKey(lk_b.publicKey);
 
         //Encrypt at A side with A's secret and B's public key.
@@ -409,13 +420,13 @@ export function test_crypto2() {
         console.log('test_crypto start');
         const input_string = "暗号化する文字列3";
 
-        const lk_a = await generatePublicKey(true);
+        const lk_a = await generateKeyPair(true);
         const exported = await exportKeyPKCS8(lk_a.privateKey);
         console.log('test_crypto2(): Exported', exported, JSON.stringify(exported));
         const imported_a = await importKeyPKCS8(exported, false);
         console.log('test_crypto2(): Imported', imported_a)
 
-        const lk_b = await generatePublicKey(true);
+        const lk_b = await generateKeyPair(true);
 
         //Encrypt at A side with A's secret and B's public key.
         const encrypted = await test_encrypt2(imported_a, lk_b.publicKey, input_string);
@@ -433,11 +444,11 @@ export function test_crypto3() {
         console.log('test_crypto start');
         const input_string = "4番めの暗号化試験";
 
-        const lk_a = await generatePublicKey(true);
+        const lk_a = await generateKeyPair(true);
         const exported_a = await exportKeyPKCS8(lk_a.publicKey);
         const imported_a = await importKeyPKCS8(exported_a, true);
 
-        const lk_b = await generatePublicKey(true);
+        const lk_b = await generateKeyPair(true);
         // const exported_b = await exportKeyPKCS8(lk_b.publicKey);
         // const imported_b = await importKeyPKCS8(exported_b, true);
 
@@ -449,4 +460,15 @@ export function test_crypto3() {
 
         console.log('test_crypto', input_string, decrypted);
     })();
+}
+
+async function text_export(keyPair: CryptoKeyPair) {
+    const prv_exported = await exportKey(keyPair.privateKey);
+    const pub_exported = await exportKeySPKI(keyPair.publicKey);
+    const pub_exported_b64 = encodeBase64URL(new Uint8Array(pub_exported));
+    const pub_exported_b64_2 = pub_exported_b64.match(/.{1,32}/g).join('\n');
+    const pub_exported2 = decodeBase64URL(pub_exported_b64);
+    const fp = await fingerPrint(prv_exported);
+    console.log('Private key exported', prv_exported);
+    console.log('Public key exported', pub_exported, pub_exported2, pub_exported_b64_2);
 }

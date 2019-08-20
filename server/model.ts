@@ -635,13 +635,14 @@ export async function register_user({ username, password, email, fullname, sourc
             return { ok: false, error_code: error_code.USER_EXISTS, error: 'User name already exists' }
         } else {
             bcrypt.hash(password, saltRounds, function (err, hash) {
-                db.serialize(() => {
-                    if (!err) {
+                if (!err) {
+                    db.serialize(() => {
                         const timestamp = new Date().getTime();
                         db.run('insert into users (id,name,password,fullname,timestamp,source) values (?,?,?,?,?,?)', user_id, username, hash, fullname, timestamp, source);
                         db.run('insert into user_emails (user_id,email) values (?,?)', user_id, email);
-                    }
-                });
+                        db.run('insert into public_keys (timestamp,user_id,for_user,key) values (?,?,?,?)', timestamp, user_id, user_id, JSON.stringify(publicKey));
+                    });
+                }
             });
             const emails = email ? [email] : [];
             const avatar = '';
@@ -836,6 +837,26 @@ export async function passwordMatch(myself: string, username: string, password: 
     }
 }
 
+export async function update_public_key({ user_id, for_user, jwk }: { user_id: string, for_user: string, jwk: JsonWebKey }): Promise<{ ok: boolean, error?: string }> {
+    return new Promise((resolve) => {
+        const timestamp = new Date().getTime();
+        for_user = for_user != null ? for_user : '';
+        console.log('update_public_key', { user_id, for_user, timestamp, jwk })
+        if (user_id != null && jwk != null) {
+            db.run('update public_keys set user_id=?, for_user=?, key=?, timestamp=? where user_id=? and for_user=?;', user_id, for_user, JSON.stringify(jwk), timestamp, user_id, for_user, (err) => {
+                if (!err) {
+                    console.log(user_id);
+                    resolve({ ok: true });
+                } else {
+                    resolve({ ok: false, error: 'Update error: ' + err });
+                }
+            });
+        } else {
+            resolve({ ok: false, error: 'Params user_id or jwk is null' });
+        }
+    });
+}
+
 export async function register_public_key({ user_id, for_user, jwk }: { user_id: string, for_user: string, jwk: JsonWebKey }): Promise<boolean> {
     return new Promise((resolve) => {
         const timestamp = new Date().getTime();
@@ -864,7 +885,7 @@ export async function register_public_key({ user_id, for_user, jwk }: { user_id:
 
 export async function get_public_key({ user_id, for_user }: { user_id: string, for_user: string }): Promise<JsonWebKey> {
     return new Promise((resolve) => {
-        db.get('select * from public_keys where user_id=? and for_user=? order by timestamp desc', user_id, for_user, (err, row) => {
+        db.get('select * from public_keys where user_id=? and for_user=?', user_id, for_user, (err, row) => {
             if (!err && row) {
                 resolve(JSON.parse(row['key']));
             } else {

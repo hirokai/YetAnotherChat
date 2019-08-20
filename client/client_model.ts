@@ -10,13 +10,15 @@ import * as crypto from './cryptography';
 export type ChatEntry = CommentTyp | SessionEvent | ChatFile;
 
 export class Model {
+    user_id: string
     token: string
     keyPair: CryptoKeyPair
     privateKeyJson: object
     publicKeys: { [key: string]: CryptoKey } = {}
     snapshot: { [key: string]: { [key: number]: any } };
     readonly MAX_SAVE_SNAPSHOT: number = 2;
-    constructor(token: string, keyPair: CryptoKeyPair) {
+    constructor(user_id: string, token: string, keyPair: CryptoKeyPair) {
+        this.user_id = user_id;
         this.token = token;
         this.keyPair = keyPair;
         console.log('Model initalized:', { token, keyPair });
@@ -239,6 +241,26 @@ export class Model {
             })
             this.setSnapshot('sessions', msg.timestamp, new_values);
             return;
+        }
+    }
+    keys = {
+        get_my_public_key: async (): Promise<CryptoKey> => {
+            const params: GetPublicKeysParams = { user_id: this.user_id, token: this.token };
+
+            const { data: { data } } = <AxiosResponse<GetPublicKeysResponse>>await axios.get('/api/public_keys', { params });
+            console.log('Importing', data);
+            return crypto.importKey(data, true);
+        },
+        update_public_key: async (publicKey: CryptoKey) => {
+            const jwk = await crypto.exportKey(publicKey);
+            const obj: UpdatePublicKeyParams = { user_id: this.user_id, for_user: this.user_id, token: this.token, publicKey: jwk };
+            const { data } = await axios.patch('/api/public_keys', obj);
+            console.log('update_public_key result', data);
+        },
+        reset: async () => {
+            const keyPair = await crypto.generateKeyPair(true);
+            await crypto.saveMyKeys(keyPair);
+            await this.keys.update_public_key(keyPair.publicKey);
         }
     }
 }
