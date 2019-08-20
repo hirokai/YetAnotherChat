@@ -9,6 +9,7 @@ export async function saveMyKeys(keyPair: CryptoKeyPair): Promise<void> {
         const prv_e_p = exportKey(keyPair.privateKey);
         const pub_e_p = exportKey(keyPair.publicKey);
         Promise.all([prv_e_p, pub_e_p]).then((ks) => {
+            console.log('[prv_e_p, pub_e_p]', ks, keyPair.privateKey, keyPair.publicKey)
             return Promise.all([fingerPrint(ks[0]), fingerPrint(ks[1])]);
         }).then((fps) => {
             const openReq = indexedDB.open(storeName);
@@ -317,11 +318,18 @@ export function encodeBase64URL(data: Uint8Array): string {
 }
 
 // https://stackoverflow.com/a/42590106
+// Extended for private key
 export async function fingerPrint(jwk: JsonWebKey): Promise<string> {
     if (jwk == null) {
         return null;
     } else {
-        const s = '{"crv":"' + jwk.crv + '","kty":"' + jwk.kty + '","x":"' + jwk.x + '","y":"' + jwk.y + '"}';
+        let s;
+        if (jwk["d"]) {
+            s = '{"crv":"' + jwk.crv + '","d":"' + jwk.d + '","kty":"' + jwk.kty + '","x":"' + jwk.x + '","y":"' + jwk.y + '"}';
+        } else {
+            s = '{"crv":"' + jwk.crv + '","kty":"' + jwk.kty + '","x":"' + jwk.x + '","y":"' + jwk.y + '"}';
+        }
+        // console.log('fingerPrint(): json', s);
         const arr = new TextEncoder().encode(s);
         const hash_arr = await crypto.subtle.digest('SHA-256', arr);
         return encodeBase64URL(new Uint8Array(hash_arr));
