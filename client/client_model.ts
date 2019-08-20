@@ -1,24 +1,24 @@
 /// <reference path="../common/types.d.ts" />
 
 import axios from 'axios';
-import { map, clone, includes, pull, without, sortBy, take, find, min, filter, keyBy } from 'lodash-es';
+import { map, clone, includes, pull, without, sortBy, take, find, filter } from 'lodash-es';
 import moment from 'moment';
 const shortid = require('shortid').generate;
 import $ from 'jquery';
-import * as credentials from '../server/private/credential';
 import * as crypto from './cryptography';
 
 export type ChatEntry = CommentTyp | SessionEvent | ChatFile;
 
 export class Model {
     token: string
-    privateKey: JsonWebKey
+    keyPair: CryptoKeyPair
     publicKeys: { [key: string]: JsonWebKey } = {}
     snapshot: { [key: string]: { [key: number]: any } };
     readonly MAX_SAVE_SNAPSHOT: number = 2;
-    constructor(token: string, privateKey: JsonWebKey) {
+    constructor(token: string, keyPair: CryptoKeyPair) {
         this.token = token;
-        this.privateKey = privateKey;
+        this.keyPair = keyPair;
+        console.log('Model initalized:', { token, keyPair });
         this.snapshot = {};
     }
     getSnapshot(resource: string, timestamp: number = -1): any {
@@ -42,7 +42,7 @@ export class Model {
                 // console.log('snapshot discarded', key, ts);
             });
         }
-        console.log('setSnapshot', this.snapshot);
+        // console.log('setSnapshot', this.snapshot);
     }
     changeHandler(msg: any, clientHandler: (vs: any) => void) {
         console.log('Socket.io message', msg);
@@ -129,17 +129,18 @@ export class Model {
         },
         new: async ({ comment, session }: { comment: string, session: string }): Promise<void> => {
             const room: RoomInfo = await this.sessions.get(session);
+            console.log('room members', room);
             const temporary_id = shortid();
-            const users: User[] = this.getSnapshot('users') || [];
-            const userDict: { [key: string]: User } = keyBy(users, (u: User) => u.id);
             const comment_encoded = crypto.toUint8Aarray(comment);
+            const prv_key = (await crypto.loadKeyFromIndexedDB()).privateKey;
             const ds = await Promise.all(map(room.members, ({ id, publicKey }) => {
-                const imp_pub = crypto.importKey(publicKey);
-                const imp_prv = crypto.importKey(this.privateKey);
-                return Promise.all([imp_pub, imp_prv]);
+                console.log({ pub: publicKey, prv: prv_key });
+                return crypto.importKey(publicKey);
             })).then((ps) => {
-                return Promise.all(map(ps, ([imp_pub, imp_prv]) => {
-                    return crypto.encrypt(imp_pub, imp_prv, comment_encoded);
+                console.log('imported keys', ps)
+                return Promise.all(map(ps, (imp_pub: CryptoKey) => {
+                    console.log('Encrypting', imp_pub, prv_key)
+                    return crypto.encrypt(imp_pub, prv_key, comment_encoded);
                 }));
             })
             const comments = map(ds, (d: EncryptedData, i: number) => {

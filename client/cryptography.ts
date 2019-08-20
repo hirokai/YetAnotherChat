@@ -1,19 +1,101 @@
 // https://qiita.com/tomoyukilabs/items/eac94fdb2d0ca92f443a
 
-export async function generatePublicKey(): Promise<{ publicKey: JsonWebKey, privateKey: JsonWebKey }> {
+const storeName = 'yacht.keyPair';
+
+export async function savePrivateKeyToIndexedDB(keyPair: CryptoKeyPair): Promise<void> {
     return new Promise((resolve) => {
-        let privateKey;
-        crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveKey', 'deriveBits'])
+        const openReq = indexedDB.open(storeName);
+
+        openReq.onupgradeneeded = function (event: any) {
+            var db = event.target.result;
+            const objectStore = db.createObjectStore(storeName, { keyPath: 'id' });
+            console.log('objectStore', objectStore);
+
+        }
+        openReq.onsuccess = function (event: any) {
+            console.log('openReq.onsuccess');
+            var db = event.target.result;
+            var trans = db.transaction(storeName, 'readwrite');
+            var store = trans.objectStore(storeName);
+            var putReq = store.put({ id: 'myself', keyPair });
+
+            putReq.onsuccess = function () {
+                console.log('put data success');
+                resolve();
+            }
+
+            trans.oncomplete = function () {
+                console.log('transaction complete');
+            }
+        }
+    });
+}
+
+export async function loadKeyFromIndexedDB(): Promise<CryptoKeyPair> {
+    return new Promise((resolve) => {
+        const openReq = indexedDB.open(storeName);
+
+        openReq.onupgradeneeded = function (event: any) {
+            var db = event.target.result;
+            const objectStore = db.createObjectStore(storeName, { keyPath: 'id' });
+            console.log('objectStore', objectStore);
+
+        }
+        openReq.onsuccess = function (event: any) {
+            console.log('openReq.onsuccess');
+            var db = event.target.result;
+            var trans = db.transaction(storeName, 'readonly');
+            var store = trans.objectStore(storeName);
+            var getReq = store.get('myself');
+
+            getReq.onsuccess = function () {
+                console.log('get data success', getReq.result);
+                resolve(getReq.result ? getReq.result.keyPair : null);
+            }
+
+            trans.oncomplete = function () {
+                // トランザクション完了時(putReq.onsuccessの後)に実行
+                console.log('transaction complete');
+            }
+        }
+    });
+}
+
+export async function removeSavedKeys() {
+    return new Promise((resolve) => {
+        const openReq = indexedDB.open(storeName);
+        openReq.onsuccess = function (event: any) {
+            var db = event.target.result;
+            var trans = db.transaction(storeName, 'readwrite');
+            var store = trans.objectStore(storeName);
+            var deleteReq = store.delete('myself');
+
+            deleteReq.onsuccess = function () {
+                console.log('delete data success');
+                resolve();
+            }
+            trans.oncomplete = function () {
+                // トランザクション完了時(putReq.onsuccessの後)に実行
+                console.log('transaction complete');
+            }
+        }
+    });
+}
+
+
+export async function generatePublicKey(): Promise<{ publicKey: JsonWebKey, localKey: CryptoKeyPair }> {
+    return new Promise((resolve) => {
+        let localKey;
+        crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveKey', 'deriveBits'])
             .then((keyPair: CryptoKeyPair) => {   // 鍵ペアを生成
-                crypto.subtle.exportKey('jwk', keyPair.privateKey).then((r) => {
-                    console.log('private key', r);
-                    privateKey = r;
-                }, (e) => {
-                    console.log('private key error', e);
+                console.log('keyPair', keyPair, JSON.stringify(keyPair));
+                savePrivateKeyToIndexedDB(keyPair).then(() => {
+                    console.log('Key pair saved to DB');
                 });
+                localKey = keyPair;
                 return crypto.subtle.exportKey('jwk', keyPair.publicKey);
             }).then(jwk => { // 公開鍵をJWKとしてエクスポート
-                resolve({ publicKey: jwk, privateKey });
+                resolve({ publicKey: jwk, localKey });
             });
     });
 
@@ -29,8 +111,11 @@ export async function importKey(jwk: JsonWebKey): Promise<CryptoKey> {
             false,
             []
         ).then(key => {
-            console.log(key);
+            console.log('Imported', key);
             resolve(key);
+        }, (err) => {
+            console.log('importKey error', err);
+            resolve(null);
         });
     });
 }
@@ -98,7 +183,7 @@ export async function decrypt(remotePublicKey: CryptoKey, localPrivateKey: Crypt
 
 // JavaScriptのatob(), btoa()ではURL-safe Base64が扱えないため変換が必要
 function decodeBase64URL(data: string): Uint8Array {
-    let decoded = atob(data.replace(/\-/g, '+').replace(/_/g, '/'));
+    let decoded = atob(data.replace(/-/g, '+').replace(/_/g, '/'));
     let buffer = new Uint8Array(decoded.length);
     for (let i = 0; i < data.length; i++)
         buffer[i] = decoded.charCodeAt(i);
@@ -142,8 +227,8 @@ export function test_crypto() {
     (async () => {
         const input_string = "いいね";
         const input_array = toUint8Aarray(input_string);
-        const { publicKey: pk_a, privateKey: lk_a } = await generatePublicKey();
-        const { publicKey: pk_b, privateKey: lk_b } = await generatePublicKey();
+        const { publicKey: pk_a, localKey: lk_a } = await generatePublicKey();
+        const { publicKey: pk_b, localKey: lk_b } = await generatePublicKey();
 
         //Encrypt at A side with A's secret and B's public key.
         const encrypted = await test_encrypt(input_array, lk_a, pk_b);

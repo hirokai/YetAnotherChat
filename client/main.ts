@@ -15,23 +15,24 @@ const shortid = require('shortid').generate;
 
 const token = localStorage.getItem('yacht.token') || "";
 
-let privateKey;
-let model;
-(async () => {
-    const publicKey = JSON.parse(localStorage['yacht.publicKey'] || "null");
-    privateKey = JSON.parse(localStorage['yacht.privateKey'] || "null");
-    model = new Model(token, privateKey);
-    console.log('public and private keys', publicKey, privateKey);
+window['removeSavedKeys'] = () => {
+    crypto.removeSavedKeys().then(() => {
+        console.log('Removed keys.');
+    });
+}
 
-    if (privateKey && privateKey.crv && publicKey && publicKey.crv) {
+const model = new Model(token, null);
+(async () => {
+    const keyPair = await crypto.loadKeyFromIndexedDB();
+    console.log('public and private keys', keyPair);
+    if (keyPair) {
+        model.keyPair = keyPair;
         console.log('Uploading a previously made public key.');
-        const { data } = await axios.post('/api/public_keys', { publicKey, token });
+        const { data } = await axios.post('/api/public_keys', { publicKey: keyPair.publicKey, token });
     } else {
         console.log('Generating a new public/private keys.')
-        const { publicKey, privateKey } = await crypto.generatePublicKey();
-        console.log('privateKey', JSON.stringify(privateKey));
-        localStorage['yacht.publicKey'] = JSON.stringify(publicKey);
-        localStorage['yacht.privateKey'] = JSON.stringify(privateKey);
+        const { publicKey, localKey } = await crypto.generatePublicKey();
+        model.keyPair = localKey;
         console.log('posting ', publicKey);
         const { data } = await axios.post('/api/public_keys', { publicKey, token });
     }

@@ -8,6 +8,7 @@ function migrate_add_table_public_keys() {
         db.run('drop table if exists public_keys;');
         db.run('create table public_keys (timestamp integer, user_id text, for_user text, key text);');
         db.run('alter table comments add column encrypt text;');
+        db.run('alter table comments add column for_user text;');
     });
 }
 

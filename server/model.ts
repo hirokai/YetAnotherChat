@@ -2,8 +2,7 @@
 
 import * as fs from "fs";
 const path = require('path');
-const _ = require('lodash');
-import { map, includes } from 'lodash';
+import { map, filter, includes, orderBy, groupBy, keyBy, min, max, chain, compact, zip, sum, values, sortedUniq, sortBy } from 'lodash';
 
 const sqlite3 = require('sqlite3');
 const db = new sqlite3.Database(path.join(__dirname, './private/db.sqlite3'));
@@ -14,7 +13,7 @@ const shortid = shortid_.generate;
 import * as mail_algo from './mail_algo';
 
 const emojis = require("./emojis.json").emojis;
-const emoji_dict = _.keyBy(emojis, 'shortname');
+const emoji_dict = keyBy(emojis, 'shortname');
 
 import * as user_info from './private/user_info';
 import * as error_code from './error_codes';
@@ -22,7 +21,6 @@ import bcrypt from 'bcrypt';
 const saltRounds = 10;
 import * as credentials from './private/credential';
 import { createCipher, createDecipher } from 'crypto';
-import { resolve } from "path";
 
 export async function save_password(user_id: string, password: string): Promise<boolean> {
     const hash = await bcrypt.hash(password, saltRounds);
@@ -37,7 +35,7 @@ export async function save_password(user_id: string, password: string): Promise<
 }
 
 export function merge_users(db, users: UserSubset[]) {
-    const merge_to_user: User = _.orderBy(users, (u) => {
+    const merge_to_user: UserSubset = orderBy(users, (u) => {
         return (u.fullname ? 100 : 0) + (u.username ? 50 : 0);
     }, 'desc')[0];
 
@@ -47,7 +45,7 @@ export function merge_users(db, users: UserSubset[]) {
     } else {
         const new_id = merge_to_user.id;
         db.serialize(() => {
-            _.map(_.map(users, (u: UserSubset): string => { return u.id; }), (old_id: string) => {
+            map(map(users, (u: UserSubset): string => { return u.id; }), (old_id: string) => {
                 if (old_id != new_id) {
                     db.run('update comments set user_id=? where user_id=?', new_id, old_id);
 
@@ -56,7 +54,7 @@ export function merge_users(db, users: UserSubset[]) {
                     db.all("select session_id,group_concat(user_id) as uids,count(user_id) as uid_count from session_current_members where user_id in (?,?) group by session_id having uid_count > 1;",
                         new_id, old_id, (err, rows) => {
                             if (rows) {
-                                const session_ids = _.map(rows, 'session_id');
+                                const session_ids: string[] = map(rows, 'session_id');
                                 console.log('Removing (sessions,user)', session_ids, old_id);
                                 session_ids.forEach((sid) => {
                                     db.run('delete from session_current_members where session_id=? and user_id=?', sid, sid, old_id);
@@ -85,7 +83,7 @@ export function get_sent_mail(q: string): Promise<any[]> {
     return new Promise((resolve) => {
         fs.readFile(path.join(process.env.HOME, 'repos/gmail-import/sent_gmail_list.json'), 'utf8', (err, data) => {
             const list = JSON.parse(data);
-            const res = _.filter(list, (a) => { return a.to.indexOf(q) != -1; });
+            const res = filter(list, (a) => { return a.to.indexOf(q) != -1; });
             resolve(res);
         });
     });
@@ -95,7 +93,7 @@ export function get_mail_from(q: string): Promise<any[]> {
     return new Promise((resolve) => {
         fs.readFile(path.join(process.env.HOME, 'repos/gmail-import/all_mail_summary.json'), 'utf8', (err, data) => {
             const list = JSON.parse(data);
-            const res = _.filter(list, (a) => { return a.to && (a.to.indexOf("kai@biomems.mech.tohoku.ac.jp") != -1 || a.to.indexOf("kai@tohoku.ac.jp") != -1 || a.to.indexOf("hk.biomems@gmail.com") != -1) && a.from && a.from.indexOf(q) != -1; });
+            const res = filter(list, (a) => { return a.to && (a.to.indexOf("kai@biomems.mech.tohoku.ac.jp") != -1 || a.to.indexOf("kai@tohoku.ac.jp") != -1 || a.to.indexOf("hk.biomems@gmail.com") != -1) && a.from && a.from.indexOf(q) != -1; });
             resolve(res);
         });
     });
@@ -105,7 +103,7 @@ export function get_mail_to(q: string): Promise<any[]> {
     return new Promise((resolve) => {
         fs.readFile(path.join(process.env.HOME, 'repos/gmail-import/all_mail_summary.json'), 'utf8', (err, data) => {
             const list = JSON.parse(data);
-            const res = _.filter(list, (a) => { return a.from && (a.from.indexOf("kai@biomems.mech.tohoku.ac.jp") != -1 || a.from.indexOf("kai@tohoku.ac.jp") != -1 || a.from.indexOf("hk.biomems@gmail.com") != -1) && a.to && a.to.indexOf(q) != -1; });
+            const res = filter(list, (a) => { return a.from && (a.from.indexOf("kai@biomems.mech.tohoku.ac.jp") != -1 || a.from.indexOf("kai@tohoku.ac.jp") != -1 || a.from.indexOf("hk.biomems@gmail.com") != -1) && a.to && a.to.indexOf(q) != -1; });
             resolve(res);
         });
     });
@@ -122,7 +120,7 @@ export function create_session_with_id(session_id: string, name: string, members
         const timestamp = new Date().getTime();
         db.serialize(() => {
             db.run('insert or ignore into sessions (id, name, timestamp) values (?,?,?);', session_id, cipher(name), timestamp);
-            Promise.all(_.map(members, (m) => join_session({ session_id, user_id: m, timestamp, source: 'owner' }))).then(() => {
+            Promise.all(map(members, (m) => join_session({ session_id, user_id: m, timestamp, source: 'owner' }))).then(() => {
                 resolve({ id: session_id, name: cipher(name), timestamp, members });
             });
         });
@@ -138,13 +136,14 @@ export function get_session_info(session_id: string): Promise<RoomInfo> {
                 if (!session) {
                     resolve(null);
                 } else {
-                    db.all('select * from session_current_members where session_id=?', session_id, (err, r2) => {
-                        const members = _.map(r2, 'user_id');
+                    db.all('select * from session_current_members as m join public_keys as k on m.user_id=k.user_id where session_id=? group by m.user_id', session_id, (err, r2) => {
+                        const members = map(r2, (r2) => { return { id: r2['user_id'], publicKey: JSON.parse(r2['key']) } });
                         const numMessages: { [key: string]: number } = {};
                         const firstMsgTime = -1;
                         const lastMsgTime = -1;
                         const id = session_id;
-                        resolve({ name: decipher(session.name), timestamp: <number>session.timestamp, members, numMessages, firstMsgTime, lastMsgTime, id });
+                        const obj: RoomInfo = { name: decipher(session.name), timestamp: session.timestamp, members, numMessages, firstMsgTime, lastMsgTime, id };
+                        resolve(obj);
                     })
 
                 }
@@ -179,22 +178,23 @@ export async function delete_file({ user_id, file_id }): Promise<{ ok: boolean, 
     });
 }
 
+export function list_user_files(): Promise<{ [key: string]: { url: string } }> {
+    return new Promise((resolve) => {
+        db.all('select * from files;', (err, rows) => {
+            //@ts-ignore
+            const files: { [key: string]: { url: string } } = groupBy(map(rows || [], (row): { url: string } => {
+                return row;
+            }), 'user_id');
+            resolve(files);
+        });
+    });
+}
+
 export function get_user_file(file_id: string): Promise<{ url: string }> {
     return new Promise((resolve) => {
         db.get('select path from files where id=?;', file_id, (err, row) => {
             const path = row ? row['path'] : null;
             resolve({ url: path });
-        });
-    });
-}
-
-export function get_user_file_list(): Promise<{ url: string }[]> {
-    return new Promise((resolve) => {
-        db.all('select * from files;', (err, rows) => {
-            const files = _.groupBy(_.map(rows || [], (row) => {
-                return row;
-            }), 'user_id');
-            resolve(files);
         });
     });
 }
@@ -268,44 +268,50 @@ export function get_session_list(params: { user_id: string, of_members: string[]
     }
     return new Promise((resolve) => {
         db.serialize(() => {
-            db.all('select s.id,s.name,s.timestamp,group_concat(distinct m.user_id) as members from sessions as s join session_current_members as m on s.id=m.session_id group by s.id having members like ? order by s.timestamp desc;', '%' + user_id + '%', (err, sessions) => {
-                Promise.all(_.map(sessions, (s) => {
-                    return new Promise((resolve1) => {
-                        db.all("select count(*),user_id,max(timestamp),min(timestamp) from comments where session_id=? group by user_id;", s.id, (err, users) => {
-                            const first = _.min(_.map(users, 'min(timestamp)')) || -1;
-                            const last = _.max(_.map(users, 'max(timestamp)')) || -1;
-                            var count = _.chain(users).keyBy('user_id').mapValues((u) => {
-                                return u['count(*)'];
-                            }).value();
-                            _.map(s.members.split(","), (m) => {
-                                count[m] = count[m] || 0;
+            db.all(`
+            select s.id,s.name,s.timestamp,group_concat(distinct m.user_id) as members from sessions as s
+                join session_current_members as m on s.id=m.session_id
+                group by s.id having members like ?
+                order by s.timestamp desc;`, '%' + user_id + '%', (err, sessions) => {
+                    Promise.all(map(sessions, (s) => {
+                        return new Promise((resolve1) => {
+                            db.all("select count(*),user_id,max(timestamp),min(timestamp) from comments where session_id=? group by user_id;", s.id, (err, users) => {
+                                const first = min(map(users, 'min(timestamp)')) || -1;
+                                const last = max(map(users, 'max(timestamp)')) || -1;
+                                var count: { [key: string]: number } = chain(users).keyBy('user_id').mapValues((u) => {
+                                    return u['count(*)'];
+                                }).value();
+                                const members: string[] = s.members.split(',')
+                                map(members, (m) => {
+                                    count[m] = count[m] || 0;
+                                });
+                                count['__total'] = sum(values(count)) || 0;
+                                resolve1({ count, first, last });
                             });
-                            count['__total'] = _.sum(_.values(count)) || 0;
-                            resolve1({ count, first, last });
                         });
-                    });
-                })).then((infos) => {
-                    const ss: RoomInfo[] = _.compact(_.map(_.zip(sessions, infos), ([s, info]) => {
-                        const members = s.members.split(",");
-                        if (!_.includes(members, user_id)) {   //Double check if user_id is included.
-                            return null;
-                        }
-                        return {
-                            id: s.id, name: decipher(s.name) || '', timestamp: s.timestamp, members,
-                            numMessages: info.count, firstMsgTime: info.first, lastMsgTime: info.last
-                        };
-                    }));
-                    const ss_sorted = _.orderBy(ss, 'lastMsgTime', 'desc');
-                    resolve(ss_sorted);
-                })
-            });
+                    })).then((infos: { count: { [key: string]: number }, first: number, last: number }[]) => {
+                        const ss: RoomInfo[] = compact(map(zip(sessions, infos), ([s, info]) => {
+                            const members = s['members'].split(",");
+                            if (!includes(members, user_id)) {   //Double check if user_id is included.
+                                return null;
+                            }
+                            const obj: RoomInfo = {
+                                id: s['id'], name: decipher(s['name']) || '', timestamp: s['timestamp'], members,
+                                numMessages: info.count, firstMsgTime: info.first, lastMsgTime: info.last
+                            };
+                            return obj;
+                        }));
+                        const ss_sorted = orderBy(ss, 'lastMsgTime', 'desc');
+                        resolve(ss_sorted);
+                    })
+                });
         });
     });
-};
+}
 
 export function get_session_of_members(user_id: string, members: string[], is_all: boolean): Promise<RoomInfo[]> {
     console.log('get_session_of_members');
-    var s: string = _.sortedUniq(_.sortBy([user_id].concat(members))).join(",");
+    var s: string = sortedUniq(sortBy([user_id].concat(members))).join(",");
     if (!is_all) {
         s = '%' + s + '%';
     }
@@ -313,24 +319,22 @@ export function get_session_of_members(user_id: string, members: string[], is_al
         // https://stackoverflow.com/questions/1897352/sqlite-group-concat-ordering
         const q = "select id,name,timestamp,group_concat(user_id) as members from (select s.id,s.name,s.timestamp,m.user_id from sessions as s join session_current_members as m on s.id=m.session_id order by s.timestamp,m.user_id) group by id having members like ? order by timestamp desc;"
         db.all(q, s, (err, sessions) => {
-            const ss = _.map(sessions, (session) => {
+            const ss = map(sessions, (session) => {
                 var r: RoomInfo = {
                     id: session.id, name: session.name, timestamp: session.timestamp,
                     numMessages: s['count(timestamp)'], firstMsgTime: -1, lastMsgTime: -1, members: session.members.split(",")
                 };
                 return r;
             });
-            const ss_sorted = _.orderBy(ss, 'lastMsgTime', 'desc');
+            const ss_sorted = orderBy(ss, 'lastMsgTime', 'desc');
             resolve(ss_sorted);
         });
     });
-};
+}
 
 export function get_comments_list(session_id: string, user_id: string): Promise<(CommentTyp | SessionEvent | ChatFile)[]> {
     const processRow = (row): CommentTyp | SessionEvent | ChatFile => {
-        // const comment_deciphered = row.comment;
-        const comment_deciphered = decipher(row.comment, credentials.cipher_secret);
-        const comment = comment_deciphered.replace(/(:.+?:)/g, function (m, $1) {
+        const comment = row.comment.replace(/(:.+?:)/g, function (m, $1) {
             const r = emoji_dict[$1];
             return r ? r.emoji : $1;
         });
@@ -374,22 +378,22 @@ export function get_comments_list(session_id: string, user_id: string): Promise<
         func((err, rows) => {
             if (session_id) {
                 db.all('select * from session_events where session_id=?', session_id, (err, rows2) => {
-                    const res1 = _.map(rows, processRow);
-                    const res2 = _.map(rows2, (r) => {
+                    const res1 = map(rows, processRow);
+                    const res2 = map(rows2, (r) => {
                         r.kind = "event";
                         return r;
                     });
-                    resolve(_.sortBy(res1.concat(res2), ['timestamp', (r) => {
+                    resolve(sortBy(res1.concat(res2), ['timestamp', (r) => {
                         return { 'event': 0, 'comment': 1 }[r.kind];
                     }]));
                 });
             } else {
-                resolve(_.map(rows, processRow));
+                resolve(map(rows, processRow));
             }
         });
     });
 
-};
+}
 
 export function parseMailgunWebhook(body): MailgunParsed {
     const timestamp = new Date(body['Date']).getTime();
@@ -435,7 +439,7 @@ export function parseMailgunWebhookThread(body): MailgunParsed[] {
     const references = s ? s.split(/\s+/) : [];
     items[0].from = from;
     items[0].timestamp = timestamp;
-    return _.map(items, (item: MailThreadItem) => {
+    return map(items, (item: MailThreadItem) => {
         const data = {
             id: shortid.generate(),
             from: item.from,
@@ -468,7 +472,7 @@ export function get_original_email_highlighted(mail_id: string): Promise<{ lines
                 } else {
                     const obj = JSON.parse(s);
                     const subject = obj['Subject'];
-                    const lines = _.map(obj['body-plain'].split('\r\n'), (line, ii) => {
+                    const lines = map(<string[]>obj['body-plain'].split('\r\n'), (line, ii) => {
                         const i = ii + 1;
                         return { line, highlight: i >= start && i <= end };
                     });
@@ -506,7 +510,7 @@ export function get_member_ids({ session_id, only_registered = true }: { session
 
 export function get_members({ myself, session_id, only_registered = true }: { myself: string, session_id: string, only_registered?: boolean }): Promise<User[]> {
     return new Promise((resolve) => {
-        get_member_ids({ session_id }).then((ids) => {
+        get_member_ids({ session_id, only_registered }).then((ids) => {
             const ps = map(ids, (user_id: string) => {
                 return get_user({ user_id, myself });
             });
@@ -529,7 +533,7 @@ export function join_session({ session_id, user_id, timestamp = -1, source }: { 
             const is_registered_user = (await get_user({ user_id, myself: user_id })) != null;
             const members: string[] = await get_member_ids({ session_id });
             console.log(members);
-            const is_member: boolean = _.includes(members, user_id);
+            const is_member: boolean = includes(members, user_id);
             if (!is_registered_user) {
                 resolve({ ok: false, error: 'User ID invalid' })
             } else if (is_member) {
@@ -560,7 +564,7 @@ export function join_session({ session_id, user_id, timestamp = -1, source }: { 
 export function getSocketIds(user_id: string): Promise<string[]> {
     return new Promise((resolve) => {
         db.all('select socket_id from user_connections where user_id=?;', user_id, (err, rows) => {
-            resolve(_.map(rows, 'socket_id'));
+            resolve(map(rows, 'socket_id'));
         });
     });
 }
@@ -590,7 +594,7 @@ export async function delete_connection(socket_id: string): Promise<{ user_id: s
             if (row) {
                 const user_id = row['user_id'];
                 const timestamp = new Date().getTime();
-                db.run('delete from user_connections where socket_id=?;', socket_id, (err) => {
+                db.run('delete from user_connections where socket_id=?;', socket_id, () => {
                     db.get('select count(*) from user_connections where user_id=?;', user_id, (err1, row1) => {
                         console.log('select count(*) from user_connections', user_id, err1, row1);
                         const online: boolean = !!(row1 && row1['count(*)'] > 0);
@@ -603,6 +607,16 @@ export async function delete_connection(socket_id: string): Promise<{ user_id: s
         });
     });
 }
+
+export async function delete_connection_of_user(user_id: string) {
+    return new Promise((resolve) => {
+        const timestamp = new Date().getTime();
+        db.run('delete from user_connections where user_id=?;', user_id, () => {
+            resolve({ timestamp });
+        });
+    });
+}
+
 export async function delete_all_connections(): Promise<boolean> {
     return new Promise((resolve) => {
         db.run('delete from user_connections;', (err) => {
@@ -667,9 +681,10 @@ export function decipher(cipheredText: string, password: string = credentials.ci
 
 
 export function post_comment({ user_id, session_id, timestamp, comment, for_user, sent_to, original_url = "", source = "", encrypt = "none" }: { user_id: string, session_id: string, timestamp: number, comment: string, for_user: string, original_url?: string, sent_to?: string, source?: string, encrypt: string }): Promise<{ ok: boolean, data?: CommentTyp, error?: string }> {
+    console.log('post_comment start')
     return new Promise((resolve, reject) => {
         const comment_id = shortid();
-        db.run('insert into comments (id,user_id,comment,timestamp,session_id,original_url,sent_to,source) values (?,?,?,?,?,?,?,?);', comment_id, user_id, cipher(comment, credentials.cipher_secret), timestamp, session_id, original_url, sent_to, source, (err1) => {
+        db.run('insert into comments (id,user_id,comment,for_user,encrypt,timestamp,session_id,original_url,sent_to,source) values (?,?,?,?,?,?,?,?,?,?);', comment_id, user_id, comment, for_user, encrypt, timestamp, session_id, original_url, sent_to, source, (err1) => {
             db.run('insert or ignore into session_current_members (session_id,user_id) values (?,?)', session_id, user_id, (err2) => {
                 if (!err1 && !err2) {
                     const data: CommentTyp = {
@@ -677,6 +692,7 @@ export function post_comment({ user_id, session_id, timestamp, comment, for_user
                     };
                     resolve({ ok: true, data });
                 } else {
+                    console.log('post_comment error', err1, err2)
                     reject([err1, err2]);
                 }
             });
@@ -685,7 +701,7 @@ export function post_comment({ user_id, session_id, timestamp, comment, for_user
 }
 
 export async function get_users(myself: string): Promise<User[]> {
-    const rows = await new Promise((resolve, reject) => {
+    const rows: { [key: string]: any } = await new Promise((resolve, reject) => {
         db.all('select users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname from users join user_emails on users.id=user_emails.user_id group by users.id;', (err, rows: object) => {
             if (err) {
                 reject();
@@ -695,7 +711,7 @@ export async function get_users(myself: string): Promise<User[]> {
         });
     });
     const online_users = list_online_users();
-    const users = await Promise.all(_.map(rows, (row): Promise<User> => {
+    const users = await Promise.all(map(rows, (row): Promise<User> => {
         const user_id = row['id'];
         let publicKey: JsonWebKey;
         (async () => {
@@ -719,7 +735,7 @@ export async function get_users(myself: string): Promise<User[]> {
 }
 
 export function find_user_from_email({ myself, email }: { myself: string, email: string }): Promise<User> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         if (!email || email.trim() == "") {
             resolve(null);
         } else {
@@ -798,9 +814,9 @@ export async function passwordMatch(myself: string, username: string, password: 
     if (user != null) {
         console.log('passwordMatch', user);
         const hash = await get_user_password_hash(user.id);
-        console.log(hash, password, _.includes(user_info.allowed_passwords, password));
+        console.log(hash, password, includes(user_info.allowed_passwords, password));
         if (!hash) {
-            return _.includes(user_info.allowed_passwords, password);
+            return includes(user_info.allowed_passwords, password);
         } else {
             const ok = await bcrypt.compare(password, hash);
             console.log('bcrypt compare', ok);
@@ -817,7 +833,7 @@ export async function register_public_key({ user_id, for_user, jwk }: { user_id:
         for_user = for_user != null ? for_user : '';
         console.log('register_public_key', { user_id, for_user, jwk })
         if (user_id != null && jwk != null) {
-            db.run('insert into public_keys (user_id,for_user,key,timestamp) values (?,?,?,?)', user_id, for_user, JSON.stringify(jwk), timestamp, (err) => {
+            db.run('insert into public_keys (user_id,for_user,key,timestamp) values (?,?,?,?)', user_id, for_user, JSON.stringify(jwk), timestamp, () => {
                 console.log(user_id);
                 resolve(true);
             });

@@ -226,7 +226,12 @@ app.use(function (req, res, next) {
 
 app.post('/api/logout/', (req, res) => {
     const user_id = req.decoded.user_id;
-    res.json({ ok: true });
+    model.delete_connection_of_user(user_id).then(({ timestamp }) => {
+        const obj: UsersUpdateSocket = { __type: 'users.update', user_id, online: false, timestamp };
+        // ToDo: Add logout for all clients of the same user.
+        io.emit('users.update', obj);
+    });
+    res.json({ ok: true, user_id });
 })
 
 app.get('/api/matrix', (req, res) => {
@@ -321,8 +326,8 @@ app.delete('/api/comments/:id', (req, res: JsonResponse<DeleteCommentResponse>) 
             const session_id = row['session_id'];
             db.run('delete from comments where id=?;', comment_id, (err) => {
                 if (!err) {
-                    res.json({ ok: true, data: { comment_id, session_id } });
                     const data: DeleteCommentData = { comment_id, session_id };
+                    res.json({ ok: true, data });
                     const obj: CommentsDeleteSocket = {
                         __type: 'comments.delete',
                         id: comment_id,
@@ -479,16 +484,18 @@ app.post('/api/join_session', (req: PostRequest<JoinSessionParam>, res: JsonResp
 
 app.post('/api/comments', (req: MyPostRequest<PostCommentData>, res: JsonResponse<PostCommentResponse>) => {
     (async () => {
-        db.serialize(async () => {
+        db.serialize(() => {
             const timestamp = new Date().getTime();
             const user_id = req.decoded.user_id;
             const comments = req.body.comments;
             const session_id = req.body.session;
             const temporary_id = req.body.temporary_id;
+            console.log('/api/comments');
             const ps = _.map(comments, ({ for_user, content }) => {
                 return model.post_comment({ user_id, session_id, timestamp, comment: content, encrypt: "ecdh.v1", for_user, source: "self" });
             });
             Promise.all(ps).then((rs) => {
+                console.log('ps result', rs);
                 res.json({ ok: true });
             });
             /*
@@ -518,7 +525,7 @@ app.post('/api/comments', (req: MyPostRequest<PostCommentData>, res: JsonRespons
 });
 
 app.get('/api/files', (req, res) => {
-    model.get_user_file_list().then((files) => {
+    model.list_user_files().then((files) => {
         res.json({ ok: true, files: files });
     });
 });
@@ -595,11 +602,12 @@ app.post('/api/public_keys', (req: MyPostRequest<PostPublicKeyParams>, res) => {
 if (!production) {
     app.post('/debug/emit_socket', (req, res) => {
         io.emit("message", req.body);
+        res.json({ ok: true });
     });
 }
 
 
-model.delete_all_connections().then((ok) => {
+model.delete_all_connections().then(() => {
     http.listen(port, () => {
         console.log("server is running at port " + port);
     })

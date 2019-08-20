@@ -690,10 +690,6 @@ update msg model =
                     ( model, Cmd.none )
 
             else
-                let
-                    _ =
-                        Debug.log "EditingKeyDown" code
-                in
                 ( model, Cmd.none )
 
         SubmitComment ->
