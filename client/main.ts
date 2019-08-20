@@ -15,8 +15,8 @@ moment.locale('ja');
 
 const shortid = require('shortid').generate;
 
-const token = localStorage.getItem('yacht.token') || "";
-const user_id = localStorage['yacht.user_id'] || "";
+const token: string = localStorage.getItem('yacht.token') || "";
+const user_id: string = localStorage['yacht.user_id'] || "";
 
 window['removeSavedKeys'] = () => {
     crypto.removeSavedKeys().then(() => {
@@ -24,11 +24,15 @@ window['removeSavedKeys'] = () => {
     });
 }
 
+window['importKey'] = crypto.importKey;
+
 if (!token || token == '') {
     location.href = '/login' + location.hash;
 }
 
-// crypto.test_crypto();
+crypto.test_crypto();
+// crypto.test_crypto1();
+// throw new Error('Abort');
 
 (async () => {
     const model = new Model(token, { privateKey: null, publicKey: null });
@@ -44,13 +48,16 @@ if (!token || token == '') {
         await axios.post('/api/public_keys', obj);
     } else {
         console.log('Generating a new public/private keys.')
-        const { publicKey, localKey } = await crypto.generatePublicKey();
+        const localKey = await crypto.generatePublicKey(true);
+        console.log('Generated', localKey)
         crypto.saveMyKeys(localKey).then(() => {
             console.log('Key pair saved to DB');
         });
         model.keyPair = localKey;
-        console.log('posting ', publicKey);
-        await axios.post('/api/public_keys', { publicKey, token });
+        console.log('posting ', localKey);
+        const jwk = await crypto.exportKey(localKey.publicKey);
+        const obj: PostPublicKeyParams = { publicKey: jwk, for_user: user_id, token }
+        await axios.post('/api/public_keys', obj);
     }
     window['model'] = model;
 

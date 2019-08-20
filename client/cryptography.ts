@@ -1,8 +1,7 @@
-import { reject } from "lodash-es";
-
 // https://qiita.com/tomoyukilabs/items/eac94fdb2d0ca92f443a
 
 const storeName = 'yacht.keyPair';
+
 
 export async function saveMyKeys(keyPair: CryptoKeyPair): Promise<void> {
     return new Promise((resolve) => {
@@ -63,14 +62,16 @@ export async function loadMyKeys(): Promise<CryptoKeyPair> {
     });
 }
 
-export async function savePublicKey(user_id: string, jwk: JsonWebKey): Promise<void> {
+export async function savePublicKey(user_id: string, jwk: ExportedFormat): Promise<void> {
+    console.log('savePublicKey() 1')
     const publicKey = await importKey(jwk);
+    console.log('savePublicKey() 2')
     return new Promise((resolve) => {
         const openReq = indexedDB.open(storeName);
 
         openReq.onupgradeneeded = function (event: any) {
             var db = event.target.result;
-            const objectStore = db.createObjectStore(storeName, { keyPath: 'id' });
+            db.createObjectStore(storeName, { keyPath: 'id' });
             // console.log('objectStore', objectStore);
 
         }
@@ -145,38 +146,51 @@ export async function removeSavedKeys() {
 }
 
 
-export async function generatePublicKey(): Promise<{ publicKey: JsonWebKey, localKey: CryptoKeyPair }> {
-    return new Promise((resolve) => {
-        let localKey;
-        crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveKey', 'deriveBits'])
-            .then((keyPair: CryptoKeyPair) => {   // 鍵ペアを生成
-                console.log('keyPair', keyPair, JSON.stringify(keyPair));
-                localKey = keyPair;
-                return crypto.subtle.exportKey('jwk', keyPair.publicKey);
-            }).then(jwk => { // 公開鍵をJWKとしてエクスポート
-                resolve({ publicKey: jwk, localKey });
-            });
-    });
-
+export async function generatePublicKey(exportable = false): Promise<CryptoKeyPair> {
+    return crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, exportable, ['deriveKey', 'deriveBits']);
 }
 
-export async function exportKey(key: CryptoKey): Promise<JsonWebKey> {
+type ExportedFormat = JsonWebKey;
+
+export async function exportKey(key: CryptoKey): Promise<ExportedFormat> {
     return crypto.subtle.exportKey('jwk', key);
 }
 
-export async function importKey(jwk: JsonWebKey): Promise<CryptoKey> {
+export async function importKey(data: ExportedFormat, exportable = false): Promise<CryptoKey> {
     return new Promise((resolve) => {
         crypto.subtle.importKey(
             'jwk',
-            jwk,
+            data,
             { name: 'ECDH', namedCurve: 'P-256' },
-            false,
-            []
+            exportable,
+            ['deriveKey', 'deriveBits']
+        ).then(key => {
+            console.info('importKey() success', data, key);
+            resolve(key);
+        }, (err) => {
+            console.error('importKey() error', err, data);
+            resolve(null);
+        });
+    });
+}
+
+export async function exportKeyPKCS8(key: CryptoKey): Promise<ArrayBuffer> {
+    return crypto.subtle.exportKey('pkcs8', key);
+}
+
+export async function importKeyPKCS8(data: ArrayBuffer, exportable = false): Promise<CryptoKey> {
+    return new Promise((resolve) => {
+        crypto.subtle.importKey(
+            'pkcs8',
+            data,
+            { name: 'ECDH', namedCurve: 'P-256' },
+            exportable,
+            ['deriveKey', 'deriveBits']
         ).then(key => {
             // console.log('Imported', jwk, key);
             resolve(key);
         }, (err) => {
-            console.log('importKey error', err);
+            console.error('importKey() error', err);
             resolve(null);
         });
     });
@@ -209,7 +223,11 @@ function getEncryptionKey(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey
 }
 
 export async function encrypt(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey, input: Uint8Array): Promise<EncryptedData> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
+        if (!remotePublicKey || !localPrivateKey) {
+            console.error('encrypt(): Keys must be non-null.')
+            reject();
+        }
         let iv = crypto.getRandomValues(new Uint8Array(12));
         getEncryptionKey(remotePublicKey, localPrivateKey).then((encryptionKey) => {
             return crypto.subtle.encrypt(
@@ -286,30 +304,78 @@ export function fromUint8Aarray(arr: Uint8Array): string {
 }
 
 //Encrypt at A side with A's secret and B's public key.
-async function test_encrypt(input: string, lk_a: CryptoKey, pk_b: JsonWebKey): Promise<string> {
-    const imported_b = await importKey(pk_b);
-    return encrypt_str(imported_b, lk_a, input);
+async function test_encrypt(lk_a: CryptoKey, pk_b: ExportedFormat, input: string): Promise<string> {
+    try {
+        const imported_b = await importKey(pk_b);
+        return encrypt_str(imported_b, lk_a, input);
+    } catch (e) {
+        console.log(e);
+    }
 }
 
 //Decrypt at B side with B's secret and A's public key.
-async function test_decrypt(input: string, lk_b: CryptoKey, pk_a: JsonWebKey): Promise<string> {
+async function test_decrypt(lk_b: CryptoKey, pk_a: ExportedFormat, input: string): Promise<string> {
     const imported_a = await importKey(pk_a);
     return decrypt_str(imported_a, lk_b, input);
 }
 
+//Encrypt at A side with A's secret and B's public key.
+async function test_encrypt2(lk_a: CryptoKey, lk_b: CryptoKey, input: string): Promise<string> {
+    try {
+        return encrypt_str(lk_b, lk_a, input);
+    } catch (e) {
+        console.log(e);
+    }
+}
+
+//Decrypt at B side with B's secret and A's public key.
+async function test_decrypt2(lk_b: CryptoKey, lk_a: CryptoKey, input: string): Promise<string> {
+    return decrypt_str(lk_a, lk_b, input);
+}
+
+// This works
 export function test_crypto() {
     (async () => {
         console.log('test_crypto start');
-        const input_string = "いいねこのアルゴリズムは。";
-        const { publicKey: pk_a, localKey: lk_a } = await generatePublicKey();
-        const { publicKey: pk_b, localKey: lk_b } = await generatePublicKey();
+        const input_string = "暗号化する文字列１";
+
+        const lk_a = await generatePublicKey(true);
+        const exported = await exportKey(lk_a.privateKey);
+        console.log('test_crypto(): Exported', exported, JSON.stringify(exported));
+        const imported_a = await importKey(exported, true);
+        console.log('test_crypto(): Imported', imported_a)
+
+        const lk_b = await generatePublicKey(true);
 
         //Encrypt at A side with A's secret and B's public key.
-        const encrypted = await test_encrypt(input_string, lk_a.privateKey, pk_b);
+        const encrypted = await test_encrypt2(imported_a, lk_b.publicKey, input_string);
         console.log('test_crypto', encrypted);
         //Decrypt at B side with B's secret and A's public key.
-        const decrypted = await test_decrypt(encrypted, lk_b.privateKey, pk_a);
+        const decrypted = await test_decrypt2(lk_b.privateKey, lk_a.publicKey, encrypted);
 
         console.log('test_crypto', input_string, decrypted);
     })();
 }
+
+// This does NOT work. Key import does not work in this function
+export function test_crypto1() {
+    (async () => {
+        console.log('test_crypto start');
+        const input_string = "２番めの暗号化試験";
+
+        const lk_a = await generatePublicKey(true);
+        const exported_a = await exportKey(lk_a.publicKey);
+
+        const lk_b = await generatePublicKey(true);
+        const exported_b = await exportKey(lk_b.publicKey);
+
+        //Encrypt at A side with A's secret and B's public key.
+        const encrypted = await test_encrypt(lk_a.privateKey, exported_b, input_string);
+        console.log('test_crypto', encrypted);
+        //Decrypt at B side with B's secret and A's public key.
+        const decrypted = await test_decrypt(lk_b.privateKey, exported_a, encrypted);
+
+        console.log('test_crypto', input_string, decrypted);
+    })();
+}
+
