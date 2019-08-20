@@ -135,7 +135,7 @@ export class Model {
             const prv_key = (await crypto.loadMyKeys()).privateKey;
             const ds = await Promise.all(map(room.members, ({ id, publicKey }) => {
                 console.log({ pub: publicKey, prv: prv_key });
-                return crypto.importKey(publicKey);
+                return crypto.importKey(publicKey, true);
             })).then((ps) => {
                 console.log('imported keys', ps)
                 return Promise.all(map(ps, (imp_pub: CryptoKey) => {

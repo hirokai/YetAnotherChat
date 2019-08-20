@@ -64,7 +64,7 @@ export async function loadMyKeys(): Promise<CryptoKeyPair> {
 
 export async function savePublicKey(user_id: string, jwk: ExportedFormat): Promise<void> {
     console.log('savePublicKey() 1')
-    const publicKey = await importKey(jwk);
+    const publicKey = await importKey(jwk, true);
     console.log('savePublicKey() 2')
     return new Promise((resolve) => {
         const openReq = indexedDB.open(storeName);
@@ -156,14 +156,16 @@ export async function exportKey(key: CryptoKey): Promise<ExportedFormat> {
     return crypto.subtle.exportKey('jwk', key);
 }
 
-export async function importKey(data: ExportedFormat, exportable = false): Promise<CryptoKey> {
+export async function importKey(data: ExportedFormat, is_publicKey: boolean, exportable = false): Promise<CryptoKey> {
     return new Promise((resolve) => {
         crypto.subtle.importKey(
             'jwk',
             data,
             { name: 'ECDH', namedCurve: 'P-256' },
             exportable,
-            ['deriveKey', 'deriveBits']
+            // https://gist.github.com/pedrouid/b4056fd1f754918ddae86b32cf7d803e#ecdh---importkey
+            // Usages must be empty for public keys
+            (is_publicKey ? [] : ['deriveKey', 'deriveBits'])
         ).then(key => {
             console.info('importKey() success', data, key);
             resolve(key);
@@ -379,3 +381,50 @@ export function test_crypto1() {
     })();
 }
 
+// This works
+export function test_crypto2() {
+    (async () => {
+        console.log('test_crypto start');
+        const input_string = "暗号化する文字列3";
+
+        const lk_a = await generatePublicKey(true);
+        const exported = await exportKeyPKCS8(lk_a.privateKey);
+        console.log('test_crypto2(): Exported', exported, JSON.stringify(exported));
+        const imported_a = await importKeyPKCS8(exported, true);
+        console.log('test_crypto2(): Imported', imported_a)
+
+        const lk_b = await generatePublicKey(true);
+
+        //Encrypt at A side with A's secret and B's public key.
+        const encrypted = await test_encrypt2(imported_a, lk_b.publicKey, input_string);
+        console.log('test_crypto', encrypted);
+        //Decrypt at B side with B's secret and A's public key.
+        const decrypted = await test_decrypt2(lk_b.privateKey, lk_a.publicKey, encrypted);
+
+        console.log('test_crypto', input_string, decrypted);
+    })();
+}
+
+// This does not work
+export function test_crypto3() {
+    (async () => {
+        console.log('test_crypto start');
+        const input_string = "4番めの暗号化試験";
+
+        const lk_a = await generatePublicKey(true);
+        const exported_a = await exportKeyPKCS8(lk_a.publicKey);
+        const imported_a = await importKeyPKCS8(exported_a);
+
+        const lk_b = await generatePublicKey(true);
+        const exported_b = await exportKeyPKCS8(lk_b.publicKey);
+        const imported_b = await importKeyPKCS8(exported_b);
+
+        //Encrypt at A side with A's secret and B's public key.
+        const encrypted = await test_encrypt2(lk_a.privateKey, imported_b, input_string);
+        console.log('test_crypto', encrypted);
+        //Decrypt at B side with B's secret and A's public key.
+        const decrypted = await test_decrypt2(lk_b.privateKey, imported_a, encrypted);
+
+        console.log('test_crypto', input_string, decrypted);
+    })();
+}

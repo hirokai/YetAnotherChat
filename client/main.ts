@@ -30,7 +30,7 @@ if (!token || token == '') {
     location.href = '/login' + location.hash;
 }
 
-crypto.test_crypto();
+// crypto.test_crypto3();
 // crypto.test_crypto1();
 // throw new Error('Abort');
 
@@ -48,7 +48,7 @@ crypto.test_crypto();
         await axios.post('/api/public_keys', obj);
     } else {
         console.log('Generating a new public/private keys.')
-        const localKey = await crypto.generatePublicKey(true);
+        const localKey = await crypto.generatePublicKey(false);
         console.log('Generated', localKey)
         crypto.saveMyKeys(localKey).then(() => {
             console.log('Key pair saved to DB');
