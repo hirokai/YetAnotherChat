@@ -109,19 +109,21 @@ export function get_mail_to(q: string): Promise<any[]> {
     });
 }
 
-export function create_new_session(name: string, members: string[]): Promise<{ id: string, name: string, timestamp: number, members: string[] }> {
+export function create_new_session(name: string, members: string[]): Promise<RoomInfo> {
     const session_id = shortid();
     return create_session_with_id(session_id, name, members);
 }
 
 
-export function create_session_with_id(session_id: string, name: string, members: string[]): Promise<{ id: string, name: string, timestamp: number, members: string[] }> {
+export function create_session_with_id(session_id: string, name: string, members: string[]): Promise<RoomInfo> {
     return new Promise((resolve) => {
         const timestamp = new Date().getTime();
         db.serialize(() => {
             db.run('insert or ignore into sessions (id, name, timestamp) values (?,?,?);', session_id, cipher(name), timestamp);
             Promise.all(map(members, (m) => join_session({ session_id, user_id: m, timestamp, source: 'owner' }))).then(() => {
-                resolve({ id: session_id, name: cipher(name), timestamp, members });
+                get_session_info(session_id).then((roomInfo) => {
+                    resolve(roomInfo);
+                });
             });
         });
     });
@@ -332,7 +334,7 @@ export function get_session_of_members(user_id: string, members: string[], is_al
     });
 }
 
-export function get_comments_list(session_id: string, user_id: string): Promise<(CommentTyp | SessionEvent | ChatFile)[]> {
+export function get_comments_list(for_user: string, session_id: string, user_id: string): Promise<(CommentTyp | SessionEvent | ChatFile)[]> {
     const processRow = (row): CommentTyp | SessionEvent | ChatFile => {
         const comment = row.comment.replace(/(:.+?:)/g, function (m, $1) {
             const r = emoji_dict[$1];
@@ -358,26 +360,26 @@ export function get_comments_list(session_id: string, user_id: string): Promise<
     var func;
     if (session_id && !user_id) {
         func = (cb) => {
-            db.all('select * from comments where session_id=? order by timestamp;', session_id, cb);
+            db.all('select * from comments where session_id=? and for_user=? order by timestamp;', session_id, for_user, cb);
         };
     } else if (!session_id && user_id) {
         func = (cb) => {
-            db.all('select * from comments where user_id=? order by timestamp;', user_id, cb);
+            db.all('select * from comments where user_id=? and for_user=? order by timestamp;', user_id, for_user, cb);
         }
     } else if (session_id && user_id) {
         func = (cb) => {
-            db.all('select * from comments where session_id=? and user_id=? order by timestamp;', session_id, user_id, cb);
+            db.all('select * from comments where session_id=? and user_id=? and for_user=? order by timestamp;', session_id, user_id, for_user, cb);
         }
     } else {
         func = (cb) => {
-            db.all('select * from comments order by timestamp;', cb);
+            db.all('select * from comments and for_user=? order by timestamp;', for_user, cb);
         }
     }
 
     return new Promise((resolve) => {
         func((err, rows) => {
             if (session_id) {
-                db.all('select * from session_events where session_id=?', session_id, (err, rows2) => {
+                db.all('select * from session_events where session_id=? and for_user=?', session_id, user_id, (err, rows2) => {
                     const res1 = map(rows, processRow);
                     const res2 = map(rows2, (r) => {
                         r.kind = "event";
@@ -833,9 +835,13 @@ export async function register_public_key({ user_id, for_user, jwk }: { user_id:
         for_user = for_user != null ? for_user : '';
         console.log('register_public_key', { user_id, for_user, jwk })
         if (user_id != null && jwk != null) {
-            db.run('insert into public_keys (user_id,for_user,key,timestamp) values (?,?,?,?)', user_id, for_user, JSON.stringify(jwk), timestamp, () => {
-                console.log(user_id);
-                resolve(true);
+            db.run('insert into public_keys (user_id,for_user,key,timestamp) values (?,?,?,?)', user_id, for_user, JSON.stringify(jwk), timestamp, (err) => {
+                if (!err) {
+                    console.log(user_id);
+                    resolve(true);
+                } else {
+                    resolve(false);
+                }
             });
         } else {
             resolve(false);

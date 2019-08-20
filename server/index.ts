@@ -8,6 +8,7 @@ const glob = require("glob");
 const bodyParser = require("body-parser");
 // const _ = require('lodash');
 import * as _ from 'lodash';
+import { uniq } from 'lodash';
 const path = require('path');
 const sqlite3 = require('sqlite3');
 const db = new sqlite3.Database(path.join(__dirname, 'private/db.sqlite3'));
@@ -15,7 +16,6 @@ const db = new sqlite3.Database(path.join(__dirname, 'private/db.sqlite3'));
 const fs = require('fs');
 const moment = require('moment');
 const jwt = require('jsonwebtoken');
-import * as email from './email';
 
 // const production = true; //process.env.PRODUCTION;
 const production = false;
@@ -404,7 +404,7 @@ interface DeleteRequest<T, U> {
 
 app.post('/api/sessions', (req: PostRequest<PostSessionsParam>, res: JsonResponse<PostSessionsResponse>) => {
     const body = req.body;
-    const members = body.members;
+    const members = uniq(body.members.concat([req.decoded.user_id]));
     const name = body.name;
     const file_id = body.file_id;
     const temporary_id = body.temporary_id;
@@ -438,12 +438,12 @@ app.post('/api/sessions', (req: PostRequest<PostSessionsParam>, res: JsonRespons
     });
 });
 
-app.get('/api/comments', (req, res, next) => {
+app.get('/api/comments', (req: GetAuthRequest, res, next) => {
     // https://qiita.com/yukin01/items/1a36606439123525dc6d
     (async () => {
         const session_id = req.query.session;
         const user_id = req.query.user;
-        const comments: (CommentTyp | SessionEvent | ChatFile)[] = await model.get_comments_list(session_id, user_id);
+        const comments: (CommentTyp | SessionEvent | ChatFile)[] = await model.get_comments_list(req.decoded.user_id, session_id, user_id);
         res.json(comments);
     })().catch(next);
 });

@@ -37,6 +37,9 @@ port getUserMessages : String -> Cmd msg
 port getRoomInfo : () -> Cmd msg
 
 
+port enterSession : String -> Cmd msg
+
+
 port getSessionsWithSameMembers : { members : List String, is_all : Bool } -> Cmd msg
 
 
@@ -815,7 +818,7 @@ enterNewSession : Model -> ( Model, Cmd Msg )
 enterNewSession model =
     let
         new_model =
-            { model | page = NewSession, newSessionStatus = { selected = Set.empty, sessions_same_members = [] } }
+            { model | page = NewSession, newSessionStatus = { selected = Set.singleton model.myself, sessions_same_members = [] } }
     in
     ( new_model, updatePageHash new_model )
 
@@ -852,7 +855,7 @@ enterRoom r model =
         new_model =
             { model | page = RoomPage r, chatPageStatus = { chatPageStatus | filterMode = Person, filter = Set.fromList users, users = users, messages = Nothing } }
     in
-    ( new_model, Cmd.batch [ updatePageHash new_model, getMessages r, joinRoom { session_id = r, user_id = model.myself } ] )
+    ( new_model, Cmd.batch [ updatePageHash new_model, getMessages r, joinRoom { session_id = r, user_id = model.myself }, enterSession r ] )
 
 
 enterUser : String -> Model -> ( Model, Cmd Msg )

@@ -196,7 +196,7 @@ type GetUserResponse = {
 
 type PostSessionsResponse = {
     ok: boolean,
-    data?: { id: string },
+    data?: RoomInfo,
     error?: string
 }
 

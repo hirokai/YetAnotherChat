@@ -12,7 +12,7 @@ export type ChatEntry = CommentTyp | SessionEvent | ChatFile;
 export class Model {
     token: string
     keyPair: CryptoKeyPair
-    publicKeys: { [key: string]: JsonWebKey } = {}
+    publicKeys: { [key: string]: CryptoKey } = {}
     snapshot: { [key: string]: { [key: number]: any } };
     readonly MAX_SAVE_SNAPSHOT: number = 2;
     constructor(token: string, keyPair: CryptoKeyPair) {
@@ -104,7 +104,7 @@ export class Model {
         }
     }
     comments = {
-        list_for_session: (session: string): Promise<any> => {
+        list_for_session: async (session: string): Promise<any> => {
             const key = 'comments.session.' + session;
             const params: GetCommentsParams = { session, token: this.token };
             const timestamp = new Date().getTime();
@@ -115,16 +115,16 @@ export class Model {
                     resolve(snapshot);
                 });
             } else {
-                return axios.get('/api/comments', { params }).then(({ data }: { data: ChatEntry[] }) => {
-                    const comments: ChatEntryClient[] = processData(data)
-                    this.setSnapshot(key, timestamp, comments);
-                    return comments;
-                });
+                const { data }: { data: ChatEntry[] } = await axios.get('/api/comments', { params });
+                const comments: ChatEntryClient[] = await processData(data, this.keyPair.privateKey);
+                console.log('comments', comments);
+                this.setSnapshot(key, timestamp, comments);
+                return comments;
             }
         },
         list_for_user: (user: string): Promise<ChatEntryClient[]> => {
             return axios.get('/api/comments', { params: { user, token: this.token } }).then(({ data }) => {
-                return processData(data);
+                return processData(data, this.keyPair.privateKey);
             });
         },
         new: async ({ comment, session }: { comment: string, session: string }): Promise<void> => {
@@ -132,7 +132,7 @@ export class Model {
             console.log('room members', room);
             const temporary_id = shortid();
             const comment_encoded = crypto.toUint8Aarray(comment);
-            const prv_key = (await crypto.loadKeyFromIndexedDB()).privateKey;
+            const prv_key = (await crypto.loadMyKeys()).privateKey;
             const ds = await Promise.all(map(room.members, ({ id, publicKey }) => {
                 console.log({ pub: publicKey, prv: prv_key });
                 return crypto.importKey(publicKey);
@@ -144,7 +144,7 @@ export class Model {
                 }));
             })
             const comments = map(ds, (d: EncryptedData, i: number) => {
-                return { for_user: room.members[i].id, content: d.data };
+                return { for_user: room.members[i].id, content: d.iv + ':' + d.data };
             })
             const obj: PostCommentData = { comments, session, temporary_id, encrypt: 'ecdh.v1', token: this.token };
             const { data: { data } }: AxiosResponse<PostCommentResponse> = await axios.post('/api/comments', obj);
@@ -200,9 +200,13 @@ export class Model {
         get: async (id: string): Promise<RoomInfo> => {
             const params: AuthedParams = { token: this.token };
             const { data: r }: { data: GetSessionResponse } = await axios.get('/api/sessions/' + id, { params });
+            console.log('session.get result', r.data);
+            await Promise.all(map(r.data.members, ({ id, publicKey }) => {
+                return crypto.savePublicKey(id, publicKey);
+            }));
             return r.data;
         },
-        new: async ({ name, members }: { name: string, members: string[] }): Promise<{ newRoom: any, sessions: any, messages: any }> => {
+        new: async ({ name, members }: { name: string, members: string[] }): Promise<{ newRoom: RoomInfo, sessions: RoomInfo[], messages: ChatEntry[] }> => {
             const temporary_id = shortid();
             const post_data: PostSessionsParam = { name, members, temporary_id, token: this.token };
             const { data: newRoom }: PostSessionsResponse = await $.post('/api/sessions', post_data);
@@ -234,39 +238,68 @@ export class Model {
     }
 }
 
-export const processData = (res: ChatEntry[]): ChatEntryClient[] => {
-    return map(res, (m1) => {
+async function processComment(m1: ChatEntry, privateKey: CryptoKey): Promise<ChatEntryClient> {
+    const user: string = m1.user_id;
+    const m = <CommentTyp>m1;
+    console.log('Processing comment by ', m.user_id);
+    const publicKey = await crypto.loadPublicKey(m.user_id);
+    // const deciphered_comment = m.comment;
+    const deciphered_comment = await crypto.decrypt_str(publicKey, privateKey, m.comment, m.user_id).catch(() => { return m.comment });
+    console.log('decrypted', deciphered_comment);
+    var v: ChatEntryClient = { id: m.id, user, comment: deciphered_comment, timestamp: formatTime(m.timestamp), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "" };
+    v.originalUrl = m.original_url || "";
+    v.sentTo = m.sent_to || "";
+    v.source = m.source;
+    return v;
+}
+
+async function processEvent(m1: ChatEntry): Promise<ChatEntryClient> {
+    const user: string = m1.user_id;
+    const m = <SessionEvent>m1;
+    var v: ChatEntryClient = { id: m.id, user, comment: "", timestamp: formatTime(m.timestamp), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "" };
+    v.comment = "（参加しました）";
+    v.action = m.action;
+    return v;
+}
+
+async function processFile(m1: ChatEntry): Promise<ChatEntryClient> {
+    const user: string = m1.user_id;
+    const m = <ChatFile>m1;
+    var v: ChatEntryClient = { id: m.id, user, comment: "", timestamp: formatTime(m.timestamp), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "" };
+    v.comment = "（ファイル：" + m.url + "）";
+    v.url = m.url;
+    return v;
+}
+
+export async function processData(res: ChatEntry[], privateKey: CryptoKey): Promise<ChatEntryClient[]> {
+    return Promise.all(map(res, (m1) => {
         // console.log('processData', m1);
-        const user: string = m1.user_id;
         switch (m1.kind) {
             case "comment": {
-                const m = <CommentTyp>m1;
-                var v: ChatEntryClient = { id: m.id, user, comment: "", timestamp: formatTime(m.timestamp), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "" };
-                // v.comment = decipher_client(m.comment, credentials.cipher_secret);
-                // console.log('decipher_client', v.comment);
-                v.comment = m.comment;
-                v.originalUrl = m.original_url || "";
-                v.sentTo = m.sent_to || "";
-                v.source = m.source;
-                return v;
+                return processComment(m1, privateKey);
             }
             case "event": {
-                const m = <SessionEvent>m1;
-                var v: ChatEntryClient = { id: m.id, user, comment: "", timestamp: formatTime(m.timestamp), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "" };
-                v.comment = "（参加しました）";
-                v.action = m.action;
-                return v;
+                return processEvent(m1);
             }
             case "file": {
-                const m = <ChatFile>m1;
-                var v: ChatEntryClient = { id: m.id, user, comment: "", timestamp: formatTime(m.timestamp), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "" };
-                v.comment = "（ファイル：" + m.url + "）";
-                v.url = m.url;
-                return v;
+                return processFile(m1);
             }
         }
-    });
-};
+    }));
+}
+
+export const processSessionInfo = (d: RoomInfo): RoomInfoClient => {
+    const r: RoomInfoClient = {
+        name: d.name,
+        numMessages: d.numMessages,
+        firstMsgTime: d.firstMsgTime,
+        lastMsgTime: d.lastMsgTime,
+        id: d.id,
+        timestamp: formatTime(d.timestamp),
+        members: map(d.members, (m) => m.id)
+    };
+    return r;
+}
 
 export function formatTime(timestamp: number): string {
     if (timestamp < 0) {
