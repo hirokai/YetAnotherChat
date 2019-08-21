@@ -203,12 +203,16 @@ app.get('/api/verify_token', (req, res) => {
 });
 
 // http://dotnsf.blog.jp/archives/1067083257.html
+
 app.use(function (req, res, next) {
     if (req.path.indexOf('/api/') != 0) {
         next();
         return;
     }
     var token = req.body.token || req.query.token || req.headers['x-access-token'];
+    if (!production) {
+        token = token || credential.test_token;
+    }
     if (!token) {
         res.status(403).send({ ok: false, message: 'No token provided.' });
         return
@@ -219,6 +223,9 @@ app.use(function (req, res, next) {
         } else {
             //. 正当な値が定されていた場合は処理を続ける
             req.decoded = decoded;
+            if (!production) {
+                req.query['pretty'] = 'true';
+            }
             next();
         }
     });
