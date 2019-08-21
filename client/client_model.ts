@@ -24,7 +24,7 @@ export class Model {
         console.log('Model initalized:', { token, keyPair });
         this.snapshot = {};
     }
-    saveDb(storeName: string, key: string, keyName: string, data: any): Promise<void> {
+    saveDb(storeName: string, key: string, keyName: string, data: any, use_internal_key: boolean): Promise<void> {
         return new Promise((resolve, reject) => {
             const openReq = indexedDB.open(storeName);
             openReq.onupgradeneeded = function (event: any) {
@@ -36,8 +36,13 @@ export class Model {
                 var db = event.target.result;
                 var trans = db.transaction(storeName, 'readwrite');
                 var store = trans.objectStore(storeName);
-                var obj = { data };
-                obj[keyName] = key;
+                let obj;
+                if (use_internal_key) {
+                    obj = data;
+                } else {
+                    obj = { data };
+                    obj[keyName] = key;
+                }
                 console.log('saveDb put', obj);
                 const putReq = store.put(obj);
                 putReq.onsuccess = function () {
@@ -53,24 +58,32 @@ export class Model {
             }
         });
     }
-    loadDb(storeName: string, key: string): Promise<any> {
+    loadDb(storeName: string, keyName: string, key: string = null): Promise<any> {
         return new Promise((resolve, reject) => {
             const openReq = indexedDB.open(storeName);
+            console.log('loadDb', openReq);
+            openReq.onupgradeneeded = function (event: any) {
+                console.log('loadDb. onupgradeneeded', storeName);
+                var db = (<IDBRequest>event.target).result;
+                db.createObjectStore(storeName, { keyPath: keyName });
+            }
             openReq.onsuccess = function (event: any) {
+                console.log('loadDb. onsuccess', storeName);
                 // console.log('openReq.onsuccess');
                 var db = event.target.result;
                 var trans = db.transaction(storeName, 'readonly');
                 var store = trans.objectStore(storeName);
-                const getReq = store.get(key);
+                const getReq = key ? store.get(key) : store.getAll();
                 getReq.onsuccess = function () {
                     // console.log('get data success', getReq.result);
-                    resolve(getReq.result ? getReq.result.data : null);
+                    resolve(getReq.result);
                 }
                 getReq.onerror = () => {
                     reject();
                 }
             }
             openReq.onerror = () => {
+                console.log('loadDb. onerror', storeName);
                 reject();
             }
         });
@@ -126,34 +139,32 @@ export class Model {
         }
     }
     users = {
-        get: async (): Promise<User[]> => {
-            return new Promise((resolve) => {
-                console.log({ params: { token: this.token } });
-                const snapshot = null;
-                // const snapshot = this.getSnapshot('users', -1);
-                if (snapshot) {
-                    console.log('Returning snapshot users.')
-                    return new Promise((resolve) => {
-                        resolve(snapshot);
-                    });
-                } else {
-                    axios.get('/api/users', { params: { token: this.token } }).then(({ data }: AxiosResponse<GetUsersResponse>) => {
-                        const timestamp = new Date().getTime();
-                        const users = data.data.users;
-                        this.setSnapshot('users', timestamp, users);
-                        resolve(users);
-                    });
-                }
-            });
+        get: async (): Promise<{ [key: string]: User }> => {
+            console.log({ params: { token: this.token } });
+            const snapshot: { [key: string]: User } = keyBy(await this.loadDb('yacht.users', 'id'), 'id');
+            console.log('users snapshot', snapshot);
+            if (Object.keys(snapshot).length > 0) {
+                console.log('Returning users from local DB.')
+                return snapshot;
+            } else {
+                console.log('Getting users and save to local DB')
+                const r = await axios.get('/api/users', { params: { token: this.token } });
+                const { data: { data: { users } } } = r;
+                console.log('API users result', r, users);
+                await map(users, (u) => {
+                    return this.saveDb('yacht.users', u.id, 'id', u, false);
+                });
+                return keyBy(users, 'id');
+            }
         },
-        on_update: (msg: UsersUpdateSocket) => {
+        on_update: async (msg: UsersUpdateSocket) => {
             console.log('users.on_update', msg);
             const timestamp = new Date().getTime();
-            var users: User[] = this.getSnapshot('users', -1);
+            var users: User[] = await this.loadDb('yacht.users', 'id');
             const u = find(users, { id: msg.user_id });
             if (u != null) {
                 u.online = msg.online;
-                this.setSnapshot('users', timestamp, users);
+                await this.saveDb('yacht.users', u.id, 'id', u, true);
             }
         },
         toClient: async (u: User): Promise<UserClient> => {
@@ -172,7 +183,7 @@ export class Model {
     comments = {
         list_for_session: async (session: string): Promise<{ [key: string]: ChatEntryClient }> => {
             const params: GetCommentsParams = { session, token: this.token };
-            const snapshot: { [key: string]: ChatEntryClient } = await this.loadDb('yacht.comments', session);
+            const snapshot: { [key: string]: ChatEntryClient } = await this.loadDb('yacht.comments', 'session_id', session);
             if (snapshot) {
                 console.log('Returning snapshot.')
                 return new Promise((resolve) => {
@@ -182,7 +193,7 @@ export class Model {
                 const { data }: { data: ChatEntry[] } = await axios.get('/api/comments', { params });
                 const comments: { [key: string]: ChatEntryClient } = keyBy(await processData(data, this), 'id');
                 console.log('comments', comments);
-                await this.saveDb('yacht.comments', session, 'session_id', comments);
+                await this.saveDb('yacht.comments', session, 'session_id', comments, false);
                 return comments;
             }
         },
