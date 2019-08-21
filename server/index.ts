@@ -1,5 +1,9 @@
 /// <reference path="../common/types.d.ts" />
 
+
+// const production = true; //process.env.PRODUCTION;
+const production = false;
+
 import * as model from './model'
 const express = require('express');
 const logger = require('morgan');
@@ -16,11 +20,12 @@ const db = new sqlite3.Database(path.join(__dirname, 'private/db.sqlite3'));
 const fs = require('fs');
 const moment = require('moment');
 const jwt = require('jsonwebtoken');
-
-// const production = true; //process.env.PRODUCTION;
-const production = false;
+const credential = require('./private/credential');
+import * as ec from './error_codes';
+import multer from 'multer';
 
 const http = require('http').createServer(app);
+
 var https;
 if (production) {
     console.log('Production (HTTPS)')
@@ -38,21 +43,15 @@ if (production) {
     https = require('https').createServer(credentials, app);
 }
 
-app.use(logger("short"));
-
-const helmet = require('helmet')
-app.use(helmet());
-
 const io = require('socket.io')(production ? https : http);
-const credential = require('./private/credential');
-import * as ec from './error_codes';
-import multer from 'multer';
 
+
+app.use(logger("short"));
 app.set("view engine", "ejs");
-
 var compression = require('compression');
 app.use(compression());
-
+const helmet = require('helmet')
+app.use(helmet());
 
 const upload = multer({ dest: './uploads/' }).single('user_image');
 
@@ -97,6 +96,7 @@ const pretty = require('express-prettify');
 
 app.use('/public', express.static(path.join(__dirname, '../public')))
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
+
 
 app.use(pretty({ query: 'pretty' }));
 
@@ -222,9 +222,13 @@ app.use(function (req, res, next) {
         return;
     }
     var token = req.body.token || req.query.token || req.headers['x-access-token'];
-    // if (!production) {
-    //     token = token || credential.test_token;
-    // }
+    if (!production) {
+        if ('debug' in req.query) {
+            token = token || credential.test_token;
+            req.query['pretty'] = "";
+            console.log(req.query);
+        }
+    }
     if (!token) {
         res.status(403).send({ ok: false, message: 'No token provided.' });
         return
@@ -268,6 +272,13 @@ app.get('/api/users', (req: GetAuthRequest, res: JsonResponse<GetUsersResponse>)
 app.get('/api/users/:id', (req, res: JsonResponse<GetUserResponse>) => {
     model.get_user(req.params.id).then((user: User) => {
         res.json({ ok: true, data: { user } });
+    });
+});
+
+app.get('/api/users/:id/comments', (req, res: JsonResponse<GetCommentsResponse>) => {
+    const user_id = req.decoded.user_id
+    model.list_comments(user_id, null, user_id).then((comments) => {
+        res.json({ ok: true, data: comments });
     });
 });
 
@@ -469,14 +480,14 @@ app.post('/api/sessions/:session_id/comments/delta', (req: MyPostRequest<GetComm
     })().catch(next);
 });
 
-app.get('/api/sessions/:session_id/comments', (req: GetAuthRequest1<GetCommentsParams>, res, next) => {
+app.get('/api/sessions/:session_id/comments', (req: GetAuthRequest1<GetCommentsParams>, res: JsonResponse<GetCommentsResponse>, next) => {
     // https://qiita.com/yukin01/items/1a36606439123525dc6d
     (async () => {
         const session_id = req.params.session_id;
         const by_user = req.query.by_user;
         const after = req.query.after;
-        const comments: (CommentTyp | SessionEvent | ChatFile)[] = await model.list_comments(req.decoded.user_id, session_id, by_user, after);
-        res.json(comments);
+        const comments: ChatEntry[] = await model.list_comments(req.decoded.user_id, session_id, by_user, after);
+        res.json({ ok: true, data: comments });
     })().catch(next);
 });
 
@@ -534,15 +545,7 @@ app.post('/api/sessions/:session_id/comments', (req: MyPostRequest<PostCommentDa
                     const obj: CommentsNewSocket = {
                         __type: 'comment.new',
                         temporary_id,
-                        id: d.id,
-                        user: d.user_id,
-                        comment: d.comment,
-                        session_id: d.session_id,
-                        timestamp: d.timestamp,
-                        original_url: d.original_url,
-                        sent_to: d.sent_to || '',
-                        kind: "comment",
-                        source: d.source,
+                        entry: d
                     };
                     io.emit("comments.new", obj);
                 }

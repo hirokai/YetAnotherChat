@@ -155,9 +155,8 @@ if (!token || token == '') {
     app.ports.reloadSession.subscribe(async (id) => {
         await model.comments.delete_cache_of_session(id);
         model.comments.list_for_session(id).then((comments) => {
-            const comment_list = values(comments);
-            console.log('after reset feeding ', comment_list.length);
-            app.ports.feedMessages.send(comment_list)
+            console.log('after reset feeding ', comments.length);
+            app.ports.feedMessages.send(comments)
         });
     });
 
@@ -182,6 +181,16 @@ if (!token || token == '') {
         model.sessions.get(session_id);
     });
 
+    app.ports.initializeData.subscribe(() => {
+        model.users.get().then(async (us) => {
+            Promise.all(map(us, model.users.toClient)).then((users) => {
+                app.ports.feedUsers.send(users);
+            })
+        });
+        getUserImages();
+        getAndfeedRoomInfo();
+    });
+
     app.ports.getUsers.subscribe(() => {
         model.users.get().then(async (us) => {
             Promise.all(map(us, model.users.toClient)).then((users) => {
@@ -192,7 +201,7 @@ if (!token || token == '') {
 
     app.ports.getMessages.subscribe((session: string) => {
         model.comments.list_for_session(session).then((comments) => {
-            app.ports.feedMessages.send(values(comments))
+            app.ports.feedMessages.send(comments);
         });
     });
 
@@ -419,10 +428,6 @@ if (!token || token == '') {
 
     let prev_pos = 0;
 
-    app.ports.getUserImages.subscribe(() => {
-        getUserImages();
-    });
-
     function getUserImages() {
         axios.get('/api/files').then(({ data }) => {
             // console.log('getUserImages', data);
@@ -561,7 +566,6 @@ interface ElmAppPorts {
     receiveNewRoomInfo: ElmSend<{ id: string }>;
     logout: ElmSub<void>;
     feedUserImages: ElmSend<UserImages>;
-    getUserImages: ElmSub<void>;
     deleteFile: ElmSub<string>;
     deleteSession: ElmSub<{ id: string }>;
     reloadSession: ElmSub<string>;
@@ -569,6 +573,7 @@ interface ElmAppPorts {
     downloadPrivateKey: ElmSub<void>;
     resetKeys: ElmSub<void>;
     setValue: ElmSend<string[]>;
+    initializeData: ElmSub<void>;
 }
 
 interface ElmApp {

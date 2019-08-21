@@ -74,6 +74,7 @@ type SessionEvent = {
     session_id: string,
     timestamp: number,
     action: string,
+    encrypt: 'none',
 }
 
 type ChatFile = {
@@ -84,6 +85,7 @@ type ChatFile = {
     url: string,
     file_id: string
     kind: string,
+    encrypt: string,
 }
 
 interface MailgunParsed {
@@ -126,7 +128,8 @@ interface ChatEntryClient {
     source: string
     kind: string,
     action: string,
-    url?: string
+    url?: string,
+    encrypt: string
 }
 
 interface UserSlack {
@@ -213,12 +216,11 @@ interface GetCommentsParams extends AuthedParams {
 }
 
 interface GetCommentsDeltaData {
-    token: string
     last_updated: number,
     cached_ids: string[],
 }
 
-type GetCommentsResponse = { ok: boolean, data: CommentTyp[] }
+type GetCommentsResponse = { ok: boolean, data: ChatEntry[] }
 type DeleteCommentResponse = { ok: boolean, data?: DeleteCommentData, error?: string }
 type DeleteCommentData = { comment_id: string, encrypt_group: string, session_id: string }
 
@@ -284,15 +286,7 @@ type UserTableFromEmail = {
 type CommentsNewSocket = {
     __type: string,
     temporary_id: string,
-    id: string,
-    user: string,
-    comment: string,
-    session_id: string,
-    timestamp: number,
-    original_url: string
-    sent_to: string,
-    kind: string,
-    source: string
+    entry: ChatEntry,
 }
 
 type SessionsNewSocket = {

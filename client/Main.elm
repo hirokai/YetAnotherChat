@@ -22,13 +22,13 @@ port setValue : (( String, String ) -> msg) -> Sub msg
 port getUsers : () -> Cmd msg
 
 
-port getUserImages : () -> Cmd msg
-
-
 port feedUsers : (List User -> msg) -> Sub msg
 
 
 port onChangeData : ({ resource : String, id : String } -> msg) -> Sub msg
+
+
+port initializeData : () -> Cmd msg
 
 
 port getMessages : RoomID -> Cmd msg
@@ -489,7 +489,7 @@ init { user_id, show_toppane, expand_chatinput, show_users_with_email_only } =
       , searchKeyword = ""
       , profile = { publicKey = "" }
       }
-    , Cmd.batch [ getRoomInfo (), getUsers (), getUserImages (), Task.perform SetTimeZone Time.here ]
+    , Cmd.batch [ initializeData (), Task.perform SetTimeZone Time.here ]
     )
 
 
