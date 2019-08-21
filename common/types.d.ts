@@ -33,6 +33,25 @@ interface AxiosResponse<T> {
     data: T
 }
 
+type ChatEntry = CommentTyp | SessionEvent | ChatFile
+
+type CommentChange = NewComment | UpdateComment | DeleteComment
+
+interface NewComment {
+    __type: "new";
+    comment: ChatEntry
+}
+
+interface UpdateComment {
+    __type: "update"
+    id: string
+    comment: ChatEntry
+}
+
+interface DeleteComment {
+    __type: "delete";
+    id: string
+}
 
 type CommentTyp = {
     kind: "comment";
@@ -190,6 +209,12 @@ interface PostCommentData extends AuthedParams {
 interface GetCommentsParams extends AuthedParams {
     after?: number
     by_user?: string
+}
+
+interface GetCommentsDeltaData {
+    token: string
+    last_updated: number,
+    cached_ids: string[],
 }
 
 type GetCommentsResponse = { ok: boolean, data: CommentTyp[] }

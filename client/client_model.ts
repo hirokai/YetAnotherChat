@@ -1,7 +1,7 @@
 /// <reference path="../common/types.d.ts" />
 
 import axios from 'axios';
-import { map, clone, includes, pull, without, sortBy, take, find, filter, keyBy, max } from 'lodash-es';
+import { map, clone, includes, pull, without, sortBy, take, find, filter, keyBy, max, cloneDeep } from 'lodash-es';
 import moment from 'moment';
 const shortid = require('shortid').generate;
 import $ from 'jquery';
@@ -181,27 +181,42 @@ export class Model {
         }
     }
     comments = {
-        fetch_since: async (session_id: string, time_after: number): Promise<ChatEntry[]> => {
-            const params: GetCommentsParams = { token: this.token, after: time_after };
-            const { data }: { data: ChatEntry[] } = await axios.get('/api/sessions/' + session_id + '/comments', { params });
+        apply_delta: async (data_: { [key: string]: ChatEntryClient }, delta: CommentChange[]): Promise<{ [key: string]: ChatEntryClient }> => {
+            var data = cloneDeep(data_) || {};
+            for (let i = 0; i < delta.length; i++) {
+                const d = delta[i];
+                if (d.__type == "new") {
+                    const d1 = await processData([d.comment], this);
+                    data[d.comment.id] = d1[0];
+                } else if (d.__type == "update") {
+                    const d1 = await processData([d.comment], this);
+                    data[d.comment.id] = d1[0];
+                } else if (d.__type == "delete") {
+                    delete data[d.id];
+                }
+            }
+            return data;
+        },
+        fetch_since: async (session_id: string, snapshot: { data: { [key: string]: ChatEntryClient } }): Promise<CommentChange[]> => {
+            const timestamps = map(snapshot.data, (v) => v.timestamp);
+            const time_after = timestamps.length == 0 ? 0 : max(timestamps);
+            const cached_ids = map(snapshot.data, (d) => d.id);
+            const body: GetCommentsDeltaData = { token: this.token, last_updated: time_after, cached_ids };
+            const { data }: { data: CommentChange[] } = await axios.post('/api/sessions/' + session_id + '/comments/delta', { body });
             return data;
         },
         list_for_session: async (session: string): Promise<{ [key: string]: ChatEntryClient }> => {
-            const snapshot: { data: { [key: string]: ChatEntryClient } } = await this.loadDb('yacht.comments', 'session_id', session);
+            const snapshot: { data: { [key: string]: ChatEntryClient } } = await this.loadDb('yacht.sessions', 'id', session);
             if (snapshot) {
-                const timestamps = map(snapshot.data, (v) => v.timestamp);
-                const time_after = timestamps.length == 0 ? 0 : max(timestamps);
-                const delta: ChatEntryClient[] = await this.comments.fetch_since(session, time_after).then((cs) => {
-                    return processData(cs, this);
-                })
-                console.log('Comments new data length: ', delta.length);
-                return Object.assign({}, snapshot.data, keyBy(delta, 'id'));
+                const delta: CommentChange[] = await this.comments.fetch_since(session, snapshot);
+                const updated = this.comments.apply_delta(snapshot.data, delta);
+                return updated;
             } else {
                 const params: GetCommentsParams = { token: this.token };
                 const { data }: { data: ChatEntry[] } = await axios.get('/api/sessions/' + session + '/comments', { params });
                 const comments: { [key: string]: ChatEntryClient } = keyBy(await processData(data, this), 'id');
                 console.log('comments', comments);
-                await this.saveDb('yacht.comments', session, 'session_id', comments, false);
+                await this.saveDb('yacht.sessions', session, 'id', { id: session, comments }, true);
                 return comments;
             }
         },

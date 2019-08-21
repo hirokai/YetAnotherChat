@@ -580,21 +580,15 @@ addComment : String -> Model -> Model
 addComment comment model =
     if comment /= "" then
         case model.chatPageStatus.messages of
-            Just messages ->
+            Just _ ->
                 let
                     chatPageStatus =
                         model.chatPageStatus
 
-                    msgs =
-                        Just <| List.append messages [ Comment { id = "__latest", user = model.myself, comment = comment, originalUrl = "", sentTo = "all", formattedTime = "", session = "", source = "self" } ]
-
                     new_ev =
                         Dict.insert "chat" "" model.editingValue
-
-                    _ =
-                        Debug.log "addComment: editingValue" new_ev
                 in
-                { model | chatPageStatus = { chatPageStatus | messages = msgs, chatInputActive = False }, editingValue = new_ev }
+                { model | chatPageStatus = { chatPageStatus | chatInputActive = False }, editingValue = new_ev }
 
             Nothing ->
                 model
@@ -855,10 +849,6 @@ submitComment : Model -> ( Model, Cmd Msg )
 submitComment model =
     case ( Dict.get "chat" model.editingValue, getRoomID model ) of
         ( Just comment, Just room ) ->
-            let
-                _ =
-                    Debug.log "SubmitComment" model.editingValue
-            in
             ( addComment comment model, Cmd.batch [ scrollTo "__latest", sendCommentToServer { comment = comment, user = model.myself, session = room } ] )
 
         _ ->

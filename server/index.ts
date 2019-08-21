@@ -457,13 +457,25 @@ app.post('/api/sessions', (req: PostRequest<PostSessionsParam>, res: JsonRespons
     });
 });
 
+
+app.post('/api/sessions/:session_id/comments/delta', (req: MyPostRequest<GetCommentsDeltaData>, res, next) => {
+    // https://qiita.com/yukin01/items/1a36606439123525dc6d
+    (async () => {
+        const session_id = req.params.session_id;
+        const last_updated = req.body.last_updated;
+        const cached_ids = req.body.cached_ids;
+        const deltas: CommentChange[] = await model.list_comment_delta({ session_id, cached_ids, for_user: req.decoded.user_id, last_updated });
+        res.json(deltas);
+    })().catch(next);
+});
+
 app.get('/api/sessions/:session_id/comments', (req: GetAuthRequest1<GetCommentsParams>, res, next) => {
     // https://qiita.com/yukin01/items/1a36606439123525dc6d
     (async () => {
         const session_id = req.params.session_id;
         const by_user = req.query.by_user;
-        const time_after = req.query.after;
-        const comments: (CommentTyp | SessionEvent | ChatFile)[] = await model.list_comments(req.decoded.user_id, session_id, by_user, time_after);
+        const after = req.query.after;
+        const comments: (CommentTyp | SessionEvent | ChatFile)[] = await model.list_comments(req.decoded.user_id, session_id, by_user, after);
         res.json(comments);
     })().catch(next);
 });

@@ -2,7 +2,7 @@
 
 import * as fs from "fs";
 const path = require('path');
-import { map, filter, includes, orderBy, groupBy, keyBy, min, max, chain, compact, zip, sum, values, sortedUniq, sortBy } from 'lodash';
+import { map, filter, includes, orderBy, groupBy, keyBy, min, max, chain, compact, zip, sum, values, sortedUniq, sortBy, difference } from 'lodash';
 
 const sqlite3 = require('sqlite3');
 const db = new sqlite3.Database(path.join(__dirname, './private/db.sqlite3'));
@@ -311,6 +311,28 @@ export function get_session_list(params: { user_id: string, of_members: string[]
     });
 }
 
+export async function list_comment_delta({ for_user, session_id, cached_ids, last_updated }: { for_user: string, session_id: string, cached_ids: string[], last_updated: number }): Promise<CommentChange[]> {
+    const comments = await list_comments(for_user, session_id, for_user);
+    return new Promise((resolve) => {
+        const cached_id_dict = keyBy(cached_ids);
+        var delta: CommentChange[] = [];
+        comments.forEach((comment) => {
+            const already = cached_id_dict[comment.id];
+            if (!already) {
+                delta.push({ __type: 'new', comment });
+            } else if (comment.timestamp > last_updated) {
+                delta.push({ __type: 'update', id: comment.id, comment });
+            }
+        });
+        const current_ids = map(comments, 'id');
+        const removed_ids = difference(cached_ids, current_ids);
+        removed_ids.forEach((id) => {
+            delta.push({ __type: 'delete', id });
+        });
+        resolve(delta);
+    });
+}
+
 export function get_session_of_members(user_id: string, members: string[], is_all: boolean): Promise<RoomInfo[]> {
     console.log('get_session_of_members');
     var s: string = sortedUniq(sortBy([user_id].concat(members))).join(",");
@@ -334,7 +356,7 @@ export function get_session_of_members(user_id: string, members: string[], is_al
     });
 }
 
-export function list_comments(for_user: string, session_id: string, user_id: string, time_after?: number): Promise<(CommentTyp | SessionEvent | ChatFile)[]> {
+export function list_comments(for_user: string, session_id: string, user_id: string, time_after?: number): Promise<ChatEntry[]> {
     const processRow = (row): CommentTyp | SessionEvent | ChatFile => {
         const comment = row.comment.replace(/(:.+?:)/g, function (m, $1) {
             const r = emoji_dict[$1];
