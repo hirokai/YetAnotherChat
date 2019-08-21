@@ -217,14 +217,8 @@ export class Model {
             const temporary_id = shortid();
             const comment_encoded = crypto.toUint8Aarray(comment);
             const prv_key = await this.keys.get_my_private_key();
-            const ds = await Promise.all(map(room.members, ({ id, publicKey: jwk }) => {
-                return new Promise((resolve) => {
-                    if (jwk) {
-                        crypto.importKey(jwk, true, true).then(resolve);
-                    } else {
-                        this.keys.get(id).then(resolve);
-                    }
-                });
+            const ds = await Promise.all(map(room.members, ({ id }) => {
+                return this.keys.get(id);
             })).then((ps) => {
                 console.log('imported keys', ps)
                 return Promise.all(map(ps, (imp_pub: CryptoKey) => {
@@ -334,14 +328,11 @@ export class Model {
     }
     keys = {
         get: async (user_id: string): Promise<CryptoKey> => {
-            const users: User[] = this.getSnapshot('users');
-            if (!users) {
-                return null;
+            const user: User = await this.loadDb('yacht.users', 'id', user_id);
+            if (user) {
+                return await crypto.importKey(user.publicKey, true, true);
             } else {
-                const user: User = find(users, (u) => u.id == user_id);
-                const jwk = user ? user.publicKey : null;
-                const key = await crypto.importKey(jwk, true, true);
-                return key;
+                return null;
             }
         },
         get_fingerprint: async (): Promise<{ prv: string, pub: string }> => {
