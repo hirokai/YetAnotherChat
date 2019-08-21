@@ -334,7 +334,7 @@ export function get_session_of_members(user_id: string, members: string[], is_al
     });
 }
 
-export function get_comments_list(for_user: string, session_id: string, user_id: string): Promise<(CommentTyp | SessionEvent | ChatFile)[]> {
+export function list_comments(for_user: string, session_id: string, user_id: string): Promise<(CommentTyp | SessionEvent | ChatFile)[]> {
     const processRow = (row): CommentTyp | SessionEvent | ChatFile => {
         const comment = row.comment.replace(/(:.+?:)/g, function (m, $1) {
             const r = emoji_dict[$1];
@@ -354,7 +354,7 @@ export function get_comments_list(for_user: string, session_id: string, user_id:
                 id: row['id']
             };
         } else {
-            return { id: row.id, comment, timestamp: parseInt(row.timestamp), user_id: row.user_id, original_url: row.original_url, sent_to: row.sent_to, session_id: row.session_id, source: row.source, kind: "comment" }
+            return { id: row.id, comment, timestamp: parseInt(row.timestamp), user_id: row.user_id, original_url: row.original_url, sent_to: row.sent_to, session_id: row.session_id, source: row.source, kind: "comment", encrypt: row.encrypt }
         }
     };
     var func;
@@ -697,7 +697,7 @@ export function post_comment({ user_id, session_id, timestamp, comment, for_user
             db.run('insert or ignore into session_current_members (session_id,user_id) values (?,?)', session_id, user_id, (err2) => {
                 if (!err1 && !err2) {
                     const data: CommentTyp = {
-                        id: comment_id, timestamp: timestamp, user_id, comment: comment, session_id, original_url, sent_to, source, kind: "comment"
+                        id: comment_id, timestamp: timestamp, user_id, comment: comment, session_id, original_url, sent_to, source, kind: "comment", encrypt
                     };
                     resolve({ ok: true, data });
                 } else {

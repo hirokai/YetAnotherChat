@@ -182,7 +182,6 @@ export class Model {
     }
     comments = {
         list_for_session: async (session: string): Promise<{ [key: string]: ChatEntryClient }> => {
-            const params: GetCommentsParams = { session, token: this.token };
             const snapshot: { data: { [key: string]: ChatEntryClient } } = await this.loadDb('yacht.comments', 'session_id', session);
             if (snapshot) {
                 console.log('Returning snapshot.')
@@ -190,7 +189,8 @@ export class Model {
                     resolve(snapshot.data);
                 });
             } else {
-                const { data }: { data: ChatEntry[] } = await axios.get('/api/comments', { params });
+                const params: GetCommentsParams = { token: this.token };
+                const { data }: { data: ChatEntry[] } = await axios.get('/api/sessions/' + session + '/comments', { params });
                 const comments: { [key: string]: ChatEntryClient } = keyBy(await processData(data, this), 'id');
                 console.log('comments', comments);
                 await this.saveDb('yacht.comments', session, 'session_id', comments, false);
@@ -198,7 +198,7 @@ export class Model {
             }
         },
         list_for_user: (user: string): Promise<ChatEntryClient[]> => {
-            return axios.get('/api/comments', { params: { user, token: this.token } }).then(({ data }) => {
+            return axios.get('/api/users/' + user + '/comments', { params: { token: this.token } }).then(({ data }) => {
                 return processData(data, this);
             });
         },
@@ -226,8 +226,8 @@ export class Model {
             const comments = map(ds, (d: EncryptedData, i: number) => {
                 return { for_user: room.members[i].id, content: d.iv + ':' + d.data };
             })
-            const obj: PostCommentData = { comments, session, temporary_id, encrypt: 'ecdh.v1', token: this.token };
-            const { data: { data } }: AxiosResponse<PostCommentResponse> = await axios.post('/api/comments', obj);
+            const obj: PostCommentData = { comments, temporary_id, encrypt: 'ecdh.v1', token: this.token };
+            const { data: { data } }: AxiosResponse<PostCommentResponse> = await axios.post('/api/sessions/' + session + '/comments', obj);
         },
         on_new: async (msg: CommentsNewSocket): Promise<string> => {
             const timestamp = msg.timestamp;
@@ -297,7 +297,7 @@ export class Model {
             const post_data: PostSessionsParam = { name, members, temporary_id, token: this.token };
             const { data: newRoom }: PostSessionsResponse = await $.post('/api/sessions', post_data);
             const p1 = axios.get('/api/sessions', { params: { token: this.token } });
-            const p2 = axios.get('/api/comments', { params: { session: newRoom.id, token: this.token } });
+            const p2 = axios.get('/api/sessions/' + newRoom.id + '/comments', { params: { token: this.token } });
             const [{ data: { data: sessions } }, { data: { data: messages } }] = await Promise.all([p1, p2]);
             return { newRoom, sessions, messages };
         },

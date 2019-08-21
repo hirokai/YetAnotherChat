@@ -67,12 +67,14 @@ interface MyResponse extends Response {
 interface MyPostRequest<T> {
     token: any;
     body: T;
+    params?: { [key: string]: string }
     decoded?: { username: string, user_id: string, iap: number, exp: number }
 }
 
 interface GetAuthRequest {
-    token: any;
+    token: any
     query: { [key: string]: string }
+    params?: { [key: string]: string }
     decoded: { username: string, user_id: string, iap: number, exp: number }
 }
 
@@ -445,12 +447,12 @@ app.post('/api/sessions', (req: PostRequest<PostSessionsParam>, res: JsonRespons
     });
 });
 
-app.get('/api/comments', (req: GetAuthRequest, res, next) => {
+app.get('/api/sessions/:session_id/comments', (req: GetAuthRequest, res, next) => {
     // https://qiita.com/yukin01/items/1a36606439123525dc6d
     (async () => {
-        const session_id = req.query.session;
-        const user_id = req.query.user;
-        const comments: (CommentTyp | SessionEvent | ChatFile)[] = await model.get_comments_list(req.decoded.user_id, session_id, user_id);
+        const session_id = req.params.session_id;
+        const by_user = req.query.by_user;
+        const comments: (CommentTyp | SessionEvent | ChatFile)[] = await model.list_comments(req.decoded.user_id, session_id, by_user);
         res.json(comments);
     })().catch(next);
 });
@@ -489,13 +491,13 @@ app.post('/api/join_session', (req: PostRequest<JoinSessionParam>, res: JsonResp
     })().catch(next);
 });
 
-app.post('/api/comments', (req: MyPostRequest<PostCommentData>, res: JsonResponse<PostCommentResponse>) => {
+app.post('/api/sessions/:session_id/comments', (req: MyPostRequest<PostCommentData>, res: JsonResponse<PostCommentResponse>) => {
     (async () => {
         db.serialize(() => {
             const timestamp = new Date().getTime();
             const user_id = req.decoded.user_id;
             const comments = req.body.comments;
-            const session_id = req.body.session;
+            const session_id = req.params.session_id;
             const temporary_id = req.body.temporary_id;
             console.log('/api/comments');
 

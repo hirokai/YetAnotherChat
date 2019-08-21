@@ -297,7 +297,7 @@ if (!token || token == '') {
         const { data }: PostSessionsResponse = await $.post('/api/sessions', post_data);
         app.ports.receiveNewRoomInfo.send(data);
         const p1: Promise<AxiosResponse<GetSessionsResponse>> = axios.get('/api/sessions', { params: { token } });
-        const p2: Promise<AxiosResponse<GetCommentsResponse>> = axios.get('/api/comments', { params: { session: data.id, token } });
+        const p2: Promise<AxiosResponse<GetCommentsResponse>> = axios.get('/api/sessions/' + data.id + '/comments', { params: { token } });
         const [{ data: { data: data1 } }, { data: { data: data2 } }] = await Promise.all([p1, p2]);
         app.ports.feedRoomInfo.send(map(data1, processSessionInfo));
         const processed = await processData(data2, model);

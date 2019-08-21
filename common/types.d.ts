@@ -43,7 +43,8 @@ type CommentTyp = {
     timestamp: number,
     original_url: string,
     sent_to: string,
-    source: string
+    source: string,
+    encrypt: string,
 }
 
 type SessionEvent = {
@@ -181,14 +182,11 @@ type PatchSessionResponse = { ok: boolean }
 
 
 interface PostCommentData extends AuthedParams {
-    session: string,
     comments: { for_user: string, content: string }[],     //Encrypted by different public keys.
     encrypt: string, //Encryption method (ECDH, etc.)
     temporary_id: string,   //generated at client to avoid duplicate addition by socket notification.
 }
-interface GetCommentsParams extends AuthedParams {
-    session: string
-}
+type GetCommentsParams = AuthedParams
 type GetCommentsResponse = { ok: boolean, data: CommentTyp[] }
 type DeleteCommentResponse = { ok: boolean, data?: DeleteCommentData, error?: string }
 type DeleteCommentData = { comment_id: string, encrypt_group: string, session_id: string }
