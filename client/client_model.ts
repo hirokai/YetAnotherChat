@@ -104,6 +104,18 @@ export class Model {
                 u.online = msg.online;
                 this.setSnapshot('users', timestamp, users);
             }
+        },
+        toClient: async (u: User): Promise<UserClient> => {
+            const fingerprint: string = await crypto.fingerPrint(u.publicKey);
+            return {
+                id: u.id,
+                fullname: u.fullname || '',
+                username: u.username || '',
+                emails: u.emails || [],
+                avatar: u.avatar || '',
+                online: u.online || false,
+                fingerprint
+            };
         }
     }
     comments = {
@@ -139,7 +151,7 @@ export class Model {
             const ds = await Promise.all(map(room.members, ({ id, publicKey: jwk }) => {
                 return new Promise((resolve) => {
                     if (jwk) {
-                        crypto.importKey(jwk, true).then(resolve);
+                        crypto.importKey(jwk, true, true).then(resolve);
                     } else {
                         this.keys.get(id).then(resolve);
                     }

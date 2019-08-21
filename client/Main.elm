@@ -157,6 +157,7 @@ type alias User =
     , emails : List String
     , avatar : String
     , online : Bool
+    , fingerprint : String
     }
 
 
@@ -1305,8 +1306,13 @@ view model =
         UserPage user ->
             userPageView user model
 
-        UserProfilePage user ->
-            userProfileView user model
+        UserProfilePage u ->
+            case getUserInfo model u of
+                Just user ->
+                    userProfileView user model
+
+                Nothing ->
+                    notFoundView model
 
         UserSettingPage ->
             case getUserInfo model model.myself of
@@ -1507,7 +1513,7 @@ mkPeopleDivInList model selected user =
                 ]
                 [ div [ class "userlist-info" ]
                     [ div [ class "name" ]
-                        [ a [ href <| "#/users/" ++ user ]
+                        [ a [ href <| "#/profiles/" ++ user ]
                             [ text (getUserNameDisplay model user)
                             , if userInfo.online then
                                 span [ class "online-mark" ] [ text "●" ]
@@ -1911,32 +1917,30 @@ userSettingView user model =
     }
 
 
-userProfileView : String -> Model -> { title : String, body : List (Html Msg) }
+userProfileView : User -> Model -> { title : String, body : List (Html Msg) }
 userProfileView user model =
     let
         user_files =
-            Maybe.withDefault [] <| Dict.get user model.files
+            Maybe.withDefault [] <| Dict.get user.id model.files
 
         current_file =
             List.Extra.find (\f -> Just f.file_id == model.userPageStatus.shownFileID) user_files
 
         current_file_id =
             Maybe.withDefault "" <| Maybe.map .file_id current_file
-
-        user_info =
-            getUserInfo model user
     in
-    { title = (Maybe.withDefault "" <| Maybe.map .fullname user_info) ++ ": " ++ appName
+    { title = user.fullname ++ ": " ++ appName
     , body =
         [ div [ class "container-fluid" ]
             [ div [ class "row" ]
                 [ leftMenu model
                 , smallMenu
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
-                    [ h1 [] [ text <| getUserNameDisplay model user ]
+                    [ h1 [] [ text <| getUserNameDisplay model user.id ]
                     , div []
-                        [ span [] [ text "Email: ", text <| Maybe.withDefault "（未登録）" <| Maybe.andThen (.emails >> List.head) user_info ]
+                        [ span [] [ text "Email: ", text <| Maybe.withDefault "（未登録）" <| (.emails >> List.head) user ]
                         ]
+                    , div [] [ span [] [ text <| "Fingerprint: " ++ user.fingerprint ] ]
                     , div [ id "poster-div" ]
                         [ h2 [] [ text "ポスター" ]
                         , div []
@@ -1958,7 +1962,7 @@ userProfileView user model =
                                         ]
                                 )
                                 user_files
-                                ++ (if user == model.myself then
+                                ++ (if user.id == model.myself then
                                         [ button [ class "btn btn-light btn-sm poster-tab-button poster-tab-button-add", onClick (UserPageMsg <| AddNewFileBox) ] [ text "+" ] ]
 
                                     else
@@ -1966,14 +1970,7 @@ userProfileView user model =
                                    )
                             )
                         , div
-                            [ class <|
-                                "profile-img"
-                                    ++ (if user == model.myself then
-                                            " mine"
-
-                                        else
-                                            ""
-                                       )
+                            [ classList [ ( "profile-img", True ), ( "mine", user.id == model.myself ) ]
                             , attribute "data-file_id" (Maybe.withDefault "" <| Maybe.map .file_id current_file)
                             ]
                             [ img [ src <| Maybe.withDefault "" <| Maybe.map .url current_file ] [] ]

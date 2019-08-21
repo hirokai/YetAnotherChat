@@ -171,9 +171,11 @@ if (!token || token == '') {
     });
 
     app.ports.getUsers.subscribe(() => {
-        model.users.get().then((us) => {
+        model.users.get().then(async (us) => {
             console.log('model.users.get()', us);
-            app.ports.feedUsers.send(us);
+            Promise.all(map(us, model.users.toClient)).then((users) => {
+                app.ports.feedUsers.send(users);
+            })
         });
     });
 
@@ -520,7 +522,7 @@ interface ElmAppPorts {
     feedRoomInfo: ElmSend<RoomInfoClient[]>;
     feedMessages: ElmSend<ChatEntryClient[]>;
     getUsers: ElmSub<void>;
-    feedUsers: ElmSend<User[]>;
+    feedUsers: ElmSend<UserClient[]>;
     getUserMessages: ElmSub<string>;
     feedUserMessages: ElmSend<ChatEntryClient[]>;
     getSessionsWithSameMembers: ElmSub<{ members: Array<string>, is_all: boolean }>;

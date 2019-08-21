@@ -236,7 +236,7 @@ function getEncryptionKey(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey
                 'raw',
                 digest.slice(0, 16),
                 { name: 'AES-GCM', length: 128 },
-                false,
+                true,
                 ['encrypt', 'decrypt']
             );
         }).then(key => {
@@ -246,6 +246,10 @@ function getEncryptionKey(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey
 }
 
 export async function encrypt(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey, input: Uint8Array): Promise<EncryptedData> {
+    const fp1 = await fingerPrint1(remotePublicKey);
+    const fp2 = await fingerPrint1(localPrivateKey);
+    console.log('encrypt() start', fromUint8Aarray(input), { remote_pub: fp1, self_prv: fp2, remotePublicKey });
+
     return new Promise((resolve, reject) => {
         if (!remotePublicKey || !localPrivateKey) {
             console.error('encrypt(): Keys must be non-null.')
@@ -284,7 +288,7 @@ export async function decrypt_str(remotePublicKey: CryptoKey, localPrivateKey: C
 export async function decrypt(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey, encrypted: EncryptedData, info?: any): Promise<Uint8Array> {
     const fp1 = await fingerPrint1(remotePublicKey);
     const fp2 = await fingerPrint1(localPrivateKey);
-    console.log('decrypt() start', encrypted.iv, fp1, fp2)
+    console.log('decrypt() start', encrypted.iv, { remote_pub: fp1, self_prv: fp2 });
 
     return new Promise((resolve, reject) => {
         getEncryptionKey(remotePublicKey, localPrivateKey).then((encryptionKey) => {

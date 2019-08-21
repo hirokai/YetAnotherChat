@@ -126,6 +126,16 @@ type User = {
     publicKey: JsonWebKey
 }
 
+type UserClient = {
+    id: string,
+    fullname: string,
+    username: string,
+    emails: string[],
+    avatar: string,
+    online: boolean,
+    fingerprint: string,
+}
+
 // For merge user
 interface UserSubset { username: string, fullname: string, id: string }
 
