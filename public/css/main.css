@@ -542,3 +542,12 @@ textarea[disabled] {
     float: right;
     margin-right: 10px;
 }
+
+.fingerprint {
+    font-family: 'Courier New', Courier, monospace;
+}
+
+#key-settings {
+    border: 1px solid black;
+    padding: 20px;
+}

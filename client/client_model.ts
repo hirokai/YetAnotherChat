@@ -13,7 +13,7 @@ export class Model {
     user_id: string
     token: string
     keyPair: CryptoKeyPair
-    privateKeyJson: object
+    privateKeyJson: JsonWebKey
     publicKeys: { [key: string]: CryptoKey } = {}
     snapshot: { [key: string]: { [key: number]: any } };
     readonly MAX_SAVE_SNAPSHOT: number = 2;
@@ -344,6 +344,7 @@ export class Model {
             const timestamp = new Date().getTime();
             const keyPair = await crypto.generateKeyPair(true);
             this.keyPair = keyPair;
+            this.privateKeyJson = await crypto.exportKey(keyPair.privateKey);
             console.log(keyPair);
             await crypto.saveMyKeys(keyPair);
             await this.keys.update_public_key(keyPair.publicKey);
