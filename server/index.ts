@@ -40,6 +40,9 @@ if (production) {
 
 app.use(logger("short"));
 
+const helmet = require('helmet')
+app.use(helmet());
+
 const io = require('socket.io')(production ? https : http);
 const credential = require('./private/credential');
 import * as ec from './error_codes';
