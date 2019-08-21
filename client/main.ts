@@ -2,7 +2,7 @@
 
 // @ts-ignore
 import { Elm } from './Main.elm';
-import { map, chunk, values } from 'lodash-es';
+import { map, chunk, values, includes } from 'lodash-es';
 import axios from 'axios';
 import $ from 'jquery';
 import moment from 'moment';
@@ -275,8 +275,14 @@ if (!token || token == '') {
     });
 
     app.ports.joinRoom.subscribe(({ session_id }) => {
-        $.post('/api/join_session', { token, session_id }).then((res: JoinSessionResponse) => {
-            console.log('join_session', res);
+        model.sessions.get(session_id).then((session: RoomInfo) => {
+            if (!includes(map(session.members, 'id'), user_id)) {
+                $.post('/api/join_session', { token, session_id }).then((res: JoinSessionResponse) => {
+                    console.log('join_session', res);
+                });
+            } else {
+                socket.emit('enter_session');
+            }
         });
         recalcPositions(show_toppane, expand_chatinput);
     });

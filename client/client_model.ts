@@ -232,7 +232,7 @@ export class Model {
         on_new: async (msg: CommentsNewSocket): Promise<string> => {
             const timestamp = msg.timestamp;
             const publicKey = await this.keys.get(msg.user);
-            const deciphered_comment = await crypto.decrypt_str(publicKey, this.keyPair.privateKey, msg.comment).catch(() => { console.log('Error decrypting'); return msg.comment });
+            const deciphered_comment = await crypto.decrypt_str(publicKey, this.keyPair.privateKey, msg.comment).catch(() => { console.log('on_new: Error decrypting'); return msg.comment });
             var msg1: ChatEntryClient = {
                 id: msg.id,
                 user: msg.user,
@@ -286,7 +286,7 @@ export class Model {
         get: async (id: string): Promise<RoomInfo> => {
             const params: AuthedParams = { token: this.token };
             const { data: r }: { data: GetSessionResponse } = await axios.get('/api/sessions/' + id, { params });
-            console.log('session.get result', r.data);
+            // console.log('session.get result', r.data);
             await Promise.all(map(r.data.members, ({ id, publicKey }) => {
                 return crypto.savePublicKey(id, publicKey);
             }));
