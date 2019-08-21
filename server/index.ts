@@ -222,9 +222,9 @@ app.use(function (req, res, next) {
         return;
     }
     var token = req.body.token || req.query.token || req.headers['x-access-token'];
-    if (!production) {
-        token = token || credential.test_token;
-    }
+    // if (!production) {
+    //     token = token || credential.test_token;
+    // }
     if (!token) {
         res.status(403).send({ ok: false, message: 'No token provided.' });
         return

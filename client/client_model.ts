@@ -9,6 +9,15 @@ import * as crypto from './cryptography';
 
 export type ChatEntry = CommentTyp | SessionEvent | ChatFile;
 
+interface SessionCache {
+    id: string
+    comments?: { [key: string]: ChatEntryClient }
+    info?: RoomInfoClient
+}
+
+const token: string = localStorage.getItem('yacht.token') || "";
+axios.defaults.headers.common['x-access-token'] = token;
+
 export class Model {
     user_id: string
     token: string
@@ -24,7 +33,7 @@ export class Model {
         console.log('Model initalized:', { token, keyPair });
         this.snapshot = {};
     }
-    saveDb(storeName: string, key: string, keyName: string, data: any, use_internal_key: boolean): Promise<void> {
+    saveDb(storeName: string, keyName: string, key: string, data: any, use_internal_key: boolean): Promise<void> {
         return new Promise((resolve, reject) => {
             const openReq = indexedDB.open(storeName);
             openReq.onupgradeneeded = function (event: any) {
@@ -88,55 +97,31 @@ export class Model {
             }
         });
     }
-    getSnapshot(resource: string, timestamp: number = -1): any {
-        if (resource in this.snapshot && timestamp in this.snapshot[resource]) {
-            return this.snapshot[resource][timestamp];
-        }
-    }
-    setSnapshot(resource: string, timestamp: number, data: any): void {
-        if (!(resource in this.snapshot)) {
-            this.snapshot[resource] = {};
-        }
-        this.snapshot[resource][timestamp] = data;
-        this.snapshot[resource][-1] = data;  //latest
-        const timestamps: number[] = without(map(Object.keys(this.snapshot[resource]), (s) => parseInt(s, 10)), -1);
-        // console.log('keys', Object.keys(this.snapshot[key]), timestamps);
-        if (timestamps.length > this.MAX_SAVE_SNAPSHOT) {
-            const to_discard: number[] = take(sortBy(timestamps), timestamps.length - this.MAX_SAVE_SNAPSHOT);
-            // console.log('to_discard', to_discard);
-            to_discard.forEach((ts: number) => {
-                delete this.snapshot[resource][ts];
-                // console.log('snapshot discarded', key, ts);
-            });
-        }
-        // console.log('setSnapshot', this.snapshot);
-    }
-    changeHandler(msg: any, clientHandler: (vs: any) => void) {
-        console.log('Socket.io message', msg);
-        const temporary_id_list = [];
-        if (includes(temporary_id_list, msg.temporary_id)) {
-            pull(temporary_id_list, msg.temporary_id);
-            return;
-        }
-        if (msg.__type == "new_session") {
-            const msg1 = <RoomInfoClient>msg;
-            msg1.timestamp = formatTime(msg.timestamp);
-            msg1.firstMsgTime = -1;
-            msg1.lastMsgTime = -1;
-            msg1.numMessages = { "__total": 0 };
-            msg = msg1;
-            clientHandler(msg);
-        } else if (msg.__type == "new_member") {
-            const msg1 = <any>msg;
-            msg1.timestamp = formatTime(msg.timestamp);
-            msg = msg1;
-            clientHandler(msg);
-        } else if (msg.__type == "new_file") {
-            const msg1 = <any>msg;
-            // msg1.timestamp = formatTime(msg.timestamp);
-            msg = msg1;
-            clientHandler(msg);
-        }
+    removeDb(storeName: string, key: string, keyName: string): Promise<void> {
+        return new Promise((resolve, reject) => {
+            const openReq = indexedDB.open(storeName);
+            openReq.onupgradeneeded = function (event: any) {
+                var db = (<IDBRequest>event.target).result;
+                db.createObjectStore(storeName, { keyPath: keyName });
+            }
+            openReq.onsuccess = function (event: any) {
+                // console.log('openReq.onsuccess');
+                var db = event.target.result;
+                var trans = db.transaction(storeName, 'readwrite');
+                var store = trans.objectStore(storeName);
+                const req = store.delete(key);
+                req.onsuccess = function () {
+                    // console.log('get data success', getReq.result);
+                    resolve();
+                }
+                req.onerror = () => {
+                    reject();
+                }
+            }
+            openReq.onerror = () => {
+                reject();
+            }
+        });
     }
     users = {
         get: async (): Promise<{ [key: string]: User }> => {
@@ -148,11 +133,11 @@ export class Model {
                 return snapshot;
             } else {
                 // console.log('Getting users and save to local DB')
-                const r = await axios.get('/api/users', { params: { token: this.token } });
+                const r = await axios.get('/api/users');
                 const { data: { data: { users } } } = r;
                 console.log('API users result', r, users);
                 await map(users, (u) => {
-                    return this.saveDb('yacht.users', u.id, 'id', u, true);
+                    return this.saveDb('yacht.users', 'id', u.id, u, true);
                 });
                 return keyBy(users, 'id');
             }
@@ -164,7 +149,7 @@ export class Model {
             const u = find(users, { id: msg.user_id });
             if (u != null) {
                 u.online = msg.online;
-                await this.saveDb('yacht.users', u.id, 'id', u, true);
+                await this.saveDb('yacht.users', 'id', u.id, u, true);
             }
         },
         toClient: async (u: User): Promise<UserClient> => {
@@ -197,32 +182,30 @@ export class Model {
             }
             return data;
         },
-        fetch_since: async (session_id: string, snapshot: { data: { [key: string]: ChatEntryClient } }): Promise<CommentChange[]> => {
-            const timestamps = map(snapshot.data, (v) => v.timestamp);
+        fetch_since: async (session_id: string, snapshot: SessionCache): Promise<CommentChange[]> => {
+            const timestamps = map(snapshot.comments, (v) => v.timestamp);
             const time_after = timestamps.length == 0 ? 0 : max(timestamps);
-            const cached_ids = map(snapshot.data, (d) => d.id);
+            const cached_ids = map(snapshot.comments, (d) => d.id);
             const body: GetCommentsDeltaData = { token: this.token, last_updated: time_after, cached_ids };
             const { data }: { data: CommentChange[] } = await axios.post('/api/sessions/' + session_id + '/comments/delta', { body });
             return data;
         },
         list_for_session: async (session: string): Promise<{ [key: string]: ChatEntryClient }> => {
-            const snapshot: { data: { [key: string]: ChatEntryClient } } = await this.loadDb('yacht.sessions', 'id', session);
+            const snapshot: SessionCache = await this.loadDb('yacht.sessions', 'id', session);
             if (snapshot) {
                 const delta: CommentChange[] = await this.comments.fetch_since(session, snapshot);
-                const updated = this.comments.apply_delta(snapshot.data, delta);
+                const updated = this.comments.apply_delta(snapshot.comments, delta);
                 return updated;
             } else {
-                const params: GetCommentsParams = { token: this.token };
-                const { data }: { data: ChatEntry[] } = await axios.get('/api/sessions/' + session + '/comments', { params });
+                const { data }: { data: ChatEntry[] } = await axios.get('/api/sessions/' + session + '/comments');
                 const comments: { [key: string]: ChatEntryClient } = keyBy(await processData(data, this), 'id');
                 console.log('comments', comments);
-                await this.saveDb('yacht.sessions', session, 'id', { id: session, comments }, true);
+                await this.saveDb('yacht.sessions', 'id', session, { id: session, comments }, true);
                 return comments;
             }
         },
         list_for_user: (user: string): Promise<ChatEntryClient[]> => {
-            const params: GetCommentsParams = { token: this.token };
-            return axios.get('/api/users/' + user + '/comments', { params }).then(({ data }) => {
+            return axios.get('/api/users/' + user + '/comments').then(({ data }) => {
                 return processData(data, this);
             });
         },
@@ -244,7 +227,7 @@ export class Model {
             const comments = map(ds, (d: EncryptedData, i: number) => {
                 return { for_user: room.members[i], content: d.iv + ':' + d.data };
             })
-            const obj: PostCommentData = { comments, temporary_id, encrypt: 'ecdh.v1', token: this.token };
+            const obj: PostCommentData = { comments, temporary_id, encrypt: 'ecdh.v1' };
             const { data: { data } }: AxiosResponse<PostCommentResponse> = await axios.post('/api/sessions/' + session + '/comments', obj);
         },
         on_new: async (msg: CommentsNewSocket): Promise<string> => {
@@ -264,52 +247,48 @@ export class Model {
                 kind: msg.kind,
                 action: ""
             };
-            const snapshot_resource_id = 'comments.session.' + msg.session_id;
-            const snapshot: { [key: string]: ChatEntryClient } = this.getSnapshot(snapshot_resource_id, -1);
-            console.log('comments.new', msg1);
-            if (snapshot != null) {
-                console.log('comments.new', snapshot.length);
-                snapshot[msg1.id] = msg1;
-                console.log('comments.new', snapshot.length);
-                this.setSnapshot(snapshot_resource_id, timestamp, snapshot);
-                return msg.session_id;
-            } else {
-                console.log(this.snapshot);
-                return null;
-            }
+            const snapshot: { id, comments: { [key: string]: ChatEntryClient } } = await this.loadDb('yacht.sessions', 'id', msg.session_id);
+            snapshot.comments[msg1.id] = msg1;
+            await this.saveDb('yacht.sessions', 'id', msg.session_id, snapshot, true);
+            return msg1.id;
         },
         on_delete: async (msg: CommentsDeleteSocket): Promise<{ id: string, session_id: string }> => {
-            const key = 'comments.session.' + msg.session_id;
-            const snapshot: ChatEntryClient[] = this.getSnapshot(key, -1) || [];
-            const new_vs = filter(snapshot, (c) => {
-                return c.id != msg.id;
-            });
-            this.setSnapshot(key, -1, new_vs);
+            const snapshot: SessionCache = await this.loadDb('yacht.sessions', 'id', msg.session_id);
+            delete snapshot.comments[msg.id];
+            this.saveDb('yacht.sessions', 'id', snapshot.id, snapshot, true);
             return { id: msg.id, session_id: msg.session_id };
+        },
+        delete_cache_of_session: async (session_id: string) => {
+            const _ = await this.removeDb('yacht.sessions', session_id, 'id');
+            console.log('delete_cache_of_session done');
         }
     }
     sessions = {
-        list: () => {
+        list: async (): Promise<RoomInfoClient[]> => {
             const params: AuthedParams = { token: this.token };
-            return axios.get('/api/sessions', { params }).then(({ data }: AxiosResponse<GetSessionsResponse>) => {
-                const timestamp = new Date().getTime();
-                this.setSnapshot('sessions', timestamp, data.data);
-                const values1: RoomInfoClient[] = map(data.data, (r): RoomInfoClient => {
-                    var s: any = clone(r);
-                    s.timestamp = formatTime(r.timestamp);
-                    return s;
-                });
-                return values1;
-            });
+            const { data: { data: rooms } }: AxiosResponse<GetSessionsResponse> = await axios.get('/api/sessions');
+            const timestamp = new Date().getTime();
+            const infos = [];
+            for (let room of rooms) {
+                let room_cache: SessionCache = await this.loadDb('yacht.sessions', 'id', room.id);
+                const info = processSessionInfo(room);
+                if (!room_cache) {
+                    room_cache = { id: room.id };
+                }
+                room_cache.info = info;
+                infos.push(info);
+                await this.saveDb('yacht.sessions', 'id', room.id, room_cache, true);
+            }
+            return infos;
         },
         get: async (id: string): Promise<RoomInfo> => {
             const params: AuthedParams = { token: this.token };
-            const { data: r }: { data: GetSessionResponse } = await axios.get('/api/sessions/' + id, { params });
+            const { data: r }: { data: GetSessionResponse } = await axios.get('/api/sessions/' + id);
             return r.data;
         },
         new: async ({ name, members }: { name: string, members: string[] }): Promise<{ newRoom: RoomInfo, sessions: RoomInfo[], messages: ChatEntry[] }> => {
             const temporary_id = shortid();
-            const post_data: PostSessionsParam = { name, members, temporary_id, token: this.token };
+            const post_data: PostSessionsParam = { name, members, temporary_id };
             const { data: newRoom }: PostSessionsResponse = await $.post('/api/sessions', post_data);
             const p1 = axios.get('/api/sessions', { params: { token: this.token } });
             const p2 = axios.get('/api/sessions/' + newRoom.id + '/comments', { params: { token: this.token } });
@@ -326,15 +305,9 @@ export class Model {
         },
         on_update: async (msg: SessionsUpdateSocket): Promise<void> => {
             console.log('sessions.on_update', msg);
-            const values: RoomInfo[] = this.getSnapshot('sessions');
-            const new_values = map(values, (v) => {
-                if (v.id == msg.id) {
-                    v.name = msg.name;
-                }
-                return v;
-            })
-            this.setSnapshot('sessions', msg.timestamp, new_values);
-            return;
+            const room: RoomInfo = await this.loadDb('yacht.sessions', 'id', msg.id);
+            room.name = msg.name;
+            await this.saveDb('yacht.sessions', 'id', msg.id, room, true);
         }
     }
     keys = {
@@ -447,7 +420,7 @@ export class Model {
         },
         update_public_key: async (publicKey: CryptoKey) => {
             const jwk = await crypto.exportKey(publicKey);
-            const obj: UpdatePublicKeyParams = { user_id: this.user_id, for_user: this.user_id, token: this.token, publicKey: jwk };
+            const obj: UpdatePublicKeyParams = { user_id: this.user_id, for_user: this.user_id, publicKey: jwk };
             const { data } = await axios.patch('/api/public_keys', obj);
             console.log('update_public_key result', data);
         },
@@ -523,7 +496,8 @@ export const processSessionInfo = (d: RoomInfo): RoomInfoClient => {
         firstMsgTime: d.firstMsgTime,
         lastMsgTime: d.lastMsgTime,
         id: d.id,
-        timestamp: formatTime(d.timestamp),
+        formattedTime: formatTime(d.timestamp),
+        timestamp: d.timestamp,
         members: d.members
     };
     return r;

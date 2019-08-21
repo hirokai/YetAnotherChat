@@ -15,8 +15,11 @@ moment.locale('ja');
 
 const shortid = require('shortid').generate;
 
+
 const token: string = localStorage.getItem('yacht.token') || "";
 const user_id: string = localStorage['yacht.user_id'] || "";
+
+axios.defaults.headers.common['x-access-token'] = token;
 
 window['removeSavedKeys'] = () => {
     crypto.removeSavedKeys().then(() => {
@@ -85,7 +88,7 @@ if (!token || token == '') {
     });
 
 
-    axios.get('/api/verify_token', { params: { token } }).then(({ data }) => {
+    axios.get('/api/verify_token').then(({ data }) => {
         if (!data.valid) {
             console.log('verify token failed', data);
             location.href = '/login' + location.hash;
@@ -147,7 +150,16 @@ if (!token || token == '') {
     app.ports.deleteSession.subscribe(async ({ id }) => {
         const r = await model.sessions.delete(id);
         console.log('deleteSession', r);
-    })
+    });
+
+    app.ports.reloadSession.subscribe(async (id) => {
+        await model.comments.delete_cache_of_session(id);
+        model.comments.list_for_session(id).then((comments) => {
+            const comment_list = values(comments);
+            console.log('after reset feeding ', comment_list.length);
+            app.ports.feedMessages.send(comment_list)
+        });
+    });
 
     app.ports.scrollToBottom.subscribe(scrollToBottom);
 
@@ -189,7 +201,7 @@ if (!token || token == '') {
     });
 
     app.ports.getSessionsWithSameMembers.subscribe(function ({ members, is_all }: { members: Array<string>, is_all: boolean }) {
-        axios.get('/api/sessions', { params: { of_members: members.join(','), is_all, token } }).then(({ data }: AxiosResponse<GetSessionsResponse>) => {
+        axios.get('/api/sessions', { params: { of_members: members.join(','), is_all } }).then(({ data }: AxiosResponse<GetSessionsResponse>) => {
             app.ports.feedSessionsWithSameMembers.send(map(data.data, (r) => {
                 return r.id;
             }));
@@ -197,7 +209,7 @@ if (!token || token == '') {
     });
 
     app.ports.getSessionsOf.subscribe(function (user: string) {
-        const params: GetSessionsOfParams = { of_members: user, token };
+        const params: GetSessionsOfParams = { of_members: user };
         axios.get('/api/sessions', { params }).then(({ data }: AxiosResponse<GetSessionsResponse>) => {
             app.ports.feedSessionsOf.send(map(data.data, "id"));
         }).catch(() => {
@@ -206,7 +218,10 @@ if (!token || token == '') {
     });
 
     function getAndfeedRoomInfo() {
-        model.sessions.list().then(app.ports.feedRoomInfo.send);
+        model.sessions.list().then((rooms) => {
+            console.log(rooms);
+            app.ports.feedRoomInfo.send(rooms);
+        });
     }
 
     app.ports.getRoomInfo.subscribe(getAndfeedRoomInfo);
@@ -291,7 +306,7 @@ if (!token || token == '') {
         const members: string[] = [localStorage['yacht.user_id']];
         const name: string = "ポスターセッション: " + moment().format('MM/DD HH:mm')
         const temporary_id: string = shortid();
-        const post_data: PostSessionsParam = { name, members, temporary_id, token, file_id };
+        const post_data: PostSessionsParam = { name, members, temporary_id, file_id };
         const { data }: PostSessionsResponse = await $.post('/api/sessions', post_data);
         app.ports.receiveNewRoomInfo.send(data);
         const p1: Promise<AxiosResponse<GetSessionsResponse>> = axios.get('/api/sessions', { params: { token } });
@@ -409,7 +424,7 @@ if (!token || token == '') {
     });
 
     function getUserImages() {
-        axios.get('/api/files', { params: { token } }).then(({ data }) => {
+        axios.get('/api/files').then(({ data }) => {
             // console.log('getUserImages', data);
             map(data.files, (files, user_id) => {
                 const dat: UserImages = {
@@ -426,7 +441,7 @@ if (!token || token == '') {
     app.ports.deleteFile.subscribe((file_id: string) => {
         const user_id = localStorage['yacht.user_id'];
         console.log('deleteFile', user_id, file_id);
-        axios.delete('/api/files/' + file_id, { data: { token, user_id } }).then(({ data }: AxiosResponse<DeleteFileResponse>) => {
+        axios.delete('/api/files/' + file_id, { data: { user_id } }).then(({ data }: AxiosResponse<DeleteFileResponse>) => {
             console.log(data);
         });
     });
@@ -482,7 +497,7 @@ function handleFileSelect(evt) {
         (async () => {
             //@ts-ignore
             const prv_jwk = JSON.parse(reader.result);
-            const { data: { data: pub_jwk } } = await axios.get('/api/public_keys', { params: { for_user: user_id, token } });
+            const { data: { data: pub_jwk } } = await axios.get('/api/public_keys', { params: { for_user: user_id } });
             console.log(prv_jwk, pub_jwk);
             const pub = await crypto.importKey(pub_jwk, true, true)
             const prv = await crypto.importKey(prv_jwk, false, true)
@@ -549,6 +564,7 @@ interface ElmAppPorts {
     getUserImages: ElmSub<void>;
     deleteFile: ElmSub<string>;
     deleteSession: ElmSub<{ id: string }>;
+    reloadSession: ElmSub<string>;
     saveConfig: ElmSub<{ userWithEmailOnly: boolean }>;
     downloadPrivateKey: ElmSub<void>;
     resetKeys: ElmSub<void>;

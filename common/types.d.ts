@@ -14,7 +14,8 @@ type RoomInfoClient = {
     firstMsgTime: number,
     lastMsgTime: number,
     id: string,
-    timestamp: string,
+    timestamp: number,
+    formattedTime: string,
     members: Array<string>
 }
 
@@ -166,7 +167,7 @@ interface JsonResponse<T> {
 }
 
 interface AuthedParams {
-    token: string
+    // token: string
 }
 
 interface LoginParams extends AuthedParams {

@@ -115,6 +115,9 @@ port deleteFile : String -> Cmd msg
 port deleteSession : { id : String } -> Cmd msg
 
 
+port reloadSession : String -> Cmd msg
+
+
 port downloadPrivateKey : () -> Cmd msg
 
 
@@ -238,7 +241,7 @@ type alias RoomID =
 type alias RoomInfo =
     { id : String
     , name : String
-    , timestamp : String
+    , formattedTime : String
     , members : List Member
     , firstMsgTime : Int
     , lastMsgTime : Int
@@ -256,7 +259,7 @@ roomInfoDecoder =
     Json.map7 RoomInfo
         (Json.field "id" Json.string)
         (Json.field "name" Json.string)
-        (Json.field "timestamp" Json.string)
+        (Json.field "formattedTime" Json.string)
         (Json.field "members" (Json.list Json.string))
         (Json.field "firstMsgTime" Json.int)
         (Json.field "lastMsgTime" Json.int)
@@ -528,6 +531,7 @@ type Msg
     | SendCommentDone ()
     | OnChangeData { resource : String, id : String }
     | DeleteRoom String
+    | ReloadRoom String
     | SearchUser String
     | DownloadPrivateKey
     | ResetKeys
@@ -789,6 +793,9 @@ update msg model =
 
         DeleteRoom room ->
             ( { model | rooms = List.filter (\r -> r /= room) model.rooms, page = SessionListPage }, deleteSession { id = room } )
+
+        ReloadRoom room ->
+            ( model, reloadSession room )
 
         StartNewPosterSession file_id ->
             ( model, startPosterSession file_id )
@@ -1670,6 +1677,7 @@ chatRoomView room model =
                                         text <| Maybe.withDefault "(N/A)" (Maybe.map (\a -> a.name) (Dict.get room model.roomInfo))
                                     , a [ id "edit-roomname", class "clickable", onClick (StartEditing "room-title" (roomName room model)) ] [ text "Edit" ]
                                     , a [ id "delete-room", class "clickable", onClick (DeleteRoom room) ] [ text "Delete" ]
+                                    , a [ id "reload-room", class "btn btn-light", onClick (ReloadRoom room) ] [ text "Reload" ]
                                     ]
                                 , div [ id "chat-participants" ]
                                     [ text <| "参加者："
