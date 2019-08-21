@@ -152,7 +152,7 @@ export class Model {
                 const { data: { data: { users } } } = r;
                 console.log('API users result', r, users);
                 await map(users, (u) => {
-                    return this.saveDb('yacht.users', u.id, 'id', u, false);
+                    return this.saveDb('yacht.users', u.id, 'id', u, true);
                 });
                 return keyBy(users, 'id');
             }
@@ -183,11 +183,11 @@ export class Model {
     comments = {
         list_for_session: async (session: string): Promise<{ [key: string]: ChatEntryClient }> => {
             const params: GetCommentsParams = { session, token: this.token };
-            const snapshot: { [key: string]: ChatEntryClient } = await this.loadDb('yacht.comments', 'session_id', session);
+            const snapshot: { data: { [key: string]: ChatEntryClient } } = await this.loadDb('yacht.comments', 'session_id', session);
             if (snapshot) {
                 console.log('Returning snapshot.')
                 return new Promise((resolve) => {
-                    resolve(snapshot);
+                    resolve(snapshot.data);
                 });
             } else {
                 const { data }: { data: ChatEntry[] } = await axios.get('/api/comments', { params });
