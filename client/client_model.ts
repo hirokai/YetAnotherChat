@@ -135,7 +135,7 @@ export class Model {
             console.log('room members', room);
             const temporary_id = shortid();
             const comment_encoded = crypto.toUint8Aarray(comment);
-            const prv_key = (await crypto.loadMyKeys()).privateKey;
+            const prv_key = await this.keys.get_my_private_key();
             const ds = await Promise.all(map(room.members, ({ id, publicKey: jwk }) => {
                 return new Promise((resolve) => {
                     if (jwk) {
@@ -297,6 +297,33 @@ export class Model {
                     Promise.all([p1, p2]).then(() => {
                         resolve();
                     })
+                }
+            });
+        },
+        get_my_private_key: async (): Promise<CryptoKey> => {
+            return new Promise((resolve, reject) => {
+                const storeName = 'yacht.keyPair';
+                const openReq = indexedDB.open(storeName);
+                openReq.onupgradeneeded = function (event: any) {
+                    var db = (<IDBRequest>event.target).result;
+                    db.createObjectStore(storeName, { keyPath: 'id' });
+                }
+                openReq.onsuccess = function (event: any) {
+                    // console.log('openReq.onsuccess');
+                    var db = event.target.result;
+                    var trans = db.transaction(storeName, 'readonly');
+                    var store = trans.objectStore(storeName);
+                    var getReq = store.get('myself');
+                    getReq.onsuccess = function () {
+                        // console.log('get data success', getReq.result);
+                        resolve(getReq.result ? getReq.result.keyPair.privateKey : null);
+                    }
+                    getReq.onerror = () => {
+                        reject();
+                    }
+                }
+                openReq.onerror = () => {
+                    reject();
                 }
             });
         },

@@ -74,6 +74,10 @@ if (!token || token == '') {
         socket.emit('subscribe', { token });
     });
 
+    socket.on('reload', () => {
+        location.reload();
+    })
+
     app.ports.saveConfig.subscribe(({ userWithEmailOnly }) => {
         console.log('saveConfig', { userWithEmailOnly });
         show_users_with_email_only = userWithEmailOnly;
@@ -293,7 +297,7 @@ if (!token || token == '') {
     });
 
     app.ports.downloadPrivateKey.subscribe(() => {
-        console.log('downloadPrivateKey()')
+        console.log('downloadPrivateKey()');
         const content = JSON.stringify(model.privateKeyJson, null, 2);
         handleDownload(content);
     });
