@@ -138,8 +138,8 @@ export function get_session_info(session_id: string): Promise<RoomInfo> {
                 if (!session) {
                     resolve(null);
                 } else {
-                    db.all('select * from session_current_members as m join public_keys as k on m.user_id=k.user_id where session_id=? group by m.user_id', session_id, (err, r2) => {
-                        const members = map(r2, (r2) => { return { id: r2['user_id'], publicKey: JSON.parse(r2['key']) } });
+                    db.all('select * from session_current_members as m where session_id=? group by m.user_id', session_id, (err, r2) => {
+                        const members = map(r2, (r2): string => { return r2['user_id'] });
                         const numMessages: { [key: string]: number } = {};
                         const firstMsgTime = -1;
                         const lastMsgTime = -1;

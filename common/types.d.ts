@@ -5,7 +5,7 @@ type RoomInfo = {
     lastMsgTime: number,
     id: string,
     timestamp: number,
-    members: { id: string, publicKey: JsonWebKey }[]
+    members: string[]
 }
 
 type RoomInfoClient = {

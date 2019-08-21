@@ -217,7 +217,7 @@ export class Model {
             const temporary_id = shortid();
             const comment_encoded = crypto.toUint8Aarray(comment);
             const prv_key = await this.keys.get_my_private_key();
-            const ds = await Promise.all(map(room.members, ({ id }) => {
+            const ds = await Promise.all(map(room.members, (id) => {
                 return this.keys.get(id);
             })).then((ps) => {
                 console.log('imported keys', ps)
@@ -227,7 +227,7 @@ export class Model {
                 }));
             })
             const comments = map(ds, (d: EncryptedData, i: number) => {
-                return { for_user: room.members[i].id, content: d.iv + ':' + d.data };
+                return { for_user: room.members[i], content: d.iv + ':' + d.data };
             })
             const obj: PostCommentData = { comments, temporary_id, encrypt: 'ecdh.v1', token: this.token };
             const { data: { data } }: AxiosResponse<PostCommentResponse> = await axios.post('/api/sessions/' + session + '/comments', obj);
@@ -290,10 +290,6 @@ export class Model {
         get: async (id: string): Promise<RoomInfo> => {
             const params: AuthedParams = { token: this.token };
             const { data: r }: { data: GetSessionResponse } = await axios.get('/api/sessions/' + id, { params });
-            // console.log('session.get result', r.data);
-            await Promise.all(map(r.data.members, ({ id, publicKey }) => {
-                return crypto.savePublicKey(id, publicKey);
-            }));
             return r.data;
         },
         new: async ({ name, members }: { name: string, members: string[] }): Promise<{ newRoom: RoomInfo, sessions: RoomInfo[], messages: ChatEntry[] }> => {
@@ -513,7 +509,7 @@ export const processSessionInfo = (d: RoomInfo): RoomInfoClient => {
         lastMsgTime: d.lastMsgTime,
         id: d.id,
         timestamp: formatTime(d.timestamp),
-        members: map(d.members, (m) => m.id)
+        members: d.members
     };
     return r;
 }
