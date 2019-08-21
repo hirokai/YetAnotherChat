@@ -4,7 +4,6 @@ const storeName = 'yacht.keyPair';
 
 
 export async function saveMyKeys(keyPair: CryptoKeyPair): Promise<void> {
-    console.log('saveMyKeys(): keyPair', keyPair);
     return new Promise((resolve) => {
         const prv_e_p = exportKey(keyPair.privateKey);
         const pub_e_p = exportKey(keyPair.publicKey);
@@ -14,7 +13,6 @@ export async function saveMyKeys(keyPair: CryptoKeyPair): Promise<void> {
         }).then((fps) => {
             const openReq = indexedDB.open(storeName);
             const fp = { privateKey: fps[0], publicKey: fps[1] };
-            console.log('saveMyKeys(): fingerprint', fp);
 
             openReq.onupgradeneeded = function (event: any) {
                 var db = event.target.result;
@@ -71,9 +69,7 @@ export async function loadMyKeys(): Promise<CryptoKeyPair> {
 }
 
 export async function savePublicKey(user_id: string, jwk: ExportedFormat): Promise<void> {
-    console.log('savePublicKey() 1')
     const publicKey = await importKey(jwk, true);
-    console.log('savePublicKey() 2')
     return new Promise((resolve) => {
         const openReq = indexedDB.open(storeName);
 

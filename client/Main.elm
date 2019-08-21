@@ -134,7 +134,7 @@ type alias CommentTyp =
     , user : String
     , comment : String
     , session : String
-    , timestamp : String
+    , formattedTime : String
     , originalUrl : String
     , sentTo : String
     , source : String
@@ -179,7 +179,7 @@ commentTypDecoder =
         |> JE.andMap (Json.field "user" Json.string)
         |> JE.andMap (Json.field "comment" Json.string)
         |> JE.andMap (Json.field "session" Json.string)
-        |> JE.andMap (Json.field "timestamp" Json.string)
+        |> JE.andMap (Json.field "formattedTime" Json.string)
         |> JE.andMap (Json.field "originalUrl" Json.string)
         |> JE.andMap (Json.field "sentTo" Json.string)
         |> JE.andMap (Json.field "source" Json.string)
@@ -586,7 +586,7 @@ addComment comment model =
                         model.chatPageStatus
 
                     msgs =
-                        Just <| List.append messages [ Comment { id = "__latest", user = model.myself, comment = comment, originalUrl = "", sentTo = "all", timestamp = "", session = "", source = "self" } ]
+                        Just <| List.append messages [ Comment { id = "__latest", user = model.myself, comment = comment, originalUrl = "", sentTo = "all", formattedTime = "", session = "", source = "self" } ]
 
                     new_ev =
                         Dict.insert "chat" "" model.editingValue
@@ -1176,7 +1176,7 @@ showItem model entry =
                                   else
                                     text ""
                                 , span [ class "chat_timestamp" ]
-                                    [ text m.timestamp
+                                    [ text m.formattedTime
                                     ]
                                 , a [ href (makeLinkToOriginal m) ] [ showSource m.source ]
                                 , span [ class "remove-item clickable", onClick (ChatPageMsg (RemoveItem m.id)) ] [ text "×" ]

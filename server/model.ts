@@ -334,7 +334,7 @@ export function get_session_of_members(user_id: string, members: string[], is_al
     });
 }
 
-export function list_comments(for_user: string, session_id: string, user_id: string): Promise<(CommentTyp | SessionEvent | ChatFile)[]> {
+export function list_comments(for_user: string, session_id: string, user_id: string, time_after?: number): Promise<(CommentTyp | SessionEvent | ChatFile)[]> {
     const processRow = (row): CommentTyp | SessionEvent | ChatFile => {
         const comment = row.comment.replace(/(:.+?:)/g, function (m, $1) {
             const r = emoji_dict[$1];
@@ -357,22 +357,23 @@ export function list_comments(for_user: string, session_id: string, user_id: str
             return { id: row.id, comment, timestamp: parseInt(row.timestamp), user_id: row.user_id, original_url: row.original_url, sent_to: row.sent_to, session_id: row.session_id, source: row.source, kind: "comment", encrypt: row.encrypt }
         }
     };
+    time_after = time_after ? time_after : -1;
     var func;
     if (session_id && !user_id) {
         func = (cb) => {
-            db.all('select * from comments where session_id=? and for_user=? order by timestamp;', session_id, for_user, cb);
+            db.all('select * from comments where session_id=? and for_user=? and timestamp>? order by timestamp;', session_id, for_user, time_after, cb);
         };
     } else if (!session_id && user_id) {
         func = (cb) => {
-            db.all('select * from comments where user_id=? and for_user=? order by timestamp;', user_id, for_user, cb);
+            db.all('select * from comments where user_id=? and for_user=? and timestamp>? order by timestamp;', user_id, for_user, time_after, cb);
         }
     } else if (session_id && user_id) {
         func = (cb) => {
-            db.all('select * from comments where session_id=? and user_id=? and for_user=? order by timestamp;', session_id, user_id, for_user, cb);
+            db.all('select * from comments where session_id=? and user_id=? and for_user=? and timestamp>? order by timestamp;', session_id, user_id, for_user, time_after, cb);
         }
     } else {
         func = (cb) => {
-            db.all('select * from comments and for_user=? order by timestamp;', for_user, cb);
+            db.all('select * from comments and for_user=? and timestamp>? order by timestamp;', for_user, time_after, cb);
         }
     }
 

@@ -172,7 +172,6 @@ if (!token || token == '') {
 
     app.ports.getUsers.subscribe(() => {
         model.users.get().then(async (us) => {
-            console.log('model.users.get()', us);
             Promise.all(map(us, model.users.toClient)).then((users) => {
                 app.ports.feedUsers.send(users);
             })
@@ -181,7 +180,6 @@ if (!token || token == '') {
 
     app.ports.getMessages.subscribe((session: string) => {
         model.comments.list_for_session(session).then((comments) => {
-            console.log('feedMessages args:', comments);
             app.ports.feedMessages.send(values(comments))
         });
     });

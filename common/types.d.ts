@@ -99,7 +99,8 @@ interface ChatEntryClient {
     user: string,
     comment: string,
     session: string,
-    timestamp: string,
+    timestamp: number,
+    formattedTime: string,
     originalUrl: string,
     sentTo: string,
     source: string
@@ -186,7 +187,11 @@ interface PostCommentData extends AuthedParams {
     encrypt: string, //Encryption method (ECDH, etc.)
     temporary_id: string,   //generated at client to avoid duplicate addition by socket notification.
 }
-type GetCommentsParams = AuthedParams
+interface GetCommentsParams extends AuthedParams {
+    after?: number
+    by_user?: string
+}
+
 type GetCommentsResponse = { ok: boolean, data: CommentTyp[] }
 type DeleteCommentResponse = { ok: boolean, data?: DeleteCommentData, error?: string }
 type DeleteCommentData = { comment_id: string, encrypt_group: string, session_id: string }

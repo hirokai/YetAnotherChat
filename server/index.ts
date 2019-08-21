@@ -78,6 +78,13 @@ interface GetAuthRequest {
     decoded: { username: string, user_id: string, iap: number, exp: number }
 }
 
+interface GetAuthRequest1<T> {
+    token: any
+    query: T
+    params?: { [key: string]: string }
+    decoded: { username: string, user_id: string, iap: number, exp: number }
+}
+
 console.log('Starting...');
 const port = process.env.PORT || 3000;
 
@@ -447,12 +454,13 @@ app.post('/api/sessions', (req: PostRequest<PostSessionsParam>, res: JsonRespons
     });
 });
 
-app.get('/api/sessions/:session_id/comments', (req: GetAuthRequest, res, next) => {
+app.get('/api/sessions/:session_id/comments', (req: GetAuthRequest1<GetCommentsParams>, res, next) => {
     // https://qiita.com/yukin01/items/1a36606439123525dc6d
     (async () => {
         const session_id = req.params.session_id;
         const by_user = req.query.by_user;
-        const comments: (CommentTyp | SessionEvent | ChatFile)[] = await model.list_comments(req.decoded.user_id, session_id, by_user);
+        const time_after = req.query.after;
+        const comments: (CommentTyp | SessionEvent | ChatFile)[] = await model.list_comments(req.decoded.user_id, session_id, by_user, time_after);
         res.json(comments);
     })().catch(next);
 });
