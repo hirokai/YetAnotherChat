@@ -322,7 +322,7 @@ export function encodeBase64URL(data: Uint8Array): string {
 }
 
 export async function fingerPrint1(key: CryptoKey): Promise<string> {
-    const jwk = await exportKey(key);
+    const jwk = await exportKey(key).catch(() => null);
     return fingerPrint(jwk);
 }
 

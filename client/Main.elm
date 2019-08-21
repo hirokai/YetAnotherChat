@@ -16,6 +16,9 @@ import Task
 import Time exposing (Zone, utc)
 
 
+port setValue : (( String, String ) -> msg) -> Sub msg
+
+
 port getUsers : () -> Cmd msg
 
 
@@ -437,6 +440,9 @@ type alias Model =
             )
     , timezone : Zone
     , searchKeyword : String
+    , profile :
+        { publicKey : String
+        }
     }
 
 
@@ -477,6 +483,7 @@ init { user_id, show_toppane, expand_chatinput, show_users_with_email_only } =
       , files = Dict.empty
       , timezone = utc
       , searchKeyword = ""
+      , profile = { publicKey = "" }
       }
     , Cmd.batch [ getRoomInfo (), getUsers (), getUserImages (), Task.perform SetTimeZone Time.here ]
     )
@@ -523,6 +530,7 @@ type Msg
     | SearchUser String
     | DownloadPrivateKey
     | ResetKeys
+    | SetValue String String
     | NoOp
 
 
@@ -822,6 +830,21 @@ update msg model =
 
         ResetKeys ->
             ( model, resetKeys () )
+
+        SetValue k v ->
+            case k of
+                "my_public_key" ->
+                    let
+                        profile =
+                            model.profile
+
+                        new_profile =
+                            { profile | publicKey = v }
+                    in
+                    ( { model | profile = new_profile }, Cmd.none )
+
+                _ ->
+                    ( model, Cmd.none )
 
         SearchUser q ->
             ( { model | searchKeyword = q }, Cmd.none )
@@ -1852,7 +1875,9 @@ userSettingView user model =
                         , a [ class "btn btn-danger", onClick ResetKeys ] [ text "鍵を生成し直す" ]
                         , div []
                             [ h4 [] [ text "鍵の生成履歴" ]
-                            , ul [] []
+                            , ul []
+                                [ li [] [ text <| "公開鍵のFingerprint: " ++ model.profile.publicKey ]
+                                ]
                             ]
                         ]
                     ]
@@ -2004,6 +2029,7 @@ subscriptions _ =
         , feedUserImages FeedUserImages
         , sendCommentToServerDone SendCommentDone
         , onChangeData OnChangeData
+        , setValue (\( k, v ) -> SetValue k v)
         ]
 
 

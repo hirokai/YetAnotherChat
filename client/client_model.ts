@@ -1,7 +1,7 @@
 /// <reference path="../common/types.d.ts" />
 
 import axios from 'axios';
-import { map, clone, includes, pull, without, sortBy, take, find, filter, keyBy } from 'lodash-es';
+import { map, clone, includes, pull, without, sortBy, take, find, filter, keyBy, reject } from 'lodash-es';
 import moment from 'moment';
 const shortid = require('shortid').generate;
 import $ from 'jquery';
@@ -262,7 +262,72 @@ export class Model {
                 return key;
             }
         },
-        get_my_public_key: async (): Promise<CryptoKey> => {
+        get_fingerprint: async (): Promise<{ prv: string, pub: string }> => {
+            const p1 = crypto.fingerPrint1(this.keyPair.privateKey);
+            const p2 = crypto.fingerPrint1(this.keyPair.publicKey);
+            return Promise.all([p1, p2]).then(([prv, pub]) => {
+                return { prv, pub }
+            });
+        },
+        add_to_history: async (timestamp: number, fingerprint: { prv: string, pub: string }) => {
+            return new Promise((resolve) => {
+                const storeName = 'yacht.my_key_history';
+                const openReq = indexedDB.open(storeName);
+                openReq.onupgradeneeded = function (event: any) {
+                    var db = (<IDBRequest>event.target).result;
+                    db.createObjectStore(storeName, { keyPath: 'timestamp' });
+                }
+                openReq.onsuccess = function (event: any) {
+                    // console.log('openReq.onsuccess');
+                    var db = event.target.result;
+                    var trans = db.transaction(storeName, 'readwrite');
+                    var store = trans.objectStore(storeName);
+                    const p1 = new Promise((r) => {
+                        const putReq = store.put({ timestamp, fingerprint });
+                        putReq.onsuccess = function () {
+                            r();
+                        }
+                    });
+                    const p2 = new Promise((r) => {
+                        const putReq = store.put({ timestamp: -1, fingerprint });
+                        putReq.onsuccess = function () {
+                            r();
+                        }
+                    });
+                    Promise.all([p1, p2]).then(() => {
+                        resolve();
+                    })
+                }
+            });
+        },
+        get_my_fingerprint_from_cache: async (): Promise<{ prv: string, pub: string }> => {
+            return new Promise((resolve, reject) => {
+                const storeName = 'yacht.my_key_history';
+                const openReq = indexedDB.open(storeName);
+                openReq.onupgradeneeded = function (event: any) {
+                    var db = (<IDBRequest>event.target).result;
+                    db.createObjectStore(storeName, { keyPath: 'timestamp' });
+                }
+                openReq.onsuccess = function (event: any) {
+                    // console.log('openReq.onsuccess');
+                    var db = event.target.result;
+                    var trans = db.transaction(storeName, 'readonly');
+                    var store = trans.objectStore(storeName);
+                    var getReq = store.get(-1);
+                    getReq.onsuccess = function () {
+                        // console.log('get data success', getReq.result);
+                        resolve(getReq.result ? getReq.result.fingerprint : null);
+                    }
+                    getReq.onerror = () => {
+                        reject();
+                    }
+                }
+                openReq.onerror = () => {
+                    reject();
+                }
+            });
+        },
+        get_my_public_key_from_server: async (): Promise<CryptoKey> => {
             const params: GetPublicKeysParams = { user_id: this.user_id, token: this.token };
 
             const { data: { data } } = <AxiosResponse<GetPublicKeysResponse>>await axios.get('/api/public_keys/me', { params });
@@ -275,10 +340,16 @@ export class Model {
             const { data } = await axios.patch('/api/public_keys', obj);
             console.log('update_public_key result', data);
         },
-        reset: async () => {
+        reset: async (): Promise<{ timestamp: number, fingerprint: { prv: string, pub: string } }> => {
+            const timestamp = new Date().getTime();
             const keyPair = await crypto.generateKeyPair(true);
+            this.keyPair = keyPair;
+            console.log(keyPair);
             await crypto.saveMyKeys(keyPair);
             await this.keys.update_public_key(keyPair.publicKey);
+            const fingerprint = await this.keys.get_fingerprint();
+            this.keys.add_to_history(timestamp, fingerprint);
+            return { timestamp, fingerprint };
         }
     }
 }

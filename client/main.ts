@@ -42,7 +42,7 @@ if (!token || token == '') {
     console.log('public and private keys', keyPair);
     if (!keyPair) {
         console.log('Loading a public key from server.');
-        const publicKey: CryptoKey = await model.keys.get_my_public_key();
+        const publicKey: CryptoKey = await model.keys.get_my_public_key_from_server();
         const localKey = { publicKey, privateKey: null };
         console.log('Saving local key', localKey);
         crypto.saveMyKeys(localKey).then(() => {
@@ -60,6 +60,12 @@ if (!token || token == '') {
     window.setTimeout(() => {
         recalcPositions(show_toppane, expand_chatinput);
     }, 100);
+
+    model.keys.get_my_fingerprint_from_cache().then((fp) => {
+        if (fp) {
+            app.ports.setValue.send(['my_public_key', fp.pub || ""]);
+        }
+    });
 
     const socket: SocketIOClient.Socket = io('');
 
@@ -129,10 +135,9 @@ if (!token || token == '') {
         el.scrollIntoView(true);
     }
 
-    app.ports.resetKeys.subscribe(() => {
-        model.keys.reset().then(() => {
-
-        });
+    app.ports.resetKeys.subscribe(async () => {
+        const { timestamp, fingerprint } = await model.keys.reset();
+        app.ports.setValue.send(['my_public_key', fingerprint.pub])
     });
 
     app.ports.deleteSession.subscribe(async ({ id }) => {
@@ -537,6 +542,7 @@ interface ElmAppPorts {
     saveConfig: ElmSub<{ userWithEmailOnly: boolean }>;
     downloadPrivateKey: ElmSub<void>;
     resetKeys: ElmSub<void>;
+    setValue: ElmSend<string[]>;
 }
 
 interface ElmApp {
