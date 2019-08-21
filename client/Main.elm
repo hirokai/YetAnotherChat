@@ -114,7 +114,8 @@ port deleteSession : { id : String } -> Cmd msg
 
 port downloadPrivateKey : () -> Cmd msg
 
-port resetKeys: () -> Cmd msg
+
+port resetKeys : () -> Cmd msg
 
 
 port logout : () -> Cmd msg
@@ -335,6 +336,7 @@ type Page
     | SessionListPage
     | UserPage String
     | UserProfilePage String
+    | UserSettingPage
     | UserListPage
     | HomePage
     | NewSession
@@ -355,6 +357,9 @@ pageToPath page =
 
         UserProfilePage u ->
             "/profiles/" ++ u
+
+        UserSettingPage ->
+            "/settings"
 
         UserListPage ->
             "/users/"
@@ -396,7 +401,13 @@ pathToPage hash =
             else
                 UserProfilePage u
 
+        [ "settings" ] ->
+            UserSettingPage
+
         "" :: _ ->
+            HomePage
+
+        [] ->
             HomePage
 
         _ ->
@@ -723,6 +734,9 @@ update msg model =
                     UserListPage ->
                         enterUserList model
 
+                    UserSettingPage ->
+                        enterUserSetting model
+
                     RoomPage r ->
                         enterRoom r model
 
@@ -807,7 +821,7 @@ update msg model =
             ( model, downloadPrivateKey () )
 
         ResetKeys ->
-            (model, resetKeys ())
+            ( model, resetKeys () )
 
         SearchUser q ->
             ( { model | searchKeyword = q }, Cmd.none )
@@ -854,6 +868,15 @@ enterUserList model =
 enterSessionList : Model -> ( Model, Cmd Msg )
 enterSessionList model =
     ( { model | page = SessionListPage }, Cmd.none )
+
+
+enterUserSetting : Model -> ( Model, Cmd Msg )
+enterUserSetting model =
+    let
+        new_model =
+            { model | page = UserSettingPage }
+    in
+    ( new_model, Cmd.batch [ updatePageHash new_model ] )
 
 
 enterRoom : String -> Model -> ( Model, Cmd Msg )
@@ -1166,6 +1189,7 @@ leftMenu model =
             ([ div [ id "username-top" ]
                 [ a [ id "lefttop-myself-name", href <| "#/profiles/" ++ model.myself ] [ text (getUserName model model.myself) ]
                 , a [ onClick Logout, class "clickable", id "logout-button" ] [ text "ログアウト" ]
+                , a [ id "config-button", href "#/settings" ] [ text "設定" ]
                 ]
              , div [ id "path" ] [ text (pageToPath model.page) ]
              , div []
@@ -1260,6 +1284,14 @@ view model =
 
         UserProfilePage user ->
             userProfileView user model
+
+        UserSettingPage ->
+            case getUserInfo model model.myself of
+                Just user ->
+                    userSettingView user model
+
+                Nothing ->
+                    notFoundView model
 
         UserListPage ->
             userListView model
@@ -1517,6 +1549,7 @@ smallMenu =
         , a [ class "clickable smallmenu-item", href "#/sessions/" ] [ text "セッション" ]
         , a [ class "clickable smallmenu-item", href "#/sessions/new" ] [ text "新しい会話" ]
         , a [ class "clickable smallmenu-item right", onClick Logout ] [ text "ログアウト" ]
+        , a [ class "clickable smallmenu-item right", href "#/settings" ] [ text "設定" ]
         ]
 
 
@@ -1796,6 +1829,39 @@ getUserNameDisplay model uid =
             "(N/A)"
 
 
+userSettingView : User -> Model -> { title : String, body : List (Html Msg) }
+userSettingView user model =
+    { title = user.fullname ++ ": " ++ appName
+    , body =
+        [ div [ class "container-fluid" ]
+            [ div [ class "row" ]
+                [ leftMenu model
+                , smallMenu
+                , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
+                    [ h1 [] [ text <| getUserNameDisplay model user.id ]
+                    , div []
+                        [ span [] [ text "Email: ", text <| Maybe.withDefault "（未登録）" <| (.emails >> List.head) user ]
+                        ]
+                    , div []
+                        [ a [ class "btn btn-primary", onClick DownloadPrivateKey, download "private_key.json", id "download-private-key" ] [ text "秘密鍵をダウンロード" ]
+                        , label [ for "upload-private-key" ]
+                            [ text "秘密鍵を取り込み" ]
+                        , input
+                            [ id "upload-private-key", type_ "file" ]
+                            []
+                        , a [ class "btn btn-danger", onClick ResetKeys ] [ text "鍵を生成し直す" ]
+                        , div []
+                            [ h4 [] [ text "鍵の生成履歴" ]
+                            , ul [] []
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    }
+
+
 userProfileView : String -> Model -> { title : String, body : List (Html Msg) }
 userProfileView user model =
     let
@@ -1822,23 +1888,6 @@ userProfileView user model =
                     , div []
                         [ span [] [ text "Email: ", text <| Maybe.withDefault "（未登録）" <| Maybe.andThen (.emails >> List.head) user_info ]
                         ]
-                    , if user == model.myself then
-                        div []
-                            [ a [ class "btn btn-primary", onClick DownloadPrivateKey, download "private_key.json", id "download-private-key" ] [ text "秘密鍵をダウンロード" ]
-                            , label [ for "upload-private-key" ]
-                                [ text "秘密鍵を取り込み" ]
-                            , input
-                                [ id "upload-private-key", type_ "file" ]
-                                []
-                            , a [ class "btn btn-danger", onClick ResetKeys ] [ text "鍵を生成し直す" ]
-                            , div []
-                                [ h4 [] [ text "鍵の生成履歴" ]
-                                , ul [] []
-                                ]
-                            ]
-
-                      else
-                        text ""
                     , div [ id "poster-div" ]
                         [ h2 [] [ text "ポスター" ]
                         , div []

@@ -179,10 +179,10 @@ export async function importKey(data: ExportedFormat, is_publicKey: boolean, exp
             // Usages must be empty for public keys
             (is_publicKey ? [] : ['deriveKey', 'deriveBits'])
         ).then(key => {
-            console.info('importKey() success', data, key);
+            // console.info('importKey() success', data, key);
             resolve(key);
         }, (err) => {
-            console.error('importKey() error', err, data);
+            // console.error('importKey() error', err, data);
             resolve(null);
         });
     });

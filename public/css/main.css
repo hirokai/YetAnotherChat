@@ -533,7 +533,12 @@ textarea[disabled] {
 }
 
 .bigger-font-btn {
-    font-size: 18px;   
+    font-size: 18px;
     font-weight: bold;
     font-family: Arial, Helvetica, sans-serif;
+}
+
+#config-button {
+    float: right;
+    margin-right: 10px;
 }
