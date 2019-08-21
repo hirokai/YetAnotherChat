@@ -2,7 +2,7 @@
 
 // @ts-ignore
 import { Elm } from './Main.elm';
-import { map, chunk } from 'lodash-es';
+import { map, chunk, values } from 'lodash-es';
 import axios from 'axios';
 import $ from 'jquery';
 import moment from 'moment';
@@ -171,7 +171,7 @@ if (!token || token == '') {
     app.ports.getMessages.subscribe((session: string) => {
         model.comments.list_for_session(session).then((comments) => {
             console.log('feedMessages args:', comments);
-            app.ports.feedMessages.send(comments)
+            app.ports.feedMessages.send(values(comments))
         });
     });
 

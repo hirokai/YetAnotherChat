@@ -1,7 +1,7 @@
 /// <reference path="../common/types.d.ts" />
 
 import axios from 'axios';
-import { map, clone, includes, pull, without, sortBy, take, find, filter } from 'lodash-es';
+import { map, clone, includes, pull, without, sortBy, take, find, filter, keyBy } from 'lodash-es';
 import moment from 'moment';
 const shortid = require('shortid').generate;
 import $ from 'jquery';
@@ -107,11 +107,11 @@ export class Model {
         }
     }
     comments = {
-        list_for_session: async (session: string): Promise<ChatEntryClient[]> => {
-            const key = 'comments.session.' + session;
+        list_for_session: async (session: string): Promise<{ [key: string]: ChatEntryClient }> => {
+            const snapshot_resource_id = 'comments.session.' + session;
             const params: GetCommentsParams = { session, token: this.token };
             const timestamp = new Date().getTime();
-            const snapshot: ChatEntryClient[] = this.getSnapshot(key);
+            const snapshot: { [key: string]: ChatEntryClient } = this.getSnapshot(snapshot_resource_id);
             if (snapshot) {
                 console.log('Returning snapshot.')
                 return new Promise((resolve) => {
@@ -119,9 +119,9 @@ export class Model {
                 });
             } else {
                 const { data }: { data: ChatEntry[] } = await axios.get('/api/comments', { params });
-                const comments: ChatEntryClient[] = await processData(data, this);
+                const comments: { [key: string]: ChatEntryClient } = keyBy(await processData(data, this), 'id');
                 console.log('comments', comments);
-                this.setSnapshot(key, timestamp, comments);
+                this.setSnapshot(snapshot_resource_id, timestamp, comments);
                 return comments;
             }
         },
@@ -173,13 +173,14 @@ export class Model {
                 kind: msg.kind,
                 action: ""
             };
-            const snapshot: ChatEntryClient[] = this.getSnapshot('comments.session.' + msg.session_id, -1);
+            const snapshot_resource_id = 'comments.session.' + msg.session_id;
+            const snapshot: { [key: string]: ChatEntryClient } = this.getSnapshot(snapshot_resource_id, -1);
             console.log('comments.new', msg1);
             if (snapshot != null) {
                 console.log('comments.new', snapshot.length);
-                snapshot.push(msg1);
+                snapshot[msg1.id] = msg1;
                 console.log('comments.new', snapshot.length);
-                this.setSnapshot('comments.session.' + msg.session_id, timestamp, snapshot);
+                this.setSnapshot(snapshot_resource_id, timestamp, snapshot);
                 return msg.session_id;
             } else {
                 console.log(this.snapshot);

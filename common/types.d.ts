@@ -94,7 +94,7 @@ type MailGroup = {
 }
 
 interface ChatEntryClient {
-    id: String,
+    id: string,
     user: string,
     comment: string,
     session: string,
