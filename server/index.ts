@@ -308,7 +308,6 @@ app.get('/api/comments_by_date_user', (req, res) => {
 
 app.get('/api/sessions/:id', (req, res: JsonResponse<GetSessionResponse>) => {
     model.get_session_info(req.params.id).then((data) => {
-        console.log('GET result /api/sessions/', data);
         if (data) {
             res.json({ ok: true, data });
         } else {

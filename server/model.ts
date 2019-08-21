@@ -575,7 +575,6 @@ export function saveSocketId(user_id: string, socket_id: string): Promise<{ ok: 
     return new Promise((resolve) => {
         const timestamp: number = new Date().getTime();
         db.run('insert into user_connections (socket_id,user_id, timestamp) values (?,?,?);', socket_id, user_id, timestamp, (err) => {
-            console.log('saveSocketId error=', err);
             const ok = !err;
             resolve({ ok: !err, timestamp: ok ? timestamp : null });
         });
@@ -726,7 +725,7 @@ export async function list_users(myself: string): Promise<User[]> {
             const user_id = row['id'];
             get_public_key({ user_id, for_user: myself }).then((pk1) => {
                 if (pk1) {
-                    console.log('model.list_users() publicKey', user_id, myself, pk1);
+                    // console.log('model.list_users() publicKey', user_id, myself, pk1);
                     const obj: User = {
                         emails: row['emails'].split(','),
                         username: row['name'] || row['id'],
@@ -741,7 +740,7 @@ export async function list_users(myself: string): Promise<User[]> {
                     //ToDo: Currently default public key has for_user=user_id.
                     //But 1-to-1 communication better requires different public keys for every sent-to user.
                     get_public_key({ user_id, for_user: user_id }).then((pk2) => {
-                        console.log('model.list_users() publicKey', user_id, user_id, pk2);
+                        // console.log('model.list_users() publicKey', user_id, user_id, pk2);
                         const obj: User = {
                             emails: row['emails'].split(','),
                             username: row['name'] || row['id'],
@@ -751,7 +750,6 @@ export async function list_users(myself: string): Promise<User[]> {
                             publicKey: pk2,
                             online: includes(online_users, user_id)
                         }
-                        console.log('returning', obj);
                         resolve(obj);
                     });
                 }
