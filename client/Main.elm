@@ -167,9 +167,13 @@ type alias User =
     }
 
 
+type alias ChatFileTyp =
+    { id : String, user : String, file_id : String, url : String, formattedTime : String }
+
+
 type ChatEntry
     = Comment CommentTyp
-    | ChatFile { id : String, user : String, filename : String }
+    | ChatFile ChatFileTyp
     | SessionEvent SessionEventTyp
 
 
@@ -201,12 +205,14 @@ sessionEventTypDecoder =
         |> JE.andMap (Json.field "action" Json.string)
 
 
-chatFileDecoder : Json.Decoder { id : String, user : String, filename : String }
+chatFileDecoder : Json.Decoder ChatFileTyp
 chatFileDecoder =
-    Json.map3 (\i u f -> { id = i, user = u, filename = f })
+    Json.map5 ChatFileTyp
         (Json.field "id" Json.string)
         (Json.field "user" Json.string)
+        (Json.field "file_id" Json.string)
         (Json.field "url" Json.string)
+        (Json.field "formattedTime" Json.string)
 
 
 chatEntryDecoder : Json.Decoder ChatEntry
@@ -1194,9 +1200,7 @@ showItem model entry =
 
                                   else
                                     text ""
-                                , span [ class "chat_timestamp" ]
-                                    [ text m.formattedTime
-                                    ]
+                                , span [ class "chat_timestamp" ] [ text m.formattedTime ]
                                 , a [ href (makeLinkToOriginal m) ] [ showSource m.source ]
                                 , span [ style "margin-left" "10px" ] [ text m.id ]
                                 , span [ class "remove-item clickable", onClick (ChatPageMsg (RemoveItem m.id)) ] [ text "×" ]
@@ -1209,8 +1213,43 @@ showItem model entry =
                 Nothing ->
                     div [] [ text "User info not found" ]
 
-        ChatFile f ->
-            div [ class "file-image-chat" ] [ img [ src f.filename ] [] ]
+        ChatFile m ->
+            case getUserInfo model m.user of
+                Just userInfo ->
+                    div
+                        [ class <|
+                            "chat_entry_comment"
+                                ++ (if model.chatPageStatus.shrunkEntries then
+                                        " shrunk"
+
+                                    else
+                                        ""
+                                   )
+                        , id m.id
+                        ]
+                        [ div [ style "float" "left" ] [ img [ class "chat_user_icon", src (iconOfUser (getUserName model m.user)) ] [] ]
+                        , div [ class "chat_comment" ]
+                            [ div [ class "chat_user_name", attribute "data-toggle" "tooltip", title <| getUserFullname model m.user ]
+                                [ text <| getUserName model m.user
+                                , if userInfo.online then
+                                    span [ class "online-mark" ] [ text "●" ]
+
+                                  else
+                                    text ""
+                                , span [ class "chat_timestamp" ] [ text m.formattedTime ]
+                                , a [ href m.url ] [ text "self" ]
+                                , span [ style "margin-left" "10px" ] [ text m.id ]
+                                , span [ class "remove-item clickable", onClick (ChatPageMsg (RemoveItem m.id)) ] [ text "×" ]
+                                ]
+                            , div [ class "file-image-chat" ]
+                                [ img [ src m.url ] []
+                                ]
+                            , div [ style "clear" "both" ] [ text "" ]
+                            ]
+                        ]
+
+                Nothing ->
+                    div [] [ text "User info not found" ]
 
         SessionEvent e ->
             div [ class "chat_entry_event", id e.id ] [ hr [] [], text <| getUserName model e.user ++ "が参加しました（" ++ e.timestamp ++ "）", hr [] [] ]
