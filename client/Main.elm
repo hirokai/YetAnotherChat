@@ -168,7 +168,7 @@ type alias User =
 
 
 type alias ChatFileTyp =
-    { id : String, user : String, file_id : String, url : String, formattedTime : String }
+    { id : String, user : String, file_id : String, url : String, formattedTime : String, thumbnailBase64 : String }
 
 
 type ChatEntry
@@ -207,12 +207,13 @@ sessionEventTypDecoder =
 
 chatFileDecoder : Json.Decoder ChatFileTyp
 chatFileDecoder =
-    Json.map5 ChatFileTyp
+    Json.map6 ChatFileTyp
         (Json.field "id" Json.string)
         (Json.field "user" Json.string)
         (Json.field "file_id" Json.string)
         (Json.field "url" Json.string)
         (Json.field "formattedTime" Json.string)
+        (Json.field "thumbnailBase64" Json.string)
 
 
 chatEntryDecoder : Json.Decoder ChatEntry
@@ -1217,14 +1218,7 @@ showItem model entry =
             case getUserInfo model m.user of
                 Just userInfo ->
                     div
-                        [ class <|
-                            "chat_entry_comment"
-                                ++ (if model.chatPageStatus.shrunkEntries then
-                                        " shrunk"
-
-                                    else
-                                        ""
-                                   )
+                        [ classList [ ( "chat_entry_comment", True ), ( "shrunk", model.chatPageStatus.shrunkEntries ) ]
                         , id m.id
                         ]
                         [ div [ style "float" "left" ] [ img [ class "chat_user_icon", src (iconOfUser (getUserName model m.user)) ] [] ]
@@ -1242,7 +1236,7 @@ showItem model entry =
                                 , span [ class "remove-item clickable", onClick (ChatPageMsg (RemoveItem m.id)) ] [ text "×" ]
                                 ]
                             , div [ class "file-image-chat" ]
-                                [ img [ src m.url ] []
+                                [ img [ src m.thumbnailBase64 ] []
                                 ]
                             , div [ style "clear" "both" ] [ text "" ]
                             ]

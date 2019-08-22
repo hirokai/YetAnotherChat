@@ -390,11 +390,8 @@ if (!token || token == '') {
             map(files, (file) => {
                 var reader = new FileReader();
                 reader.onloadend = () => {
-                    const formData = new FormData();
-                    const imgBlob = new Blob([reader.result], { type: file.type });
-                    formData.append('user_image', imgBlob, file.name);
                     const session_id: string = $('#chat-body').attr('data-session_id');
-                    model.files.upload_and_post(session_id, formData);
+                    model.files.upload_and_post(session_id, reader.result, file.name, file.type);
                 };
                 reader.readAsArrayBuffer(file);
             });

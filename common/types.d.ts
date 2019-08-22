@@ -130,7 +130,8 @@ interface ChatEntryClient {
     kind: string,
     action: string,
     url?: string,
-    encrypt: string
+    encrypt: string,
+    thumbnailBase64: string
 }
 
 interface UserSlack {

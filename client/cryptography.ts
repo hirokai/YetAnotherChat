@@ -1,6 +1,45 @@
 import { isEqual } from "lodash";
 
 
+const Base64a = {
+    encode: (function (i, tbl) {
+        for (i = 0, tbl = { 64: 61, 63: 47, 62: 43 }; i < 62; i++) { tbl[i] = i < 26 ? i + 65 : (i < 52 ? i + 71 : i - 4); } //A-Za-z0-9+/=
+        return function (arr: Uint8Array): string {
+            var len, str, buf;
+            if (!arr || !arr.length) { return ""; }
+            for (i = 0, len = arr.length, buf = [], str = ""; i < len; i += 3) { //6+2,4+4,2+6
+                str += String.fromCharCode(
+                    tbl[arr[i] >>> 2],
+                    tbl[(arr[i] & 3) << 4 | arr[i + 1] >>> 4],
+                    tbl[i + 1 < len ? (arr[i + 1] & 15) << 2 | arr[i + 2] >>> 6 : 64],
+                    tbl[i + 2 < len ? (arr[i + 2] & 63) : 64]
+                );
+            }
+            return str;
+        };
+    }()),
+    decode: (function (i, tbl) {
+        for (i = 0, tbl = { 61: 64, 47: 63, 43: 62 }; i < 62; i++) { tbl[i < 26 ? i + 65 : (i < 52 ? i + 71 : i - 4)] = i; } //A-Za-z0-9+/=
+        return function (str: string): Uint8Array {
+            var j, len, arr, buf;
+            if (!str || !str.length) { return new Uint8Array([]); }
+            for (i = 0, len = str.length, arr = [], buf = []; i < len; i += 4) { //6,2+4,4+2,6
+                for (j = 0; j < 4; j++) { buf[j] = tbl[str.charCodeAt(i + j) || 0]; }
+                arr.push(
+                    buf[0] << 2 | (buf[1] & 63) >>> 4,
+                    (buf[1] & 15) << 4 | (buf[2] & 63) >>> 2,
+                    (buf[2] & 3) << 6 | buf[3] & 63
+                );
+            }
+            if (buf[3] === 64) { arr.pop(); if (buf[2] === 64) { arr.pop(); } }
+            return arr;
+        };
+    }())
+};
+
+const encodingFunc: (Uint8Array) => string = encodeBase64URL
+const decodingFunc: (string) => Uint8Array = decodeBase64URL;
+
 // https://qiita.com/tomoyukilabs/items/eac94fdb2d0ca92f443a
 export async function generateKeyPair(exportable = false): Promise<CryptoKeyPair> {
     return crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, exportable, ['deriveKey', 'deriveBits']);
@@ -93,6 +132,65 @@ function getEncryptionKey(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey
     });
 }
 
+export async function generateKeyAndEncryptString(input: string): Promise<{ secret: string, result: string }> {
+    const { secret, iv, data } = await generateKeyAndEncrypt(toUint8Array(input));
+    return { secret: encodeBase64URL(new Uint8Array(secret)), result: encodeBase64URL(iv) + ':' + encodeBase64URL(new Uint8Array(data)) };
+}
+
+export async function generateKeyAndEncrypt(input: Uint8Array): Promise<{ secret: ArrayBuffer, iv: Uint8Array, data: ArrayBuffer }> {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const bits = crypto.getRandomValues(new Uint8Array(12));
+    let secret;
+    return new Promise((resolve) => {
+        crypto.subtle.digest(
+            { name: 'SHA-256' },
+            bits
+        ).then(digest => {        // ハッシュ値の先頭16オクテットから128ビットAES-GCMの鍵を生成
+            secret = digest;
+            return crypto.subtle.importKey(
+                'raw',
+                digest.slice(0, 16),
+                { name: 'AES-GCM', length: 128 },
+                true,
+                ['encrypt', 'decrypt']
+            );
+        }).then(encryptionKey => {
+            return crypto.subtle.encrypt(
+                { name: 'AES-GCM', iv, tagLength: 128 },
+                encryptionKey,
+                input
+            );
+        }).then(data => {
+            resolve({ secret, iv, data });
+        });
+    });
+}
+
+export async function decryptWithEncryptionKey(input: Uint8Array, iv_str: string, encryptionKey: CryptoKey): Promise<Uint8Array> {
+    const kp1 = await generateKeyPair(true);
+    const kp2 = await generateKeyPair(true);
+    const iv = decodingFunc(iv_str);
+    return crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv, tagLength: 128 },
+        encryptionKey,
+        input
+    ).then(data => {
+        return (new Uint8Array(data));
+    });
+}
+
+
+export async function importEncryptionKey(key_str: string, exportable = false): Promise<CryptoKey> {
+    const digest = decodingFunc(key_str);
+    return crypto.subtle.importKey(
+        'raw',
+        digest.slice(0, 16),
+        { name: 'AES-GCM', length: 128 },
+        exportable,
+        ['encrypt', 'decrypt']
+    );
+}
+
 export async function encrypt(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey, input: Uint8Array): Promise<EncryptedData> {
     const fp1 = await fingerPrint1(remotePublicKey);
     const fp2 = await fingerPrint1(localPrivateKey);
@@ -113,8 +211,8 @@ export async function encrypt(remotePublicKey: CryptoKey, localPrivateKey: Crypt
         }).then(data => {
             // このresult(iv, data)を相手に渡す
             const result = {
-                iv: encodeBase64URL(new Uint8Array(iv)),
-                data: encodeBase64URL(new Uint8Array(data))
+                iv: encodingFunc(new Uint8Array(iv)),
+                data: encodingFunc(new Uint8Array(data))
             };
             resolve(result);
         });
@@ -145,7 +243,7 @@ export async function decrypt(remotePublicKey: CryptoKey, localPrivateKey: Crypt
             return crypto.subtle.decrypt(
                 { name: 'AES-GCM', iv: decodeBase64URL(encrypted.iv), tagLength: 128 },
                 encryptionKey,
-                decodeBase64URL(encrypted.data)
+                decodingFunc(encrypted.data)
             );
         }).then(data => {
             resolve(new Uint8Array(data));
@@ -167,7 +265,6 @@ export async function verify_key_pair({ publicKey, privateKey }: CryptoKeyPair):
         return false;
     }
 }
-
 
 // JavaScriptのatob(), btoa()ではURL-safe Base64が扱えないため変換が必要
 export function decodeBase64URL(data: string): Uint8Array {
@@ -205,7 +302,7 @@ export async function fingerPrint(jwk: JsonWebKey): Promise<string> {
         // console.log('fingerPrint(): json', s);
         const arr = new TextEncoder().encode(s);
         const hash_arr = await crypto.subtle.digest('SHA-256', arr);
-        return encodeBase64URL(new Uint8Array(hash_arr));
+        return encodingFunc(new Uint8Array(hash_arr));
     }
 }
 
@@ -217,3 +314,4 @@ export function toUint8Array(s: string): Uint8Array {
 export function fromUint8Array(arr: Uint8Array): string {
     return new TextDecoder().decode(arr);
 }
+

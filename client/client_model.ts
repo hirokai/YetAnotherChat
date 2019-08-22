@@ -475,27 +475,47 @@ export class Model {
         }
     }
     files = {
-        upload: async (session_id: string, formData: FormData): Promise<{ ok: boolean, files: { path: string, file_id: string }[] }> => {
+        upload: async (session_id: string, data: string | ArrayBuffer, filename: string, filetype: string): Promise<{ ok: boolean, files: { path: string, file_id: string }[], iv: string, secret: string }> => {
+            const formData = new FormData();
+            let encrypting = false;
+            let secret: ArrayBuffer, iv: Uint8Array;
+            if (encrypting) {
+                const r = await crypto.generateKeyAndEncrypt(new Uint8Array(<ArrayBuffer>data));
+                secret = r.secret;
+                iv = r.iv;
+                const blob_encrypted = new Blob([r.data], { type: filetype });
+                formData.append('user_image', blob_encrypted, filename);
+            } else {
+                const blob = new Blob([data], { type: filetype });
+                formData.append('user_image', blob, filename);
+            }
             return new Promise((resolve) => {
                 $.ajax({
-                    url: '/api/files?kind=file&session_id=' + session_id + '&token=' + this.token,
+                    url: '/api/files?kind=file&session_id=' + session_id + (iv ? '&iv=' + iv : '') + '&token=' + this.token,
                     type: 'post',
                     data: formData,
                     processData: false,
                     contentType: false,
-                    dataType: 'html'
+                    dataType: 'json'
                 }).then((r) => {
-                    const res = JSON.parse(r);
-                    resolve(res);
+                    if (r.ok) {
+                        if (encrypting) {
+                            resolve({ ok: r.ok, files: r.files, iv: crypto.encodeBase64URL(iv), secret: crypto.encodeBase64URL(new Uint8Array(secret)) });
+                        } else {
+                            resolve({ ok: r.ok, files: r.files, iv: null, secret: null });
+                        }
+                    } else {
+                        resolve(null);
+                    }
                 }, (err) => {
                     console.log('error', err);
                 });
             });
         },
-        upload_and_post: async (session_id, formData) => {
-            const { files } = await this.files.upload(session_id, formData);
+        upload_and_post: async (session_id: string, data: ArrayBuffer | string, filename: string, filetype: string) => {
+            const { ok, files, secret, iv } = await this.files.upload(session_id, data, filename, filetype);
             map(files, (file) => {
-                const comment = '<__file::' + file.file_id + '::' + file.path + '>';
+                const comment = '<__file::' + file.file_id + '::' + file.path + '::' + secret + '>';
                 this.comments.new({ comment, session: session_id })
             });
         }
@@ -527,7 +547,7 @@ async function processComment(m1: ChatEntry, model: Model): Promise<ChatEntryCli
         deciphered_comment = 'N/A'
     }
     const encrypt = deciphered_comment ? 'none' : m.encrypt;
-    var v: ChatEntryClient = { id: m.id, user, comment: deciphered_comment || m.comment, timestamp: m.timestamp, formattedTime: formatTime(m.timestamp), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "", encrypt };
+    var v: ChatEntryClient = { id: m.id, user, comment: deciphered_comment || m.comment, timestamp: m.timestamp, formattedTime: formatTime(m.timestamp), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "", encrypt, thumbnailBase64: "" };
     v.originalUrl = m.original_url || "";
     v.sentTo = m.sent_to || "";
     v.source = m.source;
@@ -542,11 +562,37 @@ async function processEvent(m1: ChatEntryClient): Promise<ChatEntryClient> {
 }
 
 async function processFile(m: ChatEntryClient): Promise<ChatEntryClient> {
-    const re = m.comment.match(/<__file::(.+)::(.+)>/);
+    const re = m.comment.match(/<__file::(.+)::(.+)::(.+)::(.+)>/);
     const file_id = re[1];
     const url = re[2];
+    const iv_str = re[3];
+    const encryption_key = re[4];
     m.kind = 'file';
-    var v: ChatEntryClient = Object.assign({}, m, { user_id: m.user, session_id: m.session, file_id, url });
+    let encrypting = false;
+    // let encrypting = m.encrypt != "none";
+    let thumbnailBase64: string
+    if (encrypting) {
+        //https://stackoverflow.com/questions/49040247/download-binary-file-with-axios
+        const response = await axios.get(url,
+            {
+                responseType: 'arraybuffer',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'image/jpeg'
+                }
+            });
+        const arr: ArrayBuffer = response['data'];
+        const secret = await crypto.importEncryptionKey(encryption_key, true);
+        console.log('processFile', JSON.parse(encryption_key), secret);
+        const arr_decrypted = await crypto.decryptWithEncryptionKey(new Uint8Array(arr), iv_str, secret).catch(() => new Uint8Array([]));
+        console.log('arr_decrypted', arr_decrypted);
+        const s = crypto.encodeBase64URL(arr_decrypted);
+        console.log('processFile', response, s);
+        thumbnailBase64 = "data:image/jpeg;base64," + s;
+    } else {
+        thumbnailBase64 = "";
+    }
+    var v: ChatEntryClient = Object.assign({}, m, { user_id: m.user, session_id: m.session, file_id, url, thumbnailBase64 });
     return v;
 }
 
@@ -556,7 +602,7 @@ export async function processData(res: ChatEntry[], model: Model): Promise<ChatE
         return processComment(m1, model).then((c: ChatEntryClient) => {
             if (c.comment.slice(0, 9) == '<__file::') {
                 c.kind = 'file';
-                return processFile(c);
+                return processFile(c).catch(() => Object.assign({}, c, { user_id: c.user, session_id: c.session, file_id: "", url: c.url, thumbnailBase64: "" }));
             } else if (c.comment.slice(0, 10) == '<__event::') {
                 return processEvent(c);
             } else {
