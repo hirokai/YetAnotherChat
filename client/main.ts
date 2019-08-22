@@ -486,9 +486,13 @@ if (!token || token == '') {
         reader.onload = () => {
             (async () => {
                 const prv_jwk: JsonWebKey = JSON.parse(<string>reader.result);
-                await model.keys.import_private_key(prv_jwk);
-                const fp = await crypto.fingerPrint(prv_jwk);
-                app.ports.setValue.send(['my_private_key', fp || ""]);
+                try {
+                    await model.keys.import_private_key(prv_jwk);
+                    const fp = await crypto.fingerPrint(prv_jwk);
+                    app.ports.setValue.send(['my_private_key', fp || ""]);
+                } catch (e) {
+                    console.log('Private key import error', e);
+                }
             })();
         }
 

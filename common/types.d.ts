@@ -222,7 +222,8 @@ interface GetCommentsDeltaData {
 
 type MyKeyCacheData = {
     id: string,
-    keyPair: CryptoKeyPair,
+    publicKey: JsonWebKey,
+    privateKey: JsonWebKey,
     fingerPrint: { publicKey: string, privateKey: string }
 }
 

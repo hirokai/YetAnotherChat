@@ -1,5 +1,7 @@
-// https://qiita.com/tomoyukilabs/items/eac94fdb2d0ca92f443a
+import { isEqual } from "lodash";
 
+
+// https://qiita.com/tomoyukilabs/items/eac94fdb2d0ca92f443a
 export async function generateKeyPair(exportable = false): Promise<CryptoKeyPair> {
     return crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, exportable, ['deriveKey', 'deriveBits']);
 }
@@ -154,6 +156,19 @@ export async function decrypt(remotePublicKey: CryptoKey, localPrivateKey: Crypt
         });
     });
 }
+
+export async function verify_key_pair({ publicKey, privateKey }: CryptoKeyPair): Promise<boolean> {
+    if (!privateKey || !publicKey) {
+        console.log('Null key contained')
+        return false;
+    }
+    try {
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
 
 // JavaScriptのatob(), btoa()ではURL-safe Base64が扱えないため変換が必要
 export function decodeBase64URL(data: string): Uint8Array {

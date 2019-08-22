@@ -373,7 +373,13 @@ export class Model {
         },
         get_my_keys: async (): Promise<CryptoKeyPair> => {
             const data: MyKeyCacheData = await this.loadDb('yacht.keyPair', 'id', 'myself');
-            return data ? data.keyPair : null;
+            if (data) {
+                const publicKey = await crypto.importKey(data.publicKey, true, true);
+                const privateKey = await crypto.importKey(data.privateKey, false, true);
+                return { publicKey, privateKey };
+            } else {
+                return null;
+            }
         },
         save_my_keys: async (keyPair: CryptoKeyPair): Promise<void> => {
             const prv_e_p = crypto.exportKey(keyPair.privateKey);
@@ -383,15 +389,21 @@ export class Model {
                 return Promise.all([crypto.fingerPrint(ks[0]), crypto.fingerPrint(ks[1])]);
             });
             const fp = { privateKey: fps[0], publicKey: fps[1] };
-            const obj: MyKeyCacheData = { id: 'myself', keyPair, fingerPrint: fp };
+            const privateKey = await crypto.exportKey(keyPair.privateKey);
+            const publicKey = await crypto.exportKey(keyPair.publicKey);
+            const obj: MyKeyCacheData = { id: 'myself', privateKey, publicKey, fingerPrint: fp };
             await this.saveDb('yacht.keyPair', 'id', 'myself', obj, true);
         },
         import_private_key: async (jwk: JsonWebKey) => {
             const keyPair: CryptoKeyPair = await this.keys.get_my_keys();
             console.log('import_private_key', keyPair);
-            if (keyPair != null) {
+            if (keyPair == null) {
+                throw new Error('Public key is not found.');
+            } else {
                 const prv_imported = await crypto.importKey(jwk, false, true);
                 const newKeyPair = { privateKey: prv_imported, publicKey: keyPair.publicKey }
+                const v = await crypto.verify_key_pair(newKeyPair);
+                console.log('New key pair verified:', v)
                 await this.keys.save_my_keys(newKeyPair);
             }
         },
