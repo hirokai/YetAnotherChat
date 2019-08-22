@@ -387,14 +387,14 @@ if (!token || token == '') {
             ev.preventDefault();
             $(ev.target).removeClass('dragover');
             const files = event.dataTransfer.files;
-            map(files, function (file) {
+            map(files, (file) => {
                 var reader = new FileReader();
                 reader.onloadend = () => {
                     const formData = new FormData();
                     const imgBlob = new Blob([reader.result], { type: file.type });
                     formData.append('user_image', imgBlob, file.name);
                     const session_id: string = $('#chat-body').attr('data-session_id');
-                    postFileToSession(session_id, formData);
+                    model.files.upload_and_post(session_id, formData);
                 };
                 reader.readAsArrayBuffer(file);
             });
@@ -568,24 +568,6 @@ interface ElmAppPorts {
 interface ElmApp {
     ports: ElmAppPorts;
 }
-
-function postFileToSession(session_id: string, formData: FormData) {
-    $.ajax({
-        url: '/api/files?kind=file&session_id=' + session_id + '&token=' + token,
-        type: 'post',
-        data: formData,
-        processData: false,
-        contentType: false,
-        dataType: 'html'
-    }).then((r) => {
-        const res = JSON.parse(r);
-        console.log(res);
-
-    }, (err) => {
-        console.log('error', err);
-    });
-}
-
 
 // https://qiita.com/wadahiro/items/eb50ac6bbe2e18cf8813
 function handleDownload(content: string) {

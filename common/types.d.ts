@@ -116,6 +116,7 @@ type MailGroup = {
     data: MailgunParsed[]
 }
 
+
 interface ChatEntryClient {
     id: string,
     user: string,

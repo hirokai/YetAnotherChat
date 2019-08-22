@@ -217,18 +217,11 @@ export function save_user_file(user_id: string, path: string, kind: string, sess
                 reject();
             } else if (session_id != null) {
                 console.log('save_user_file 3');
-                const comment_id = shortid();
-                const comment = '<__file::' + file_id + '::' + path + '>';
-                db.run('insert into comments (id,user_id,session_id,timestamp,comment) values (?,?,?,?,?)',
-                    comment_id, user_id, session_id, timestamp, cipher(comment),
-                    (err2) => {
-                        if (!err && !err2) {
-                            resolve({ file_id, path });
-                        } else {
-                            reject({ err, err2 });
-                        }
-                    }
-                )
+                if (!err) {
+                    resolve({ file_id, path });
+                } else {
+                    reject(err);
+                }
             } else {
                 resolve({ file_id, path });
             }
@@ -366,27 +359,12 @@ export function get_session_of_members(user_id: string, members: string[], is_al
 
 export function list_comments(for_user: string, session_id: string, user_id: string, time_after?: number): Promise<ChatEntry[]> {
     const processRow = (row): ChatEntry => {
+        console.log(row.comment);
         const comment = row.comment.replace(/(:.+?:)/g, function (m, $1) {
             const r = emoji_dict[$1];
             return r ? r.emoji : $1;
         });
-        // console.log('get_comments_list comment', comment);
-        if (comment.slice(0, 9) == '<__file::') {
-            const m = comment.match(/<__file::(.+?)::(.+)>/);
-            const file_id = m[1] || "";
-            return {
-                url: m[2] || "",
-                file_id: file_id,
-                kind: "file",
-                session_id,
-                user_id: row['user_id'],
-                timestamp: row['timestamp'],
-                id: row['id'],
-                encrypt: row['encrypt']
-            };
-        } else {
-            return { id: row.id, comment, timestamp: parseInt(row.timestamp), user_id: row.user_id, original_url: row.original_url, sent_to: row.sent_to, session_id: row.session_id, source: row.source, kind: "comment", encrypt: row.encrypt }
-        }
+        return { id: row.id, comment, timestamp: parseInt(row.timestamp), user_id: row.user_id, original_url: row.original_url, sent_to: row.sent_to, session_id: row.session_id, source: row.source, kind: "comment", encrypt: row.encrypt }
     };
     time_after = time_after ? time_after : -1;
     var func;

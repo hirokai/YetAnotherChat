@@ -474,6 +474,32 @@ export class Model {
             return { timestamp, fingerprint };
         }
     }
+    files = {
+        upload: async (session_id: string, formData: FormData): Promise<{ ok: boolean, files: { path: string, file_id: string }[] }> => {
+            return new Promise((resolve) => {
+                $.ajax({
+                    url: '/api/files?kind=file&session_id=' + session_id + '&token=' + this.token,
+                    type: 'post',
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    dataType: 'html'
+                }).then((r) => {
+                    const res = JSON.parse(r);
+                    resolve(res);
+                }, (err) => {
+                    console.log('error', err);
+                });
+            });
+        },
+        upload_and_post: async (session_id, formData) => {
+            const { files } = await this.files.upload(session_id, formData);
+            map(files, (file) => {
+                const comment = '<__file::' + file.file_id + '::' + file.path + '>';
+                this.comments.new({ comment, session: session_id })
+            });
+        }
+    }
 }
 
 async function processComment(m1: ChatEntry, model: Model): Promise<ChatEntryClient> {
@@ -508,38 +534,35 @@ async function processComment(m1: ChatEntry, model: Model): Promise<ChatEntryCli
     return v;
 }
 
-async function processEvent(m1: ChatEntry): Promise<ChatEntryClient> {
-    const user: string = m1.user_id;
-    const m = <SessionEvent>m1;
-    var v: ChatEntryClient = { id: m.id, user, comment: "", timestamp: m.timestamp, formattedTime: formatTime(m.timestamp), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "", encrypt: m1.encrypt };
-    v.comment = "（参加しました）";
-    v.action = m.action;
-    return v;
+async function processEvent(m1: ChatEntryClient): Promise<ChatEntryClient> {
+    const m = clone(m1);
+    m.kind = 'event'
+    m.comment = '（参加しました）'
+    return m1;
 }
 
-async function processFile(m1: ChatEntry): Promise<ChatEntryClient> {
-    const user: string = m1.user_id;
-    const m = <ChatFile>m1;
-    var v: ChatEntryClient = { id: m.id, user, comment: "", timestamp: m.timestamp, formattedTime: formatTime(m.timestamp), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "", encrypt: m1.encrypt };
-    v.comment = "（ファイル：" + m.url + "）";
-    v.url = m.url;
+async function processFile(m: ChatEntryClient): Promise<ChatEntryClient> {
+    const re = m.comment.match(/<__file::(.+)::(.+)>/);
+    const file_id = re[1];
+    const url = re[2];
+    m.kind = 'file';
+    var v: ChatEntryClient = Object.assign({}, m, { user_id: m.user, session_id: m.session, file_id, url });
     return v;
 }
 
 export async function processData(res: ChatEntry[], model: Model): Promise<ChatEntryClient[]> {
     return Promise.all(map(res, (m1) => {
         // console.log('processData', m1);
-        switch (m1.kind) {
-            case "comment": {
-                return processComment(m1, model);
+        return processComment(m1, model).then((c: ChatEntryClient) => {
+            if (c.comment.slice(0, 9) == '<__file::') {
+                c.kind = 'file';
+                return processFile(c);
+            } else if (c.comment.slice(0, 10) == '<__event::') {
+                return processEvent(c);
+            } else {
+                return c;
             }
-            case "event": {
-                return processEvent(m1);
-            }
-            case "file": {
-                return processFile(m1);
-            }
-        }
+        });
     }));
 }
 
