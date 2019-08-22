@@ -122,6 +122,9 @@ port reloadSession : String -> Cmd msg
 port downloadPrivateKey : () -> Cmd msg
 
 
+port uploadPrivateKey : () -> Cmd msg
+
+
 port resetKeys : () -> Cmd msg
 
 
@@ -535,7 +538,7 @@ type Msg
     | DeleteRoom String
     | ReloadRoom String
     | SearchUser String
-    | UploadPrivateKey Json.Encode.Value
+    | UploadPrivateKey
     | DownloadPrivateKey
     | ResetKeys
     | SetValue String String
@@ -833,8 +836,8 @@ update msg model =
         DownloadPrivateKey ->
             ( model, downloadPrivateKey () )
 
-        UploadPrivateKey _ ->
-            ( model, Cmd.none )
+        UploadPrivateKey ->
+            ( model, uploadPrivateKey () )
 
         ResetKeys ->
             ( model, resetKeys () )
@@ -1902,11 +1905,27 @@ userSettingView user model =
                             [ ul []
                                 [ li []
                                     [ span [] [ text "公開鍵のFingerprint: " ]
-                                    , span [ class "fingerprint" ] [ text model.profile.publicKey ]
+                                    , span [ class "fingerprint" ]
+                                        [ text
+                                            (if model.profile.publicKey == "" then
+                                                "（鍵がありません）"
+
+                                             else
+                                                model.profile.publicKey
+                                            )
+                                        ]
                                     ]
                                 , li []
                                     [ span [] [ text "秘密鍵のFingerprint: " ]
-                                    , span [ class "fingerprint" ] [ text model.profile.privateKey ]
+                                    , span [ class "fingerprint" ]
+                                        [ text
+                                            (if model.profile.privateKey == "" then
+                                                "（鍵がありません）"
+
+                                             else
+                                                model.profile.privateKey
+                                            )
+                                        ]
                                     ]
                                 ]
                             ]
@@ -1920,7 +1939,7 @@ userSettingView user model =
                         , div [ style "margin-bottom" "10px" ]
                             [ span [] [ text "秘密鍵を書き出し" ]
                             , a
-                                [ class "btn btn-primary", onClick DownloadPrivateKey, download "private_key.json", id "download-private-key" ]
+                                [ classList [ ( "btn", True ), ( "btn-primary", True ), ( "disabled", model.profile.privateKey == "" ) ], onClick DownloadPrivateKey, download "private_key.json", id "download-private-key" ]
                                 [ text "書き出す" ]
                             , br [] []
                             , label [ for "upload-private-key" ]
@@ -1931,7 +1950,7 @@ userSettingView user model =
                                 ]
                                 []
                             ]
-                        , div [ style "margin-bottom" "10px" ] [ button [ class "btn btn-primary" ] [ text "鍵をサーバーに預ける" ], br [] [], span [] [ text "サーバーに5分間だけ秘密鍵を保管します。5分間のうちに他の利用端末でログインし，秘密鍵をダウンロードしてください。" ] ]
+                        , div [ style "margin-bottom" "10px" ] [ button [ class "btn btn-primary", disabled (model.profile.privateKey == ""), onClick UploadPrivateKey ] [ text "鍵をサーバーに預ける" ], br [] [], span [] [ text "サーバーに5分間だけ秘密鍵を保管します。5分間のうちに他の利用端末でログインすると，秘密鍵が自動でダウンロードされ端末に保存されます。" ] ]
                         , div []
                             [ a [ class "btn btn-danger", onClick ResetKeys ] [ text "鍵を生成し直す" ]
                             ]
@@ -1996,7 +2015,7 @@ userProfileView user model =
                                    )
                             )
                         , div
-                            [ classList [ ( "profile-img", True ), ( "mine", user.id == model.myself ), ("droppable", user.id == model.myself) ]
+                            [ classList [ ( "profile-img", True ), ( "mine", user.id == model.myself ), ( "droppable", user.id == model.myself ) ]
                             , attribute "data-file_id" (Maybe.withDefault "" <| Maybe.map .file_id current_file)
                             ]
                             [ img [ src <| Maybe.withDefault "" <| Maybe.map .url current_file ] [] ]

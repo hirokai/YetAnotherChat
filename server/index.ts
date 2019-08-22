@@ -621,6 +621,26 @@ app.delete('/api/files/:id', (req: DeleteRequest<DeleteFileRequestParam, DeleteF
     });
 });
 
+app.get('/api/private_key', (req, res) => {
+    const user_id = req.decoded.user_id;
+    model.get_private_key(user_id).then(({ ok, privateKey }) => {
+        res.json({ ok, privateKey });
+    })
+});
+
+app.post('/api/private_key', (req, res) => {
+    const user_id = req.decoded.user_id;
+    const private_key: JsonWebKey = req.body.private_key;
+    model.temporarily_store_private_key(user_id, private_key).then((ok) => {
+        res.json({ ok });
+    })
+});
+
+//Periodically remove old IDs.
+setInterval(async () => {
+    await model.remove_old_temporary_private_key();
+}, 10000);
+
 app.get('/api/public_keys/me', (req: GetAuthRequest, res: JsonResponse<GetPublicKeysResponse>) => {
     const user_id = req.decoded.user_id;
     const for_user = req.query.for_user || user_id;

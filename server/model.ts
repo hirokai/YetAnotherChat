@@ -491,6 +491,40 @@ export function parseMailgunWebhookThread(body): MailgunParsed[] {
     });
 }
 
+export async function get_private_key(user_id: string): Promise<{ ok: boolean, privateKey: JsonWebKey }> {
+    return new Promise((resolve) => {
+        const timestamp = new Date().getTime();
+        db.get('select * from private_key_temporary where user_id=?;', user_id, (err, row) => {
+            resolve({ ok: !!row, privateKey: row ? JSON.parse(row['key']) : undefined });
+        });
+    });
+}
+
+export async function temporarily_store_private_key(user_id: string, key: JsonWebKey): Promise<boolean> {
+    return new Promise((resolve) => {
+        const key_str = JSON.stringify(key);
+        const timestamp = new Date().getTime();
+        db.run('insert into private_key_temporary (user_id,timestamp,key) values (?,?,?);', user_id, timestamp, key_str, (err) => {
+            if (err) {
+                db.run('update private_key_temporary set timestamp=?,key=? where user_id=?', timestamp, key_str, user_id, (err2) => {
+                    resolve(err2 == null);
+                });
+            } else {
+                resolve(true);
+            }
+        });
+    });
+}
+
+export async function remove_old_temporary_private_key() {
+    return new Promise((resolve) => {
+        const threshold = new Date().getTime() - 1000 * 60 * 5; // 5 minutes
+        db.run('delete from private_key_temporary where timestamp<?', threshold, (err) => {
+            resolve(!err);
+        });
+    });
+}
+
 export function get_original_email_highlighted(mail_id: string): Promise<{ lines: { line: string, highlight: boolean }[], subject: string, range: { start: number, end: number } }> {
     return new Promise((resolve, reject) => {
         const m = mail_id.match(/(.+)::lines=(\d+)-(\d+)/);

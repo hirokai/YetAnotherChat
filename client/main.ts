@@ -34,7 +34,15 @@ if (!token || token == '') {
 // throw new Error('Abort');
 
 (async () => {
-    const model = new Model(user_id, token);
+    const model = new Model(user_id, token)
+    model.onInit = () => {
+        model.keys.get_my_fingerprint().then((fp) => {
+            if (fp) {
+                app.ports.setValue.send(['my_public_key', fp.pub || ""]);
+                app.ports.setValue.send(['my_private_key', fp.prv || ""]);
+            }
+        });
+    };
 
     window['model'] = model;
 
@@ -48,12 +56,7 @@ if (!token || token == '') {
         recalcPositions(show_toppane, expand_chatinput);
     }, 100);
 
-    model.keys.get_my_fingerprint().then((fp) => {
-        if (fp) {
-            app.ports.setValue.send(['my_public_key', fp.pub || ""]);
-            app.ports.setValue.send(['my_private_key', fp.prv || ""]);
-        }
-    });
+
 
     const socket: SocketIOClient.Socket = io('');
 
@@ -316,8 +319,11 @@ if (!token || token == '') {
         app.ports.feedMessages.send(processed);
     });
 
+    app.ports.uploadPrivateKey.subscribe(async () => {
+        await model.keys.upload_my_private_key();
+    });
+
     app.ports.downloadPrivateKey.subscribe(() => {
-        console.log('downloadPrivateKey()');
         const content = JSON.stringify(model.privateKeyJson, null, 2);
         handleDownload(content);
     });
@@ -552,6 +558,7 @@ interface ElmAppPorts {
     reloadSession: ElmSub<string>;
     saveConfig: ElmSub<{ userWithEmailOnly: boolean }>;
     downloadPrivateKey: ElmSub<void>;
+    uploadPrivateKey: ElmSub<void>;
     resetKeys: ElmSub<void>;
     setValue: ElmSend<string[]>;
     initializeData: ElmSub<void>;

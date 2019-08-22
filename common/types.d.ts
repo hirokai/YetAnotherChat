@@ -189,6 +189,11 @@ type GetPublicKeysResponse = {
     data?: JsonWebKey
 }
 
+type GetPrivateKeyResponse = {
+    ok: boolean,
+    privateKey?: JsonWebKey
+}
+
 interface PostPublicKeyParams extends AuthedParams {
     publicKey: JsonWebKey,
     for_user: string

@@ -24,6 +24,7 @@ export class Model {
     user_id: string
     token: string
     privateKeyJson: JsonWebKey
+    onInit: () => void;
     publicKeys: { [key: string]: CryptoKey } = {}
     snapshot: { [key: string]: { [key: number]: any } };
     readonly MAX_SAVE_SNAPSHOT: number = 2;
@@ -34,18 +35,22 @@ export class Model {
         this.snapshot = {};
         (async () => {
             let keyPair = await this.keys.get_my_keys();
-            if (keyPair) {
+            if (keyPair && keyPair.publicKey && keyPair.privateKey) {
                 const privateKey = keyPair.privateKey;
                 const prv_exported = await crypto.exportKey(privateKey);
                 //For user export, it has to be prepared beforehand (no async operation)
                 this.privateKeyJson = prv_exported;
             } else {
-                console.log('Downloading my public key from server.')
-                const publicKey = await this.keys.download_my_public_key();
-                const publicKey_fp = await crypto.fingerPrint1(publicKey);
-                console.log('Downloaded: ', publicKey_fp);
-                keyPair = { publicKey, privateKey: null };
+                console.log('Downloading my keys from server.')
+                const { publicKey, privateKey } = await this.keys.download_my_keys_from_server();
+                const pub = await crypto.fingerPrint1(publicKey);
+                const prv = await crypto.fingerPrint1(privateKey);
+                console.log('Downloaded: ', pub, prv);
+                keyPair = { publicKey, privateKey };
                 this.keys.save_my_keys(keyPair);
+            }
+            if (this.onInit) {
+                this.onInit();
             }
         })();
     }
@@ -407,12 +412,19 @@ export class Model {
                 await this.keys.save_my_keys(newKeyPair);
             }
         },
-        download_my_public_key: async (): Promise<CryptoKey> => {
+        upload_my_private_key: async () => {
+            const private_key_1 = await this.keys.get_my_keys();
+            const private_key = await crypto.exportKey(private_key_1.privateKey);
+            axios.post('/api/private_key', { private_key });
+        },
+        download_my_keys_from_server: async (): Promise<CryptoKeyPair> => {
             const params: GetPublicKeysParams = { user_id: this.user_id, token: this.token };
 
-            const { data: { data } } = <AxiosResponse<GetPublicKeysResponse>>await axios.get('/api/public_keys/me', { params });
-            console.log('Importing', data);
-            return crypto.importKey(data, true, true);
+            const { data: { data: jwk_pub } } = <AxiosResponse<GetPublicKeysResponse>>await axios.get('/api/public_keys/me', { params });
+            const { data: { privateKey: jwk_prv } } = <AxiosResponse<GetPrivateKeyResponse>>await axios.get('/api/private_key');
+            const publicKey = await crypto.importKey(jwk_pub, true, true);
+            const privateKey = await crypto.importKey(jwk_prv, false, true);
+            return { publicKey, privateKey };
         },
         upload_my_public_key: async (publicKey: CryptoKey) => {
             const jwk = await crypto.exportKey(publicKey);
