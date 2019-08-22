@@ -96,7 +96,7 @@ function getEncryptionKey(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey
 export async function encrypt(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey, input: Uint8Array): Promise<EncryptedData> {
     const fp1 = await fingerPrint1(remotePublicKey);
     const fp2 = await fingerPrint1(localPrivateKey);
-    console.log('encrypt() start', fromUint8Aarray(input), { remote_pub: fp1, self_prv: fp2, remotePublicKey });
+    console.log('encrypt() start', fromUint8Array(input), { remote_pub: fp1, self_prv: fp2, remotePublicKey });
 
     return new Promise((resolve, reject) => {
         if (!remotePublicKey || !localPrivateKey) {
@@ -122,7 +122,7 @@ export async function encrypt(remotePublicKey: CryptoKey, localPrivateKey: Crypt
 }
 
 export async function encrypt_str(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey, input: string): Promise<string> {
-    const encrypted = await encrypt(remotePublicKey, localPrivateKey, toUint8Aarray(input));
+    const encrypted = await encrypt(remotePublicKey, localPrivateKey, toUint8Array(input));
     return encrypted.iv + ':' + encrypted.data;
 }
 
@@ -130,7 +130,7 @@ export async function decrypt_str(remotePublicKey: CryptoKey, localPrivateKey: C
     const cs = encrypted.split(':');
     const data = { iv: cs[0], data: cs[1] };
     const decrypted = await decrypt(remotePublicKey, localPrivateKey, data, info);
-    return fromUint8Aarray(decrypted);
+    return fromUint8Array(decrypted);
 }
 
 export async function decrypt(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey, encrypted: EncryptedData, info?: any): Promise<Uint8Array> {
@@ -140,7 +140,7 @@ export async function decrypt(remotePublicKey: CryptoKey, localPrivateKey: Crypt
 
     return new Promise((resolve, reject) => {
         getEncryptionKey(remotePublicKey, localPrivateKey).then((encryptionKey) => {
-            console.log('getEncryptionKey', { remotePublicKey, localPrivateKey, encryptionKey })
+            // console.log('getEncryptionKey', { remotePublicKey, localPrivateKey, encryptionKey })
             // console.log('decrypt start', encryptionKey, remotePublicKey, localPrivateKey, encrypted);
             // AES-GCMによる復号
             return crypto.subtle.decrypt(
@@ -151,7 +151,7 @@ export async function decrypt(remotePublicKey: CryptoKey, localPrivateKey: Crypt
         }).then(data => {
             resolve(new Uint8Array(data));
         }, (err) => {
-            console.log('decrypt() error', info, err);
+            console.log('decrypt() error', fp1, fp2, encrypted);
             reject();
         });
     });
@@ -206,16 +206,15 @@ export async function fingerPrint(jwk: JsonWebKey): Promise<string> {
         // console.log('fingerPrint(): json', s);
         const arr = new TextEncoder().encode(s);
         const hash_arr = await crypto.subtle.digest('SHA-256', arr);
-        return encodeBase64URL(new Uint8Array(hash_arr));
+        return fromUint8Array(new Uint8Array(hash_arr));
     }
 }
 
 // https://stackoverflow.com/questions/34946642/convert-string-to-uint8array-in-javascript
-export function toUint8Aarray(s: string): Uint8Array {
-    let uint8Array = new TextEncoder().encode(s);
-    return Uint8Array.from(uint8Array)
+export function toUint8Array(s: string): Uint8Array {
+    return new TextEncoder().encode(s);
 }
 
-export function fromUint8Aarray(arr: Uint8Array): string {
+export function fromUint8Array(arr: Uint8Array): string {
     return new TextDecoder().decode(arr);
 }

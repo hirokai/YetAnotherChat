@@ -253,7 +253,6 @@ export class Model {
             const room: RoomInfo = await this.sessions.get(session);
             console.log('room members', room);
             const temporary_id = shortid();
-            const comment_encoded = crypto.toUint8Aarray(comment);
             const my_keys = await this.keys.get_my_keys();
             const ds = await Promise.all(map(room.members, (id) => {
                 return this.keys.get(id);
@@ -268,13 +267,13 @@ export class Model {
                         console.log('Encrypting', room.members[i], ts, pub, mypub, prv)
                         // console.log('Error decrypting', m.timestamp, mypub, pub, prv);    
                     })();
-                    return crypto.encrypt(remote_publicKey, my_keys.privateKey, comment_encoded);
+                    return crypto.encrypt_str(remote_publicKey, my_keys.privateKey, comment);
                 }));
-            })
+            });
             let encrypt = 'ecdh.v1';
-            const comments = map(ds, (d: EncryptedData, i: number) => {
+            const comments = map(ds, (encrypted: string, i: number) => {
                 if (encrypt == 'ecdh.v1') {
-                    return { for_user: room.members[i], content: d.iv + ':' + d.data };
+                    return { for_user: room.members[i], content: encrypted };
                 } else if (encrypt == 'none') {
                     return { for_user: room.members[i], content: comment }
                 }
@@ -283,11 +282,12 @@ export class Model {
             const { data: { data } }: AxiosResponse<PostCommentResponse> = await axios.post('/api/sessions/' + session + '/comments', obj);
         },
         on_new: async (msg: CommentsNewSocket): Promise<{ comment_id: string, session_id: string }> => {
-            const [msg1] = await processData([msg.entry], this);
-            const snapshot = await this.sessions.load(msg.entry.session_id);
-            snapshot.comments[msg1.id] = msg1;
-            await this.sessions.save(msg.entry.session_id, snapshot);
-            return { comment_id: msg1.id, session_id: msg.entry.session_id };
+            // const [msg1] = await processData([msg.entry], this);
+            // const snapshot = await this.sessions.load(msg.entry.session_id);
+            // snapshot.comments[msg1.id] = msg1;
+            // await this.sessions.save(msg.entry.session_id, snapshot);
+            await this.sessions.reload(msg.entry.session_id);
+            return { comment_id: msg.entry.id, session_id: msg.entry.session_id };
         },
         on_delete: async (msg: CommentsDeleteSocket): Promise<{ id: string, session_id: string }> => {
             const snapshot = await this.sessions.load(msg.session_id);
@@ -324,6 +324,12 @@ export class Model {
         save: async (session_id: string, data: SessionCache) => {
             // console.log('sessions.save', session_id);
             await this.saveDb('yacht.sessions', 'id', session_id, data, true);
+        },
+        reload: async (session_id: string) => {
+            await this.comments.delete_cache_of_session(session_id);
+            const comments = await this.comments.list_for_session(session_id);
+            console.log('after reset feeding ', comments.length);
+            return comments;
         },
         deleteDb: async (session_id: string) => {
             await this.removeDb('yacht.sessions', 'id', session_id);

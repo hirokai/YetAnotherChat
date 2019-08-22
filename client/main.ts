@@ -147,12 +147,9 @@ if (!token || token == '') {
         console.log('deleteSession', r);
     });
 
-    app.ports.reloadSession.subscribe(async (id) => {
-        await model.comments.delete_cache_of_session(id);
-        model.comments.list_for_session(id).then((comments) => {
-            console.log('after reset feeding ', comments.length);
-            app.ports.feedMessages.send(comments)
-        });
+    app.ports.reloadSession.subscribe(async (session_id) => {
+        const comments = await model.sessions.reload(session_id);
+        app.ports.feedMessages.send(comments);
     });
 
     app.ports.scrollToBottom.subscribe(scrollToBottom);
