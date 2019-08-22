@@ -76,6 +76,33 @@
     <div id='info'></div>
 
     <script>
+        function loadOrDownloadKeyPair() {
+            return new Promise((resolve) => {
+                const storeName = 'yacht.keyPair'
+                const openReq = indexedDB.open(storeName);
+
+                openReq.onupgradeneeded = function (event) {
+                    var db = event.target.result;
+                    db.createObjectStore(storeName, { keyPath: 'id' });
+                }
+                openReq.onsuccess = function (event) {
+                    // console.log('openReq.onsuccess');
+                    var db = event.target.result;
+                    var trans = db.transaction(storeName, 'readonly');
+                    var store = trans.objectStore(storeName);
+                    var req = store.get('myself');
+                    req.onsuccess = function () {
+                        resolve(req.result ? req.result.keyPair : null);
+                    }
+                    req.onerror = function () {
+                        resolve(null);
+                    }
+                    trans.oncomplete = function () {
+                    }
+                }
+            });
+
+        }
         function submit(a) {
         }
         $(() => {

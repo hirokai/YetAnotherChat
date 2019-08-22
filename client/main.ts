@@ -334,17 +334,14 @@ if (!token || token == '') {
     });
 
     $(() => {
-        const profile_img = $('.profile-img.mine');
-        profile_img.addClass('droppable')
-
-        profile_img.on('dragover', (ev) => {
+        $(document).on('dragover', '.profile-img.mine', (ev) => {
             $(ev.target).addClass('dragover');
             ev.preventDefault();
         });
-        profile_img.on('dragleave', (ev) => {
+        $(document).on('dragleave', '.profile-img.mine', (ev) => {
             $(ev.target).removeClass('dragover');
         });
-        profile_img.on('drop', (ev: any) => {
+        $(document).on('drop', '.profile-img.mine', (ev: any) => {
             const event: DragEvent = ev.originalEvent;
             console.log(ev);
             ev.stopPropagation();
@@ -369,15 +366,14 @@ if (!token || token == '') {
             console.log(files);
         });
 
-        const chat_body = $('#chat-input');
-        chat_body.on('dragover', (ev) => {
+        $(document).on('dragover', '#chat-input', (ev) => {
             $(ev.target).addClass('dragover');
             ev.preventDefault();
         });
-        chat_body.on('dragleave', (ev) => {
+        $(document).on('dragleave', '#chat-input', (ev) => {
             $(ev.target).removeClass('dragover');
         });
-        chat_body.on('drop', (ev: any) => {
+        $(document).on('drop', '#chat-input', (ev: any) => {
             const event: DragEvent = ev.originalEvent;
             console.log(ev);
             ev.stopPropagation();
@@ -401,10 +397,9 @@ if (!token || token == '') {
         $('[data-toggle="tooltip"]').tooltip();
 
         const subject = $('#toppane-subject');
-        const chat_outer = $('#chat-outer');
-        chat_outer.on('scroll', () => {
+        $(document).on('scroll', '#chat-outer', () => {
             const pos_threshold = 40;
-            const pos = chat_outer.scrollTop();
+            const pos = $('#chat-outer').scrollTop();
             if (prev_pos < pos_threshold && pos >= pos_threshold) {
                 subject.removeClass('hidden');
             } else if (prev_pos > pos_threshold && pos <= pos_threshold) {
@@ -412,7 +407,8 @@ if (!token || token == '') {
             }
             prev_pos = pos;
         });
-        $('#upload-private-key').change(handleFileSelect);
+        console.log('#upload-private-key', $('#upload-private-key'))
+        $(document).on('change', '#upload-private-key', handleFileSelect);
 
     });
 
@@ -484,12 +480,15 @@ if (!token || token == '') {
         var files = evt.target.files; // FileList object
 
         var reader = new FileReader();
+        console.log('handleFileSelect');
 
         // Closure to capture the file information.
         reader.onload = () => {
             (async () => {
                 const prv_jwk: JsonWebKey = JSON.parse(<string>reader.result);
                 await model.keys.import_private_key(prv_jwk);
+                const fp = await crypto.fingerPrint(prv_jwk);
+                app.ports.setValue.send(['my_private_key', fp || ""]);
             })();
         }
 

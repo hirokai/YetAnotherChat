@@ -33,10 +33,20 @@ export class Model {
         console.log('Model initalized:', { token });
         this.snapshot = {};
         (async () => {
-            const privateKey = (await this.keys.get_my_keys()).privateKey;
-            const prv_exported = await crypto.exportKey(privateKey);
-            //For user export, it has to be prepared beforehand (no async operation)
-            this.privateKeyJson = prv_exported;
+            let keyPair = await this.keys.get_my_keys();
+            if (keyPair) {
+                const privateKey = keyPair.privateKey;
+                const prv_exported = await crypto.exportKey(privateKey);
+                //For user export, it has to be prepared beforehand (no async operation)
+                this.privateKeyJson = prv_exported;
+            } else {
+                console.log('Downloading my public key from server.')
+                const publicKey = await this.keys.download_my_public_key();
+                const publicKey_fp = await crypto.fingerPrint1(publicKey);
+                console.log('Downloaded: ', publicKey_fp);
+                keyPair = { publicKey, privateKey: null };
+                this.keys.save_my_keys(keyPair);
+            }
         })();
     }
     saveDb(storeName: string, keyName: string, key: string, data: any, use_internal_key: boolean): Promise<void> {
@@ -363,7 +373,7 @@ export class Model {
         },
         get_my_keys: async (): Promise<CryptoKeyPair> => {
             const data: MyKeyCacheData = await this.loadDb('yacht.keyPair', 'id', 'myself');
-            return data.keyPair;
+            return data ? data.keyPair : null;
         },
         save_my_keys: async (keyPair: CryptoKeyPair): Promise<void> => {
             const prv_e_p = crypto.exportKey(keyPair.privateKey);
@@ -377,11 +387,12 @@ export class Model {
             await this.saveDb('yacht.keyPair', 'id', 'myself', obj, true);
         },
         import_private_key: async (jwk: JsonWebKey) => {
-            const data: MyKeyCacheData = await this.loadDb('yacht.keyPair', 'id', 'myself');
-            if (data != null) {
+            const keyPair: CryptoKeyPair = await this.keys.get_my_keys();
+            console.log('import_private_key', keyPair);
+            if (keyPair != null) {
                 const prv_imported = await crypto.importKey(jwk, false, true);
-                data.keyPair.privateKey = prv_imported;
-                await this.saveDb('yacht.users', 'id', 'myself', data, true);
+                const newKeyPair = { privateKey: prv_imported, publicKey: keyPair.publicKey }
+                await this.keys.save_my_keys(newKeyPair);
             }
         },
         download_my_public_key: async (): Promise<CryptoKey> => {
@@ -389,7 +400,7 @@ export class Model {
 
             const { data: { data } } = <AxiosResponse<GetPublicKeysResponse>>await axios.get('/api/public_keys/me', { params });
             console.log('Importing', data);
-            return crypto.importKey(data, true);
+            return crypto.importKey(data, true, true);
         },
         upload_my_public_key: async (publicKey: CryptoKey) => {
             const jwk = await crypto.exportKey(publicKey);

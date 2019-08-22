@@ -8,6 +8,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Json.Decode as Json
 import Json.Decode.Extra as JE
+import Json.Encode
 import List.Extra
 import Maybe.Extra exposing (..)
 import Regex exposing (..)
@@ -534,6 +535,7 @@ type Msg
     | DeleteRoom String
     | ReloadRoom String
     | SearchUser String
+    | UploadPrivateKey Json.Encode.Value
     | DownloadPrivateKey
     | ResetKeys
     | SetValue String String
@@ -830,6 +832,9 @@ update msg model =
 
         DownloadPrivateKey ->
             ( model, downloadPrivateKey () )
+
+        UploadPrivateKey _ ->
+            ( model, Cmd.none )
 
         ResetKeys ->
             ( model, resetKeys () )
@@ -1921,7 +1926,9 @@ userSettingView user model =
                             , label [ for "upload-private-key" ]
                                 [ text "秘密鍵を取り込み" ]
                             , input
-                                [ id "upload-private-key", type_ "file" ]
+                                [ id "upload-private-key"
+                                , type_ "file"
+                                ]
                                 []
                             ]
                         , div [ style "margin-bottom" "10px" ] [ button [ class "btn btn-primary" ] [ text "鍵をサーバーに預ける" ], br [] [], span [] [ text "サーバーに5分間だけ秘密鍵を保管します。5分間のうちに他の利用端末でログインし，秘密鍵をダウンロードしてください。" ] ]
@@ -1989,7 +1996,7 @@ userProfileView user model =
                                    )
                             )
                         , div
-                            [ classList [ ( "profile-img", True ), ( "mine", user.id == model.myself ) ]
+                            [ classList [ ( "profile-img", True ), ( "mine", user.id == model.myself ), ("droppable", user.id == model.myself) ]
                             , attribute "data-file_id" (Maybe.withDefault "" <| Maybe.map .file_id current_file)
                             ]
                             [ img [ src <| Maybe.withDefault "" <| Maybe.map .url current_file ] [] ]
