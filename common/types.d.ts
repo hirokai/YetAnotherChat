@@ -307,6 +307,11 @@ type SessionsNewSocket = {
     temporary_id: string,
 }
 
+type SessionsDeleteSocket = {
+    __type: 'sessions.delete',
+    id: string,
+}
+
 type SessionsUpdateSocket = {
     __type: 'sessions.update',
     id: string,

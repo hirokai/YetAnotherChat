@@ -753,11 +753,11 @@ export function decipher(cipheredText: string, password: string = credentials.ci
     }
 }
 
-export async function post_comment_for_session_members(user_id: string, session_id: string, timestamp: number, comments: { for_user: string; content: string; }[]): Promise<{ ok: boolean, data?: CommentTyp, error?: string }[]> {
+export async function post_comment_for_session_members(user_id: string, session_id: string, timestamp: number, comments: { for_user: string; content: string; }[], encrypt: string): Promise<{ ok: boolean, data?: CommentTyp, error?: string }[]> {
     const encrypt_group = shortid();
     return Promise.all(map(comments, ({ for_user, content }) => {
         const comment_id = shortid();
-        return post_comment({ comment_id, user_id, session_id, timestamp, comment: content, encrypt: "ecdh.v1", for_user, source: "self", encrypt_group });
+        return post_comment({ comment_id, user_id, session_id, timestamp, comment: content, encrypt, for_user, source: "self", encrypt_group });
     }));
 }
 

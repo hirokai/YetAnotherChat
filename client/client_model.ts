@@ -227,7 +227,7 @@ export class Model {
                 const new_snapshot: SessionCache = { id: snapshot.id, comments: updated_comments };
                 const list = sortBy(values(updated_comments), 'timestamp');
                 await this.sessions.save(session, new_snapshot);
-                console.info('Updated', snapshot.comments.length, delta, new_snapshot.comments.length);
+                console.info('Updated', Object.keys(snapshot.comments).length, delta, Object.keys(new_snapshot.comments).length);
                 return list;
             } else {
                 const { data: { ok, data } }: { data: { ok: boolean, data: ChatEntry[] } } = await axios.get('/api/sessions/' + session + '/comments');
@@ -271,10 +271,15 @@ export class Model {
                     return crypto.encrypt(remote_publicKey, my_keys.privateKey, comment_encoded);
                 }));
             })
+            let encrypt = 'ecdh.v1';
             const comments = map(ds, (d: EncryptedData, i: number) => {
-                return { for_user: room.members[i], content: d.iv + ':' + d.data };
+                if (encrypt == 'ecdh.v1') {
+                    return { for_user: room.members[i], content: d.iv + ':' + d.data };
+                } else if (encrypt == 'none') {
+                    return { for_user: room.members[i], content: comment }
+                }
             })
-            const obj: PostCommentData = { comments, temporary_id, encrypt: 'ecdh.v1' };
+            const obj: PostCommentData = { comments, temporary_id, encrypt };
             const { data: { data } }: AxiosResponse<PostCommentResponse> = await axios.post('/api/sessions/' + session + '/comments', obj);
         },
         on_new: async (msg: CommentsNewSocket): Promise<{ comment_id: string, session_id: string }> => {
@@ -317,11 +322,11 @@ export class Model {
             return await this.loadDb('yacht.sessions', 'id', session_id);
         },
         save: async (session_id: string, data: SessionCache) => {
-            console.log('sessions.save', session_id);
-            if (!includes(['gQcq8X_25', 'gQcq8X_25', '3vDctYrMw'], session_id)) {
-                // throw new Error('sessions.save wrong');
-            }
+            // console.log('sessions.save', session_id);
             await this.saveDb('yacht.sessions', 'id', session_id, data, true);
+        },
+        deleteDb: async (session_id: string) => {
+            await this.removeDb('yacht.sessions', 'id', session_id);
         },
         get: async (id: string): Promise<RoomInfo> => {
             const { data: r }: { data: GetSessionResponse } = await axios.get('/api/sessions/' + id);
@@ -342,6 +347,11 @@ export class Model {
         },
         on_new: async (msg: SessionsNewSocket): Promise<void> => {
             console.log('sessions.on_new', msg);
+            await this.sessions.deleteDb(msg.id);
+            return;
+        },
+        on_delete: async (msg: SessionsDeleteSocket): Promise<void> => {
+            console.log('sessions.on_delete', msg.id);
             return;
         },
         on_update: async (msg: SessionsUpdateSocket): Promise<void> => {
@@ -452,6 +462,7 @@ async function processComment(m1: ChatEntry, model: Model): Promise<ChatEntryCli
     // console.log('Processing comment by ', m.user_id);
     const remote_publicKey = await model.keys.get(m.user_id);
     let deciphered_comment: string;
+    console.log('processComment', m1.id, m1.encrypt);
     if (m.encrypt == 'ecdh.v1') {
         const my_keys = await model.keys.get_my_keys();
         deciphered_comment = await crypto.decrypt_str(remote_publicKey, my_keys.privateKey, m.comment, m.user_id).catch(() => {

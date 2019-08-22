@@ -26,7 +26,7 @@ port getUsers : () -> Cmd msg
 port feedUsers : (List User -> msg) -> Sub msg
 
 
-port onChangeData : ({ resource : String, id : String } -> msg) -> Sub msg
+port onChangeData : ({ resource : String, id : String, operation : String } -> msg) -> Sub msg
 
 
 port initializeData : () -> Cmd msg
@@ -534,7 +534,7 @@ type Msg
     | Logout
     | SetTimeZone Zone
     | SendCommentDone ()
-    | OnChangeData { resource : String, id : String }
+    | OnChangeData { resource : String, id : String, operation : String }
     | DeleteRoom String
     | ReloadRoom String
     | SearchUser String
@@ -809,14 +809,18 @@ update msg model =
         Logout ->
             ( model, logout () )
 
-        OnChangeData { resource, id } ->
+        OnChangeData { resource, id, operation } ->
             let
                 cmd =
                     if resource == "comments" && getRoomID model == Just id then
                         Cmd.none
 
                     else if resource == "sessions" then
-                        Cmd.batch [ getRoomInfo (), getMessages id ]
+                        if operation == "delete" then
+                            getRoomInfo ()
+
+                        else
+                            Cmd.batch [ getRoomInfo (), getMessages id ]
 
                     else if resource == "users" then
                         getUsers ()

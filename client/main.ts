@@ -86,31 +86,37 @@ if (!token || token == '') {
     socket.on("users.update", async (msg: UsersUpdateSocket) => {
         await model.users.on_update(msg);
         if (msg.user_id != null) {
-            app.ports.onChangeData.send({ resource: "users", id: msg.user_id });
+            app.ports.onChangeData.send({ resource: "users", id: msg.user_id, operation: "update" });
         }
     });
 
     socket.on("sessions.new", async (msg: SessionsNewSocket) => {
         await model.sessions.on_new(msg);
-        app.ports.onChangeData.send({ resource: "sessions", id: "" });
+        app.ports.onChangeData.send({ resource: "sessions", id: "", operation: "new" });
+    });
+
+    socket.on("sessions.delete", async (msg: SessionsDeleteSocket) => {
+        await model.sessions.on_delete(msg);
+        app.ports.onChangeData.send({ resource: "sessions", id: "", operation: "delete" });
     });
 
     socket.on("sessions.update", async (msg: SessionsUpdateSocket) => {
         await model.sessions.on_update(msg);
-        app.ports.onChangeData.send({ resource: "sessions", id: msg.id });
+        app.ports.onChangeData.send({ resource: "sessions", id: msg.id, operation: "update" });
     });
 
     socket.on("comments.new", async (msg: CommentsNewSocket) => {
         const r = await model.comments.on_new(msg);
         if (r != null) {
-            app.ports.onChangeData.send({ resource: "sessions", id: r.session_id });
+            app.ports.onChangeData.send({ resource: "sessions", id: r.session_id, operation: "comments.new" });
+            scrollToBottom();
         }
     });
 
     socket.on("comments.delete", async (msg: CommentsDeleteSocket) => {
         const { session_id } = await model.comments.on_delete(msg);
         if (session_id != null) {
-            app.ports.onChangeData.send({ resource: "sessions", id: session_id });
+            app.ports.onChangeData.send({ resource: "sessions", id: session_id, operation: 'comments.delete' });
         }
     });
 
@@ -228,11 +234,7 @@ if (!token || token == '') {
 
     app.ports.getRoomInfo.subscribe(getAndfeedRoomInfo);
 
-    var temporary_id_list = [];
-
     app.ports.sendCommentToServer.subscribe(({ comment, session }: { comment: string, session: string }) => {
-        const temporary_id = shortid();
-        temporary_id_list.push(temporary_id);
         model.comments.new({ comment, session }).then(() => {
             app.ports.sendCommentToServerDone.send(null);
             getAndfeedRoomInfo();
@@ -525,7 +527,7 @@ type ElmSub<T> = {
 
 interface ElmAppPorts {
     getMessages: ElmSub<string>;
-    onChangeData: ElmSend<{ resource: string, id: string }>;
+    onChangeData: ElmSend<{ resource: string, id: string, operation: string }>;
     scrollToBottom: ElmSub<void>;
     scrollTo: ElmSub<string>;
     createNewSession: ElmSub<any[]>;

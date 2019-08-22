@@ -399,6 +399,8 @@ app.delete('/api/sessions/:id', (req, res: JsonResponse<CommentsDeleteResponse>)
                 db.run('delete from session_events where session_id=?;', id, (err4) => {
                     if (!err && !err2 && !err3 && !err4) {
                         res.json({ ok: true });
+                        const obj: SessionsDeleteSocket = { __type: 'sessions.delete', id };
+                        io.emit('sessions.delete', obj);
                     } else {
                         res.json({ ok: false });
                     }
@@ -535,7 +537,7 @@ app.post('/api/sessions/:session_id/comments', (req: MyPostRequest<PostCommentDa
             const temporary_id = req.body.temporary_id;
             console.log('/api/comments');
 
-            const ps = model.post_comment_for_session_members(user_id, session_id, timestamp, comments);
+            const ps = model.post_comment_for_session_members(user_id, session_id, timestamp, comments, req.body.encrypt);
             ps.then((rs) => {
                 res.json({ ok: true });
                 const { data: d, ok, error } = rs[0];
