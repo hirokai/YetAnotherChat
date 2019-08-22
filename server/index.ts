@@ -6,7 +6,7 @@ const production = false;
 
 import * as model from './model'
 const express = require('express');
-const logger = require('morgan');
+const morgan = require('morgan');
 const app = express();
 const glob = require("glob");
 const bodyParser = require("body-parser");
@@ -23,6 +23,7 @@ const jwt = require('jsonwebtoken');
 const credential = require('./private/credential');
 import * as ec from './error_codes';
 import multer from 'multer';
+import chalk from 'chalk';
 
 const http = require('http').createServer(app);
 
@@ -45,8 +46,16 @@ if (production) {
 
 const io = require('socket.io')(production ? https : http);
 
+const morgan_date = morgan.token('date', (req, res) => {
+    return new moment().format();
+});
 
-app.use(logger("short"));
+const morgan_user_id = morgan.token('user_id', (req, res) => {
+    return req.decoded ? req.decoded.user_id : 'null';
+});
+
+app.use(morgan(':date[iso] :user_id :method :url :status - :response-time ms'));
+
 app.set("view engine", "ejs");
 var compression = require('compression');
 app.use(compression());
