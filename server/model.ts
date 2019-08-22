@@ -279,7 +279,7 @@ export function get_session_list(params: { user_id: string, of_members: string[]
                 order by s.timestamp desc;`, '%' + user_id + '%', (err, sessions) => {
                     Promise.all(map(sessions, (s) => {
                         return new Promise((resolve1) => {
-                            db.all("select count(*),user_id,max(timestamp),min(timestamp) from comments where session_id=? group by user_id;", s.id, (err, users) => {
+                            db.all("select count(*),user_id,max(timestamp),min(timestamp) from comments where session_id=? and for_user=? group by user_id;", s.id, user_id, (err, users) => {
                                 const first = min(map(users, 'min(timestamp)')) || -1;
                                 const last = max(map(users, 'max(timestamp)')) || -1;
                                 var count: { [key: string]: number } = chain(users).keyBy('user_id').mapValues((u) => {
