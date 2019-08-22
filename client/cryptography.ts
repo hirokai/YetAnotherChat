@@ -136,7 +136,6 @@ export async function decrypt_str(remotePublicKey: CryptoKey, localPrivateKey: C
 export async function decrypt(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey, encrypted: EncryptedData, info?: any): Promise<Uint8Array> {
     const fp1 = await fingerPrint1(remotePublicKey);
     const fp2 = await fingerPrint1(localPrivateKey);
-    console.log('decrypt() start', encrypted.iv, { remote_pub: fp1, self_prv: fp2 });
 
     return new Promise((resolve, reject) => {
         getEncryptionKey(remotePublicKey, localPrivateKey).then((encryptionKey) => {
@@ -151,7 +150,7 @@ export async function decrypt(remotePublicKey: CryptoKey, localPrivateKey: Crypt
         }).then(data => {
             resolve(new Uint8Array(data));
         }, (err) => {
-            console.log('decrypt() error', fp1, fp2, encrypted);
+            console.log('decrypt() error', { remote_pub: fp1, self_prv: fp2 }, encrypted);
             reject();
         });
     });
@@ -206,7 +205,7 @@ export async function fingerPrint(jwk: JsonWebKey): Promise<string> {
         // console.log('fingerPrint(): json', s);
         const arr = new TextEncoder().encode(s);
         const hash_arr = await crypto.subtle.digest('SHA-256', arr);
-        return fromUint8Array(new Uint8Array(hash_arr));
+        return encodeBase64URL(new Uint8Array(hash_arr));
     }
 }
 

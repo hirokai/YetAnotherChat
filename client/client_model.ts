@@ -202,32 +202,33 @@ export class Model {
             }
             return data;
         },
-        fetch_since: async (session_id: string, snapshot: SessionCache): Promise<CommentChange[]> => {
+        fetch_since: async (session_id: string, snapshot: SessionCache): Promise<{ delta: CommentChange[], time_after: number }> => {
             if (snapshot.comments) {
                 const timestamps = map(snapshot.comments, (v) => v.timestamp);
                 const time_after = timestamps.length == 0 ? 0 : max(timestamps);
+                console.log('Snapshot exists. up to ', time_after);
                 const cached_ids = map(snapshot.comments, (d) => d.id);
                 const body: GetCommentsDeltaData = { last_updated: time_after, cached_ids };
                 console.log('comments delta req', body)
-                const { data }: { data: CommentChange[] } = await axios.post('/api/sessions/' + session_id + '/comments/delta', body);
-                return data;
+                const { data: delta }: { data: CommentChange[] } = await axios.post('/api/sessions/' + session_id + '/comments/delta', body);
+                return { delta, time_after };
             } else {
+                console.log('Snapshot not found. Getting all.')
                 const body: GetCommentsDeltaData = { last_updated: 0, cached_ids: [] };
-                const { data }: { data: CommentChange[] } = await axios.post('/api/sessions/' + session_id + '/comments/delta', { body });
-                return data;
+                const { data: delta }: { data: CommentChange[] } = await axios.post('/api/sessions/' + session_id + '/comments/delta', body);
+                return { delta, time_after: -1 };
             }
         },
         list_for_session: async (session: string): Promise<ChatEntryClient[]> => {
             console.log('list_for_session', session);
             const snapshot: SessionCache = await this.sessions.load(session);
             if (snapshot) {
-                const delta: CommentChange[] = await this.comments.fetch_since(session, snapshot);
-                console.log('Delta: ', delta);
+                const { delta, time_after } = await this.comments.fetch_since(session, snapshot);
                 const updated_comments = await this.comments.apply_delta(snapshot.comments, delta);
                 const new_snapshot: SessionCache = { id: snapshot.id, comments: updated_comments };
                 const list = sortBy(values(updated_comments), 'timestamp');
                 await this.sessions.save(session, new_snapshot);
-                console.info('Updated', Object.keys(snapshot.comments).length, delta, Object.keys(new_snapshot.comments).length);
+                console.info('Updated with delta', time_after, delta, Object.keys(snapshot.comments || {}).length, "->", Object.keys(new_snapshot.comments || {}).length);
                 return list;
             } else {
                 const { data: { ok, data } }: { data: { ok: boolean, data: ChatEntry[] } } = await axios.get('/api/sessions/' + session + '/comments');
@@ -282,11 +283,16 @@ export class Model {
             const { data: { data } }: AxiosResponse<PostCommentResponse> = await axios.post('/api/sessions/' + session + '/comments', obj);
         },
         on_new: async (msg: CommentsNewSocket): Promise<{ comment_id: string, session_id: string }> => {
-            // const [msg1] = await processData([msg.entry], this);
-            // const snapshot = await this.sessions.load(msg.entry.session_id);
-            // snapshot.comments[msg1.id] = msg1;
-            // await this.sessions.save(msg.entry.session_id, snapshot);
-            await this.sessions.reload(msg.entry.session_id);
+            const [msg1] = await processData([msg.entry], this);
+            const snapshot = await this.sessions.load(msg.entry.session_id);
+            if (snapshot) {
+                if (!snapshot.comments) {
+                    snapshot.comments = {};
+                }
+                snapshot.comments[msg1.id] = msg1;
+                await this.sessions.save(msg.entry.session_id, snapshot);
+            }
+            // await this.sessions.reload(msg.entry.session_id);
             return { comment_id: msg.entry.id, session_id: msg.entry.session_id };
         },
         on_delete: async (msg: CommentsDeleteSocket): Promise<{ id: string, session_id: string }> => {

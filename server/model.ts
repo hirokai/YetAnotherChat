@@ -314,7 +314,7 @@ export function get_session_list(params: { user_id: string, of_members: string[]
 }
 
 export async function list_comment_delta({ for_user, session_id, cached_ids, last_updated }: { for_user: string, session_id: string, cached_ids: string[], last_updated: number }): Promise<CommentChange[]> {
-    const comments = await list_comments(for_user, session_id, for_user);
+    const comments = await list_comments(for_user, session_id, null);
     console.log('Comments length:', comments.length);
     return new Promise((resolve) => {
         const cached_id_dict = keyBy(cached_ids);
@@ -333,9 +333,9 @@ export async function list_comment_delta({ for_user, session_id, cached_ids, las
             const current_ids = map(comments, 'id');
             const removed_ids = difference(cached_ids, current_ids);
             console.log('cached and current', for_user, cached_ids, current_ids)
-            // removed_ids.forEach((id) => {
-            //     delta.push({ __type: 'delete', id });
-            // });
+            removed_ids.forEach((id) => {
+                delta.push({ __type: 'delete', id });
+            });
             resolve(delta);
         }
     });
