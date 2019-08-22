@@ -85,9 +85,10 @@ if (!token || token == '') {
 
     socket.on("users.update", async (msg: UsersUpdateSocket) => {
         await model.users.on_update(msg);
-        if (msg.user_id != null) {
-            app.ports.onChangeData.send({ resource: "users", id: msg.user_id, operation: "update" });
-        }
+        const users = await model.users.list();
+        const ps = map(values(users), model.users.toClient);
+        const usersClient = await Promise.all(ps);
+        app.ports.feedUsers.send(usersClient);
     });
 
     socket.on("sessions.new", async (msg: SessionsNewSocket) => {
@@ -174,7 +175,7 @@ if (!token || token == '') {
     });
 
     app.ports.initializeData.subscribe(() => {
-        model.users.get().then(async (us) => {
+        model.users.list().then(async (us) => {
             Promise.all(map(us, model.users.toClient)).then((users) => {
                 app.ports.feedUsers.send(users);
             })
@@ -184,7 +185,8 @@ if (!token || token == '') {
     });
 
     app.ports.getUsers.subscribe(() => {
-        model.users.get().then(async (us) => {
+        console.log('app.ports.getUsers');
+        model.users.list().then(async (us) => {
             Promise.all(map(us, model.users.toClient)).then((users) => {
                 app.ports.feedUsers.send(users);
             })

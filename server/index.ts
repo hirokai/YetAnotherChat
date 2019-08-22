@@ -707,8 +707,8 @@ io.on('connection', function (socket: SocketIO.Socket) {
                 const user_id = decoded.user_id;
                 model.list_online_users().then((previous) => {
                     model.saveSocketId(user_id, socket.id).then((r) => {
-                        // console.log('saveSocketId', r)
-                        // console.log('socket id', user_id, socket.id);
+                        console.log('saveSocketId', r, 'socket id', user_id, socket.id)
+                        console.log('Online users:', previous, user_id)
                         if (!includes(previous, user_id)) {
                             const obj: UsersUpdateSocket = { __type: "users.update", user_id, online: true, timestamp: r.timestamp }
                             io.emit('users.update', obj);

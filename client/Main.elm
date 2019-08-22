@@ -8,7 +8,6 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Json.Decode as Json
 import Json.Decode.Extra as JE
-import Json.Encode
 import List.Extra
 import Maybe.Extra exposing (..)
 import Regex exposing (..)

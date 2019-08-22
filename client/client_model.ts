@@ -118,7 +118,7 @@ export class Model {
             }
         });
     }
-    removeDb(storeName: string, keyName: string, key: string): Promise<void> {
+    removeDb(storeName: string, keyName: string, key?: string): Promise<void> {
         return new Promise((resolve, reject) => {
             const openReq = indexedDB.open(storeName);
             openReq.onupgradeneeded = function (event: any) {
@@ -130,7 +130,12 @@ export class Model {
                 var db = event.target.result;
                 var trans = db.transaction(storeName, 'readwrite');
                 var store = trans.objectStore(storeName);
-                const req = store.delete(key);
+                let req;
+                if (key == null) {
+                    req = store.clear();
+                } else {
+                    req = store.delete(key);
+                }
                 req.onsuccess = function () {
                     // console.log('get data success', getReq.result);
                     resolve();
@@ -145,22 +150,25 @@ export class Model {
         });
     }
     users = {
-        get: async (): Promise<{ [key: string]: User }> => {
+        list: async (): Promise<{ [key: string]: User }> => {
             const snapshot: { [key: string]: User } = keyBy(await this.loadDb('yacht.users', 'id'), 'id');
-            // // console.log('users snapshot', snapshot);
-            // if (Object.keys(snapshot).length > 0) {
-            //     // console.log('Returning users from local DB.')
-            //     return snapshot;
-            // } else {
-            // console.log('Getting users and save to local DB')
-            const r = await axios.get('/api/users');
-            const { data: { data: { users } } } = r;
-            console.log('API users result', r, users);
-            await map(users, (u) => {
-                return this.saveDb('yacht.users', 'id', u.id, u, true);
-            });
-            return keyBy(users, 'id');
-            // }
+            // console.log('users snapshot', snapshot);
+            if (Object.keys(snapshot).length > 0) {
+                // console.log('Returning users from local DB.')
+                return snapshot;
+            } else {
+                console.log('Getting users and save to local DB')
+                const r = await axios.get('/api/users');
+                const { data: { data: { users } } } = r;
+                await map(users, (u) => {
+                    return this.saveDb('yacht.users', 'id', u.id, u, true);
+                });
+                return keyBy(users, 'id');
+            }
+        },
+        reloadAll: async () => {
+            await this.removeDb('yacht.users', 'id');
+            await this.users.list();
         },
         on_update: async (msg: UsersUpdateSocket) => {
             console.log('users.on_update', msg);
