@@ -1287,21 +1287,29 @@ showChannels model =
     , ul [ class "menu-list" ] <|
         List.indexedMap
             (\i r ->
-                li []
-                    [ hr [] []
-                    , div
-                        [ class <|
-                            "chatlist-name clickable"
-                                ++ (if RoomPage r == model.page then
-                                        " current"
+                case Dict.get r model.roomInfo of
+                    Just roomInfo ->
+                        li []
+                            [ hr [] []
+                            , div
+                                [ classList [ ( "chatlist-name", True ), ( "clickable", True ), ( "current", RoomPage r == model.page ) ]
+                                ]
+                                [ a [ href <| "#/sessions/" ++ r ] [ text <| String.fromInt (i + 1) ++ ": " ++ roomName r model ++ " (" ++ (String.fromInt <| Maybe.withDefault 0 <| Dict.get "__total" <| roomInfo.numMessages) ++ ")" ]
+                                , div [ class "chatlist-members" ]
+                                    (List.intersperse (text ",") <|
+                                        List.map (\u -> a [ class "chatlist-member clickable", href <| "#/users/" ++ u ] [ text (getUserName model u) ]) <|
+                                            roomUsers r model
+                                    )
+                                ]
+                            ]
 
-                                    else
-                                        ""
-                                   )
-                        ]
-                        [ a [ href <| "#/sessions/" ++ r ] [ text (String.fromInt (i + 1) ++ ": " ++ roomName r model) ] ]
-                    , div [ class "chatlist-members" ] (List.intersperse (text ",") <| List.map (\u -> a [ class "chatlist-member clickable", href <| "#/users/" ++ u ] [ text (getUserName model u) ]) <| roomUsers r model)
-                    ]
+                    Nothing ->
+                        li []
+                            [ hr [] []
+                            , div
+                                []
+                                [ text "N/A" ]
+                            ]
             )
             model.rooms
     ]
