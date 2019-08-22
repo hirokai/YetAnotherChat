@@ -4,6 +4,8 @@ import * as fs from "fs";
 const path = require('path');
 import { map, filter, includes, orderBy, groupBy, keyBy, min, max, chain, compact, zip, sum, values, sortedUniq, sortBy, difference } from 'lodash';
 
+import { fingerPrint } from '../common/common_model';
+
 const sqlite3 = require('sqlite3');
 const db = new sqlite3.Database(path.join(__dirname, './private/db.sqlite3'));
 // const ulid = require('ulid').ulid;
@@ -401,20 +403,26 @@ export function list_comments(for_user: string, session_id: string, user_id: str
     }
 
     return new Promise((resolve) => {
-        func((err, rows) => {
-            if (session_id) {
-                db.all('select * from session_events where session_id=? and for_user=?', session_id, user_id, (err, rows2) => {
-                    const res1 = map(rows, processRow);
-                    const res2 = map(rows2, (r) => {
-                        r.kind = "event";
-                        return r;
-                    });
-                    resolve(sortBy(res1.concat(res2), ['timestamp', (r) => {
-                        return { 'event': 0, 'comment': 1 }[r.kind];
-                    }]));
-                });
+        db.get('select id from sessions where id=?', session_id, (err1, row1) => {
+            if (row1 == null) {
+                resolve(null);
             } else {
-                resolve(map(rows, processRow));
+                func((err, rows) => {
+                    if (session_id) {
+                        db.all('select * from session_events where session_id=? and for_user=?', session_id, user_id, (err, rows2) => {
+                            const res1 = map(rows, processRow);
+                            const res2 = map(rows2, (r) => {
+                                r.kind = "event";
+                                return r;
+                            });
+                            resolve(sortBy(res1.concat(res2), ['timestamp', (r) => {
+                                return { 'event': 0, 'comment': 1 }[r.kind];
+                            }]));
+                        });
+                    } else {
+                        resolve(map(rows, processRow));
+                    }
+                });
             }
         });
     });
@@ -749,32 +757,39 @@ export async function list_users(myself: string): Promise<User[]> {
             const user_id = row['id'];
             get_public_key({ user_id, for_user: myself }).then((pk1) => {
                 if (pk1) {
-                    // console.log('model.list_users() publicKey', user_id, myself, pk1);
-                    const obj: User = {
-                        emails: row['emails'].split(','),
-                        username: row['name'] || row['id'],
-                        fullname: row['fullname'] || "",
-                        id: user_id,
-                        avatar: '',
-                        publicKey: pk1,
-                        online: includes(online_users, user_id)
-                    }
-                    resolve(obj);
-                } else {
-                    //ToDo: Currently default public key has for_user=user_id.
-                    //But 1-to-1 communication better requires different public keys for every sent-to user.
-                    get_public_key({ user_id, for_user: user_id }).then((pk2) => {
-                        // console.log('model.list_users() publicKey', user_id, user_id, pk2);
+                    fingerPrint(pk1).then((fingerprint) => {
+                        // console.log('model.list_users() publicKey', user_id, myself, pk1);
                         const obj: User = {
                             emails: row['emails'].split(','),
                             username: row['name'] || row['id'],
                             fullname: row['fullname'] || "",
                             id: user_id,
                             avatar: '',
-                            publicKey: pk2,
-                            online: includes(online_users, user_id)
+                            publicKey: pk1,
+                            online: includes(online_users, user_id),
+                            fingerprint
                         }
                         resolve(obj);
+                    });
+                } else {
+                    //ToDo: Currently default public key has for_user=user_id.
+                    //But 1-to-1 communication better requires different public keys for every sent-to user.
+                    get_public_key({ user_id, for_user: user_id }).then((pk2) => {
+                        fingerPrint(pk2).then((fingerprint) => {
+
+                            // console.log('model.list_users() publicKey', user_id, user_id, pk2);
+                            const obj: User = {
+                                emails: row['emails'].split(','),
+                                username: row['name'] || row['id'],
+                                fullname: row['fullname'] || "",
+                                id: user_id,
+                                avatar: '',
+                                publicKey: pk2,
+                                online: includes(online_users, user_id),
+                                fingerprint
+                            }
+                            resolve(obj);
+                        });
                     });
                 }
             });

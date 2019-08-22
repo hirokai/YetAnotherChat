@@ -98,9 +98,9 @@ if (!token || token == '') {
     });
 
     socket.on("comments.new", async (msg: CommentsNewSocket) => {
-        const session_id = await model.comments.on_new(msg);
-        if (session_id != null) {
-            app.ports.onChangeData.send({ resource: "sessions", id: session_id });
+        const r = await model.comments.on_new(msg);
+        if (r != null) {
+            app.ports.onChangeData.send({ resource: "sessions", id: r.session_id });
         }
     });
 
@@ -186,8 +186,12 @@ if (!token || token == '') {
     });
 
     app.ports.getMessages.subscribe((session: string) => {
+        console.log('getMessages ', session);
         model.comments.list_for_session(session).then((comments) => {
-            app.ports.feedMessages.send(comments);
+            if (comments != null) {
+                console.log('feedMessages to send', comments);
+                app.ports.feedMessages.send(comments);
+            }
         });
     });
 

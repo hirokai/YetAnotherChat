@@ -6,6 +6,8 @@ import moment from 'moment';
 const shortid = require('shortid').generate;
 import $ from 'jquery';
 import * as crypto from './cryptography';
+import { Session } from 'inspector';
+import { S_IFBLK } from 'constants';
 
 export type ChatEntry = CommentTyp | SessionEvent | ChatFile;
 
@@ -101,7 +103,7 @@ export class Model {
             }
         });
     }
-    removeDb(storeName: string, key: string, keyName: string): Promise<void> {
+    removeDb(storeName: string, keyName: string, key: string): Promise<void> {
         return new Promise((resolve, reject) => {
             const openReq = indexedDB.open(storeName);
             openReq.onupgradeneeded = function (event: any) {
@@ -200,20 +202,29 @@ export class Model {
             }
         },
         list_for_session: async (session: string): Promise<ChatEntryClient[]> => {
-            const snapshot: SessionCache = await this.loadDb('yacht.sessions', 'id', session);
+            console.log('list_for_session', session);
+            const snapshot: SessionCache = await this.sessions.load(session);
             if (snapshot) {
                 const delta: CommentChange[] = await this.comments.fetch_since(session, snapshot);
-                const updated = await this.comments.apply_delta(snapshot.comments, delta);
-                const list = sortBy(values(updated), 'timestamp');
+                const updated_comments = await this.comments.apply_delta(snapshot.comments, delta);
+                const new_snapshot: SessionCache = { id: snapshot.id, comments: updated_comments };
+                const list = sortBy(values(updated_comments), 'timestamp');
+                await this.sessions.save(session, new_snapshot);
+                console.info('Updated', snapshot.comments.length, delta, new_snapshot.comments.length);
                 return list;
             } else {
                 const { data: { ok, data } }: { data: { ok: boolean, data: ChatEntry[] } } = await axios.get('/api/sessions/' + session + '/comments');
-                const entries = await processData(data, this);
-                const comments: { [key: string]: ChatEntryClient } = keyBy(entries, 'id');
-                console.log('list_for_session() comments', comments, entries, data);
-                await this.saveDb('yacht.sessions', 'id', session, { id: session, comments }, true);
-                const list = sortBy(values(comments), 'timestamp');
-                return list;
+                if (ok && data) {
+                    const entries = await processData(data, this);
+                    const comments: { [key: string]: ChatEntryClient } = keyBy(entries, 'id');
+                    console.log('list_for_session() comments', session, comments, entries, data);
+                    const obj: SessionCache = { id: session, comments };
+                    await this.sessions.save(session, obj);
+                    const list = sortBy(values(comments), 'timestamp');
+                    return list;
+                } else {
+                    return null;    // session not found.
+                }
             }
         },
         list_for_user: (user: string): Promise<ChatEntryClient[]> => {
@@ -231,16 +242,16 @@ export class Model {
                 return this.keys.get(id);
             })).then((ps) => {
                 console.log('imported keys', ps)
-                return Promise.all(map(ps, (remote_pub: CryptoKey, i: number) => {
+                return Promise.all(map(ps, (remote_publicKey: CryptoKey, i: number) => {
                     (async () => {
                         const ts = new Date().getTime();
-                        const pub = await crypto.fingerPrint1(remote_pub);
+                        const pub = await crypto.fingerPrint1(remote_publicKey);
                         const mypub = await crypto.fingerPrint1(my_keys.publicKey);
                         const prv = await crypto.fingerPrint1(my_keys.privateKey);
                         console.log('Encrypting', room.members[i], ts, pub, mypub, prv)
                         // console.log('Error decrypting', m.timestamp, mypub, pub, prv);    
                     })();
-                    return crypto.encrypt(remote_pub, my_keys.privateKey, comment_encoded);
+                    return crypto.encrypt(remote_publicKey, my_keys.privateKey, comment_encoded);
                 }));
             })
             const comments = map(ds, (d: EncryptedData, i: number) => {
@@ -249,21 +260,21 @@ export class Model {
             const obj: PostCommentData = { comments, temporary_id, encrypt: 'ecdh.v1' };
             const { data: { data } }: AxiosResponse<PostCommentResponse> = await axios.post('/api/sessions/' + session + '/comments', obj);
         },
-        on_new: async (msg: CommentsNewSocket): Promise<string> => {
+        on_new: async (msg: CommentsNewSocket): Promise<{ comment_id: string, session_id: string }> => {
             const [msg1] = await processData([msg.entry], this);
-            const snapshot: SessionCache = await this.loadDb('yacht.sessions', 'id', msg.entry.session_id);
+            const snapshot = await this.sessions.load(msg.entry.session_id);
             snapshot.comments[msg1.id] = msg1;
-            await this.saveDb('yacht.sessions', 'id', msg.entry.session_id, snapshot, true);
-            return msg1.id;
+            await this.sessions.save(msg.entry.session_id, snapshot);
+            return { comment_id: msg1.id, session_id: msg.entry.session_id };
         },
         on_delete: async (msg: CommentsDeleteSocket): Promise<{ id: string, session_id: string }> => {
-            const snapshot: SessionCache = await this.loadDb('yacht.sessions', 'id', msg.session_id);
+            const snapshot = await this.sessions.load(msg.session_id);
             delete snapshot.comments[msg.id];
-            this.saveDb('yacht.sessions', 'id', msg.session_id, snapshot, true);
+            this.sessions.save(msg.session_id, snapshot);
             return { id: msg.id, session_id: msg.session_id };
         },
         delete_cache_of_session: async (session_id: string) => {
-            const _ = await this.removeDb('yacht.sessions', session_id, 'id');
+            const _ = await this.removeDb('yacht.sessions', 'id', session_id);
             console.log('delete_cache_of_session done');
         }
     }
@@ -273,16 +284,27 @@ export class Model {
             const timestamp = new Date().getTime();
             const infos = [];
             for (let room of rooms) {
-                let room_cache: SessionCache = await this.loadDb('yacht.sessions', 'id', room.id);
+                let room_cache = await this.sessions.load(room.id);
                 const info = processSessionInfo(room);
                 if (!room_cache) {
                     room_cache = { id: room.id };
                 }
                 room_cache.info = info;
                 infos.push(info);
-                await this.saveDb('yacht.sessions', 'id', room.id, room_cache, true);
+                console.log(room);
+                await this.sessions.save(room.id, room_cache);
             }
             return infos;
+        },
+        load: async (session_id: string): Promise<SessionCache> => {
+            return await this.loadDb('yacht.sessions', 'id', session_id);
+        },
+        save: async (session_id: string, data: SessionCache) => {
+            console.log('sessions.save', session_id);
+            if (!includes(['gQcq8X_25', 'gQcq8X_25', '3vDctYrMw'], session_id)) {
+                // throw new Error('sessions.save wrong');
+            }
+            await this.saveDb('yacht.sessions', 'id', session_id, data, true);
         },
         get: async (id: string): Promise<RoomInfo> => {
             const { data: r }: { data: GetSessionResponse } = await axios.get('/api/sessions/' + id);
@@ -291,7 +313,7 @@ export class Model {
         new: async ({ name, members }: { name: string, members: string[] }): Promise<{ newRoom: RoomInfo, sessions: RoomInfo[], messages: ChatEntry[] }> => {
             const temporary_id = shortid();
             const post_data: PostSessionsParam = { name, members, temporary_id };
-            const { data: newRoom }: PostSessionsResponse = await $.post('/api/sessions', post_data);
+            const { data: newRoom }: PostSessionsResponse = await axios.post('/api/sessions', post_data);
             const p1 = axios.get('/api/sessions');
             const p2 = axios.get('/api/sessions/' + newRoom.id + '/comments');
             const [{ data: { data: sessions } }, { data: { data: messages } }] = await Promise.all([p1, p2]);
@@ -307,16 +329,19 @@ export class Model {
         },
         on_update: async (msg: SessionsUpdateSocket): Promise<void> => {
             console.log('sessions.on_update', msg);
-            const room: RoomInfo = await this.loadDb('yacht.sessions', 'id', msg.id);
-            room.name = msg.name;
-            await this.saveDb('yacht.sessions', 'id', msg.id, room, true);
+            const room: SessionCache = await this.sessions.load(msg.id);
+            room.info.name = msg.name;
+            await this.sessions.save(msg.id, room);
         }
     }
     keys = {
         get: async (user_id: string): Promise<CryptoKey> => {
             const user: User = await this.loadDb('yacht.users', 'id', user_id);
             if (user) {
-                return await crypto.importKey(user.publicKey, true, true);
+                const key = await crypto.importKey(user.publicKey, true, true);
+                const fp = await crypto.fingerPrint1(key);
+                console.log('Public key fingerprint: ', user_id, fp);
+                return key;
             } else {
                 return null;
             }
@@ -377,6 +402,7 @@ export class Model {
             const keyPair = await crypto.generateKeyPair(true);
             this.privateKeyJson = await crypto.exportKey(keyPair.privateKey);
             await this.keys.save_my_keys(keyPair);
+            await this.keys.upload_my_public_key(keyPair.publicKey);
             const fingerprint = await this.keys.get_my_fingerprint();
             return { timestamp, fingerprint };
         }
@@ -387,16 +413,17 @@ async function processComment(m1: ChatEntry, model: Model): Promise<ChatEntryCli
     const user: string = m1.user_id;
     const m = <CommentTyp>m1;
     // console.log('Processing comment by ', m.user_id);
-    const publicKey = await model.keys.get(m.user_id);
+    const remote_publicKey = await model.keys.get(m.user_id);
     let deciphered_comment: string;
     if (m.encrypt == 'ecdh.v1') {
         const my_keys = await model.keys.get_my_keys();
-        deciphered_comment = await crypto.decrypt_str(publicKey, my_keys.privateKey, m.comment, m.user_id).catch(() => {
+        deciphered_comment = await crypto.decrypt_str(remote_publicKey, my_keys.privateKey, m.comment, m.user_id).catch(() => {
             (async () => {
-                const pub = await crypto.fingerPrint1(publicKey);
+                const pub = await crypto.fingerPrint1(remote_publicKey);
                 const mypub = await crypto.fingerPrint1(my_keys.publicKey);
                 const prv = await crypto.fingerPrint1(my_keys.privateKey);
                 console.log('Error decrypting', m.timestamp, mypub, pub, prv);
+                console.log('Comment by ', m.user_id, { remote_pub: pub, my_pub: mypub });
             })();
             return null
         });

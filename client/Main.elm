@@ -808,7 +808,7 @@ update msg model =
             let
                 cmd =
                     if resource == "comments" && getRoomID model == Just id then
-                        getMessages id
+                        Cmd.none
 
                     else if resource == "sessions" then
                         Cmd.batch [ getRoomInfo (), getMessages id ]
@@ -1286,8 +1286,8 @@ showChannels model =
                                         ""
                                    )
                         ]
-                        [ a [ onClick (EnterRoom r) ] [ text (String.fromInt (i + 1) ++ ": " ++ roomName r model) ] ]
-                    , div [ class "chatlist-members" ] (List.intersperse (text ",") <| List.map (\u -> a [ class "chatlist-member clickable", onClick (EnterUser u) ] [ text (getUserName model u) ]) <| roomUsers r model)
+                        [ a [ href <| "#/sessions/" ++ r ] [ text (String.fromInt (i + 1) ++ ": " ++ roomName r model) ] ]
+                    , div [ class "chatlist-members" ] (List.intersperse (text ",") <| List.map (\u -> a [ class "chatlist-member clickable", href <| "#/users/" ++ u ] [ text (getUserName model u) ]) <| roomUsers r model)
                     ]
             )
             model.rooms
@@ -1893,13 +1893,6 @@ userSettingView user model =
                         ]
                     , div [ id "key-settings" ]
                         [ h2 [] [ text "暗号化の設定" ]
-                        , p []
-                            [ text "ユーザー間のメッセージ本文は楕円曲線ディフィー・ヘルマン鍵共有（ECDH）および128ビットAES-GCMによってエンドツーエンド暗号化されています。\u{3000}※送信日時，送信ユーザー名などのメタデータは暗号化されません。画像の暗号化は今後対応予定。"
-                            , br [] []
-                            , text "秘密鍵は各ユーザーの端末のみに保存されるため，サーバー管理者はメッセージ本文を読むことができません。"
-                            , br [] []
-                            , text "同じユーザーが他の端末で使用する場合は，下記より秘密鍵を書き出してから他の端末で読み込むか，あるいは一時的にサーバーに秘密鍵を預けてから他の端末でログインすることで利用が可能になります。"
-                            ]
                         , div []
                             [ ul []
                                 [ li []
@@ -1911,6 +1904,13 @@ userSettingView user model =
                                     , span [ class "fingerprint" ] [ text model.profile.privateKey ]
                                     ]
                                 ]
+                            ]
+                        , p [ style "font-size" "14px" ]
+                            [ text "ユーザー間のメッセージ本文は楕円曲線ディフィー・ヘルマン鍵共有（ECDH）および128ビットAES-GCMによってエンドツーエンド暗号化されています。\u{3000}※送信日時，送信ユーザー名などのメタデータは暗号化されません。画像の暗号化は今後対応予定。"
+                            , br [] []
+                            , text "秘密鍵は各ユーザーの端末のみに保存されるため，サーバー管理者はメッセージ本文を読むことができません。"
+                            , br [] []
+                            , text "同じユーザーが他の端末で使用する場合は，下記より秘密鍵を書き出してから他の端末で読み込むか，あるいは一時的にサーバーに秘密鍵を預けてから他の端末でログインすることで利用が可能になります。"
                             ]
                         , div [ style "margin-bottom" "10px" ]
                             [ span [] [ text "秘密鍵を書き出し" ]

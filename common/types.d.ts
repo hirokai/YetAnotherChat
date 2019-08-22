@@ -148,7 +148,8 @@ type User = {
     emails: string[],
     avatar: string,
     online: boolean,
-    publicKey: JsonWebKey
+    publicKey: JsonWebKey,
+    fingerprint?: string,
 }
 
 type UserClient = {

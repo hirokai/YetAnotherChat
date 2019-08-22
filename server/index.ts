@@ -487,7 +487,7 @@ app.get('/api/sessions/:session_id/comments', (req: GetAuthRequest1<GetCommentsP
         const by_user = req.query.by_user;
         const after = req.query.after;
         const comments: ChatEntry[] = await model.list_comments(req.decoded.user_id, session_id, by_user, after);
-        res.json({ ok: true, data: comments });
+        res.json({ ok: comments != null, data: comments });
     })().catch(next);
 });
 
@@ -537,7 +537,6 @@ app.post('/api/sessions/:session_id/comments', (req: MyPostRequest<PostCommentDa
 
             const ps = model.post_comment_for_session_members(user_id, session_id, timestamp, comments);
             ps.then((rs) => {
-                console.log('ps result', rs);
                 res.json({ ok: true });
                 const { data: d, ok, error } = rs[0];
                 if (d) {
