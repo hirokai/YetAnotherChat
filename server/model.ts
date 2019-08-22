@@ -315,23 +315,29 @@ export function get_session_list(params: { user_id: string, of_members: string[]
 
 export async function list_comment_delta({ for_user, session_id, cached_ids, last_updated }: { for_user: string, session_id: string, cached_ids: string[], last_updated: number }): Promise<CommentChange[]> {
     const comments = await list_comments(for_user, session_id, for_user);
+    console.log('Comments length:', comments.length);
     return new Promise((resolve) => {
         const cached_id_dict = keyBy(cached_ids);
         var delta: CommentChange[] = [];
-        comments.forEach((comment) => {
-            const already = cached_id_dict[comment.id];
-            if (!already) {
-                delta.push({ __type: 'new', comment });
-            } else if (comment.timestamp > last_updated) {
-                delta.push({ __type: 'update', id: comment.id, comment });
-            }
-        });
-        const current_ids = map(comments, 'id');
-        const removed_ids = difference(cached_ids, current_ids);
-        removed_ids.forEach((id) => {
-            delta.push({ __type: 'delete', id });
-        });
-        resolve(delta);
+        if (comments.length == 0) {
+            resolve([]);
+        } else {
+            comments.forEach((comment) => {
+                const already = cached_id_dict[comment.id];
+                if (!already) {
+                    delta.push({ __type: 'new', comment });
+                } else if (comment.timestamp > last_updated) {
+                    delta.push({ __type: 'update', id: comment.id, comment });
+                }
+            });
+            const current_ids = map(comments, 'id');
+            const removed_ids = difference(cached_ids, current_ids);
+            console.log('cached and current', for_user, cached_ids, current_ids)
+            // removed_ids.forEach((id) => {
+            //     delta.push({ __type: 'delete', id });
+            // });
+            resolve(delta);
+        }
     });
 }
 
@@ -403,13 +409,13 @@ export function list_comments(for_user: string, session_id: string, user_id: str
     }
 
     return new Promise((resolve) => {
-        db.get('select id from sessions where id=?', session_id, (err1, row1) => {
+        db.get('select id from sessions where id=?;', session_id, (err1, row1) => {
             if (row1 == null) {
                 resolve(null);
             } else {
                 func((err, rows) => {
                     if (session_id) {
-                        db.all('select * from session_events where session_id=? and for_user=?', session_id, user_id, (err, rows2) => {
+                        db.all('select * from session_events where session_id=? and for_user=?;', session_id, user_id, (err, rows2) => {
                             const res1 = map(rows, processRow);
                             const res2 = map(rows2, (r) => {
                                 r.kind = "event";
@@ -877,7 +883,6 @@ export function find_user_from_username({ myself, username }: { myself: string, 
 
 export function get_user({ myself, user_id }: { myself: string, user_id: string }): Promise<User> {
     return new Promise((resolve) => {
-        console.log('find_user_from_user_id', user_id)
         db.get('select users.id,users.name,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id where users.id=? group by users.id;', user_id, (err, row) => {
             if (row) {
                 const emails = row['emails'].split(',');

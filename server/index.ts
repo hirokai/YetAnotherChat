@@ -198,7 +198,6 @@ app.post('/api/login', (req: MyPostRequest<LoginParams>, res) => {
 app.get('/api/verify_token', (req, res) => {
     var token = req.body.token || req.query.token || req.headers['x-access-token'];
     jwt.verify(token, credential.jwt_secret, function (err, decoded) {
-        console.log('decoded', decoded);
         if (err) {
             res.status(200).json({ valid: false });
         } else {
@@ -475,6 +474,7 @@ app.post('/api/sessions/:session_id/comments/delta', (req: MyPostRequest<GetComm
         const session_id = req.params.session_id;
         const last_updated = req.body.last_updated;
         const cached_ids = req.body.cached_ids;
+        console.log(session_id, last_updated, cached_ids);
         const deltas: CommentChange[] = await model.list_comment_delta({ session_id, cached_ids, for_user: req.decoded.user_id, last_updated });
         res.json(deltas);
     })().catch(next);
@@ -691,14 +691,13 @@ if (production) {
 io.on('connection', function (socket: SocketIO.Socket) {
     console.log('A user connected', socket.id);
     socket.on('subscribe', ({ token }) => {
-        console.log('subscribe');
         jwt.verify(token, credential.jwt_secret, function (err, decoded) {
             if (decoded) {
                 const user_id = decoded.user_id;
                 model.list_online_users().then((previous) => {
                     model.saveSocketId(user_id, socket.id).then((r) => {
-                        console.log('saveSocketId', r)
-                        console.log('socket id', user_id, socket.id);
+                        // console.log('saveSocketId', r)
+                        // console.log('socket id', user_id, socket.id);
                         if (!includes(previous, user_id)) {
                             const obj: UsersUpdateSocket = { __type: "users.update", user_id, online: true, timestamp: r.timestamp }
                             io.emit('users.update', obj);

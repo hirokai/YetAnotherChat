@@ -71,6 +71,8 @@ div.chat_comment_content {
     color: #005;
     font-family: 'Noto Sans JP', Slack-Lato, appleLogo, sans-serif;
     font-size: 13px;
+    max-width: 100%;
+    word-break: break-all;
 }
 
 div.chat_comment_content.font-1 {

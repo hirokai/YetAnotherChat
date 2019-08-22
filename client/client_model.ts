@@ -147,20 +147,20 @@ export class Model {
     users = {
         get: async (): Promise<{ [key: string]: User }> => {
             const snapshot: { [key: string]: User } = keyBy(await this.loadDb('yacht.users', 'id'), 'id');
-            // console.log('users snapshot', snapshot);
-            if (Object.keys(snapshot).length > 0) {
-                // console.log('Returning users from local DB.')
-                return snapshot;
-            } else {
-                // console.log('Getting users and save to local DB')
-                const r = await axios.get('/api/users');
-                const { data: { data: { users } } } = r;
-                console.log('API users result', r, users);
-                await map(users, (u) => {
-                    return this.saveDb('yacht.users', 'id', u.id, u, true);
-                });
-                return keyBy(users, 'id');
-            }
+            // // console.log('users snapshot', snapshot);
+            // if (Object.keys(snapshot).length > 0) {
+            //     // console.log('Returning users from local DB.')
+            //     return snapshot;
+            // } else {
+            // console.log('Getting users and save to local DB')
+            const r = await axios.get('/api/users');
+            const { data: { data: { users } } } = r;
+            console.log('API users result', r, users);
+            await map(users, (u) => {
+                return this.saveDb('yacht.users', 'id', u.id, u, true);
+            });
+            return keyBy(users, 'id');
+            // }
         },
         on_update: async (msg: UsersUpdateSocket) => {
             console.log('users.on_update', msg);
@@ -208,7 +208,8 @@ export class Model {
                 const time_after = timestamps.length == 0 ? 0 : max(timestamps);
                 const cached_ids = map(snapshot.comments, (d) => d.id);
                 const body: GetCommentsDeltaData = { last_updated: time_after, cached_ids };
-                const { data }: { data: CommentChange[] } = await axios.post('/api/sessions/' + session_id + '/comments/delta', { body });
+                console.log('comments delta req', body)
+                const { data }: { data: CommentChange[] } = await axios.post('/api/sessions/' + session_id + '/comments/delta', body);
                 return data;
             } else {
                 const body: GetCommentsDeltaData = { last_updated: 0, cached_ids: [] };
@@ -221,6 +222,7 @@ export class Model {
             const snapshot: SessionCache = await this.sessions.load(session);
             if (snapshot) {
                 const delta: CommentChange[] = await this.comments.fetch_since(session, snapshot);
+                console.log('Delta: ', delta);
                 const updated_comments = await this.comments.apply_delta(snapshot.comments, delta);
                 const new_snapshot: SessionCache = { id: snapshot.id, comments: updated_comments };
                 const list = sortBy(values(updated_comments), 'timestamp');
