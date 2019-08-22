@@ -102,7 +102,7 @@
 
     <script>
 
-        function savePrivateKey(keyPair) {
+        function saveKeyPair(keyPair) {
             return new Promise((resolve) => {
                 const storeName = 'yacht.keyPair'
                 const openReq = indexedDB.open(storeName);
@@ -142,7 +142,7 @@
                     const fullname = $('#fullname').val();
                     const email = $('#email').val();
                     crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveKey', 'deriveBits']).then((keyPair) => {
-                        savePrivateKey(keyPair).then(() => {
+                        saveKeyPair(keyPair).then(() => {
                             crypto.subtle.exportKey('jwk', keyPair.publicKey).then((publicKey) => {
                                 console.log({ username, password, fullname, email, publicKey });
                                 $.post('/api/register', { username, password, fullname, email, publicKey }).then((res) => {

@@ -21,17 +21,21 @@ axios.defaults.headers.common['x-access-token'] = token;
 export class Model {
     user_id: string
     token: string
-    keyPair: CryptoKeyPair
     privateKeyJson: JsonWebKey
     publicKeys: { [key: string]: CryptoKey } = {}
     snapshot: { [key: string]: { [key: number]: any } };
     readonly MAX_SAVE_SNAPSHOT: number = 2;
-    constructor(user_id: string, token: string, keyPair: CryptoKeyPair) {
+    constructor(user_id: string, token: string) {
         this.user_id = user_id;
         this.token = token;
-        this.keyPair = keyPair;
-        console.log('Model initalized:', { token, keyPair });
+        console.log('Model initalized:', { token });
         this.snapshot = {};
+        (async () => {
+            const privateKey = (await this.keys.get_my_keys()).privateKey;
+            const prv_exported = await crypto.exportKey(privateKey);
+            //For user export, it has to be prepared beforehand (no async operation)
+            this.privateKeyJson = prv_exported;
+        })();
     }
     saveDb(storeName: string, keyName: string, key: string, data: any, use_internal_key: boolean): Promise<void> {
         return new Promise((resolve, reject) => {
@@ -222,14 +226,21 @@ export class Model {
             console.log('room members', room);
             const temporary_id = shortid();
             const comment_encoded = crypto.toUint8Aarray(comment);
-            const prv_key = await this.keys.get_my_private_key();
+            const my_keys = await this.keys.get_my_keys();
             const ds = await Promise.all(map(room.members, (id) => {
                 return this.keys.get(id);
             })).then((ps) => {
                 console.log('imported keys', ps)
-                return Promise.all(map(ps, (imp_pub: CryptoKey) => {
-                    console.log('Encrypting', prv_key, imp_pub)
-                    return crypto.encrypt(imp_pub, prv_key, comment_encoded);
+                return Promise.all(map(ps, (remote_pub: CryptoKey, i: number) => {
+                    (async () => {
+                        const ts = new Date().getTime();
+                        const pub = await crypto.fingerPrint1(remote_pub);
+                        const mypub = await crypto.fingerPrint1(my_keys.publicKey);
+                        const prv = await crypto.fingerPrint1(my_keys.privateKey);
+                        console.log('Encrypting', room.members[i], ts, pub, mypub, prv)
+                        // console.log('Error decrypting', m.timestamp, mypub, pub, prv);    
+                    })();
+                    return crypto.encrypt(remote_pub, my_keys.privateKey, comment_encoded);
                 }));
             })
             const comments = map(ds, (d: EncryptedData, i: number) => {
@@ -248,7 +259,7 @@ export class Model {
         on_delete: async (msg: CommentsDeleteSocket): Promise<{ id: string, session_id: string }> => {
             const snapshot: SessionCache = await this.loadDb('yacht.sessions', 'id', msg.session_id);
             delete snapshot.comments[msg.id];
-            this.saveDb('yacht.sessions', 'id', snapshot.id, snapshot, true);
+            this.saveDb('yacht.sessions', 'id', msg.session_id, snapshot, true);
             return { id: msg.id, session_id: msg.session_id };
         },
         delete_cache_of_session: async (session_id: string) => {
@@ -310,121 +321,63 @@ export class Model {
                 return null;
             }
         },
-        get_fingerprint: async (): Promise<{ prv: string, pub: string }> => {
-            const p1 = crypto.fingerPrint1(this.keyPair.privateKey);
-            const p2 = crypto.fingerPrint1(this.keyPair.publicKey);
+        save_public_key: async (user_id: string, jwk: JsonWebKey): Promise<void> => {
+            const user: User = await this.loadDb('yacht.users', 'id', user_id);
+            if (user != null) {
+                user.publicKey = jwk;
+                await this.saveDb('yacht.users', 'id', user_id, user, true);
+            }
+        },
+        get_my_fingerprint: async (): Promise<{ prv: string, pub: string }> => {
+            const my_keys = await this.keys.get_my_keys();
+            const p1 = crypto.fingerPrint1(my_keys.privateKey);
+            const p2 = crypto.fingerPrint1(my_keys.publicKey);
             return Promise.all([p1, p2]).then(([prv, pub]) => {
                 return { prv, pub }
             });
         },
-        add_to_history: async (timestamp: number, fingerprint: { prv: string, pub: string }) => {
-            return new Promise((resolve) => {
-                const storeName = 'yacht.my_key_history';
-                const openReq = indexedDB.open(storeName);
-                openReq.onupgradeneeded = function (event: any) {
-                    var db = (<IDBRequest>event.target).result;
-                    db.createObjectStore(storeName, { keyPath: 'timestamp' });
-                }
-                openReq.onsuccess = function (event: any) {
-                    // console.log('openReq.onsuccess');
-                    var db = event.target.result;
-                    var trans = db.transaction(storeName, 'readwrite');
-                    var store = trans.objectStore(storeName);
-                    const p1 = new Promise((r) => {
-                        const putReq = store.put({ timestamp, fingerprint });
-                        putReq.onsuccess = function () {
-                            r();
-                        }
-                    });
-                    const p2 = new Promise((r) => {
-                        const putReq = store.put({ timestamp: -1, fingerprint });
-                        putReq.onsuccess = function () {
-                            r();
-                        }
-                    });
-                    Promise.all([p1, p2]).then(() => {
-                        resolve();
-                    })
-                }
-            });
+        get_my_keys: async (): Promise<CryptoKeyPair> => {
+            const data: MyKeyCacheData = await this.loadDb('yacht.keyPair', 'id', 'myself');
+            return data.keyPair;
         },
-        get_my_private_key: async (): Promise<CryptoKey> => {
-            return new Promise((resolve, reject) => {
-                const storeName = 'yacht.keyPair';
-                const openReq = indexedDB.open(storeName);
-                openReq.onupgradeneeded = function (event: any) {
-                    var db = (<IDBRequest>event.target).result;
-                    db.createObjectStore(storeName, { keyPath: 'id' });
-                }
-                openReq.onsuccess = function (event: any) {
-                    // console.log('openReq.onsuccess');
-                    var db = event.target.result;
-                    var trans = db.transaction(storeName, 'readonly');
-                    var store = trans.objectStore(storeName);
-                    var getReq = store.get('myself');
-                    getReq.onsuccess = function () {
-                        // console.log('get data success', getReq.result);
-                        resolve(getReq.result ? getReq.result.keyPair.privateKey : null);
-                    }
-                    getReq.onerror = () => {
-                        reject();
-                    }
-                }
-                openReq.onerror = () => {
-                    reject();
-                }
+        save_my_keys: async (keyPair: CryptoKeyPair): Promise<void> => {
+            const prv_e_p = crypto.exportKey(keyPair.privateKey);
+            const pub_e_p = crypto.exportKey(keyPair.publicKey);
+            const fps = await Promise.all([prv_e_p, pub_e_p]).then((ks) => {
+                console.log('[prv_e_p, pub_e_p]', ks, keyPair.privateKey, keyPair.publicKey)
+                return Promise.all([crypto.fingerPrint(ks[0]), crypto.fingerPrint(ks[1])]);
             });
+            const fp = { privateKey: fps[0], publicKey: fps[1] };
+            const obj: MyKeyCacheData = { id: 'myself', keyPair, fingerPrint: fp };
+            await this.saveDb('yacht.keyPair', 'id', 'myself', obj, true);
         },
-        get_my_fingerprint_from_cache: async (): Promise<{ prv: string, pub: string }> => {
-            return new Promise((resolve, reject) => {
-                const storeName = 'yacht.my_key_history';
-                const openReq = indexedDB.open(storeName);
-                openReq.onupgradeneeded = function (event: any) {
-                    var db = (<IDBRequest>event.target).result;
-                    db.createObjectStore(storeName, { keyPath: 'timestamp' });
-                }
-                openReq.onsuccess = function (event: any) {
-                    // console.log('openReq.onsuccess');
-                    var db = event.target.result;
-                    var trans = db.transaction(storeName, 'readonly');
-                    var store = trans.objectStore(storeName);
-                    var getReq = store.get(-1);
-                    getReq.onsuccess = function () {
-                        // console.log('get data success', getReq.result);
-                        resolve(getReq.result ? getReq.result.fingerprint : null);
-                    }
-                    getReq.onerror = () => {
-                        reject();
-                    }
-                }
-                openReq.onerror = () => {
-                    reject();
-                }
-            });
+        import_private_key: async (jwk: JsonWebKey) => {
+            const data: MyKeyCacheData = await this.loadDb('yacht.keyPair', 'id', 'myself');
+            if (data != null) {
+                const prv_imported = await crypto.importKey(jwk, false, true);
+                data.keyPair.privateKey = prv_imported;
+                await this.saveDb('yacht.users', 'id', 'myself', data, true);
+            }
         },
-        get_my_public_key_from_server: async (): Promise<CryptoKey> => {
+        download_my_public_key: async (): Promise<CryptoKey> => {
             const params: GetPublicKeysParams = { user_id: this.user_id, token: this.token };
 
             const { data: { data } } = <AxiosResponse<GetPublicKeysResponse>>await axios.get('/api/public_keys/me', { params });
             console.log('Importing', data);
             return crypto.importKey(data, true);
         },
-        update_public_key: async (publicKey: CryptoKey) => {
+        upload_my_public_key: async (publicKey: CryptoKey) => {
             const jwk = await crypto.exportKey(publicKey);
-            const obj: UpdatePublicKeyParams = { user_id: this.user_id, for_user: this.user_id, publicKey: jwk };
+            const obj: UpdatePublicKeyParams = { for_user: this.user_id, publicKey: jwk };
             const { data } = await axios.patch('/api/public_keys', obj);
             console.log('update_public_key result', data);
         },
         reset: async (): Promise<{ timestamp: number, fingerprint: { prv: string, pub: string } }> => {
             const timestamp = new Date().getTime();
             const keyPair = await crypto.generateKeyPair(true);
-            this.keyPair = keyPair;
             this.privateKeyJson = await crypto.exportKey(keyPair.privateKey);
-            console.log(keyPair);
-            await crypto.saveMyKeys(keyPair);
-            await this.keys.update_public_key(keyPair.publicKey);
-            const fingerprint = await this.keys.get_fingerprint();
-            this.keys.add_to_history(timestamp, fingerprint);
+            await this.keys.save_my_keys(keyPair);
+            const fingerprint = await this.keys.get_my_fingerprint();
             return { timestamp, fingerprint };
         }
     }
@@ -435,10 +388,25 @@ async function processComment(m1: ChatEntry, model: Model): Promise<ChatEntryCli
     const m = <CommentTyp>m1;
     // console.log('Processing comment by ', m.user_id);
     const publicKey = await model.keys.get(m.user_id);
-    // const deciphered_comment = m.comment;
-    const deciphered_comment = await crypto.decrypt_str(publicKey, model.keyPair.privateKey, m.comment, m.user_id).catch(() => { console.log('Error decrypting'); return m.comment });
-    // console.log('decrypted', deciphered_comment);
-    var v: ChatEntryClient = { id: m.id, user, comment: deciphered_comment, timestamp: m.timestamp, formattedTime: formatTime(m.timestamp), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "", encrypt: m.encrypt };
+    let deciphered_comment: string;
+    if (m.encrypt == 'ecdh.v1') {
+        const my_keys = await model.keys.get_my_keys();
+        deciphered_comment = await crypto.decrypt_str(publicKey, my_keys.privateKey, m.comment, m.user_id).catch(() => {
+            (async () => {
+                const pub = await crypto.fingerPrint1(publicKey);
+                const mypub = await crypto.fingerPrint1(my_keys.publicKey);
+                const prv = await crypto.fingerPrint1(my_keys.privateKey);
+                console.log('Error decrypting', m.timestamp, mypub, pub, prv);
+            })();
+            return null
+        });
+    } else if (m.encrypt == 'none') {
+        deciphered_comment = m.comment;
+    } else {
+        deciphered_comment = 'N/A'
+    }
+    const encrypt = deciphered_comment ? 'none' : m.encrypt;
+    var v: ChatEntryClient = { id: m.id, user, comment: deciphered_comment || m.comment, timestamp: m.timestamp, formattedTime: formatTime(m.timestamp), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "", encrypt };
     v.originalUrl = m.original_url || "";
     v.sentTo = m.sent_to || "";
     v.source = m.source;
@@ -501,4 +469,3 @@ export function formatTime(timestamp: number): string {
         return moment(timestamp).format('YYYY/M/D HH:mm:ss');
     }
 }
-

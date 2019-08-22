@@ -446,6 +446,7 @@ type alias Model =
     , searchKeyword : String
     , profile :
         { publicKey : String
+        , privateKey : String
         }
     }
 
@@ -487,7 +488,7 @@ init { user_id, show_toppane, expand_chatinput, show_users_with_email_only } =
       , files = Dict.empty
       , timezone = utc
       , searchKeyword = ""
-      , profile = { publicKey = "" }
+      , profile = { publicKey = "", privateKey = "" }
       }
     , Cmd.batch [ initializeData (), Task.perform SetTimeZone Time.here ]
     )
@@ -842,6 +843,16 @@ update msg model =
 
                         new_profile =
                             { profile | publicKey = v }
+                    in
+                    ( { model | profile = new_profile }, Cmd.none )
+
+                "my_private_key" ->
+                    let
+                        profile =
+                            model.profile
+
+                        new_profile =
+                            { profile | privateKey = v }
                     in
                     ( { model | profile = new_profile }, Cmd.none )
 
@@ -1686,7 +1697,13 @@ chatRoomView room model =
                                             (\u ->
                                                 case getUserInfo model u of
                                                     Just user ->
-                                                        li [] [ a [ onClick (EnterUser u), class "clickable" ] [ text user.username ], text "(", a [] [ text <| String.join "," <| List.intersperse "," user.emails ], text ")" ]
+                                                        li []
+                                                            [ span [ classList [ ( "online-mark", True ), ( "hidden", not user.online ) ] ] [ text "●" ]
+                                                            , a [ onClick (EnterUser u), class "clickable" ] [ text user.username ]
+                                                            , text "("
+                                                            , a [] [ text <| String.join "," <| List.intersperse "," user.emails ]
+                                                            , text ")"
+                                                            ]
 
                                                     Nothing ->
                                                         li [] []
@@ -1888,6 +1905,10 @@ userSettingView user model =
                                 [ li []
                                     [ span [] [ text "公開鍵のFingerprint: " ]
                                     , span [ class "fingerprint" ] [ text model.profile.publicKey ]
+                                    ]
+                                , li []
+                                    [ span [] [ text "秘密鍵のFingerprint: " ]
+                                    , span [ class "fingerprint" ] [ text model.profile.privateKey ]
                                     ]
                                 ]
                             ]

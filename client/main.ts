@@ -21,12 +21,6 @@ const user_id: string = localStorage['yacht.user_id'] || "";
 
 axios.defaults.headers.common['x-access-token'] = token;
 
-window['removeSavedKeys'] = () => {
-    crypto.removeSavedKeys().then(() => {
-        console.log('Removed keys.');
-    });
-}
-
 window['importKey'] = crypto.importKey;
 
 if (!token || token == '') {
@@ -40,23 +34,13 @@ if (!token || token == '') {
 // throw new Error('Abort');
 
 (async () => {
-    const keyPair = await crypto.loadMyKeys();
-    const model = new Model(user_id, token, keyPair);
-    console.log('public and private keys', keyPair);
-    if (!keyPair) {
-        console.log('Loading a public key from server.');
-        const publicKey: CryptoKey = await model.keys.get_my_public_key_from_server();
-        const localKey = { publicKey, privateKey: null };
-        console.log('Saving local key', localKey);
-        crypto.saveMyKeys(localKey).then(() => {
-            console.log('Key pair saved to DB (private key has to be imported by user)');
-        });
-        model.keyPair = localKey;
-    }
-    const prv_exported = await crypto.exportKey(model.keyPair.privateKey);
-    model.privateKeyJson = prv_exported;
+    const model = new Model(user_id, token);
 
     window['model'] = model;
+
+    var show_toppane = JSON.parse(localStorage['yacht.show_toppane'] || "false") || false;
+    var expand_chatinput = JSON.parse(localStorage['yacht.expand_chatinput'] || "false") || false;
+    var show_users_with_email_only = JSON.parse(localStorage['yacht.show_users_with_email_only'] || "false") || false;
 
     const app: ElmApp = Elm.Main.init({ flags: { user_id, show_toppane, expand_chatinput, show_users_with_email_only } });
 
@@ -64,9 +48,10 @@ if (!token || token == '') {
         recalcPositions(show_toppane, expand_chatinput);
     }, 100);
 
-    model.keys.get_my_fingerprint_from_cache().then((fp) => {
+    model.keys.get_my_fingerprint().then((fp) => {
         if (fp) {
             app.ports.setValue.send(['my_public_key', fp.pub || ""]);
+            app.ports.setValue.send(['my_private_key', fp.prv || ""]);
         }
     });
 
@@ -144,7 +129,8 @@ if (!token || token == '') {
 
     app.ports.resetKeys.subscribe(async () => {
         const { timestamp, fingerprint } = await model.keys.reset();
-        app.ports.setValue.send(['my_public_key', fingerprint.pub])
+        app.ports.setValue.send(['my_public_key', fingerprint.pub]);
+        app.ports.setValue.send(['my_private_key', fingerprint.prv]);
     });
 
     app.ports.deleteSession.subscribe(async ({ id }) => {
@@ -490,35 +476,23 @@ if (!token || token == '') {
             }
         });
     }
-})();
+    function handleFileSelect(evt) {
+        var files = evt.target.files; // FileList object
 
-function handleFileSelect(evt) {
-    var files = evt.target.files; // FileList object
+        var reader = new FileReader();
 
-    var reader = new FileReader();
+        // Closure to capture the file information.
+        reader.onload = () => {
+            (async () => {
+                const prv_jwk: JsonWebKey = JSON.parse(<string>reader.result);
+                await model.keys.import_private_key(prv_jwk);
+            })();
+        }
 
-    // Closure to capture the file information.
-    reader.onload = () => {
-        (async () => {
-            //@ts-ignore
-            const prv_jwk = JSON.parse(reader.result);
-            const { data: { data: pub_jwk } } = await axios.get('/api/public_keys', { params: { for_user: user_id } });
-            console.log(prv_jwk, pub_jwk);
-            const pub = await crypto.importKey(pub_jwk, true, true)
-            const prv = await crypto.importKey(prv_jwk, false, true)
-            await crypto.saveMyKeys({ privateKey: prv, publicKey: pub });
-        })();
+        // Read in the image file as a data URL.
+        reader.readAsText(files[0]);
     }
-
-    // Read in the image file as a data URL.
-    reader.readAsText(files[0]);
-}
-
-
-
-var show_toppane = JSON.parse(localStorage['yacht.show_toppane'] || "false") || false;
-var expand_chatinput = JSON.parse(localStorage['yacht.expand_chatinput'] || "false") || false;
-var show_users_with_email_only = JSON.parse(localStorage['yacht.show_users_with_email_only'] || "false") || false;
+})();
 
 type UserImages = {
     user_id: string;

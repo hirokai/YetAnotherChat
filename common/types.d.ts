@@ -191,7 +191,6 @@ type GetPublicKeysResponse = {
 interface PostPublicKeyParams extends AuthedParams {
     publicKey: JsonWebKey,
     for_user: string
-    user_id: string
 }
 
 type UpdatePublicKeyParams = PostPublicKeyParams
@@ -218,6 +217,12 @@ interface GetCommentsParams extends AuthedParams {
 interface GetCommentsDeltaData {
     last_updated: number,
     cached_ids: string[],
+}
+
+type MyKeyCacheData = {
+    id: string,
+    keyPair: CryptoKeyPair,
+    fingerPrint: { publicKey: string, privateKey: string }
 }
 
 type GetCommentsResponse = { ok: boolean, data: ChatEntry[] }
