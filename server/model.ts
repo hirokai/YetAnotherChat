@@ -2,7 +2,7 @@
 
 import * as fs from "fs";
 const path = require('path');
-import { map, filter, includes, orderBy, groupBy, keyBy, min, max, chain, compact, zip, sum, values, sortedUniq, sortBy, difference } from 'lodash';
+import { map, filter, includes, orderBy, groupBy, keyBy, min, max, chain, compact, zip, sum, values, sortedUniq, sortBy, difference, cloneDeep } from 'lodash';
 
 import { fingerPrint } from '../common/common_model';
 
@@ -325,7 +325,7 @@ export async function list_comment_delta({ for_user, session_id, cached_ids, las
             });
             const current_ids = map(comments, 'id');
             const removed_ids = difference(cached_ids, current_ids);
-            console.log('cached and current', for_user, cached_ids, current_ids)
+            // console.log('cached and current', for_user, cached_ids, current_ids)
             removed_ids.forEach((id) => {
                 delta.push({ __type: 'delete', id });
             });
@@ -743,8 +743,10 @@ export function post_comment({ user_id, session_id, timestamp, comment, for_user
     console.log('post_comment start');
     comment_id = comment_id || shortid();
     return new Promise((resolve, reject) => {
-        get_public_key({ user_id, for_user }).then(({ publicKey }) => {
+        // Currently key is same for all recipients.
+        get_public_key({ user_id, for_user: user_id }).then(({ publicKey }) => {
             fingerPrint(publicKey).then((fingerprint) => {
+                console.log('Posting with key: ' + fingerprint, publicKey, user_id, for_user);
                 db.run('insert into comments (id,user_id,comment,for_user,encrypt,timestamp,session_id,original_url,sent_to,source,encrypt_group, fingerprint) values (?,?,?,?,?,?,?,?,?,?,?,?);', comment_id, user_id, comment, for_user, encrypt, timestamp, session_id, original_url, sent_to, source, encrypt_group, fingerprint, (err1) => {
                     db.run('insert or ignore into session_current_members (session_id,user_id) values (?,?)', session_id, user_id, (err2) => {
                         if (!err1 && !err2) {
