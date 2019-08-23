@@ -57,40 +57,34 @@ interface DeleteComment {
 type EncryptionMode = 'ecdh.v1' | 'none'
 type ChatEntryKind = 'comment' | 'file' | 'event';
 
-type CommentTyp = {
-    kind: "comment";
+interface ChatEntryCommon {
+    kind: string
     id: string,
     user_id: string,
-    comment: string,
     session_id: string,
     timestamp: number,
+    comment: string,
+    encrypt: EncryptionMode,
+    fingerprint: string
+}
+
+interface CommentTyp extends ChatEntryCommon {
+    kind: "comment";
     original_url: string,
     sent_to: string,
     source: string,
-    encrypt: EncryptionMode,
 }
 
-type SessionEvent = {
+interface SessionEvent extends ChatEntryCommon {
     kind: "event";
-    comment: string
-    id: string,
-    user_id: string,
-    session_id: string,
-    timestamp: number,
     action: string,
     encrypt: 'none',
 }
 
-type ChatFile = {
-    id: string,
-    comment: string,
-    user_id: string,
-    timestamp: number,
-    session_id: string
+interface ChatFile extends ChatEntryCommon {
+    kind: 'file',
     url: string,
     file_id: string
-    kind: 'file',
-    encrypt: EncryptionMode,
 }
 
 interface MailgunParsed {

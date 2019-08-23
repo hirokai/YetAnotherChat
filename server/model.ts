@@ -364,7 +364,7 @@ export function list_comments(for_user: string, session_id: string, user_id: str
             const r = emoji_dict[$1];
             return r ? r.emoji : $1;
         });
-        return { id: row.id, comment, timestamp: parseInt(row.timestamp), user_id: row.user_id, original_url: row.original_url, sent_to: row.sent_to, session_id: row.session_id, source: row.source, kind: "comment", encrypt: row.encrypt }
+        return { id: row.id, comment, timestamp: parseInt(row.timestamp), user_id: row.user_id, original_url: row.original_url, sent_to: row.sent_to, session_id: row.session_id, source: row.source, kind: "comment", encrypt: row.encrypt, fingerprint: row['fingerprint'] }
     };
     time_after = time_after ? time_after : -1;
     var func;
@@ -743,19 +743,24 @@ export function post_comment({ user_id, session_id, timestamp, comment, for_user
     console.log('post_comment start');
     comment_id = comment_id || shortid();
     return new Promise((resolve, reject) => {
-        db.run('insert into comments (id,user_id,comment,for_user,encrypt,timestamp,session_id,original_url,sent_to,source,encrypt_group) values (?,?,?,?,?,?,?,?,?,?,?);', comment_id, user_id, comment, for_user, encrypt, timestamp, session_id, original_url, sent_to, source, encrypt_group, (err1) => {
-            db.run('insert or ignore into session_current_members (session_id,user_id) values (?,?)', session_id, user_id, (err2) => {
-                if (!err1 && !err2) {
-                    const data: CommentTyp = {
-                        id: comment_id, timestamp: timestamp, user_id, comment: comment, session_id, original_url, sent_to, source, kind: "comment", encrypt
-                    };
-                    resolve({ ok: true, for_user, data });
-                } else {
-                    console.log('post_comment error', err1, err2)
-                    reject([err1, err2]);
-                }
+        get_public_key({ user_id, for_user }).then(({ publicKey }) => {
+            fingerPrint(publicKey).then((fingerprint) => {
+                db.run('insert into comments (id,user_id,comment,for_user,encrypt,timestamp,session_id,original_url,sent_to,source,encrypt_group, fingerprint) values (?,?,?,?,?,?,?,?,?,?,?,?);', comment_id, user_id, comment, for_user, encrypt, timestamp, session_id, original_url, sent_to, source, encrypt_group, fingerprint, (err1) => {
+                    db.run('insert or ignore into session_current_members (session_id,user_id) values (?,?)', session_id, user_id, (err2) => {
+                        if (!err1 && !err2) {
+                            const data: CommentTyp = {
+                                id: comment_id, timestamp: timestamp, user_id, comment: comment, session_id, original_url, sent_to, source, kind: "comment", encrypt,
+                                fingerprint
+                            };
+                            resolve({ ok: true, for_user, data });
+                        } else {
+                            console.log('post_comment error', err1, err2)
+                            reject([err1, err2]);
+                        }
+                    });
+                });
             });
-        });
+        })
     });
 }
 
@@ -935,21 +940,17 @@ export async function register_public_key({ user_id, for_user, jwk, privateKeyFi
         for_user = for_user != null ? for_user : '';
         console.log('register_public_key', { user_id, for_user, jwk })
         if (user_id != null && jwk != null) {
-            db.get('select count(*) from public_keys where user_id=? and for_user=?', user_id, for_user, (err, row) => {
-                if (row['count(*)'] > 0) {
-                    resolve(false);
+            db.run('insert into public_keys (user_id,for_user,key,timestamp,private_fingerprint) values (?,?,?,?,?);', user_id, for_user, JSON.stringify(jwk), timestamp, privateKeyFingerprint, (err) => {
+                if (!err) {
+                    console.log(user_id);
+                    resolve(true);
                 } else {
-                    db.run('insert into public_keys (user_id,for_user,key,timestamp,private_fingerprint) values (?,?,?,?,?);', user_id, for_user, JSON.stringify(jwk), timestamp, privateKeyFingerprint, (err) => {
-                        if (!err) {
-                            console.log(user_id);
-                            resolve(true);
-                        } else {
-                            resolve(false);
-                        }
-                    });
+                    console.log('register_public_key', err);
+                    resolve(false);
                 }
             });
         } else {
+            console.log('register_public_key error', user_id, jwk)
             resolve(false);
         }
     });
@@ -957,7 +958,7 @@ export async function register_public_key({ user_id, for_user, jwk, privateKeyFi
 
 export async function get_public_key({ user_id, for_user }: { user_id: string, for_user: string }): Promise<{ publicKey: JsonWebKey, prv_fingerprint: string }> {
     return new Promise((resolve) => {
-        db.get('select * from public_keys where user_id=? and for_user=?', user_id, for_user, (err, row) => {
+        db.get('select * from public_keys where user_id=? and for_user=? order by timestamp desc limit 1', user_id, for_user, (err, row) => {
             if (!err && row) {
                 resolve({ publicKey: JSON.parse(row['key']), prv_fingerprint: row['private_fingerprint'] });
             } else {
