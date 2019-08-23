@@ -54,7 +54,7 @@ const morgan_user_id = morgan.token('user_id', (req, res) => {
     return req.decoded ? req.decoded.user_id : 'null';
 });
 
-app.use(morgan(':date[iso] :user_id :method :url :status - :response-time ms'));
+app.use(morgan(':date[iso] :user_id :method :url :status - :res[content-length] :response-time ms'));
 
 app.set("view engine", "ejs");
 var compression = require('compression');

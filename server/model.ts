@@ -364,7 +364,7 @@ export function list_comments(for_user: string, session_id: string, user_id: str
             const r = emoji_dict[$1];
             return r ? r.emoji : $1;
         });
-        return { id: row.id, comment, timestamp: parseInt(row.timestamp), user_id: row.user_id, original_url: row.original_url, sent_to: row.sent_to, session_id: row.session_id, source: row.source, kind: "comment", encrypt: row.encrypt, fingerprint: row['fingerprint'] }
+        return { id: row.id, comment, timestamp: parseInt(row.timestamp), user_id: row.user_id, original_url: row.original_url, sent_to: row.sent_to, session_id: row.session_id, source: row.source, kind: "comment", encrypt: row.encrypt, fingerprint: { from: row['fingerprint_from'], to: row['fingerprint_to'] } };
     };
     time_after = time_after ? time_after : -1;
     var func;
@@ -744,21 +744,29 @@ export function post_comment({ user_id, session_id, timestamp, comment, for_user
     comment_id = comment_id || shortid();
     return new Promise((resolve, reject) => {
         // Currently key is same for all recipients.
-        get_public_key({ user_id, for_user: user_id }).then(({ publicKey }) => {
-            fingerPrint(publicKey).then((fingerprint) => {
-                console.log('Posting with key: ' + fingerprint, publicKey, user_id, for_user);
-                db.run('insert into comments (id,user_id,comment,for_user,encrypt,timestamp,session_id,original_url,sent_to,source,encrypt_group, fingerprint) values (?,?,?,?,?,?,?,?,?,?,?,?);', comment_id, user_id, comment, for_user, encrypt, timestamp, session_id, original_url, sent_to, source, encrypt_group, fingerprint, (err1) => {
-                    db.run('insert or ignore into session_current_members (session_id,user_id) values (?,?)', session_id, user_id, (err2) => {
-                        if (!err1 && !err2) {
-                            const data: CommentTyp = {
-                                id: comment_id, timestamp: timestamp, user_id, comment: comment, session_id, original_url, sent_to, source, kind: "comment", encrypt,
-                                fingerprint
-                            };
-                            resolve({ ok: true, for_user, data });
-                        } else {
-                            console.log('post_comment error', err1, err2)
-                            reject([err1, err2]);
-                        }
+        get_public_key({ user_id, for_user: user_id }).then(({ publicKey: pub_from }) => {
+            get_public_key({ user_id: for_user, for_user }).then(({ publicKey: pub_to }) => {
+                fingerPrint(pub_from).then((fp_from) => {
+                    fingerPrint(pub_to).then((fp_to) => {
+
+                        // console.log('Posting with key: ' + fingerprint, publicKey, user_id, for_user);
+                        db.run(`insert into comments (
+                                id,user_id,comment,for_user,encrypt,timestamp,session_id,original_url,sent_to,source,encrypt_group,fingerprint_from,fingerprint_to
+                                ) values (?,?,?,?,?,?,?,?,?,?,?,?,?);`, comment_id, user_id, comment, for_user, encrypt, timestamp, session_id, original_url, sent_to, source, encrypt_group, fp_from, fp_to, (err1) => {
+                                db.run('insert or ignore into session_current_members (session_id,user_id) values (?,?)', session_id, user_id, (err2) => {
+                                    if (!err1 && !err2) {
+                                        const data: CommentTyp = {
+                                            id: comment_id, timestamp: timestamp, user_id, comment: comment, session_id, original_url, sent_to, source, kind: "comment", encrypt,
+                                            fingerprint: { from: fp_from, to: fp_to }
+                                        };
+                                        resolve({ ok: true, for_user, data });
+                                    } else {
+                                        console.log('post_comment error', err1, err2)
+                                        reject([err1, err2]);
+                                    }
+                                });
+                            });
+
                     });
                 });
             });

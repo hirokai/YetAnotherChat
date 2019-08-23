@@ -65,13 +65,13 @@ interface ChatEntryCommon {
     timestamp: number,
     comment: string,
     encrypt: EncryptionMode,
-    fingerprint: string
+    fingerprint: { from: string, to: string }
 }
 
 interface CommentTyp extends ChatEntryCommon {
     kind: "comment";
-    original_url: string,
-    sent_to: string,
+    original_url?: string,
+    sent_to?: string,
     source: string,
 }
 
