@@ -348,9 +348,11 @@ type FilesDeleteSocket = {
 
 type UsersUpdateSocket = {
     __type: 'users.update',
+    action: 'online' | 'public_key';
+    timestamp: number,
     user_id: string,
     online?: boolean,
-    timestamp: number
+    public_key?: JsonWebKey,
 }
 
 type UserOnlineStatus = { [key: string]: boolean }

@@ -23,6 +23,7 @@ const jwt = require('jsonwebtoken');
 const credential = require('./private/credential');
 import * as ec from './error_codes';
 import multer from 'multer';
+import { fingerPrint } from '../common/common_model';
 // import chalk from 'chalk';
 
 const http = require('http').createServer(app);
@@ -265,7 +266,7 @@ app.use(function (req, res, next) {
 app.post('/api/logout/', (req, res) => {
     const user_id = req.decoded.user_id;
     model.delete_connection_of_user(user_id).then(({ timestamp }) => {
-        const obj: UsersUpdateSocket = { __type: 'users.update', user_id, online: false, timestamp };
+        const obj: UsersUpdateSocket = { __type: 'users.update', action: 'online', user_id, online: false, timestamp };
         // ToDo: Add logout for all clients of the same user.
         io.emit('users.update', obj);
     });
@@ -675,8 +676,12 @@ app.post('/api/public_keys', (req: MyPostRequest<PostPublicKeyParams>, res) => {
     const jwk = req.body.publicKey;
     const for_user = req.body.for_user;
     const privateKeyFingerprint = req.body.privateKeyFingerprint;
-    model.register_public_key({ user_id, for_user, jwk, privateKeyFingerprint }).then((ok) => {
-        res.json({ ok });
+    model.register_public_key({ user_id, for_user, jwk, privateKeyFingerprint }).then(({ ok, timestamp }) => {
+        res.json({ ok, timestamp });
+        if (ok) {
+            const obj: UsersUpdateSocket = { __type: "users.update", action: 'public_key', user_id, timestamp, public_key: jwk };
+            io.emit('users.update', obj);
+        }
     });
 });
 
@@ -712,7 +717,7 @@ io.on('connection', function (socket: SocketIO.Socket) {
                         console.log('saveSocketId', r, 'socket id', user_id, socket.id)
                         console.log('Online users:', previous, user_id)
                         if (!includes(previous, user_id)) {
-                            const obj: UsersUpdateSocket = { __type: "users.update", user_id, online: true, timestamp: r.timestamp }
+                            const obj: UsersUpdateSocket = { __type: "users.update", action: 'online', user_id, online: true, timestamp: r.timestamp }
                             io.emit('users.update', obj);
                         }
                     });

@@ -944,7 +944,7 @@ export async function update_public_key({ user_id, for_user, jwk }: { user_id: s
     });
 }
 
-export async function register_public_key({ user_id, for_user, jwk, privateKeyFingerprint }: { user_id: string, for_user: string, jwk: JsonWebKey, privateKeyFingerprint: string }): Promise<boolean> {
+export async function register_public_key({ user_id, for_user, jwk, privateKeyFingerprint }: { user_id: string, for_user: string, jwk: JsonWebKey, privateKeyFingerprint: string }): Promise<{ ok: boolean, timestamp?: number }> {
     return new Promise((resolve) => {
         const timestamp = new Date().getTime();
         for_user = for_user != null ? for_user : '';
@@ -953,15 +953,15 @@ export async function register_public_key({ user_id, for_user, jwk, privateKeyFi
             db.run('insert into public_keys (user_id,for_user,key,timestamp,private_fingerprint) values (?,?,?,?,?);', user_id, for_user, JSON.stringify(jwk), timestamp, privateKeyFingerprint, (err) => {
                 if (!err) {
                     console.log(user_id);
-                    resolve(true);
+                    resolve({ ok: true, timestamp });
                 } else {
                     console.log('register_public_key', err);
-                    resolve(false);
+                    resolve({ ok: false });
                 }
             });
         } else {
             console.log('register_public_key error', user_id, jwk)
-            resolve(false);
+            resolve({ ok: false });
         }
     });
 }

@@ -177,9 +177,21 @@ export class Model {
             const timestamp = new Date().getTime();
             var users: User[] = await this.loadDb('yacht.users', 'id');
             const u = find(users, { id: msg.user_id });
-            if (u != null) {
-                u.online = msg.online;
-                await this.saveDb('yacht.users', 'id', u.id, u, true);
+            if (u == null) {
+                return;
+            }
+            switch (msg.action) {
+                case 'online': {
+                    u.online = msg.online;
+                    await this.saveDb('yacht.users', 'id', u.id, u, true);
+                    break;
+                }
+                case 'public_key': {
+                    u.publicKey = msg.public_key;
+                    u.fingerprint = await crypto.fingerPrint(msg.public_key);
+                    await this.saveDb('yacht.users', 'id', u.id, u, true);
+                    break;
+                }
             }
         },
         toClient: async (u: User): Promise<UserClient> => {
