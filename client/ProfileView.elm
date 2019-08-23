@@ -1,7 +1,6 @@
 module ProfileView exposing (userProfileView)
 
 import Components exposing (..)
-import Decoders exposing (roomInfoListDecoder)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -10,7 +9,6 @@ import List.Extra
 import Maybe.Extra exposing (..)
 import Ports exposing (..)
 import Regex exposing (..)
-import Set
 import Types exposing (..)
 
 

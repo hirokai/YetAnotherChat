@@ -1,12 +1,10 @@
 module NewSessionView exposing (mkSessionRowInList, newSessionView, updateNewSessionStatus)
 
 import Components exposing (..)
-import Decoders exposing (roomInfoListDecoder)
-import Dict exposing (Dict)
+import Dict
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
-import List.Extra
 import Navigation exposing (..)
 import Ports exposing (..)
 import Regex exposing (..)

@@ -1,11 +1,8 @@
 module Navigation exposing (enterHome, enterNewSession, enterRoom, enterSessionList, enterUser, enterUserList, enterUserProfile, enterUserSetting, notFound, notFoundView, pageToPath, pathToPage, updatePageHash)
 
-import Decoders exposing (roomInfoListDecoder)
-import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
-import List.Extra
 import Ports exposing (..)
 import Regex exposing (..)
 import Set

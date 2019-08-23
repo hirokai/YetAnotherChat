@@ -1,4 +1,4 @@
-port module Components exposing (iconOfUser, leftMenu, makeLinkToOriginal, mkPeoplePanel, onKeyDown, ourFormatter, showChannels, showSource, smallMenu, topPane, updateRoomName)
+module Components exposing (iconOfUser, leftMenu, makeLinkToOriginal, mkPeoplePanel, onKeyDown, ourFormatter, showChannels, showSource, smallMenu, topPane, updateRoomName)
 
 import DateFormat
 import Dict exposing (Dict)
@@ -9,7 +9,7 @@ import Json.Decode as Json
 import Navigation exposing (..)
 import Ports exposing (..)
 import Set
-import Time exposing (Zone, utc)
+import Time exposing (Zone)
 import Types exposing (..)
 
 

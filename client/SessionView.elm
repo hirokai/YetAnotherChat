@@ -1,7 +1,6 @@
 port module SessionView exposing (addComment, chatRoomView, getMembers, initialChatPageStatus, mkComment, onKeyDownTextArea, removeItem, sendCommentToServer, sendCommentToServerDone, showAll, showItem, submitComment, updateChatPageStatus)
 
 import Components exposing (..)
-import Decoders exposing (roomInfoListDecoder)
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -89,6 +88,7 @@ roomTitle room model =
         ]
 
 
+chatBody : Model -> List (Html Msg)
 chatBody model =
     case model.chatPageStatus.messages of
         Just messages ->
@@ -148,6 +148,7 @@ chatBody model =
             []
 
 
+footer : String -> Model -> Html Msg
 footer room model =
     div [ class "row", id "footer_wrapper" ]
         [ div [ class "col-md-12 col-lg-12", id "footer" ]

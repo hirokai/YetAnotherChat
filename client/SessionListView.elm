@@ -1,16 +1,13 @@
 module SessionListView exposing (sessionListView)
 
 import Components exposing (..)
-import Decoders exposing (roomInfoListDecoder)
-import Dict exposing (Dict)
+import Dict
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
-import List.Extra
 import Navigation exposing (..)
 import Ports exposing (..)
 import Regex exposing (..)
-import Set
 import Types exposing (..)
 
 

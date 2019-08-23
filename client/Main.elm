@@ -1,17 +1,13 @@
-port module Main exposing (Flags, finishEditing, init, main, subscriptions, update, view)
+module Main exposing (Flags, finishEditing, init, main, subscriptions, update, view)
 
 import Browser
-import Components exposing (leftMenu, smallMenu)
-import DateFormat
 import Decoders exposing (..)
-import Dict exposing (Dict)
+import Dict
 import HomeView exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Json.Decode as Json
-import Json.Decode.Extra as JE
-import List.Extra
 import Maybe.Extra exposing (..)
 import Navigation exposing (..)
 import NewSessionView exposing (..)
@@ -23,7 +19,7 @@ import SessionView exposing (..)
 import Set
 import SettingsView exposing (..)
 import Task
-import Time exposing (Zone, utc)
+import Time exposing (utc)
 import Types exposing (..)
 import UserListView exposing (..)
 import UserPageView exposing (..)
@@ -131,11 +127,7 @@ update msg model =
             in
             ( { model | page = RoomPage "" }, Cmd.batch [ createNewSession ( "", user_list ), updatePageHash model ] )
 
-        ReceiveNewSessionId { name, timestamp, id } ->
-            let
-                newRoomInfo =
-                    { id = id, name = name, timestamp = timestamp, members = [], numMessages = Dict.empty, firstMsgTime = -1, lastMsgTime = -1 }
-            in
+        ReceiveNewSessionId { id } ->
             enterRoom id model
 
         EnterNewSessionScreen ->
