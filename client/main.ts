@@ -491,9 +491,13 @@ if (!token || token == '') {
             (async () => {
                 const prv_jwk: JsonWebKey = JSON.parse(<string>reader.result);
                 try {
-                    await model.keys.import_private_key(prv_jwk);
-                    const fp = await crypto.fingerPrint(prv_jwk);
-                    app.ports.setValue.send(['my_private_key', fp || ""]);
+                    const { verified, fingerprint } = await model.keys.import_private_key(prv_jwk);
+                    if (fingerprint && verified) {
+                        app.ports.setValue.send(['my_private_key', fingerprint]);
+                        app.ports.setValue.send(['my_private_key_message', "鍵を取り込みました。"]);
+                    } else {
+                        app.ports.setValue.send(['my_private_key_message', "秘密鍵が正しくありません。"]);
+                    }
                 } catch (e) {
                     console.log('Private key import error', e);
                 }

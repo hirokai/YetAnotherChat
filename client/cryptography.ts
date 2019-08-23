@@ -275,18 +275,6 @@ export async function decrypt(remotePublicKey: CryptoKey, localPrivateKey: Crypt
     });
 }
 
-export async function verify_key_pair({ publicKey, privateKey }: CryptoKeyPair): Promise<boolean> {
-    if (!privateKey || !publicKey) {
-        console.log('Null key contained')
-        return false;
-    }
-    try {
-        return true;
-    } catch (e) {
-        return false;
-    }
-}
-
 function encode2(buf_: ArrayBuffer): string {
     const buf = new Uint8Array(buf_);
     let str = '';

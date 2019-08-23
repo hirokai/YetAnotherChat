@@ -361,8 +361,6 @@ app.get('/api/sessions/:id', (req, res: JsonResponse<GetSessionResponse>) => {
     })
 });
 
-
-
 app.delete('/api/comments/:id', (req, res: JsonResponse<DeleteCommentResponse>) => {
     const comment_id = req.params.id;
     db.get('select * from comments where id=?;', comment_id, (err, row) => {
@@ -667,8 +665,8 @@ setInterval(async () => {
 app.get('/api/public_keys/me', (req: GetAuthRequest, res: JsonResponse<GetPublicKeysResponse>) => {
     const user_id = req.decoded.user_id;
     const for_user = req.query.for_user || user_id;
-    model.get_public_key({ user_id, for_user }).then((jwk) => {
-        res.json({ ok: jwk != null, data: jwk });
+    model.get_public_key({ user_id, for_user }).then(({ publicKey: pub, prv_fingerprint }) => {
+        res.json({ ok: pub != null, publicKey: pub, privateKeyFingerprint: prv_fingerprint });
     });
 });
 
@@ -676,17 +674,9 @@ app.post('/api/public_keys', (req: MyPostRequest<PostPublicKeyParams>, res) => {
     const user_id = req.decoded.user_id;
     const jwk = req.body.publicKey;
     const for_user = req.body.for_user;
-    model.register_public_key({ user_id, for_user, jwk }).then((ok) => {
+    const privateKeyFingerprint = req.body.privateKeyFingerprint;
+    model.register_public_key({ user_id, for_user, jwk, privateKeyFingerprint }).then((ok) => {
         res.json({ ok });
-    });
-});
-
-app.patch('/api/public_keys', (req: MyPostRequest<UpdatePublicKeyParams>, res) => {
-    const user_id = req.decoded.user_id;
-    const jwk = req.body.publicKey;
-    const for_user = req.body.for_user || user_id;
-    model.update_public_key({ user_id, for_user, jwk }).then(({ ok, error }) => {
-        res.json({ ok, error, data: { user_id, for_user, jwk } });
     });
 });
 

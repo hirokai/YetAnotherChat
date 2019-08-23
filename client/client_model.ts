@@ -433,7 +433,7 @@ export class Model {
             const obj: MyKeyCacheData = { id: 'myself', privateKey, publicKey, fingerPrint: fp };
             await this.saveDb('yacht.keyPair', 'id', 'myself', obj, true);
         },
-        import_private_key: async (jwk: JsonWebKey) => {
+        import_private_key: async (jwk: JsonWebKey): Promise<{ fingerprint: string, verified: boolean }> => {
             const keyPair: CryptoKeyPair = await this.keys.get_my_keys();
             console.log('import_private_key', keyPair);
             if (keyPair == null) {
@@ -441,9 +441,18 @@ export class Model {
             } else {
                 const prv_imported = await crypto.importKey(jwk, false, true);
                 const newKeyPair = { privateKey: prv_imported, publicKey: keyPair.publicKey }
-                const v = await crypto.verify_key_pair(newKeyPair);
-                console.log('New key pair verified:', v)
-                await this.keys.save_my_keys(newKeyPair);
+                const fingerprint = await crypto.fingerPrint(jwk);
+                const verified = await this.keys.verify_my_private_fingerprint(fingerprint);
+                console.log('New key pair verified:', verified);
+                if (verified) {
+                    await this.keys.save_my_keys(newKeyPair);
+                    return { fingerprint, verified };
+                } else {
+                    // const data: MyKeyCacheData = await this.loadDb('yacht.keyPair', 'id', 'myself');
+                    // data.privateKey = null;
+                    // await this.saveDb('yacht.keyPair', 'id', 'myself', data, true);
+                    return { fingerprint: null, verified };
+                }
             }
         },
         upload_my_private_key: async () => {
@@ -452,18 +461,22 @@ export class Model {
             axios.post('/api/private_key', { private_key });
         },
         download_my_keys_from_server: async (): Promise<CryptoKeyPair> => {
-            const params: GetPublicKeysParams = { user_id: this.user_id, token: this.token };
-
-            const { data: { data: jwk_pub } } = <AxiosResponse<GetPublicKeysResponse>>await axios.get('/api/public_keys/me', { params });
+            const params: GetPublicKeysParams = { user_id: this.user_id };
+            const { data: { publicKey: jwk_pub } } = <AxiosResponse<GetPublicKeysResponse>>await axios.get('/api/public_keys/me');
             const { data: { privateKey: jwk_prv } } = <AxiosResponse<GetPrivateKeyResponse>>await axios.get('/api/private_key');
             const publicKey = await crypto.importKey(jwk_pub, true, true);
             const privateKey = await crypto.importKey(jwk_prv, false, true);
             return { publicKey, privateKey };
         },
-        upload_my_public_key: async (publicKey: CryptoKey) => {
-            const jwk = await crypto.exportKey(publicKey);
-            const obj: UpdatePublicKeyParams = { for_user: this.user_id, publicKey: jwk };
-            const { data } = await axios.patch('/api/public_keys', obj);
+        verify_my_private_fingerprint: async (fp: string): Promise<boolean> => {
+            const { data: { ok, publicKey: jwk_pub, privateKeyFingerprint } } = <AxiosResponse<GetPublicKeysResponse>>await axios.get('/api/public_keys/me');
+            return ok && fp == privateKeyFingerprint;
+        },
+        upload_my_public_key: async (keyPair: CryptoKeyPair) => {
+            const jwk = await crypto.exportKey(keyPair.publicKey);
+            const privateKeyFingerprint = await crypto.fingerPrint1(keyPair.privateKey);
+            const obj: UpdatePublicKeyParams = { for_user: this.user_id, publicKey: jwk, privateKeyFingerprint };
+            const { data } = await axios.post('/api/public_keys', obj);
             console.log('update_public_key result', data);
         },
         reset: async (): Promise<{ timestamp: number, fingerprint: { prv: string, pub: string } }> => {
@@ -471,7 +484,7 @@ export class Model {
             const keyPair = await crypto.generateKeyPair(true);
             this.privateKeyJson = await crypto.exportKey(keyPair.privateKey);
             await this.keys.save_my_keys(keyPair);
-            await this.keys.upload_my_public_key(keyPair.publicKey);
+            await this.keys.upload_my_public_key(keyPair);
             const fingerprint = await this.keys.get_my_fingerprint();
             return { timestamp, fingerprint };
         }

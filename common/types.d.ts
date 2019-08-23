@@ -202,13 +202,13 @@ interface LoginParams extends AuthedParams {
 }
 
 type GetPublicKeysParams = {
-    token: string,
     user_id: string
 }
 
 type GetPublicKeysResponse = {
     ok: boolean,
-    data?: JsonWebKey
+    publicKey?: JsonWebKey,
+    privateKeyFingerprint?: string
 }
 
 type GetPrivateKeyResponse = {
@@ -218,6 +218,7 @@ type GetPrivateKeyResponse = {
 
 interface PostPublicKeyParams extends AuthedParams {
     publicKey: JsonWebKey,
+    privateKeyFingerprint: string,
     for_user: string
 }
 

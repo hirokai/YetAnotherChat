@@ -773,7 +773,7 @@ export async function list_users(myself: string): Promise<User[]> {
     const users = await Promise.all(map(rows, (row): Promise<User> => {
         return new Promise((resolve) => {
             const user_id = row['id'];
-            get_public_key({ user_id, for_user: myself }).then((pk1) => {
+            get_public_key({ user_id, for_user: myself }).then(({ publicKey: pk1 }) => {
                 if (pk1) {
                     fingerPrint(pk1).then((fingerprint) => {
                         // console.log('model.list_users() publicKey', user_id, myself, pk1);
@@ -792,7 +792,7 @@ export async function list_users(myself: string): Promise<User[]> {
                 } else {
                     //ToDo: Currently default public key has for_user=user_id.
                     //But 1-to-1 communication better requires different public keys for every sent-to user.
-                    get_public_key({ user_id, for_user: user_id }).then((pk2) => {
+                    get_public_key({ user_id, for_user: user_id }).then(({ publicKey: pk2 }) => {
                         fingerPrint(pk2).then((fingerprint) => {
 
                             // console.log('model.list_users() publicKey', user_id, user_id, pk2);
@@ -825,7 +825,7 @@ export function find_user_from_email({ myself, email }: { myself: string, email:
             db.get('select users.id,users.name,users.fullname,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id group by users.id having emails like ?;', '%' + email + '%', (err, row) => {
                 if (!err && row) {
                     const user_id = row['id']
-                    get_public_key({ user_id, for_user: myself }).then((publicKey) => {
+                    get_public_key({ user_id, for_user: myself }).then(({ publicKey }) => {
                         list_online_users().then((online_users) => {
                             const online: boolean = includes(online_users, user_id);
                             resolve({ username: row['name'], fullname: row['fullname'], id: user_id, emails: row['emails'], avatar: '', online, publicKey });
@@ -846,7 +846,7 @@ export function find_user_from_username({ myself, username }: { myself: string, 
                 console.log('find_user_from_username', row);
                 const user_id = row['id']
                 const emails = row['emails'].split(',');
-                get_public_key({ user_id, for_user: myself }).then((publicKey) => {
+                get_public_key({ user_id, for_user: myself }).then(({ publicKey }) => {
                     list_online_users().then((online_users) => {
                         const online: boolean = includes(online_users, user_id);
                         resolve({ username: row['name'], id: user_id, emails, avatar: "", fullname: row['fullname'], online, publicKey });
@@ -864,7 +864,7 @@ export function get_user({ myself, user_id }: { myself: string, user_id: string 
         db.get('select users.id,users.name,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id where users.id=? group by users.id;', user_id, (err, row) => {
             if (row) {
                 const emails = row['emails'].split(',');
-                get_public_key({ user_id, for_user: myself }).then((publicKey) => {
+                get_public_key({ user_id, for_user: myself }).then(({ publicKey }) => {
                     list_online_users().then((online_users) => {
                         const id = row['id']
                         const online: boolean = includes(online_users, id);
@@ -929,7 +929,7 @@ export async function update_public_key({ user_id, for_user, jwk }: { user_id: s
     });
 }
 
-export async function register_public_key({ user_id, for_user, jwk }: { user_id: string, for_user: string, jwk: JsonWebKey }): Promise<boolean> {
+export async function register_public_key({ user_id, for_user, jwk, privateKeyFingerprint }: { user_id: string, for_user: string, jwk: JsonWebKey, privateKeyFingerprint: string }): Promise<boolean> {
     return new Promise((resolve) => {
         const timestamp = new Date().getTime();
         for_user = for_user != null ? for_user : '';
@@ -939,7 +939,7 @@ export async function register_public_key({ user_id, for_user, jwk }: { user_id:
                 if (row['count(*)'] > 0) {
                     resolve(false);
                 } else {
-                    db.run('insert into public_keys (user_id,for_user,key,timestamp) values (?,?,?,?)', user_id, for_user, JSON.stringify(jwk), timestamp, (err) => {
+                    db.run('insert into public_keys (user_id,for_user,key,timestamp,private_fingerprint) values (?,?,?,?,?);', user_id, for_user, JSON.stringify(jwk), timestamp, privateKeyFingerprint, (err) => {
                         if (!err) {
                             console.log(user_id);
                             resolve(true);
@@ -955,13 +955,13 @@ export async function register_public_key({ user_id, for_user, jwk }: { user_id:
     });
 }
 
-export async function get_public_key({ user_id, for_user }: { user_id: string, for_user: string }): Promise<JsonWebKey> {
+export async function get_public_key({ user_id, for_user }: { user_id: string, for_user: string }): Promise<{ publicKey: JsonWebKey, prv_fingerprint: string }> {
     return new Promise((resolve) => {
         db.get('select * from public_keys where user_id=? and for_user=?', user_id, for_user, (err, row) => {
             if (!err && row) {
-                resolve(JSON.parse(row['key']));
+                resolve({ publicKey: JSON.parse(row['key']), prv_fingerprint: row['private_fingerprint'] });
             } else {
-                resolve(null);
+                resolve({ publicKey: null, prv_fingerprint: null });
             }
         });
     });

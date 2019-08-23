@@ -463,6 +463,7 @@ type alias Model =
     , profile :
         { publicKey : String
         , privateKey : String
+        , privateKeyMsg : String
         }
     }
 
@@ -504,7 +505,7 @@ init { user_id, show_toppane, expand_chatinput, show_users_with_email_only } =
       , files = Dict.empty
       , timezone = utc
       , searchKeyword = ""
-      , profile = { publicKey = "", privateKey = "" }
+      , profile = { publicKey = "", privateKey = "", privateKeyMsg = "" }
       }
     , Cmd.batch [ initializeData (), Task.perform SetTimeZone Time.here ]
     )
@@ -877,6 +878,16 @@ update msg model =
 
                         new_profile =
                             { profile | privateKey = v }
+                    in
+                    ( { model | profile = new_profile }, Cmd.none )
+
+                "my_private_key_message" ->
+                    let
+                        profile =
+                            model.profile
+
+                        new_profile =
+                            { profile | privateKeyMsg = v }
                     in
                     ( { model | profile = new_profile }, Cmd.none )
 
@@ -2009,6 +2020,7 @@ userSettingView user model =
                                 , type_ "file"
                                 ]
                                 []
+                            , span [] [ text model.profile.privateKeyMsg ]
                             ]
                         , div [ style "margin-bottom" "10px" ] [ button [ class "btn btn-primary", disabled (model.profile.privateKey == ""), onClick UploadPrivateKey ] [ text "鍵をサーバーに預ける" ], br [] [], span [] [ text "サーバーに5分間だけ秘密鍵を保管します。5分間のうちに他の利用端末でログインすると，秘密鍵が自動でダウンロードされ端末に保存されます。" ] ]
                         , div []
