@@ -56,8 +56,6 @@ if (!token || token == '') {
         recalcPositions(show_toppane, expand_chatinput);
     }, 100);
 
-
-
     const socket: SocketIOClient.Socket = io('');
 
     socket.on('connect', () => {
@@ -88,6 +86,7 @@ if (!token || token == '') {
         const users = await model.users.list();
         const ps = map(values(users), model.users.toClient);
         const usersClient = await Promise.all(ps);
+        console.log('Feeding users', usersClient);
         app.ports.feedUsers.send(usersClient);
     });
 
@@ -141,6 +140,10 @@ if (!token || token == '') {
         const { timestamp, fingerprint } = await model.keys.reset();
         app.ports.setValue.send(['my_public_key', fingerprint.pub]);
         app.ports.setValue.send(['my_private_key', fingerprint.prv]);
+    });
+
+    app.ports.resetUserCache.subscribe(async () => {
+        await model.users.resetCache();
     });
 
     app.ports.deleteSession.subscribe(async ({ id }) => {
@@ -562,6 +565,7 @@ interface ElmAppPorts {
     downloadPrivateKey: ElmSub<void>;
     uploadPrivateKey: ElmSub<void>;
     resetKeys: ElmSub<void>;
+    resetUserCache: ElmSub<void>;
     setValue: ElmSend<string[]>;
     initializeData: ElmSub<void>;
 }

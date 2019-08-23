@@ -151,7 +151,7 @@ export class Model {
         list: async (): Promise<{ [key: string]: User }> => {
             const snapshot: { [key: string]: User } = keyBy(await this.loadDb('yacht.users', 'id'), 'id');
             // console.log('users snapshot', snapshot);
-            if (Object.keys(snapshot).length > 0) {
+            if (snapshot && Object.keys(snapshot).length > 0) {
                 // console.log('Returning users from local DB.')
                 return snapshot;
             } else {
@@ -163,6 +163,10 @@ export class Model {
                 });
                 return keyBy(users, 'id');
             }
+        },
+        resetCache: async () => {
+            await this.removeDb('yacht.users', 'id');
+            await this.users.list();
         },
         reloadAll: async () => {
             await this.removeDb('yacht.users', 'id');
@@ -179,7 +183,7 @@ export class Model {
             }
         },
         toClient: async (u: User): Promise<UserClient> => {
-            const fingerprint: string = await crypto.fingerPrint(u.publicKey);
+            const fingerprint: string = await crypto.fingerPrint(u.publicKey) || '';
             return {
                 id: u.id,
                 fullname: u.fullname || '',
@@ -653,10 +657,10 @@ export async function processData(rawEntries: ChatEntry[], model: Model): Promis
     // console.log('processData latest', rawEntries[rawEntries.length - 1], rawEntries[rawEntries.length - 1].comment);
     const entries = await Promise.all(map(rawEntries, async (m: ChatEntry) => {
         if ('comment' in m) {
-            const { decrypted, encrypt } = await decryptComment(m.comment, m.user_id, m.encrypt, model);
-            m.comment = decrypted;
+            const { decrypted, encrypt } = await decryptComment(m.comment, m.user_id, m.encrypt, model).catch((e) => { return { decrypted: m.comment, encrypt: m.encrypt } });
+            m.comment = decrypted || m.comment;
             m.kind = judgeKind(decrypted);
-            m.encrypt = encrypt;
+            m.encrypt = decrypted ? encrypt : m.encrypt;
         }
         if (m.kind == 'comment') {
             return processComment(m, model);

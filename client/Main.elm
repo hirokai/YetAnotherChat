@@ -126,6 +126,8 @@ port uploadPrivateKey : () -> Cmd msg
 
 port resetKeys : () -> Cmd msg
 
+port resetUserCache : () -> Cmd msg
+
 
 port logout : () -> Cmd msg
 
@@ -554,6 +556,7 @@ type Msg
     | UploadPrivateKey
     | DownloadPrivateKey
     | ResetKeys
+    | ResetUserCache
     | SetValue String String
     | NoOp
 
@@ -858,6 +861,9 @@ update msg model =
 
         ResetKeys ->
             ( model, resetKeys () )
+
+        ResetUserCache ->
+            ( model, resetUserCache () )
 
         SetValue k v ->
             case k of
@@ -1571,7 +1577,7 @@ userListView model =
                 , smallMenu
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text "ユーザー一覧" ]
-                    , div [ class "btn-group" ] [ input [ type_ "input", id "search-user", class "form-control", onInput SearchUser, value model.searchKeyword, placeholder "検索", autocomplete False ] [], i [ class "searchclear far fa-times-circle", onClick (SearchUser "") ] [] ]
+                    , div [ class "btn-group" ] [ input [ type_ "input", id "search-user", class "form-control", onInput SearchUser, value model.searchKeyword, placeholder "検索", autocomplete False ] [], i [ class "searchclear far fa-times-circle", onClick (SearchUser "") ] [], button [ class "btn btn-light", id "reset-user-cache", onClick ResetUserCache ] [ text "Reload" ] ]
                     , div [] [ input [ type_ "checkbox", id "check-user-with-id-only", checked model.userListPageStatus.userWithIdOnly, onCheck (CheckUserWithIdOnly >> UserListPageMsg) ] [], label [ for "check-user-with-id-only" ] [ text "メールアドレスの無いユーザーを隠す" ] ]
                     , div [ id "list-people-wrapper" ] <|
                         List.map (\u -> mkPeopleDivInList model model.newSessionStatus.selected u.id) <|
