@@ -1,15 +1,13 @@
 /// <reference path="../common/types.d.ts" />
 
 import axios from 'axios';
-import { map, clone, includes, pull, without, sortBy, take, find, filter, keyBy, max, cloneDeep, values } from 'lodash-es';
+import { map, clone, includes, pull, without, sortBy, take, find, filter, keyBy, max, cloneDeep, values, zip, isEmpty, every } from 'lodash-es';
 import moment from 'moment';
 const shortid = require('shortid').generate;
 import $ from 'jquery';
 import * as crypto from './cryptography';
 import { Session } from 'inspector';
 import { S_IFBLK } from 'constants';
-
-export type ChatEntry = CommentTyp | SessionEvent | ChatFile;
 
 interface SessionCache {
     id: string
@@ -292,16 +290,20 @@ export class Model {
         },
         on_new: async (msg: CommentsNewSocket): Promise<{ comment_id: string, session_id: string }> => {
             const [msg1] = await processData([msg.entry], this);
-            const snapshot = await this.sessions.load(msg.entry.session_id);
-            if (snapshot) {
-                if (!snapshot.comments) {
-                    snapshot.comments = {};
+            if (msg1) {
+                const snapshot = await this.sessions.load(msg.entry.session_id);
+                if (snapshot) {
+                    if (!snapshot.comments) {
+                        snapshot.comments = {};
+                    }
+                    snapshot.comments[msg1.id] = msg1;
+                    await this.sessions.save(msg.entry.session_id, snapshot);
                 }
-                snapshot.comments[msg1.id] = msg1;
-                await this.sessions.save(msg.entry.session_id, snapshot);
+                // await this.sessions.reload(msg.entry.session_id);
+                return { comment_id: msg.entry.id, session_id: msg.entry.session_id };
+            } else {
+                console.log('comments.on_new process error');
             }
-            // await this.sessions.reload(msg.entry.session_id);
-            return { comment_id: msg.entry.id, session_id: msg.entry.session_id };
         },
         on_delete: async (msg: CommentsDeleteSocket): Promise<{ id: string, session_id: string }> => {
             const snapshot = await this.sessions.load(msg.session_id);
@@ -327,7 +329,7 @@ export class Model {
                 }
                 room_cache.info = info;
                 infos.push(info);
-                console.log(room);
+                // console.log(room);
                 await this.sessions.save(room.id, room_cache);
             }
             return infos;
@@ -475,9 +477,8 @@ export class Model {
         }
     }
     files = {
-        upload: async (session_id: string, data: string | ArrayBuffer, filename: string, filetype: string): Promise<{ ok: boolean, files: { path: string, file_id: string }[], iv: string, secret: string }> => {
+        upload: async (session_id: string, data: string | ArrayBuffer, filename: string, filetype: string, encrypting: boolean): Promise<{ ok: boolean, files: { path: string, file_id: string }[], iv: string, secret: string }> => {
             const formData = new FormData();
-            let encrypting = false;
             let secret: ArrayBuffer, iv: Uint8Array;
             if (encrypting) {
                 const r = await crypto.generateKeyAndEncrypt(new Uint8Array(<ArrayBuffer>data));
@@ -500,7 +501,7 @@ export class Model {
                 }).then((r) => {
                     if (r.ok) {
                         if (encrypting) {
-                            resolve({ ok: r.ok, files: r.files, iv: crypto.encodeBase64URL(iv), secret: crypto.encodeBase64URL(new Uint8Array(secret)) });
+                            resolve({ ok: r.ok, files: r.files, iv: crypto.encode(iv), secret: crypto.encode(new Uint8Array(secret)) });
                         } else {
                             resolve({ ok: r.ok, files: r.files, iv: null, secret: null });
                         }
@@ -513,7 +514,7 @@ export class Model {
             });
         },
         upload_and_post: async (session_id: string, data: ArrayBuffer | string, filename: string, filetype: string) => {
-            const { ok, files, secret, iv } = await this.files.upload(session_id, data, filename, filetype);
+            const { ok, files, secret, iv } = await this.files.upload(session_id, data, filename, filetype, false);
             map(files, (file) => {
                 const comment = '<__file::' + file.file_id + '::' + file.path + '::' + secret + '>';
                 this.comments.new({ comment, session: session_id })
@@ -522,56 +523,53 @@ export class Model {
     }
 }
 
-async function processComment(m1: ChatEntry, model: Model): Promise<ChatEntryClient> {
-    const user: string = m1.user_id;
-    const m = <CommentTyp>m1;
-    // console.log('Processing comment by ', m.user_id);
-    const remote_publicKey = await model.keys.get(m.user_id);
+async function decryptComment(comment: string, from_user: string, encrypt: EncryptionMode, model: Model): Promise<{ decrypted: string, encrypt: EncryptionMode }> {
     let deciphered_comment: string;
-    console.log('processComment', m1.id, m1.encrypt);
-    if (m.encrypt == 'ecdh.v1') {
+    if (encrypt == 'ecdh.v1') {
         const my_keys = await model.keys.get_my_keys();
-        deciphered_comment = await crypto.decrypt_str(remote_publicKey, my_keys.privateKey, m.comment, m.user_id).catch(() => {
+        const remote_publicKey = await model.keys.get(from_user);
+        deciphered_comment = await crypto.decrypt_str(remote_publicKey, my_keys.privateKey, comment).catch(() => {
             (async () => {
                 const pub = await crypto.fingerPrint1(remote_publicKey);
                 const mypub = await crypto.fingerPrint1(my_keys.publicKey);
                 const prv = await crypto.fingerPrint1(my_keys.privateKey);
-                console.log('Error decrypting', m.timestamp, mypub, pub, prv);
-                console.log('Comment by ', m.user_id, { remote_pub: pub, my_pub: mypub });
+                console.log('Error decrypting', mypub, pub, prv);
+                console.log('Comment by ', from_user, { remote_pub: pub, my_pub: mypub });
             })();
             return null
         });
-    } else if (m.encrypt == 'none') {
-        deciphered_comment = m.comment;
+    } else if (encrypt == 'none') {
+        deciphered_comment = comment;
     } else {
         deciphered_comment = 'N/A'
     }
-    const encrypt = deciphered_comment ? 'none' : m.encrypt;
-    var v: ChatEntryClient = { id: m.id, user, comment: deciphered_comment || m.comment, timestamp: m.timestamp, formattedTime: formatTime(m.timestamp), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: m1.kind, action: "", encrypt, thumbnailBase64: "" };
+    const encrypt_after = deciphered_comment ? 'none' : encrypt;
+    return { decrypted: deciphered_comment, encrypt: encrypt_after }
+}
+
+async function processComment(m: CommentTyp, model: Model): Promise<CommentTypClient> {
+    // console.log('Processing comment by ', m.user_id);
+    var v: CommentTypClient = { id: m.id, user: m.user_id, comment: m.comment, timestamp: m.timestamp, formattedTime: formatTime(m.timestamp), originalUrl: "", sentTo: "", session: m.session_id, source: "", kind: 'comment', encrypt: m.encrypt };
     v.originalUrl = m.original_url || "";
     v.sentTo = m.sent_to || "";
     v.source = m.source;
     return v;
 }
 
-async function processEvent(m1: ChatEntryClient): Promise<ChatEntryClient> {
-    const m = clone(m1);
-    m.kind = 'event'
-    m.comment = '（参加しました）'
-    return m1;
+async function processEvent(m: SessionEvent): Promise<SessionEventClient> {
+    return Object.assign({}, m, { formattedTime: formatTime(m.timestamp), user: m.user_id, session: m.session_id });
 }
 
-async function processFile(m: ChatEntryClient): Promise<ChatEntryClient> {
-    const re = m.comment.match(/<__file::(.+)::(.+)::(.+)::(.+)>/);
-    const file_id = re[1];
-    const url = re[2];
-    const iv_str = re[3];
-    const encryption_key = re[4];
+async function processFile(m: ChatFile, encrypted: boolean): Promise<ChatFileClient> {
     m.kind = 'file';
-    let encrypting = false;
     // let encrypting = m.encrypt != "none";
-    let thumbnailBase64: string
-    if (encrypting) {
+    let v: ChatFileClient;
+    if (encrypted) {
+        const re = m.comment.match(/<__file::(.+)::(.+)::(.+)::(.+)>/);
+        const file_id = re[1];
+        const url = re[2] || "";
+        const iv_str = re[3];
+        const encryption_key = re[4];
         //https://stackoverflow.com/questions/49040247/download-binary-file-with-axios
         const response = await axios.get(url,
             {
@@ -583,33 +581,86 @@ async function processFile(m: ChatEntryClient): Promise<ChatEntryClient> {
             });
         const arr: ArrayBuffer = response['data'];
         const secret = await crypto.importEncryptionKey(encryption_key, true);
-        console.log('processFile', JSON.parse(encryption_key), secret);
+        // console.log('processFile', JSON.parse(encryption_key), secret);
         const arr_decrypted = await crypto.decryptWithEncryptionKey(new Uint8Array(arr), iv_str, secret).catch(() => new Uint8Array([]));
         console.log('arr_decrypted', arr_decrypted);
         const s = crypto.encodeBase64URL(arr_decrypted);
-        console.log('processFile', response, s);
-        thumbnailBase64 = "data:image/jpeg;base64," + s;
+        // console.log('processFile', response, s);
+        const thumbnailBase64 = "data:image/jpeg;base64," + s;
+        v = Object.assign({}, m, { file_id, user: m.user_id, url, session: m.session_id, thumbnailBase64, formattedTime: formatTime(m.timestamp) });
     } else {
-        thumbnailBase64 = "";
+        const re = m.comment.match(/<__file::(.+)::(.+)::.+>/);
+        console.log('matched', re);
+        const file_id = re[1];
+        const url = re[2];
+        v = Object.assign({}, m, { file_id, url, user: m.user_id, thumbnailBase64: "", formattedTime: formatTime(m.timestamp), session: m.session_id });
     }
-    var v: ChatEntryClient = Object.assign({}, m, { user_id: m.user, session_id: m.session, file_id, url, thumbnailBase64 });
+    delete v['originalUrl'];
     return v;
 }
 
-export async function processData(res: ChatEntry[], model: Model): Promise<ChatEntryClient[]> {
-    return Promise.all(map(res, (m1) => {
-        // console.log('processData', m1);
-        return processComment(m1, model).then((c: ChatEntryClient) => {
-            if (c.comment.slice(0, 9) == '<__file::') {
-                c.kind = 'file';
-                return processFile(c).catch(() => Object.assign({}, c, { user_id: c.user, session_id: c.session, file_id: "", url: c.url, thumbnailBase64: "" }));
-            } else if (c.comment.slice(0, 10) == '<__event::') {
-                return processEvent(c);
-            } else {
-                return c;
-            }
-        });
+// Double check with Elm's data type.
+// Fields are copied from Elm source code.
+async function checkChatEntryFormat(d: ChatEntryClient): Promise<boolean> {
+    if (d.kind == 'file') {
+        const { id, user, file_id, url, formattedTime, thumbnailBase64 } = d;
+        if (!every([id, user, file_id, url, formattedTime, thumbnailBase64], (a) => a != null)) {
+            console.log([id, user, file_id, url, formattedTime, thumbnailBase64])
+            return false;
+        }
+    } else if (d.kind == 'comment') {
+        const { id, user, comment, session, formattedTime, originalUrl, sentTo, source } = d;
+        if (!every([id, user, comment, session, formattedTime, originalUrl, sentTo, source], (a) => a != null)) {
+            console.log([id, user, comment, session, formattedTime, originalUrl, sentTo, source]);
+            return false;
+        }
+    } else if (d.kind == 'event') {
+        const { id, session, user, timestamp, action } = d;
+        if (!every([id, session, user, timestamp, action], (a) => a != null)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function judgeKind(comment: string): ChatEntryKind {
+    if (!comment) {
+        return "comment";
+    }
+    if (comment.slice(0, 9) == '<__file::') {
+        return "file";
+    } else if (comment.slice(0, 10) == '<__event::') {
+        return "event"
+    } else {
+        return "comment"
+    }
+}
+
+export async function processData(rawEntries: ChatEntry[], model: Model): Promise<ChatEntryClient[]> {
+    // console.log('processData latest', rawEntries[rawEntries.length - 1], rawEntries[rawEntries.length - 1].comment);
+    const entries = await Promise.all(map(rawEntries, async (m: ChatEntry) => {
+        if ('comment' in m) {
+            const { decrypted, encrypt } = await decryptComment(m.comment, m.user_id, m.encrypt, model);
+            m.comment = decrypted;
+            m.kind = judgeKind(decrypted);
+            m.encrypt = encrypt;
+        }
+        if (m.kind == 'comment') {
+            return processComment(m, model);
+        } else if (m.kind == 'file') {
+            return processFile(m, false);
+        } else if (m.kind == 'event') {
+            return processEvent(m);
+        }
     }));
+    const checked = await Promise.all(map(entries, checkChatEntryFormat));
+    const invalidEntries = filter(zip(entries, checked), ([d, c]) => { return !c; });
+    if (!isEmpty(invalidEntries)) {
+        console.log('Invalid entries', map(invalidEntries, ([d, c]) => d));
+        return [];
+    } else {
+        return entries;
+    }
 }
 
 export const processSessionInfo = (d: RoomInfo): RoomInfoClient => {

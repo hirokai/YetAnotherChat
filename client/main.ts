@@ -226,7 +226,7 @@ if (!token || token == '') {
 
     function getAndfeedRoomInfo() {
         model.sessions.list().then((rooms) => {
-            console.log(rooms);
+            // console.log(rooms);
             app.ports.feedRoomInfo.send(rooms);
         });
     }

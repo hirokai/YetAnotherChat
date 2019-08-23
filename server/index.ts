@@ -12,7 +12,7 @@ const glob = require("glob");
 const bodyParser = require("body-parser");
 // const _ = require('lodash');
 import * as _ from 'lodash';
-import { uniq, includes } from 'lodash';
+import { uniq, includes, keyBy } from 'lodash';
 const path = require('path');
 const sqlite3 = require('sqlite3');
 const db = new sqlite3.Database(path.join(__dirname, 'private/db.sqlite3'));
@@ -23,7 +23,7 @@ const jwt = require('jsonwebtoken');
 const credential = require('./private/credential');
 import * as ec from './error_codes';
 import multer from 'multer';
-import chalk from 'chalk';
+// import chalk from 'chalk';
 
 const http = require('http').createServer(app);
 
@@ -62,7 +62,14 @@ app.use(compression());
 const helmet = require('helmet')
 app.use(helmet());
 
-const upload = multer({ dest: './uploads/' }).single('user_image');
+const upload = multer({
+    dest: './uploads/',
+    limits: {
+        fieldNameSize: 1000,
+        files: 100,
+        fileSize: 1000000000
+    }
+}).single('user_image');
 
 enum Timespan {
     day,
@@ -538,18 +545,19 @@ app.post('/api/join_session', (req: PostRequest<JoinSessionParam>, res: JsonResp
 
 app.post('/api/sessions/:session_id/comments', (req: MyPostRequest<PostCommentData>, res: JsonResponse<PostCommentResponse>) => {
     (async () => {
-        db.serialize(() => {
-            const timestamp = new Date().getTime();
-            const user_id = req.decoded.user_id;
-            const comments = req.body.comments;
-            const session_id = req.params.session_id;
-            const temporary_id = req.body.temporary_id;
-            console.log('/api/comments');
+        const timestamp = new Date().getTime();
+        const user_id = req.decoded.user_id;
+        const comments = req.body.comments;
+        const session_id = req.params.session_id;
+        const temporary_id = req.body.temporary_id;
+        const encrypt = req.body.encrypt;
+        console.log('/api/comments');
 
-            const ps = model.post_comment_for_session_members(user_id, session_id, timestamp, comments, req.body.encrypt);
-            ps.then((rs) => {
-                res.json({ ok: true });
-                const { data: d, ok, error } = rs[0];
+        if (encrypt == 'ecdh.v1' || encrypt == 'none') {
+            const rs = await model.post_comment_for_session_members(user_id, session_id, timestamp, comments, encrypt);
+            res.json({ ok: true });
+            for (let r of rs) {
+                const { data: d, for_user, ok, error } = r;
                 if (d) {
                     // await email.send_emails_to_session_members({ session_id, user_id, comment: model.make_email_content(d) });
                     const obj: CommentsNewSocket = {
@@ -557,10 +565,14 @@ app.post('/api/sessions/:session_id/comments', (req: MyPostRequest<PostCommentDa
                         temporary_id,
                         entry: d
                     };
-                    io.emit("comments.new", obj);
+                    const socket_ids = await model.getSocketIds(for_user);
+                    console.log('Emitting comments.new', obj);
+                    for (let sid of socket_ids) {
+                        io.to(sid).emit("comments.new", obj);
+                    }
                 }
-            });
-        });
+            }
+        }
     })().catch(() => {
         res.json({ ok: false, error: "DB error." })
     });

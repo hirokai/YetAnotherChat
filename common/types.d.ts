@@ -54,6 +54,9 @@ interface DeleteComment {
     id: string
 }
 
+type EncryptionMode = 'ecdh.v1' | 'none'
+type ChatEntryKind = 'comment' | 'file' | 'event';
+
 type CommentTyp = {
     kind: "comment";
     id: string,
@@ -64,11 +67,12 @@ type CommentTyp = {
     original_url: string,
     sent_to: string,
     source: string,
-    encrypt: string,
+    encrypt: EncryptionMode,
 }
 
 type SessionEvent = {
     kind: "event";
+    comment: string
     id: string,
     user_id: string,
     session_id: string,
@@ -79,13 +83,14 @@ type SessionEvent = {
 
 type ChatFile = {
     id: string,
+    comment: string,
     user_id: string,
     timestamp: number,
     session_id: string
     url: string,
     file_id: string
-    kind: string,
-    encrypt: string,
+    kind: 'file',
+    encrypt: EncryptionMode,
 }
 
 interface MailgunParsed {
@@ -116,22 +121,37 @@ type MailGroup = {
     data: MailgunParsed[]
 }
 
+type ChatEntryClient = CommentTypClient | ChatFileClient | SessionEventClient
 
-interface ChatEntryClient {
-    id: string,
-    user: string,
-    comment: string,
-    session: string,
-    timestamp: number,
-    formattedTime: string,
-    originalUrl: string,
-    sentTo: string,
+interface ChatEntryClientCommon {
+    kind: string
+    id: string
+    comment: string
+    formattedTime: string
+    timestamp: number
+    session: string
+    user: string
+    encrypt: "ecdh.v1" | "none"
+}
+
+interface CommentTypClient extends ChatEntryClientCommon {
+    kind: "comment"
+    comment: string
+    originalUrl: string
+    sentTo: string
     source: string
-    kind: string,
-    action: string,
-    url?: string,
-    encrypt: string,
+}
+
+interface ChatFileClient extends ChatEntryClientCommon {
+    kind: "file"
+    url: string
+    file_id: string
     thumbnailBase64: string
+}
+
+interface SessionEventClient extends ChatEntryClientCommon {
+    kind: "event"
+    action: string
 }
 
 interface UserSlack {
@@ -300,7 +320,7 @@ type UserTableFromEmail = {
 type CommentsNewSocket = {
     __type: string,
     temporary_id: string,
-    entry: ChatEntry,
+    entry: CommentTyp,
 }
 
 type SessionsNewSocket = {

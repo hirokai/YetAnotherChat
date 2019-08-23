@@ -58,6 +58,9 @@ function str2ab(str: string): Uint8Array {
 const encodingFunc: (a: Uint8Array) => string = encodeBase64URL2;
 const decodingFunc: (a: string) => Uint8Array = decodeBase64URL2;
 
+export const encode = encodingFunc
+export const decode = decodingFunc
+
 // https://qiita.com/tomoyukilabs/items/eac94fdb2d0ca92f443a
 export async function generateKeyPair(exportable = false): Promise<CryptoKeyPair> {
     return crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, exportable, ['deriveKey', 'deriveBits']);

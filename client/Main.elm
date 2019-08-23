@@ -168,7 +168,13 @@ type alias User =
 
 
 type alias ChatFileTyp =
-    { id : String, user : String, file_id : String, url : String, formattedTime : String, thumbnailBase64 : String }
+    { id : String
+    , user : String
+    , file_id : String
+    , url : String
+    , formattedTime : String
+    , thumbnailBase64 : String
+    }
 
 
 type ChatEntry
@@ -1236,7 +1242,16 @@ showItem model entry =
                                 , span [ class "remove-item clickable", onClick (ChatPageMsg (RemoveItem m.id)) ] [ text "×" ]
                                 ]
                             , div [ class "file-image-chat" ]
-                                [ img [ src m.thumbnailBase64 ] []
+                                [ img
+                                    [ src
+                                        (if m.url == "" then
+                                            m.thumbnailBase64
+
+                                         else
+                                            m.url
+                                        )
+                                    ]
+                                    []
                                 ]
                             , div [ style "clear" "both" ] [ text "" ]
                             ]

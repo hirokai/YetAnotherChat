@@ -731,7 +731,7 @@ export function decipher(cipheredText: string, password: string = credentials.ci
     }
 }
 
-export async function post_comment_for_session_members(user_id: string, session_id: string, timestamp: number, comments: { for_user: string; content: string; }[], encrypt: string): Promise<{ ok: boolean, data?: CommentTyp, error?: string }[]> {
+export async function post_comment_for_session_members(user_id: string, session_id: string, timestamp: number, comments: { for_user: string; content: string; }[], encrypt: EncryptionMode): Promise<{ ok: boolean, for_user: string, data?: CommentTyp, error?: string }[]> {
     const encrypt_group = shortid();
     return Promise.all(map(comments, ({ for_user, content }) => {
         const comment_id = shortid();
@@ -739,7 +739,7 @@ export async function post_comment_for_session_members(user_id: string, session_
     }));
 }
 
-export function post_comment({ user_id, session_id, timestamp, comment, for_user, sent_to, original_url = "", source = "", encrypt = "none", comment_id, encrypt_group }: { user_id: string, session_id: string, timestamp: number, comment: string, for_user: string, original_url?: string, sent_to?: string, source?: string, encrypt: string, comment_id?: string, encrypt_group?: string }): Promise<{ ok: boolean, data?: CommentTyp, error?: string }> {
+export function post_comment({ user_id, session_id, timestamp, comment, for_user, sent_to, original_url = "", source = "", encrypt = "none", comment_id, encrypt_group }: { user_id: string, session_id: string, timestamp: number, comment: string, for_user: string, original_url?: string, sent_to?: string, source?: string, encrypt: EncryptionMode, comment_id?: string, encrypt_group?: string }): Promise<{ ok: boolean, for_user: string, data?: CommentTyp, error?: string }> {
     console.log('post_comment start');
     comment_id = comment_id || shortid();
     return new Promise((resolve, reject) => {
@@ -749,7 +749,7 @@ export function post_comment({ user_id, session_id, timestamp, comment, for_user
                     const data: CommentTyp = {
                         id: comment_id, timestamp: timestamp, user_id, comment: comment, session_id, original_url, sent_to, source, kind: "comment", encrypt
                     };
-                    resolve({ ok: true, data });
+                    resolve({ ok: true, for_user, data });
                 } else {
                     console.log('post_comment error', err1, err2)
                     reject([err1, err2]);
