@@ -33,20 +33,20 @@ export class Model {
         this.snapshot = {};
         (async () => {
             let keyPair = await this.keys.get_my_keys();
-            if (keyPair && keyPair.publicKey && keyPair.privateKey) {
-                const privateKey = keyPair.privateKey;
-                const prv_exported = await crypto.exportKey(privateKey);
-                //For user export, it has to be prepared beforehand (no async operation)
-                this.privateKeyJson = prv_exported;
-            } else {
-                console.log('Downloading my keys from server.')
-                const { publicKey, privateKey } = await this.keys.download_my_keys_from_server();
-                const pub = await crypto.fingerPrint1(publicKey);
-                const prv = await crypto.fingerPrint1(privateKey);
-                console.log('Downloaded: ', pub, prv);
-                keyPair = { publicKey, privateKey };
-                this.keys.save_my_keys(keyPair);
-            }
+            // if (keyPair && keyPair.publicKey && keyPair.privateKey) {
+            //     const privateKey = keyPair.privateKey;
+            //     const prv_exported = await crypto.exportKey(privateKey);
+            //     //For user export, it has to be prepared beforehand (no async operation)
+            //     this.privateKeyJson = prv_exported;
+            // } else {
+            console.log('Downloading my keys from server.')
+            const { publicKey, privateKey } = await this.keys.download_my_keys_from_server();
+            const pub = await crypto.fingerPrint1(publicKey);
+            const prv = await crypto.fingerPrint1(privateKey);
+            console.log('Downloaded: ', pub, prv);
+            keyPair = { publicKey, privateKey };
+            this.keys.save_my_keys(keyPair);
+            // }
             if (this.onInit) {
                 this.onInit();
             }
