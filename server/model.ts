@@ -182,9 +182,9 @@ export async function delete_file({ user_id, file_id }): Promise<{ ok: boolean, 
     });
 }
 
-export function list_user_files(): Promise<{ [key: string]: { url: string } }> {
+export function list_user_files(kind: string): Promise<{ [key: string]: { url: string } }> {
     return new Promise((resolve) => {
-        db.all('select * from files;', (err, rows) => {
+        db.all('select * from files where kind=?;', kind, (err, rows) => {
             //@ts-ignore
             const files: { [key: string]: { url: string } } = groupBy(map(rows || [], (row): { url: string } => {
                 return row;

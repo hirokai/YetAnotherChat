@@ -164,7 +164,7 @@ if (!token || token == '') {
         var name: string = args[0];
         const members: string[] = args[1];
         if (name == "") {
-            name = "会話: " + moment().format('MM/DD HH:mm')
+            name = moment().format('MM/DD HH:mm') + " 会話"
         }
         const { sessions, messages } = await model.sessions.new({ name, members });
 
@@ -306,16 +306,15 @@ if (!token || token == '') {
         recalcPositions(show_toppane, expand_chatinput);
     });
 
-
     app.ports.startPosterSession.subscribe(async (file_id: string) => {
         console.log('startPosterSession', file_id);
         const members: string[] = [localStorage['yacht.user_id']];
         const name: string = "ポスターセッション: " + moment().format('MM/DD HH:mm')
         const temporary_id: string = shortid();
         const post_data: PostSessionsParam = { name, members, temporary_id, file_id };
-        const { data }: PostSessionsResponse = await $.post('/api/sessions', post_data);
+        const { data }: PostSessionsResponse = await axios.post('/api/sessions', post_data);
         app.ports.receiveNewRoomInfo.send(data);
-        const p1: Promise<AxiosResponse<GetSessionsResponse>> = axios.get('/api/sessions', { params: { token } });
+        const p1: Promise<AxiosResponse<GetSessionsResponse>> = axios.get('/api/sessions');
         const p2: Promise<AxiosResponse<GetCommentsResponse>> = axios.get('/api/sessions/' + data.id + '/comments', { params: { token } });
         const [{ data: { data: data1 } }, { data: { data: data2 } }] = await Promise.all([p1, p2]);
         app.ports.feedRoomInfo.send(map(data1, processSessionInfo));
@@ -422,7 +421,7 @@ if (!token || token == '') {
     let prev_pos = 0;
 
     function getUserImages() {
-        axios.get('/api/files').then(({ data }) => {
+        axios.get('/api/files', { params: { kind: 'poster' } }).then(({ data }) => {
             // console.log('getUserImages', data);
             map(data.files, (files, user_id) => {
                 const dat: UserImages = {

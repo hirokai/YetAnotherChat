@@ -32,24 +32,21 @@ export class Model {
         console.log('Model initalized:', { token });
         this.snapshot = {};
         (async () => {
-            let keyPair = await this.keys.get_my_keys();
-            // if (keyPair && keyPair.publicKey && keyPair.privateKey) {
-            //     const privateKey = keyPair.privateKey;
-            //     const prv_exported = await crypto.exportKey(privateKey);
-            //     //For user export, it has to be prepared beforehand (no async operation)
-            //     this.privateKeyJson = prv_exported;
-            // } else {
+            let keyPairLocal = await this.keys.get_my_keys();
+            if (keyPairLocal && keyPairLocal.privateKey) {
+                //For user export, it has to be prepared beforehand (no async operation)
+                this.privateKeyJson = await crypto.exportKey(keyPairLocal.privateKey);;
+            }
             console.log('Downloading my keys from server.')
-            const { publicKey, privateKey } = await this.keys.download_my_keys_from_server();
+            const { publicKey } = await this.keys.download_my_keys_from_server();
             const pub = await crypto.fingerPrint1(publicKey);
-            const prv = await crypto.fingerPrint1(privateKey);
-            console.log('Downloaded: ', pub, prv);
-            keyPair = { publicKey, privateKey };
+            console.log('Downloaded: ', pub);
+            const keyPair = { publicKey, privateKey: keyPairLocal.privateKey };
             this.keys.save_my_keys(keyPair);
-            // }
             if (this.onInit) {
                 this.onInit();
             }
+
         })();
     }
     saveDb(storeName: string, keyName: string, key: string, data: any, use_internal_key: boolean): Promise<void> {
@@ -447,6 +444,7 @@ export class Model {
             const privateKey = await crypto.exportKey(keyPair.privateKey);
             const publicKey = await crypto.exportKey(keyPair.publicKey);
             const obj: MyKeyCacheData = { id: 'myself', privateKey, publicKey, fingerPrint: fp };
+            this.privateKeyJson = privateKey;
             await this.saveDb('yacht.keyPair', 'id', 'myself', obj, true);
         },
         import_private_key: async (jwk: JsonWebKey): Promise<{ fingerprint: string, verified: boolean }> => {
@@ -725,4 +723,11 @@ export function formatTime(timestamp: number): string {
     } else {
         return moment(timestamp).format('YYYY/M/D HH:mm:ss');
     }
+}
+
+
+//export async function decrypt(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey, encrypted: EncryptedData, info?: any): Promise<Uint8Array> {
+
+function decryptWithFingerprint(fp_remote_pub: string, fp_my_pub: string) {
+
 }

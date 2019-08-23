@@ -578,7 +578,7 @@ app.post('/api/sessions/:session_id/comments', (req: MyPostRequest<PostCommentDa
 });
 
 app.get('/api/files', (req, res) => {
-    model.list_user_files().then((files) => {
+    model.list_user_files(req.query.kind).then((files) => {
         res.json({ ok: true, files: files });
     });
 });
