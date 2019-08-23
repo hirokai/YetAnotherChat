@@ -543,9 +543,9 @@ export class Model {
             });
         },
         upload_and_post: async (session_id: string, data: ArrayBuffer | string, filename: string, filetype: string) => {
-            const { ok, files, secret, iv } = await this.files.upload(session_id, data, filename, filetype, false);
+            const { ok, files, secret, iv } = await this.files.upload(session_id, data, filename, filetype, true);
             map(files, (file) => {
-                const comment = '<__file::' + file.file_id + '::' + file.path + '::' + secret + '>';
+                const comment = '<__file::' + file.file_id + '::' + file.path + '::' + iv + '::' + secret + '>';
                 this.comments.new({ comment, session: session_id })
             });
         }
@@ -589,40 +589,53 @@ async function processEvent(m: SessionEvent): Promise<SessionEventClient> {
     return Object.assign({}, m, { formattedTime: formatTime(m.timestamp), user: m.user_id, session: m.session_id });
 }
 
-async function processFile(m: ChatFile, encrypted: boolean): Promise<ChatFileClient> {
+async function getThumbnail(url: string, iv_str?: string, encryption_key?: string): Promise<string> {
+    //https://stackoverflow.com/questions/49040247/download-binary-file-with-axios
+    const response = await axios.get(url,
+        {
+            responseType: 'arraybuffer',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'image/jpeg'
+            }
+        });
+    const arr: ArrayBuffer = response.data;
+    let arr_decrypted: ArrayBuffer;
+
+    if (encryption_key == null) {
+        arr_decrypted = arr;
+    } else {
+        const secret = await crypto.importEncryptionKey(encryption_key, true);
+        arr_decrypted = await crypto.decryptWithEncryptionKey(new Uint8Array(arr), iv_str, secret).catch(() => new Uint8Array([]));
+    }
+    console.log('arr_decrypted', arr_decrypted);
+    const thumbnailBase64 = "data:image/jpeg;base64," + crypto.encode(new Uint8Array(arr_decrypted));
+    return thumbnailBase64;
+}
+
+async function processFile(m: ChatFile): Promise<ChatFileClient> {
     m.kind = 'file';
-    // let encrypting = m.encrypt != "none";
     let v: ChatFileClient;
+    const re = m.comment.match(/<__file::([^:]+)::([^:]+)::([^:]+)::([^:]+)>/);
+    const encrypted = re != null;
     if (encrypted) {
-        const re = m.comment.match(/<__file::(.+)::(.+)::(.+)::(.+)>/);
+        const re = m.comment.match(/<__file::([^:]+)::([^:]+)::([^:]+)::([^:]+)>/);
         const file_id = re[1];
         const url = re[2] || "";
         const iv_str = re[3];
         const encryption_key = re[4];
-        //https://stackoverflow.com/questions/49040247/download-binary-file-with-axios
-        const response = await axios.get(url,
-            {
-                responseType: 'arraybuffer',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'image/jpeg'
-                }
-            });
-        const arr: ArrayBuffer = response['data'];
-        const secret = await crypto.importEncryptionKey(encryption_key, true);
-        // console.log('processFile', JSON.parse(encryption_key), secret);
-        const arr_decrypted = await crypto.decryptWithEncryptionKey(new Uint8Array(arr), iv_str, secret).catch(() => new Uint8Array([]));
-        console.log('arr_decrypted', arr_decrypted);
-        const s = crypto.encodeBase64URL(arr_decrypted);
-        // console.log('processFile', response, s);
-        const thumbnailBase64 = "data:image/jpeg;base64," + s;
+        const thumbnailBase64 = await getThumbnail(url, iv_str, encryption_key);
         v = Object.assign({}, m, { file_id, user: m.user_id, url, session: m.session_id, thumbnailBase64, formattedTime: formatTime(m.timestamp) });
     } else {
-        const re = m.comment.match(/<__file::(.+)::(.+)::.+>/);
+        const re = m.comment.match(/<__file::([^:]+)::([^:]+)>/);
+        if (!re) {
+            return null;
+        }
         console.log('matched', re);
         const file_id = re[1];
         const url = re[2];
-        v = Object.assign({}, m, { file_id, url, user: m.user_id, thumbnailBase64: "", formattedTime: formatTime(m.timestamp), session: m.session_id });
+        const thumbnailBase64 = ""; // await getThumbnail(url);
+        v = Object.assign({}, m, { file_id, url, user: m.user_id, thumbnailBase64, formattedTime: formatTime(m.timestamp), session: m.session_id });
     }
     delete v['originalUrl'];
     return v;
@@ -677,7 +690,7 @@ export async function processData(rawEntries: ChatEntry[], model: Model): Promis
         if (m.kind == 'comment') {
             return processComment(m, model);
         } else if (m.kind == 'file') {
-            return processFile(m, false);
+            return processFile(m);
         } else if (m.kind == 'event') {
             return processEvent(m);
         }

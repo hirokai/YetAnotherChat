@@ -126,6 +126,7 @@ port uploadPrivateKey : () -> Cmd msg
 
 port resetKeys : () -> Cmd msg
 
+
 port resetUserCache : () -> Cmd msg
 
 
@@ -1261,7 +1262,7 @@ showItem model entry =
                             , div [ class "file-image-chat" ]
                                 [ img
                                     [ src
-                                        (if m.url == "" then
+                                        (if m.thumbnailBase64 /= "" then
                                             m.thumbnailBase64
 
                                          else
@@ -2007,7 +2008,7 @@ userSettingView user model =
                                 ]
                             ]
                         , p [ style "font-size" "14px" ]
-                            [ text "ユーザー間のメッセージ本文は楕円曲線ディフィー・ヘルマン鍵共有（ECDH）および128ビットAES-GCMによってエンドツーエンド暗号化されています。\u{3000}※送信日時，送信ユーザー名などのメタデータは暗号化されません。画像の暗号化は今後対応予定。"
+                            [ text "ユーザー間のメッセージ本文（文章・画像）は楕円曲線ディフィー・ヘルマン鍵共有（ECDH）および128ビットAES-GCMによってエンドツーエンド暗号化されています。\u{3000}※送信日時，送信ユーザー名などのメタデータは暗号化されません。"
                             , br [] []
                             , text "秘密鍵は各ユーザーの端末のみに保存されるため，サーバー管理者はメッセージ本文を読むことができません。"
                             , br [] []
