@@ -2,6 +2,7 @@
 const webpack = require('webpack');
 const path = require('path');
 const TerserPlugin = require('terser-webpack-plugin');
+const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin
 
 module.exports = env => {
     const mode = (env && env.production) ? 'production' : 'development';
@@ -47,7 +48,7 @@ module.exports = env => {
                 exclude: [/elm-stuff/, /node_modules/],
                 use: {
                     loader: 'elm-webpack-loader',
-                    options: {}
+                    options: { optimize: mode == 'production' }
                 },
             }, {
                 // 拡張子 .ts の場合

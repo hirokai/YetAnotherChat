@@ -2,7 +2,9 @@
 
 // @ts-ignore
 import { Elm } from './Main.elm';
-import { map, chunk, values, includes } from 'lodash-es';
+import map from 'lodash/map';
+import values from 'lodash/values';
+import includes from 'lodash/includes';
 import axios from 'axios';
 import $ from 'jquery';
 import moment from 'moment';

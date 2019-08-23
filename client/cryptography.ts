@@ -1,6 +1,3 @@
-import { isEqual } from "lodash";
-
-
 const Base64a = {
     encode: (function (i, tbl) {
         for (i = 0, tbl = { 64: 61, 63: 47, 62: 43 }; i < 62; i++) { tbl[i] = i < 26 ? i + 65 : (i < 52 ? i + 71 : i - 4); } //A-Za-z0-9+/=

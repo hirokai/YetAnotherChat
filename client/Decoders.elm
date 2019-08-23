@@ -57,10 +57,6 @@ chatEntryDecoder =
                         Json.map SessionEvent <| sessionEventTypDecoder
 
                     "file" ->
-                        let
-                            _ =
-                                Debug.log "chatEntryDecoder file" ""
-                        in
                         Json.map ChatFile <| chatFileDecoder
 
                     _ ->

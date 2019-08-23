@@ -328,10 +328,6 @@ updateChatPageStatus msg model =
             ( { model | filterMode = mode }, Cmd.none )
 
         SetFilter item enabled ->
-            let
-                _ =
-                    Debug.log "setfilter" model.filter
-            in
             ( { model
                 | filter =
                     if enabled then

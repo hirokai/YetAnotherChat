@@ -328,10 +328,6 @@ update msg model =
 
 finishEditing : String -> (Model -> Model) -> Cmd Msg -> Model -> ( Model, Cmd Msg )
 finishEditing id updateFunc updatePort model =
-    let
-        _ =
-            Debug.log "finishEditing" model.editingValue
-    in
     ( updateFunc { model | editing = Set.remove id model.editing, editingValue = Dict.insert id "" model.editingValue }, updatePort )
 
 
