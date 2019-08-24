@@ -503,10 +503,10 @@ export class Model {
             this.privateKeyJson = privateKey;
             if (ignore_null) {
                 const old: CryptoKeyPair = await this.keys.get_my_keys();
-                if (obj.privateKey == null) {
+                if (old && obj.privateKey == null) {
                     obj.privateKey = await crypto.exportKey(old.privateKey);
                 }
-                if (obj.publicKey == null) {
+                if (old && obj.publicKey == null) {
                     obj.publicKey = await crypto.exportKey(old.publicKey);
                 }
             }
