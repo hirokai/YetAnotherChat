@@ -37,7 +37,7 @@
   "scripts": {
     "server:watch": "nodemon",
     "db": "sqlite3 server/private/db.sqlite3",
-    "db:reset": "sh ./clear_and_import_mailgun.sh",
+    "db:reset": "node migration/initialize_table.js",
     "client:watch": "npx webpack -w --env.development",
     "build": "npx tsc && npx webpack --env.production",
     "deploy": "gcloud app deploy",

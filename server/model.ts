@@ -479,7 +479,7 @@ export async function get_private_key(user_id: string): Promise<{ ok: boolean, p
     return new Promise((resolve) => {
         const timestamp = new Date().getTime();
         db.get('select * from private_key_temporary where user_id=?;', user_id, (err, row) => {
-            resolve({ ok: !!row, privateKey: row ? JSON.parse(row['key']) : undefined });
+            resolve({ ok: !!row, privateKey: row ? JSON.parse(row['private_key']) : undefined });
         });
     });
 }
@@ -488,9 +488,9 @@ export async function temporarily_store_private_key(user_id: string, key: JsonWe
     return new Promise((resolve) => {
         const key_str = JSON.stringify(key);
         const timestamp = new Date().getTime();
-        db.run('insert into private_key_temporary (user_id,timestamp,key) values (?,?,?);', user_id, timestamp, key_str, (err) => {
+        db.run('insert into private_key_temporary (user_id,timestamp,priavate_key) values (?,?,?);', user_id, timestamp, key_str, (err) => {
             if (err) {
-                db.run('update private_key_temporary set timestamp=?,key=? where user_id=?', timestamp, key_str, user_id, (err2) => {
+                db.run('update private_key_temporary set timestamp=?,priavate_key=? where user_id=?', timestamp, key_str, user_id, (err2) => {
                     resolve(err2 == null);
                 });
             } else {
@@ -689,7 +689,7 @@ export async function register_user({ username, password, email, fullname, sourc
                         const timestamp = new Date().getTime();
                         db.run('insert into users (id,name,password,fullname,timestamp,source) values (?,?,?,?,?,?)', user_id, username, hash, fullname, timestamp, source);
                         db.run('insert into user_emails (user_id,email) values (?,?)', user_id, email);
-                        db.run('insert into public_keys (timestamp,user_id,for_user,key) values (?,?,?,?)', timestamp, user_id, user_id, JSON.stringify(publicKey));
+                        db.run('insert into public_keys (timestamp,user_id,for_user,public_key) values (?,?,?,?)', timestamp, user_id, user_id, JSON.stringify(publicKey));
                     });
                 }
             });
@@ -930,7 +930,7 @@ export async function update_public_key({ user_id, for_user, jwk }: { user_id: s
         for_user = for_user != null ? for_user : '';
         console.log('update_public_key', { user_id, for_user, timestamp, jwk })
         if (user_id != null && jwk != null) {
-            db.run('update public_keys set user_id=?, for_user=?, key=?, timestamp=? where user_id=? and for_user=?;', user_id, for_user, JSON.stringify(jwk), timestamp, user_id, for_user, (err) => {
+            db.run('update public_keys set user_id=?, for_user=?, public_key=?, timestamp=? where user_id=? and for_user=?;', user_id, for_user, JSON.stringify(jwk), timestamp, user_id, for_user, (err) => {
                 if (!err) {
                     console.log(user_id);
                     resolve({ ok: true });
@@ -950,7 +950,7 @@ export async function register_public_key({ user_id, for_user, jwk, privateKeyFi
         for_user = for_user != null ? for_user : '';
         console.log('register_public_key', { user_id, for_user, jwk })
         if (user_id != null && jwk != null) {
-            db.run('insert into public_keys (user_id,for_user,key,timestamp,private_fingerprint) values (?,?,?,?,?);', user_id, for_user, JSON.stringify(jwk), timestamp, privateKeyFingerprint, (err) => {
+            db.run('insert into public_keys (user_id,for_user,public_key,timestamp,private_fingerprint) values (?,?,?,?,?);', user_id, for_user, JSON.stringify(jwk), timestamp, privateKeyFingerprint, (err) => {
                 if (!err) {
                     console.log(user_id);
                     resolve({ ok: true, timestamp });
@@ -970,7 +970,7 @@ export async function get_public_key({ user_id, for_user }: { user_id: string, f
     return new Promise((resolve) => {
         db.get('select * from public_keys where user_id=? and for_user=? order by timestamp desc limit 1', user_id, for_user, (err, row) => {
             if (!err && row) {
-                resolve({ publicKey: JSON.parse(row['key']), prv_fingerprint: row['private_fingerprint'] });
+                resolve({ publicKey: JSON.parse(row['public_key']), prv_fingerprint: row['private_fingerprint'] });
             } else {
                 resolve({ publicKey: null, prv_fingerprint: null });
             }
