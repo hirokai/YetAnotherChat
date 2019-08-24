@@ -414,7 +414,7 @@ async function find_or_make_user_for_email(db, fullname: string, email: string):
         }
         console.log('find_or_make_user making', fullname, email, name);
         const source = "email_thread";
-        const { ok, user: user2, error } = await model.register_user({ username: name, password: "11111111", email, fullname, source, publicKey: null });
+        const { ok, user: user2, error } = await model.register_user({ username: name, password: "11111111", email, fullname, source });
         console.log('find_or_make_user', error);
         return ok ? user2 : null;
     }

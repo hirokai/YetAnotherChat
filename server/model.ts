@@ -488,9 +488,11 @@ export async function temporarily_store_private_key(user_id: string, key: JsonWe
     return new Promise((resolve) => {
         const key_str = JSON.stringify(key);
         const timestamp = new Date().getTime();
-        db.run('insert into private_key_temporary (user_id,timestamp,priavate_key) values (?,?,?);', user_id, timestamp, key_str, (err) => {
+        console.log('temporarily_store_private_key 1');
+        db.run('insert into private_key_temporary (user_id,timestamp,private_key) values (?,?,?);', user_id, timestamp, key_str, (err) => {
+            console.log('temporarily_store_private_key 2');
             if (err) {
-                db.run('update private_key_temporary set timestamp=?,priavate_key=? where user_id=?', timestamp, key_str, user_id, (err2) => {
+                db.run('update private_key_temporary set timestamp=?,private_key=? where user_id=?;', timestamp, key_str, user_id, (err2) => {
                     resolve(err2 == null);
                 });
             } else {
@@ -676,9 +678,12 @@ export async function delete_all_connections(): Promise<boolean> {
     });
 }
 
-export async function register_user({ username, password, email, fullname, source, publicKey }: { username: string, password: string, email?: string, fullname?: string, source: string, publicKey: JsonWebKey }): Promise<{ ok: boolean, user?: User, error?: string, error_code?: number }> {
+export async function register_user({ username, password, email, fullname, source }: { username: string, password: string, email?: string, fullname?: string, source: string }): Promise<{ ok: boolean, user?: User, error?: string, error_code?: number }> {
     const user_id = shortid();
-    if (username && publicKey) {
+    if (username) {
+        if (username.indexOf('__') == 0) {
+            return { ok: false, error: 'User name invalid.' }
+        }
         const existing_user: User = await find_user_from_username({ myself: user_id, username });
         if (existing_user) {
             return { ok: false, error_code: error_code.USER_EXISTS, error: 'User name already exists' }
@@ -689,13 +694,12 @@ export async function register_user({ username, password, email, fullname, sourc
                         const timestamp = new Date().getTime();
                         db.run('insert into users (id,name,password,fullname,timestamp,source) values (?,?,?,?,?,?)', user_id, username, hash, fullname, timestamp, source);
                         db.run('insert into user_emails (user_id,email) values (?,?)', user_id, email);
-                        db.run('insert into public_keys (timestamp,user_id,for_user,public_key) values (?,?,?,?)', timestamp, user_id, user_id, JSON.stringify(publicKey));
                     });
                 }
             });
             const emails = email ? [email] : [];
             const avatar = '';
-            const user: User = { id: user_id, fullname, username, emails, avatar, online: false, publicKey }
+            const user: User = { id: user_id, fullname, username, emails, avatar, online: false, publicKey: null }
             return { ok: true, user };
         }
     } else {

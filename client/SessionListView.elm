@@ -20,7 +20,7 @@ sessionListView model =
                 [ leftMenu model
                 , smallMenu
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
-                    [ h1 [] [ text "セッション一覧" ]
+                    [ h1 [] [ text "セッション一覧", button [class "btn btn-light", onClick ReloadSessions] [text "Reload"] ]
                     , table [ id "list-sessions-wrapper", class "table" ]
                         [ thead []
                             [ tr []

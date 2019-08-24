@@ -33,44 +33,56 @@ export class Model {
     token: string
     privateKeyJson: JsonWebKey
     onInit: () => void;
-    publicKeys: { [key: string]: CryptoKey } = {}
-    snapshot: { [key: string]: { [key: number]: any } };
-    readonly MAX_SAVE_SNAPSHOT: number = 2;
-    constructor(user_id: string, token: string) {
+    constructor({ user_id, token, onInit }: { user_id: string, token: string, onInit?: () => void }) {
         this.user_id = user_id;
         this.token = token;
         console.log('Model initalized:', { token });
-        this.snapshot = {};
         (async () => {
-            let keyPairLocal = await this.keys.get_my_keys();
-            if (keyPairLocal && keyPairLocal.privateKey) {
-                //For user export, it has to be prepared beforehand (no async operation)
-                this.privateKeyJson = await crypto.exportKey(keyPairLocal.privateKey);;
+            let keyPair = await this.keys.download_my_keys_from_server();
+            console.log('Downloaded key pair', keyPair);
+            if (keyPair == null || keyPair.publicKey == null) {
+                await this.keys.reset();
+            } else {
+                await this.keys.save_my_keys(keyPair);
             }
-            console.log('Downloading my keys from server.')
-            const { publicKey } = await this.keys.download_my_keys_from_server();
-            const pub = await crypto.fingerPrint1(publicKey);
-            console.log('Downloaded: ', pub);
-            const keyPair = { publicKey, privateKey: keyPairLocal.privateKey };
-            this.keys.save_my_keys(keyPair);
-            if (this.onInit) {
-                this.onInit();
+            if (keyPair && keyPair.privateKey) {
+                //For user export, it has to be prepared beforehand (no async operation)
+                this.privateKeyJson = await crypto.exportKey(keyPair.privateKey);;
+            }
+            if (onInit != null) {
+                onInit();
             }
 
         })();
     }
-    saveDb(storeName: string, keyName: string, key: string, data: any, use_internal_key: boolean): Promise<void> {
+    saveDb(dbName: string, keyName: string, key: string, data: any, use_internal_key: boolean, version: number = 1): Promise<void> {
+        const storeName = this.user_id;
+        const self = this;
         return new Promise((resolve, reject) => {
-            const openReq = indexedDB.open(storeName);
+            const openReq = indexedDB.open(dbName, version);
             openReq.onupgradeneeded = function (event: any) {
                 var db = (<IDBRequest>event.target).result;
-                db.createObjectStore(storeName, { keyPath: keyName });
+                const tx = (<IDBRequest>event.target).transaction;
+                try {
+                    db.createObjectStore(storeName, { keyPath: keyName });
+                } catch (e) {
+                    tx.objectStore(storeName);
+                }
             }
             openReq.onsuccess = function (event: any) {
                 // console.log('openReq.onsuccess');
                 var db = event.target.result;
-                var trans = db.transaction(storeName, 'readwrite');
-                var store = trans.objectStore(storeName);
+                try {
+                    var trans = db.transaction(storeName, 'readwrite');
+                    var store = trans.objectStore(storeName);
+                } catch (e) {
+                    self.saveDb(dbName, keyName, key, data, use_internal_key, db.version + 1);
+                    return;
+                }
+                if (store == null) {
+                    self.saveDb(dbName, keyName, key, data, use_internal_key, db.version + 1);
+                    return;
+                }
                 let obj;
                 if (use_internal_key) {
                     obj = data;
@@ -88,27 +100,42 @@ export class Model {
                     reject();
                 }
             }
-            openReq.onerror = () => {
+            openReq.onerror = (e) => {
+                console.log('saveDb.openReq.error', e);
                 reject();
             }
         });
     }
-    loadDb(storeName: string, keyName: string, key: string = null): Promise<any> {
+    loadDb(dbName: string, keyName: string, key: string = null, version: number = 1): Promise<any> {
+        const storeName = this.user_id;
+        const self = this;
         return new Promise((resolve, reject) => {
-            const openReq = indexedDB.open(storeName);
+            const openReq = indexedDB.open(dbName, version);
             // console.log('loadDb', openReq);
             openReq.onupgradeneeded = function (event: any) {
-                // console.log('loadDb. onupgradeneeded', storeName);
-                var db = (<IDBRequest>event.target).result;
-                db.createObjectStore(storeName, { keyPath: keyName });
+                const db = (<IDBRequest>event.target).result;
+                const tx = (<IDBRequest>event.target).transaction;
+                try {
+                    db.createObjectStore(storeName, { keyPath: keyName });
+                } catch (e) {
+                    tx.objectStore(storeName);
+                }
             }
             openReq.onsuccess = function (event: any) {
                 // console.log('loadDb. onsuccess', storeName);
                 // console.log('openReq.onsuccess');
-                var db = event.target.result;
-                var trans = db.transaction(storeName, 'readonly');
-                var store = trans.objectStore(storeName);
-                const getReq = key ? store.get(key) : store.getAll();
+                const db = (<IDBRequest>event.target).result;
+                console.log('loadDb.openReq.success', dbName, storeName);
+                let store;
+                try {
+                    const trans = db.transaction(storeName, 'readonly');
+                    store = trans.objectStore(storeName);
+                } catch (e) {
+                    console.log(e, dbName, storeName);
+                    self.loadDb(dbName, keyName, key, db.version + 1);
+                }
+                console.log(dbName, storeName, store)
+                const getReq = store ? (key ? store.get(key) : store.getAll()) : null;
                 getReq.onsuccess = function () {
                     // console.log('get data success', getReq.result);
                     resolve(getReq.result);
@@ -117,15 +144,16 @@ export class Model {
                     reject();
                 }
             }
-            openReq.onerror = () => {
-                console.log('loadDb. onerror', storeName);
+            openReq.onerror = (e) => {
+                console.log('loadDb.openReq onerror', dbName, storeName, e);
                 reject();
             }
         });
     }
-    removeDb(storeName: string, keyName: string, key?: string): Promise<void> {
+    removeDb(dbName: string, keyName: string, key?: string): Promise<void> {
+        const storeName = this.user_id;
         return new Promise((resolve, reject) => {
-            const openReq = indexedDB.open(storeName);
+            const openReq = indexedDB.open(dbName);
             openReq.onupgradeneeded = function (event: any) {
                 var db = (<IDBRequest>event.target).result;
                 db.createObjectStore(storeName, { keyPath: keyName });
@@ -342,26 +370,42 @@ export class Model {
     sessions = {
         list: async (): Promise<RoomInfoClient[]> => {
             const { data: { data: rooms } }: AxiosResponse<GetSessionsResponse> = await axios.get('/api/sessions');
+            console.log('sessions.list', rooms);
             const timestamp = new Date().getTime();
             const infos = [];
             for (let room of rooms) {
+                console.log('sessions.list loading', room.id)
                 let room_cache = await this.sessions.load(room.id);
-                const info = processSessionInfo(room);
+                console.log('sessions.list loaded', room.id)
+                const info = this.sessions.toClient(room);
                 if (!room_cache) {
                     room_cache = { id: room.id };
                 }
                 room_cache.info = info;
                 infos.push(info);
-                // console.log(room);
+                console.log('Session saving', room.id, room_cache);
                 await this.sessions.save(room.id, room_cache);
             }
             return infos;
+        },
+        toClient: (d: RoomInfo): RoomInfoClient => {
+            const r: RoomInfoClient = {
+                name: d.name,
+                numMessages: d.numMessages,
+                firstMsgTime: d.firstMsgTime,
+                lastMsgTime: d.lastMsgTime,
+                id: d.id,
+                formattedTime: formatTime(d.timestamp),
+                timestamp: d.timestamp,
+                members: d.members
+            };
+            return r;
         },
         load: async (session_id: string): Promise<SessionCache> => {
             return await this.loadDb('yacht.sessions', 'id', session_id);
         },
         save: async (session_id: string, data: SessionCache) => {
-            // console.log('sessions.save', session_id);
+            console.log('sessions.save', session_id);
             await this.saveDb('yacht.sessions', 'id', session_id, data, true);
         },
         reload: async (session_id: string) => {
@@ -408,6 +452,7 @@ export class Model {
     }
     keys = {
         get: async (user_id: string): Promise<CryptoKey> => {
+            return null;
             const user: User = await this.loadDb('yacht.users', 'id', user_id);
             if (user) {
                 const key = await crypto.importKey(user.publicKey, true, true);
@@ -419,6 +464,7 @@ export class Model {
             }
         },
         save_public_key: async (user_id: string, jwk: JsonWebKey): Promise<void> => {
+            return;
             const user: User = await this.loadDb('yacht.users', 'id', user_id);
             if (user != null) {
                 user.publicKey = jwk;
@@ -479,10 +525,11 @@ export class Model {
                 }
             }
         },
-        upload_my_private_key: async () => {
+        upload_my_private_key: async (): Promise<boolean> => {
             const private_key_1 = await this.keys.get_my_keys();
             const private_key = await crypto.exportKey(private_key_1.privateKey);
-            axios.post('/api/private_key', { private_key });
+            const { data: { ok } } = <AxiosResponse<PostPrivateKeyResponse>>await axios.post('/api/private_key', { private_key });
+            return ok;
         },
         download_my_keys_from_server: async (): Promise<CryptoKeyPair> => {
             const params: GetPublicKeysParams = { user_id: this.user_id };
@@ -722,20 +769,6 @@ export async function processData(rawEntries: ChatEntry[], model: Model): Promis
     } else {
         return entries;
     }
-}
-
-export const processSessionInfo = (d: RoomInfo): RoomInfoClient => {
-    const r: RoomInfoClient = {
-        name: d.name,
-        numMessages: d.numMessages,
-        firstMsgTime: d.firstMsgTime,
-        lastMsgTime: d.lastMsgTime,
-        id: d.id,
-        formattedTime: formatTime(d.timestamp),
-        timestamp: d.timestamp,
-        members: d.members
-    };
-    return r;
 }
 
 export function formatTime(timestamp: number): string {

@@ -164,11 +164,10 @@ app.get('/matrix', (req, res) => {
 });
 
 app.post('/api/register', (req, res) => {
-    // res.json({ ok: false });
     (async () => {
-        const { username, password, fullname, email, publicKey } = req.body;
-        console.log({ username, password, fullname, email, publicKey });
-        const { user, error, error_code } = await model.register_user({ username, password, email, fullname, source: 'self_register', publicKey });
+        const { username, password, fullname, email } = req.body;
+        console.log({ username, password, fullname, email });
+        const { user, error, error_code } = await model.register_user({ username, password, email, fullname, source: 'self_register' });
         if (!user) {
             res.json({ ok: false, error: error_code == ec.USER_EXISTS ? 'User already exists' : error, error_code });
             return;
@@ -650,7 +649,7 @@ app.get('/api/private_key', (req, res) => {
     })
 });
 
-app.post('/api/private_key', (req, res) => {
+app.post('/api/private_key', (req, res: JsonResponse<PostPrivateKeyResponse>) => {
     const user_id = req.decoded.user_id;
     const private_key: JsonWebKey = req.body.private_key;
     model.temporarily_store_private_key(user_id, private_key).then((ok) => {

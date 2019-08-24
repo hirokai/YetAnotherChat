@@ -177,6 +177,7 @@ type Msg
     | ReceiveNewSessionId { timestamp : Int, name : String, id : RoomID }
     | FeedRoomInfo Json.Value
     | FeedUsers (List User)
+    | ReloadSessions
     | EnterNewSessionScreen
     | StartEditing String String
     | UpdateEditingValue String String

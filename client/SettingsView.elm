@@ -123,7 +123,7 @@ userSettingView user model =
                             [ ul []
                                 [ li []
                                     [ span [] [ text "公開鍵のFingerprint: " ]
-                                    , span [ class "fingerprint" ]
+                                    , span [ classList [ ( "fingerprint", True ), ( "red", model.profile.publicKey == "" ) ] ]
                                         [ text
                                             (if model.profile.publicKey == "" then
                                                 "（鍵がありません）"
@@ -135,7 +135,7 @@ userSettingView user model =
                                     ]
                                 , li []
                                     [ span [] [ text "秘密鍵のFingerprint: " ]
-                                    , span [ class "fingerprint" ]
+                                    , span [ classList [ ( "fingerprint", True ), ( "red", model.profile.privateKey == "" ) ] ]
                                         [ text
                                             (if model.profile.privateKey == "" then
                                                 "（鍵がありません）"

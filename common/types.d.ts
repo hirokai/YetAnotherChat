@@ -210,6 +210,10 @@ type GetPrivateKeyResponse = {
     privateKey?: JsonWebKey
 }
 
+type PostPrivateKeyResponse = {
+    ok: boolean
+}
+
 interface PostPublicKeyParams extends AuthedParams {
     publicKey: JsonWebKey,
     privateKeyFingerprint: string,

@@ -68,6 +68,9 @@ update msg model =
         ToggleMember m ->
             ( { model | selected = toggleSet m model.selected }, Cmd.none )
 
+        ReloadSessions ->
+            ( model, reloadSessions () )
+
         FeedUsers users ->
             ( { model | users = users }, Cmd.none )
 
@@ -311,7 +314,11 @@ update msg model =
                         new_profile =
                             { profile | privateKey = v }
                     in
-                    ( { model | profile = new_profile }, Cmd.none )
+                    if v == "" then
+                        enterUserSetting { model | profile = new_profile }
+
+                    else
+                        ( { model | profile = new_profile }, Cmd.none )
 
                 "my_private_key_message" ->
                     let

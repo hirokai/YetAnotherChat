@@ -10,7 +10,7 @@ import $ from 'jquery';
 import moment from 'moment';
 import 'bootstrap';
 import io from "socket.io-client";
-import { Model, processData, processSessionInfo } from './client_model';
+import { Model, processData } from './client_model';
 import * as crypto from './cryptography';
 require('moment/locale/ja');
 moment.locale('ja');
@@ -36,16 +36,17 @@ if (!token || token == '') {
 // throw new Error('Abort');
 
 (async () => {
-    const model = new Model(user_id, token)
-    model.onInit = () => {
-        model.keys.get_my_fingerprint().then((fp) => {
-            if (fp) {
-                app.ports.setValue.send(['my_public_key', fp.pub || ""]);
-                app.ports.setValue.send(['my_private_key', fp.prv || ""]);
-            }
-        });
-    };
-
+    const model = new Model({
+        user_id, token,
+        onInit: () => {
+            model.keys.get_my_fingerprint().then((fp) => {
+                if (fp) {
+                    app.ports.setValue.send(['my_public_key', fp.pub || ""]);
+                    app.ports.setValue.send(['my_private_key', fp.prv || ""]);
+                }
+            });
+        }
+    });
     window['model'] = model;
 
     var show_toppane = JSON.parse(localStorage['yacht.show_toppane'] || "false") || false;
@@ -170,7 +171,7 @@ if (!token || token == '') {
         }
         const { sessions, messages } = await model.sessions.new({ name, members });
 
-        app.ports.feedRoomInfo.send(map(sessions, processSessionInfo));
+        app.ports.feedRoomInfo.send(map(sessions, model.sessions.toClient));
         const processed = await processData(messages, null);
         app.ports.feedMessages.send(processed);
     });
@@ -187,6 +188,14 @@ if (!token || token == '') {
         });
         getUserImages();
         getAndfeedRoomInfo();
+    });
+
+    app.ports.reloadSessions.subscribe(() => {
+        console.log('reloadSessions');
+        model.sessions.list().then((sessions) => {
+            console.log('Got', sessions);
+            app.ports.feedRoomInfo.send(sessions);
+        });
     });
 
     app.ports.getUsers.subscribe(() => {
@@ -319,7 +328,7 @@ if (!token || token == '') {
         const p1: Promise<AxiosResponse<GetSessionsResponse>> = axios.get('/api/sessions');
         const p2: Promise<AxiosResponse<GetCommentsResponse>> = axios.get('/api/sessions/' + data.id + '/comments', { params: { token } });
         const [{ data: { data: data1 } }, { data: { data: data2 } }] = await Promise.all([p1, p2]);
-        app.ports.feedRoomInfo.send(map(data1, processSessionInfo));
+        app.ports.feedRoomInfo.send(map(data1, model.sessions.toClient));
         const processed = await processData(data2, model);
         app.ports.feedMessages.send(processed);
     });
@@ -576,6 +585,7 @@ interface ElmAppPorts {
     deleteFile: ElmSub<string>;
     deleteSession: ElmSub<{ id: string }>;
     reloadSession: ElmSub<string>;
+    reloadSessions: ElmSub<void>;
     saveConfig: ElmSub<{ userWithEmailOnly: boolean }>;
     downloadPrivateKey: ElmSub<void>;
     uploadPrivateKey: ElmSub<void>;
