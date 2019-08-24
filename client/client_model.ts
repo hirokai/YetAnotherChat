@@ -43,7 +43,7 @@ export class Model {
             if (keyPair == null || keyPair.publicKey == null) {
                 await this.keys.reset();
             } else {
-                await this.keys.save_my_keys(keyPair);
+                await this.keys.save_my_keys(keyPair, true);
             }
             if (keyPair && keyPair.privateKey) {
                 //For user export, it has to be prepared beforehand (no async operation)
@@ -489,7 +489,7 @@ export class Model {
                 return null;
             }
         },
-        save_my_keys: async (keyPair: CryptoKeyPair): Promise<void> => {
+        save_my_keys: async (keyPair: CryptoKeyPair, ignore_null: boolean = false): Promise<void> => {
             const prv_e_p = crypto.exportKey(keyPair.privateKey);
             const pub_e_p = crypto.exportKey(keyPair.publicKey);
             const fps = await Promise.all([prv_e_p, pub_e_p]).then((ks) => {
@@ -501,6 +501,15 @@ export class Model {
             const publicKey = await crypto.exportKey(keyPair.publicKey);
             const obj: MyKeyCacheData = { id: 'myself', privateKey, publicKey, fingerPrint: fp };
             this.privateKeyJson = privateKey;
+            if (ignore_null) {
+                const old: CryptoKeyPair = await this.keys.get_my_keys();
+                if (obj.privateKey == null) {
+                    obj.privateKey = await crypto.exportKey(old.privateKey);
+                }
+                if (obj.publicKey == null) {
+                    obj.publicKey = await crypto.exportKey(old.publicKey);
+                }
+            }
             await this.saveDb('yacht.keyPair', 'id', 'myself', obj, true);
         },
         import_private_key: async (jwk: JsonWebKey): Promise<{ fingerprint: string, verified: boolean }> => {
