@@ -1,5 +1,6 @@
-module Navigation exposing (enterHome, enterNewSession, enterRoom, enterSessionList, enterUser, enterUserList, enterUserProfile, enterUserSetting, notFound, notFoundView, pageToPath, pathToPage, updatePageHash)
+port module Navigation exposing (enterHome, enterNewSession, enterRoom, enterSessionList, enterUser, enterUserList, enterUserProfile, enterUserSetting, notFound, notFoundView, pageToPath, pathToPage, updatePageHash)
 
+import Dict
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
@@ -127,7 +128,7 @@ enterUserSetting model =
         new_model =
             { model | page = UserSettingPage }
     in
-    ( new_model, Cmd.batch [ updatePageHash new_model ] )
+    ( new_model, getConfig () )
 
 
 enterRoom : String -> Model -> ( Model, Cmd Msg )

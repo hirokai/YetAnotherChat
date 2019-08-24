@@ -324,6 +324,17 @@ if (!token || token == '') {
         app.ports.feedMessages.send(processed);
     });
 
+    app.ports.setConfigValue.subscribe(({ key, value }) => {
+        model.config.save(key, value);
+    });
+
+
+    app.ports.getConfig.subscribe(async () => {
+        const configList: string[][] = await model.config.get();
+        console.log('feedConfigValues feeding', configList);
+        app.ports.feedConfigValues.send(configList);
+    });
+
     app.ports.uploadPrivateKey.subscribe(async () => {
         await model.keys.upload_my_private_key();
     });
@@ -538,6 +549,9 @@ interface ElmAppPorts {
     enterSession: ElmSub<string>;
     feedRoomInfo: ElmSend<RoomInfoClient[]>;
     feedMessages: ElmSend<ChatEntryClient[]>;
+    getConfig: ElmSub<void>
+    feedConfigValues: ElmSend<string[][]>;
+    setConfigValue: ElmSub<{ key: string, value: string }>;
     getUsers: ElmSub<void>;
     feedUsers: ElmSend<UserClient[]>;
     getUserMessages: ElmSub<string>;

@@ -37,6 +37,7 @@ init { user_id, show_toppane, expand_chatinput, show_users_with_email_only } =
       , userPageStatus = { sessions = [], messages = [], shownFileID = Nothing, newFileBox = False }
       , chatPageStatus = initialChatPageStatus show_toppane expand_chatinput
       , userListPageStatus = { userWithIdOnly = show_users_with_email_only }
+      , settingsPageModel = initialSettingsPageModel
       , editing = Set.empty
       , editingValue = Dict.empty
       , files = Dict.empty
@@ -68,10 +69,6 @@ update msg model =
             ( { model | selected = toggleSet m model.selected }, Cmd.none )
 
         FeedUsers users ->
-            let
-                _ =
-                    1
-            in
             ( { model | users = users }, Cmd.none )
 
         FeedRoomInfo v ->
@@ -119,6 +116,13 @@ update msg model =
                     updateChatPageStatus msg1 model.chatPageStatus
             in
             ( { model | chatPageStatus = m }, c )
+
+        SettingsMsg msg1 ->
+            let
+                ( m, c ) =
+                    updateSettingsPageStatus msg1 model.settingsPageModel
+            in
+            ( { model | settingsPageModel = m }, c )
 
         StartSession users ->
             let
@@ -374,7 +378,7 @@ view model =
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =
-    Sub.batch
+    Sub.batch <|
         [ feedUsers FeedUsers
         , feedMessages (\ms -> ChatPageMsg <| FeedMessages (Result.withDefault [] (Json.decodeValue chatEntriesDecoder ms)))
         , feedUserMessages (\ms -> UserPageMsg <| FeedUserMessages (Result.withDefault [] (Json.decodeValue chatEntriesDecoder ms)))
@@ -388,6 +392,7 @@ subscriptions _ =
         , onChangeData OnChangeData
         , setValue (\( k, v ) -> SetValue k v)
         ]
+            ++ configSubscriptions
 
 
 type alias Flags =

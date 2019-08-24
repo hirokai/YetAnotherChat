@@ -876,7 +876,7 @@ export function find_user_from_username({ myself, username }: { myself: string, 
 
 export function get_user({ myself, user_id }: { myself: string, user_id: string }): Promise<User> {
     return new Promise((resolve) => {
-        db.get('select users.id,users.name,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id where users.id=? group by users.id;', user_id, (err, row) => {
+        db.get('select users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname from users join user_emails on users.id=user_emails.user_id where users.id=? group by users.id;', user_id, (err, row) => {
             if (row) {
                 const emails = row['emails'].split(',');
                 get_public_key({ user_id, for_user: myself }).then(({ publicKey }) => {
@@ -975,5 +975,98 @@ export async function get_public_key({ user_id, for_user }: { user_id: string, f
                 resolve({ publicKey: null, prv_fingerprint: null });
             }
         });
+    });
+}
+
+export async function get_user_config(user_id: string): Promise<string[][]> {
+    return new Promise((resolve) => {
+        db.all('select * from user_configs where user_id=?;', user_id, (err, rows) => {
+            if (rows) {
+                get_user({ myself: user_id, user_id }).then((user) => {
+                    console.log('get_user_config', user);
+                    const cs = filter(map(rows, (row) => [row['config_name'], row['config_value']]).concat(
+                        [['username', user.username], ['fullname', user.fullname], ['email', user.emails[0]]]
+                    ), (c) => { return c[0] != null && c[1] != null; });
+                    resolve(cs)
+                });
+            } else {
+                resolve([]);
+            }
+        });
+    });
+}
+
+type ProfileKey = 'username' | 'fullname' | 'email' | 'password';
+
+async function update_user_profile(user_id: string, key: ProfileKey, value: string): Promise<boolean> {
+    switch (key) {
+        case 'username': {
+            db.run('update users set name=? where id=?;', value, user_id, (err) => {
+                return err == null;
+            });
+        }
+        case 'fullname': {
+            db.run('update users set fullname=? where id=?;', value, user_id, (err) => {
+                return err == null;
+            });
+        }
+        case 'email': {
+            //ToDo: Support multiple email addresses
+            // Currently this removes all preivous email addresses of the user.
+            db.run('delete from user_emails where user_id=?;', user_id, (err) => {
+                db.run('insert user_emails (email,user_id) values (?,?);', value, user_id, (err1) => {
+                    return err1 == null;
+                });
+            });
+        }
+        case 'password': {
+            const password = value;
+            bcrypt.hash(password, saltRounds, function (err, hash) {
+                if (!err) {
+                    db.run('update users set password=? where id=?', hash, user_id, (err) => {
+                        return err == null;
+                    });
+                }
+            });
+
+        }
+    }
+    return false;
+}
+
+export async function set_user_config(user_id: string, key: string, value: string): Promise<{ ok: boolean }> {
+    // console.log('set_user_config');
+    return new Promise((resolve) => {
+        if (includes(['username', 'fullname', 'email', 'password'], key)) {
+            update_user_profile(user_id, <ProfileKey>key, value).then((ok) => resolve({ ok }));
+        } else {
+            db.get('select * from user_configs where user_id=? and config_name=?;', user_id, key, (err, row) => {
+                if (err) {
+                    resolve({ ok: false })
+                }
+                if (row) {
+                    const timestamp = new Date().getTime();
+                    db.run('update user_configs set timestamp=?,config_value=? where user_id=? and config_name=?;', timestamp, value, user_id, key, (err) => {
+                        if (!err) {
+                            resolve({ ok: true });
+                        } else {
+                            // console.log('set_user_config update', err)
+                            resolve({ ok: false });
+                        }
+                    });
+                } else {
+                    const timestamp = new Date().getTime();
+                    db.run('insert into user_configs (timestamp,user_id,config_name,config_value) values (?,?,?,?);', timestamp, user_id, key, value, (err) => {
+                        if (!err) {
+                            resolve({ ok: true });
+                        } else {
+                            // console.log('set_user_config insert', err)
+                            resolve({ ok: false });
+                        }
+                    });
+                }
+            });
+
+        }
     });
 }

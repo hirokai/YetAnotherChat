@@ -558,6 +558,17 @@ export class Model {
             });
         }
     }
+    config = {
+        get: async (): Promise<string[][]> => {
+            const { data: { ok, data } }: AxiosResponse<GetConfigResponse> = await axios.get('/api/config');
+            return data;
+        },
+        save: async (key: string, value: string): Promise<boolean> => {
+            const data: PostConfigData = { key, value };
+            const { data: { ok } }: AxiosResponse<PostConfigResponse> = await axios.post('/api/config', data);
+            return ok;
+        }
+    }
 }
 
 async function decryptComment(comment: string, from_user: string, encrypt: EncryptionMode, model: Model): Promise<{ decrypted: string, encrypt: EncryptionMode }> {

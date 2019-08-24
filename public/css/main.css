@@ -545,14 +545,53 @@ textarea[disabled] {
 
 .fingerprint {
     font-family: 'Courier New', Courier, monospace;
+    word-break: break-all;
 }
 
-#key-settings {
-    border: 1px solid black;
-    padding: 20px;
+.setting-group {
+    border: 1px solid #888;
+    padding: 10px;
+    margin: 5px;
+    border-radius: 3px;
+}
+
+.setting-group h3 {
+    font-size: 18px;
+}
+
+.setting-group h2 {
+    margin: -5px 0px 0px -5px;
+    font-weight: bold;
+    color: #444;
 }
 
 .hidden {
     opacity: 0;
     transition: opacity linear 0.2s;
+}
+
+.right-vline {
+    border-right: 1px solid #ccc;
+}
+
+.link {
+    text-decoration: underline #777;
+}
+
+span.config-name {
+    display: inline-block;
+    width: 150px;
+}
+
+.config-value {
+    display: inline-block;
+    width: 250px;
+}
+
+.monospace {
+    font-family: 'Courier New', Courier, monospace
+}
+
+.config-row {
+    margin-bottom: 3px;
 }

@@ -1,4 +1,4 @@
-module Types exposing (ChatEntry(..), ChatFileTyp, ChatPageModel, ChatPageMsg(..), CommentTyp, FilterMode(..), Member, Model, Msg(..), NewSessionMsg(..), NewSessionStatus, Page(..), RoomID, RoomInfo, SessionEventTyp, User, UserListPageMsg(..), UserListPageStatus, UserPageModel, UserPageMsg(..), appName, getId, getKind, getRoomID, getUser, getUserFullname, getUserInfo, getUserName, getUserNameDisplay, roomName, roomUsers, toggleSet, truncate)
+module Types exposing (ChatEntry(..), ChatFileTyp, ChatPageModel, ChatPageMsg(..), CommentTyp, FilterMode(..), Member, Model, Msg(..), NewSessionMsg(..), NewSessionStatus, Page(..), RoomID, RoomInfo, SessionEventTyp, SettingsMsg(..), SettingsPageModel, User, UserListPageMsg(..), UserListPageStatus, UserPageModel, UserPageMsg(..), appName, getId, getKind, getRoomID, getUser, getUserFullname, getUserInfo, getUserName, getUserNameDisplay, roomName, roomUsers, toggleSet, truncate)
 
 import Dict exposing (Dict)
 import Json.Decode as Json
@@ -9,7 +9,7 @@ import Time exposing (Zone)
 
 appName : String
 appName =
-    "Slack clone"
+    "COI SNS"
 
 
 type alias CommentTyp =
@@ -90,6 +90,7 @@ type alias Model =
     , userPageStatus : UserPageModel
     , chatPageStatus : ChatPageModel
     , userListPageStatus : UserListPageStatus
+    , settingsPageModel : SettingsPageModel
     , editing : Set.Set String
     , editingValue : Dict String String
     , files :
@@ -120,6 +121,11 @@ type alias UserPageModel =
     , messages : List ChatEntry
     , shownFileID : Maybe String
     , newFileBox : Bool
+    }
+
+
+type alias SettingsPageModel =
+    { configValues : Dict.Dict String String
     }
 
 
@@ -166,6 +172,7 @@ type Msg
     | UserPageMsg UserPageMsg
     | ChatPageMsg ChatPageMsg
     | UserListPageMsg UserListPageMsg
+    | SettingsMsg SettingsMsg
     | StartSession (Set.Set Member)
     | ReceiveNewSessionId { timestamp : Int, name : String, id : RoomID }
     | FeedRoomInfo Json.Value
@@ -224,6 +231,12 @@ type ChatPageMsg
     | SmallerFont
     | LargerFont
     | ClickExpandInput
+
+
+type SettingsMsg
+    = UpdateConfigEditingValue String String
+    | SaveConfigValue String
+    | FeedConfigValues (List ( String, String ))
 
 
 roomUsers : String -> Model -> List String

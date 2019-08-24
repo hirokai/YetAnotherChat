@@ -1,4 +1,4 @@
-port module Ports exposing (createNewSession, deleteFile, deleteSession, downloadPrivateKey, enterSession, feedMessages, feedRoomInfo, feedSessionsOf, feedSessionsWithSameMembers, feedUserImages, feedUserMessages, feedUsers, getMessages, getRoomInfo, getSessionsOf, getSessionsWithSameMembers, getUserMessages, getUsers, hashChanged, initializeData, joinRoom, logout, onChangeData, recalcElementPositions, receiveNewRoomInfo, reloadSession, removeItemRemote, resetKeys, resetUserCache, saveConfig, scrollTo, scrollToBottom, sendRoomName, setPageHash, setValue, startPosterSession, uploadPrivateKey)
+port module Ports exposing (createNewSession, deleteFile, deleteSession, downloadPrivateKey, enterSession, feedMessages, feedRoomInfo, feedSessionsOf, feedSessionsWithSameMembers, feedUserImages, feedUserMessages, feedUsers, getConfig, getMessages, getRoomInfo, getSessionsOf, getSessionsWithSameMembers, getUserMessages, getUsers, hashChanged, initializeData, joinRoom, logout, onChangeData, recalcElementPositions, receiveNewRoomInfo, reloadSession, removeItemRemote, resetKeys, resetUserCache, saveConfig, scrollTo, scrollToBottom, sendRoomName, setPageHash, setValue, startPosterSession, uploadPrivateKey)
 
 import Json.Decode as Json
 import Types exposing (..)
@@ -44,6 +44,9 @@ port feedSessionsWithSameMembers : (List String -> msg) -> Sub msg
 
 
 port feedSessionsOf : (List String -> msg) -> Sub msg
+
+
+port getConfig : () -> Cmd msg
 
 
 port scrollTo : String -> Cmd msg

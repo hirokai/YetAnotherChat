@@ -308,6 +308,16 @@ type PrivateUserInfo = {
     allowed_passwords: string[]
 }
 
+type GetConfigResponse = { ok: boolean, data: string[][] }
+
+type PostConfigData = {
+    key: string,
+    value: string
+}
+
+type PostConfigResponse = { ok: boolean }
+
+
 type UserTableFromEmail = {
     [email: string]: { name: string, names: string[], id: string, email: string }
 }

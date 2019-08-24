@@ -685,6 +685,20 @@ app.post('/api/public_keys', (req: MyPostRequest<PostPublicKeyParams>, res) => {
     });
 });
 
+app.get('/api/config', (req: GetAuthRequest, res: JsonResponse<GetConfigResponse>) => {
+    model.get_user_config(req.decoded.user_id).then((configs) => {
+        res.json({ ok: true, data: configs });
+    });
+});
+
+app.post('/api/config', (req: MyPostRequest<PostConfigData>, res) => {
+    const key = req.body.key;
+    const value = req.body.value;
+    model.set_user_config(req.decoded.user_id, key, value).then((r) => {
+        res.json(r);
+    });
+});
+
 if (!production) {
     app.post('/debug/emit_socket', (req, res) => {
         io.emit("message", req.body);
