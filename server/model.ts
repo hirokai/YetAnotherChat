@@ -858,7 +858,7 @@ export async function list_users(myself: string): Promise<User[]> {
             }
         });
     });
-    const online_users = list_online_users();
+    const online_users = await list_online_users();
     const users = await Promise.all(map(rows, (row): Promise<User> => {
         return new Promise((resolve) => {
             const user_id = row['id'];

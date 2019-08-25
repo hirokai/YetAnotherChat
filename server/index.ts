@@ -806,7 +806,12 @@ io.on('connection', function (socket: SocketIO.Socket) {
     socket.on('disconnect', () => {
         console.log('disconnected', socket.id);
         model.delete_connection(socket.id).then(({ user_id, online, timestamp }) => {
-            io.emit('users.update', { user_id, online, timestamp });
+            const obj: UsersUpdateSocket = {
+                __type: 'users.update',
+                action: 'online',
+                user_id, online, timestamp
+            }
+            io.emit('users.update', obj);
         });
     })
 });
