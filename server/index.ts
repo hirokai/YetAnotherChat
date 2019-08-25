@@ -188,6 +188,10 @@ app.post('/api/register', (req, res: JsonResponse<RegisterResponse>) => {
     (async () => {
         const { username, password, fullname, email } = req.body;
         console.log({ username, password, fullname, email });
+        if (!username || !password) {
+            res.json({ ok: false, error: 'User name and password are required.' });
+            return;
+        }
         const { user, error, error_code } = await model.register_user({ username, password, email, fullname, source: 'self_register' });
         if (!user) {
             res.json({ ok: false, error: error_code == ec.USER_EXISTS ? 'User already exists' : error, error_code });

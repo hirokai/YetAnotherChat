@@ -694,7 +694,7 @@ export async function register_user({ username, password, email, fullname, sourc
                     db.serialize(() => {
                         const timestamp = new Date().getTime();
                         db.run('insert into users (id,name,password,fullname,timestamp,source) values (?,?,?,?,?,?)', user_id, username, hash, fullname, timestamp, source);
-                        db.run('insert into user_emails (user_id,email) values (?,?)', user_id, email);
+                        db.run('insert into user_emails (user_id,email) values (?,?)', user_id, email || "");
                     });
                 }
             });
