@@ -680,32 +680,65 @@ export async function delete_all_connections(): Promise<boolean> {
     });
 }
 
+export async function set_profile(user_id: string, key: string, value: string) {
+    return new Promise((resolve) => {
+        db.get('select * from profiles where user_id=? and profile_name=?;', user_id, key, (err, row) => {
+            if (err) {
+                resolve(false);
+                return;
+            }
+            if (!row) {
+                const timestamp = new Date().getTime();
+                db.run('insert into profiles (timestamp,user_id,profile_name,profile_value) values (?,?,?,?);', timestamp, user_id, key, value, (err) => {
+                    resolve(!err);
+                });
+            }
+        });
+    });
+}
+
+function choose_avatar(username: string): string {
+    if (username[0].match(/\w/)) {
+        const num = 1 + Math.floor(Math.random() * 5);
+        return '/public/img/letter/' + username[0] + '.' + num + '.png';
+    } else {
+        return '/public/img/portrait.png';
+    }
+}
+
 export async function register_user({ username, password, email, fullname, source }: { username: string, password: string, email?: string, fullname?: string, source: string }): Promise<{ ok: boolean, user?: User, error?: string, error_code?: number }> {
     const user_id = shortid();
-    if (username) {
+    if (!username || !password) {
+        return { ok: false, error: 'Username and password are required' };
+    } else {
         if (username.indexOf('__') == 0) {
-            return { ok: false, error: 'User name invalid.' }
+            return { ok: false, error: 'User name invalid.' };
         }
         const existing_user: User = await find_user_from_username({ myself: user_id, username });
-        if (existing_user) {
-            return { ok: false, error_code: error_code.USER_EXISTS, error: 'User name already exists' }
-        } else {
-            bcrypt.hash(password, saltRounds, function (err, hash) {
-                if (!err) {
-                    db.serialize(() => {
-                        const timestamp = new Date().getTime();
-                        db.run('insert into users (id,name,password,fullname,timestamp,source) values (?,?,?,?,?,?)', user_id, username, hash, fullname, timestamp, source);
-                        db.run('insert into user_emails (user_id,email) values (?,?)', user_id, email || "");
-                    });
-                }
-            });
-            const emails = email ? [email] : [];
-            const avatar = '';
-            const user: User = { id: user_id, fullname, username, emails, avatar, online: false, publicKey: null }
-            return { ok: true, user };
-        }
-    } else {
-        return { ok: false, error: 'User name has to be specified' };
+        return new Promise((resolve) => {
+            if (existing_user) {
+                resolve({ ok: false, error_code: error_code.USER_EXISTS, error: 'User name already exists' });
+            } else {
+                bcrypt.hash(password, saltRounds, function (err, hash) {
+                    if (err) {
+                        resolve({ ok: false, error: 'Password hashing error' });
+                    } else {
+                        db.serialize(() => {
+                            const timestamp = new Date().getTime();
+                            db.run('insert into users (id,name,password,fullname,timestamp,source) values (?,?,?,?,?,?)', user_id, username, hash, fullname, timestamp, source);
+                            db.run('insert into user_emails (user_id,email) values (?,?)', user_id, email || "");
+                            set_profile(user_id, 'avatar', choose_avatar(username)).then(() => {
+                                const emails = email ? [email] : [];
+                                const avatar = '';
+                                const user: User = { id: user_id, fullname, username, emails, avatar, online: false, publicKey: null }
+                                resolve({ ok: true, user });
+                            });
+                        });
+                    }
+                });
+
+            }
+        });
     }
 }
 
@@ -817,7 +850,7 @@ export function post_comment({ user_id, session_id, timestamp, comment, for_user
 
 export async function list_users(myself: string): Promise<User[]> {
     const rows: { [key: string]: any } = await new Promise((resolve, reject) => {
-        db.all('select users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname from users join user_emails on users.id=user_emails.user_id group by users.id;', (err, rows: object) => {
+        db.all("select users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profiles.profile_value as avatar from users join user_emails on users.id=user_emails.user_id join profiles on users.id=profiles.user_id where profiles.profile_name='avatar' group by users.id;", (err, rows: object) => {
             if (err) {
                 reject();
             } else {
@@ -838,7 +871,7 @@ export async function list_users(myself: string): Promise<User[]> {
                             username: row['name'] || row['id'],
                             fullname: row['fullname'] || "",
                             id: user_id,
-                            avatar: '',
+                            avatar: row['avatar'],
                             publicKey: pk1,
                             online: includes(online_users, user_id),
                             fingerprint
@@ -857,7 +890,7 @@ export async function list_users(myself: string): Promise<User[]> {
                                 username: row['name'] || row['id'],
                                 fullname: row['fullname'] || "",
                                 id: user_id,
-                                avatar: '',
+                                avatar: row['avatar'],
                                 publicKey: pk2,
                                 online: includes(online_users, user_id),
                                 fingerprint

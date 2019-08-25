@@ -192,26 +192,31 @@ app.post('/api/register', (req, res: JsonResponse<RegisterResponse>) => {
             res.json({ ok: false, error: 'User name and password are required.' });
             return;
         }
-        const { user, error, error_code } = await model.register_user({ username, password, email, fullname, source: 'self_register' });
-        if (!user) {
-            res.json({ ok: false, error: error_code == ec.USER_EXISTS ? 'User already exists' : error, error_code });
-            return;
-        }
-        const r: boolean = await model.save_password(user.id, password);
-        if (!r) {
-            res.json({ ok: false, error: 'Password save error' });
-            return;
-        }
-        const token = jwt.sign({ username, user_id: user.id }, credential.jwt_secret, { expiresIn: 604800 });
-        jwt.verify(token, credential.jwt_secret, function (err, decoded) {
-            if (!err) {
-                model.get_local_db_password(user.id).then((local_db_password) => {
-                    res.json({ ok: true, token, decoded, local_db_password });
-                });
-            } else {
-                res.json({ ok: false, error: 'Token verificaiton error' });
+        const r1 = await model.register_user({ username, password, email, fullname, source: 'self_register' });
+        if (r1 == null) {
+            res.json({ ok: false });
+        } else {
+            const { user, error, error_code } = r1;
+            if (!user) {
+                res.json({ ok: false, error: error_code == ec.USER_EXISTS ? 'User already exists' : error, error_code });
+                return;
             }
-        });
+            const r: boolean = await model.save_password(user.id, password);
+            if (!r) {
+                res.json({ ok: false, error: 'Password save error' });
+                return;
+            }
+            const token = jwt.sign({ username, user_id: user.id }, credential.jwt_secret, { expiresIn: 604800 });
+            jwt.verify(token, credential.jwt_secret, function (err, decoded) {
+                if (!err) {
+                    model.get_local_db_password(user.id).then((local_db_password) => {
+                        res.json({ ok: true, token, decoded, local_db_password });
+                    });
+                } else {
+                    res.json({ ok: false, error: 'Token verificaiton error' });
+                }
+            });
+        }
     })();
 });
 

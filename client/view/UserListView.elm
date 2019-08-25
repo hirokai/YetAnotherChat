@@ -93,7 +93,7 @@ mkPeopleDivInList model selected user =
                         ]
                     , div [ class "userlist-email" ] [ text email ]
                     ]
-                , div [ class "userlist-img-div" ] [ img [ class "userlist-img", src "/public/img/portrait.png" ] [] ]
+                , div [ class "userlist-img-div" ] [ img [ class "userlist-img", src userInfo.avatar ] [] ]
                 ]
 
         Nothing ->

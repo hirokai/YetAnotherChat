@@ -192,7 +192,7 @@ showItem model entry =
                                    )
                         , id m.id
                         ]
-                        [ div [ style "float" "left" ] [ img [ class "chat_user_icon", src (iconOfUser (getUserName model m.user)) ] [] ]
+                        [ div [ style "float" "left" ] [ img [ class "chat_user_icon", src (iconOfUser userInfo) ] [] ]
                         , div [ class "chat_comment" ]
                             [ div [ class "chat_user_name", attribute "data-toggle" "tooltip", title <| getUserFullname model m.user ]
                                 [ text
@@ -229,7 +229,7 @@ showItem model entry =
                         [ classList [ ( "chat_entry_comment", True ), ( "shrunk", model.chatPageStatus.shrunkEntries ) ]
                         , id m.id
                         ]
-                        [ div [ style "float" "left" ] [ img [ class "chat_user_icon", src (iconOfUser (getUserName model m.user)) ] [] ]
+                        [ div [ style "float" "left" ] [ img [ class "chat_user_icon", src (iconOfUser userInfo) ] [] ]
                         , div [ class "chat_comment" ]
                             [ div [ class "chat_user_name", attribute "data-toggle" "tooltip", title <| getUserFullname model m.user ]
                                 [ text <| getUserName model m.user

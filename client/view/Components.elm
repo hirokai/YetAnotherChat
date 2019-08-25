@@ -17,13 +17,9 @@ import Types exposing (..)
 -- https://avatars.discourse.org/v4/letter/t/cc2283/60.png
 
 
-iconOfUser : String -> String
-iconOfUser name =
-    let
-        c =
-            String.toLower (String.left 1 name)
-    in
-    "/public/img/" ++ c ++ ".png"
+iconOfUser : User -> String
+iconOfUser user =
+    user.avatar
 
 
 showSource : String -> Html Msg

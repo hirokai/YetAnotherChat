@@ -1,3 +1,14 @@
+CREATE TABLE users
+(
+    id text not null unique,
+    timestamp integer not null,
+    source text,
+    name text not null,
+    fullname text,
+    password text,
+    db_local_password text
+);
+
 CREATE TABLE comments
 (
     id text not null unique,
@@ -70,17 +81,6 @@ CREATE TABLE sessions
     name text not null
 );
 
-CREATE TABLE users
-(
-    id text not null unique,
-    timestamp integer not null,
-    source text,
-    name text not null,
-    fullname text,
-    password text,
-    db_local_password text
-);
-
 CREATE TABLE public_keys
 (
     timestamp integer,
@@ -96,4 +96,12 @@ CREATE TABLE user_configs
     user_id text not null,
     config_name text not null,
     config_value text not null
+);
+
+CREATE TABLE profiles
+(
+    timestamp integer not null,
+    user_id text not null,
+    profile_name text not null,
+    profile_value text not null
 );
