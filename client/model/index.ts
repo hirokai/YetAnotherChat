@@ -209,6 +209,12 @@ export class Model {
                 console.log('update_my_info', key, value, r);
             }
         },
+        on_new: async (msg: UsersNewSocket) => {
+            console.log('users.on_new', msg);
+            var users: { [key: string]: User } = await this.users.loadDb();
+            users[msg.user.id] = msg.user;
+            await this.users.saveDb(users);
+        },
         on_update: async (msg: UsersUpdateSocket) => {
             console.log('users.on_update', msg);
             var users: { [key: string]: User } = await this.users.loadDb();

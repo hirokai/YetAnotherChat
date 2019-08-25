@@ -159,6 +159,7 @@ interface UserSlack {
 
 type User = {
     id: string,
+    timestamp: number,
     fullname: string,
     username: string,
     emails: string[],
@@ -371,6 +372,12 @@ type CommentsDeleteSocket = {
 
 type FilesDeleteSocket = {
     __type: 'files.delete',
+}
+
+type UsersNewSocket = {
+    __type: 'users.new',
+    timestamp: number,
+    user: User,
 }
 
 type UsersUpdateSocket = {

@@ -211,6 +211,12 @@ app.post('/api/register', (req, res: JsonResponse<RegisterResponse>) => {
                 if (!err) {
                     model.get_local_db_password(user.id).then((local_db_password) => {
                         res.json({ ok: true, token, decoded, local_db_password });
+                        const obj: UsersNewSocket = {
+                            __type: 'users.new',
+                            timestamp: user.timestamp,
+                            user
+                        };
+                        io.emit('users.new', obj);
                     });
                 } else {
                     res.json({ ok: false, error: 'Token verificaiton error' });

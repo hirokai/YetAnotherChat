@@ -727,10 +727,10 @@ export async function register_user({ username, password, email, fullname, sourc
                             const timestamp = new Date().getTime();
                             db.run('insert into users (id,name,password,fullname,timestamp,source) values (?,?,?,?,?,?)', user_id, username, hash, fullname, timestamp, source);
                             db.run('insert into user_emails (user_id,email) values (?,?)', user_id, email || "");
-                            set_profile(user_id, 'avatar', choose_avatar(username)).then(() => {
+                            const avatar = choose_avatar(username);
+                            set_profile(user_id, 'avatar', avatar).then(() => {
                                 const emails = email ? [email] : [];
-                                const avatar = '';
-                                const user: User = { id: user_id, fullname, username, emails, avatar, online: false, publicKey: null }
+                                const user: User = { id: user_id, fullname, username, emails, avatar, online: false, publicKey: null, timestamp }
                                 resolve({ ok: true, user });
                             });
                         });
@@ -850,7 +850,7 @@ export function post_comment({ user_id, session_id, timestamp, comment, for_user
 
 export async function list_users(myself: string): Promise<User[]> {
     const rows: { [key: string]: any } = await new Promise((resolve, reject) => {
-        db.all("select users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profiles.profile_value as avatar from users join user_emails on users.id=user_emails.user_id join profiles on users.id=profiles.user_id where profiles.profile_name='avatar' group by users.id;", (err, rows: object) => {
+        db.all("select users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profiles.profile_value as avatar from users join user_emails on users.id=user_emails.user_id join profiles on users.id=profiles.user_id where profiles.profile_name='avatar' group by users.id;", (err, rows: object) => {
             if (err) {
                 reject();
             } else {
@@ -868,6 +868,7 @@ export async function list_users(myself: string): Promise<User[]> {
                         // console.log('model.list_users() publicKey', user_id, myself, pk1);
                         const obj: User = {
                             emails: row['emails'].split(','),
+                            timestamp: row['timestamp'],
                             username: row['name'] || row['id'],
                             fullname: row['fullname'] || "",
                             id: user_id,
@@ -887,6 +888,7 @@ export async function list_users(myself: string): Promise<User[]> {
                             // console.log('model.list_users() publicKey', user_id, user_id, pk2);
                             const obj: User = {
                                 emails: row['emails'].split(','),
+                                timestamp: row['timestamp'],
                                 username: row['name'] || row['id'],
                                 fullname: row['fullname'] || "",
                                 id: user_id,
@@ -911,13 +913,13 @@ export function find_user_from_email({ myself, email }: { myself: string, email:
         if (!email || email.trim() == "") {
             resolve(null);
         } else {
-            db.get('select users.id,users.name,users.fullname,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id group by users.id having emails like ?;', '%' + email + '%', (err, row) => {
+            db.get('select users.timestamp,users.id,users.name,users.fullname,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id group by users.id having emails like ?;', '%' + email + '%', (err, row) => {
                 if (!err && row) {
                     const user_id = row['id']
                     get_public_key({ user_id, for_user: myself }).then(({ publicKey }) => {
                         list_online_users().then((online_users) => {
                             const online: boolean = includes(online_users, user_id);
-                            resolve({ username: row['name'], fullname: row['fullname'], id: user_id, emails: row['emails'], avatar: '', online, publicKey });
+                            resolve({ username: row['name'], fullname: row['fullname'], id: user_id, emails: row['emails'], avatar: '', online, publicKey, timestamp: row['timestamp'] });
                         });
                     });
                 } else {
@@ -930,7 +932,7 @@ export function find_user_from_email({ myself, email }: { myself: string, email:
 
 export function find_user_from_username({ myself, username }: { myself: string, username: string }): Promise<User> {
     return new Promise((resolve) => {
-        db.get('select users.id,users.name,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id where users.name=? group by users.id;', username, (err, row) => {
+        db.get('select users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id where users.name=? group by users.id;', username, (err, row) => {
             if (row) {
                 console.log('find_user_from_username', row);
                 const user_id = row['id']
@@ -938,7 +940,7 @@ export function find_user_from_username({ myself, username }: { myself: string, 
                 get_public_key({ user_id, for_user: myself }).then(({ publicKey }) => {
                     list_online_users().then((online_users) => {
                         const online: boolean = includes(online_users, user_id);
-                        resolve({ username: row['name'], id: user_id, emails, avatar: "", fullname: row['fullname'], online, publicKey });
+                        resolve({ username: row['name'], id: user_id, emails, avatar: "", fullname: row['fullname'], online, publicKey, timestamp: row['timestamp'] });
                     });
                 });
             } else {
@@ -950,14 +952,14 @@ export function find_user_from_username({ myself, username }: { myself: string, 
 
 export function get_user({ myself, user_id }: { myself: string, user_id: string }): Promise<User> {
     return new Promise((resolve) => {
-        db.get('select users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname from users join user_emails on users.id=user_emails.user_id where users.id=? group by users.id;', user_id, (err, row) => {
+        db.get('select users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname from users join user_emails on users.id=user_emails.user_id where users.id=? group by users.id;', user_id, (err, row) => {
             if (row) {
                 const emails = row['emails'].split(',');
                 get_public_key({ user_id, for_user: myself }).then(({ publicKey }) => {
                     list_online_users().then((online_users) => {
                         const id = row['id']
                         const online: boolean = includes(online_users, id);
-                        resolve({ username: row['name'], id, emails, avatar: "", fullname: row['fullname'], online, publicKey });
+                        resolve({ username: row['name'], id, emails, avatar: "", fullname: row['fullname'], online, publicKey, timestamp: row['timestamp'] });
                     });
                 });
             } else {
