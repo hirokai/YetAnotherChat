@@ -34,7 +34,7 @@ init { user_id, show_toppane, expand_chatinput, show_users_with_email_only } =
       , users = Dict.empty
       , selected = Set.empty
       , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
-      , userPageStatus = { sessions = [], messages = [], shownFileID = Nothing, newFileBox = False }
+      , userPageModel = { sessions = [], messages = [], shownFileID = Nothing, newFileBox = False, selectedSDGs = Set.empty }
       , chatPageStatus = initialChatPageStatus show_toppane expand_chatinput
       , userListPageStatus = { userWithIdOnly = show_users_with_email_only }
       , settingsPageModel = initialSettingsPageModel
@@ -102,9 +102,9 @@ update msg model =
         UserPageMsg msg1 ->
             let
                 ( m, c ) =
-                    updateUserPageStatus msg1 model.userPageStatus
+                    updateUserPageModel msg1 model.userPageModel
             in
-            ( { model | userPageStatus = m }, c )
+            ( { model | userPageModel = m }, c )
 
         UserListPageMsg msg1 ->
             let
@@ -222,11 +222,11 @@ update msg model =
                     Maybe.map .file_id <| Maybe.andThen List.head <| Dict.get user_id files
 
                 ups =
-                    model.userPageStatus
+                    model.userPageModel
             in
             ( { model
                 | files = files
-                , userPageStatus =
+                , userPageModel =
                     { ups
                         | shownFileID =
                             if old_files_empty then

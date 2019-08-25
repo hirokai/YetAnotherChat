@@ -1,4 +1,4 @@
-module UserPageView exposing (getMessageCount, updateUserPageStatus, userPageView)
+port module UserPageView exposing (getMessageCount, updateUserPageModel, userPageView)
 
 import Components exposing (..)
 import Dict
@@ -7,7 +7,11 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Ports exposing (..)
 import Regex exposing (..)
+import Set
 import Types exposing (..)
+
+
+port saveSDGs : String -> Cmd msg
 
 
 userPageView : String -> Model -> { title : String, body : List (Html Msg) }
@@ -30,7 +34,7 @@ userPageView user model =
                     , div [] [ a [ class "clickable", href <| "#/profiles/" ++ user ] [ text "プロフィールを見る" ] ]
                     , div [ id "user-messages" ]
                         [ h2 [] [ text "メッセージ" ]
-                        , div [] [ text <| String.fromInt (List.length model.userPageStatus.messages) ++ " messages in " ++ String.fromInt (List.length model.userPageStatus.sessions) ++ " rooms." ]
+                        , div [] [ text <| String.fromInt (List.length model.userPageModel.messages) ++ " messages in " ++ String.fromInt (List.length model.userPageModel.sessions) ++ " rooms." ]
                         , div [] <|
                             List.map
                                 (\s ->
@@ -40,7 +44,7 @@ userPageView user model =
                                         , span [] [ text <| getMessageCount s model ]
                                         ]
                                 )
-                                model.userPageStatus.sessions
+                                model.userPageModel.sessions
                         ]
                     ]
                 ]
@@ -49,8 +53,8 @@ userPageView user model =
     }
 
 
-updateUserPageStatus : UserPageMsg -> UserPageModel -> ( UserPageModel, Cmd msg )
-updateUserPageStatus msg model =
+updateUserPageModel : UserPageMsg -> UserPageModel -> ( UserPageModel, Cmd msg )
+updateUserPageModel msg model =
     case msg of
         FeedSessions ss ->
             ( { model | sessions = ss }, Cmd.none )
@@ -66,6 +70,16 @@ updateUserPageStatus msg model =
 
         DeletePosterImage file_id ->
             ( model, deleteFile file_id )
+
+        SelectSDG i ->
+            ( { model | selectedSDGs = toggleSet i model.selectedSDGs }, Cmd.none )
+
+        SaveSDGs ->
+            let
+                s =
+                    String.join "," <| List.map String.fromInt <| Set.toList model.selectedSDGs
+            in
+            ( model, saveSDGs s )
 
 
 getMessageCount : String -> Model -> String

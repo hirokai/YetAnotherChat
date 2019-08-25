@@ -680,17 +680,37 @@ export async function delete_all_connections(): Promise<boolean> {
     });
 }
 
+export async function get_profile(user_id: string): Promise<{ [key: string]: string }> {
+    return new Promise((resolve) => {
+        db.all('select * from profiles where user_id=?', user_id, (err, rows) => {
+            const obj: { [key: string]: string } = {};
+            rows.forEach((row) => {
+                obj[row['profile_name']] = row['profile_value'];
+            });
+            resolve(obj);
+        });
+    });
+}
+
 export async function set_profile(user_id: string, key: string, value: string) {
+    console.log('set_profile', user_id, key, value);
     return new Promise((resolve) => {
         db.get('select * from profiles where user_id=? and profile_name=?;', user_id, key, (err, row) => {
             if (err) {
+                console.log(err);
                 resolve(false);
                 return;
             }
+            const timestamp = new Date().getTime();
             if (!row) {
-                const timestamp = new Date().getTime();
-                db.run('insert into profiles (timestamp,user_id,profile_name,profile_value) values (?,?,?,?);', timestamp, user_id, key, value, (err) => {
-                    resolve(!err);
+                db.run('insert into profiles (timestamp,user_id,profile_name,profile_value) values (?,?,?,?);', timestamp, user_id, key, value, (err1) => {
+                    console.log(err1);
+                    resolve(!err1);
+                });
+            } else {
+                db.run('update profiles set timestamp=?,profile_value=? where user_id=? and profile_name=?;', timestamp, value, user_id, key, (err1) => {
+                    console.log(err1);
+                    resolve(!err1);
                 });
             }
         });

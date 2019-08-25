@@ -199,15 +199,27 @@ export class Model {
             await this.users.list();
         },
         update_my_info: async (key: string, value: string) => {
+            console.log('update_my_info', key, value);
+            let obj: UpdateUserData;
             if (includes(['username', 'fullname', 'email'], key)) {
-                const obj: UpdateUserData = Object.assign({},
+                obj = Object.assign({},
                     key == 'username' ? { username: value } : null,
                     key == 'fullname' ? { fullname: value } : null,
                     key == 'email' ? { email: value } : null);
-                console.log('update_my_info', key, value);
+                console.log('update_my_info', obj);
                 const r = await axios.patch('/api/users/' + this.user_id, obj);
                 console.log('update_my_info', key, value, r);
+            } else {
+                const obj = {};
+                obj[key] = value;
+                await this.users.update_my_profile(obj);
             }
+        },
+        update_my_profile: async (profile: { [key: string]: string }) => {
+            const obj: UpdateProfileData = {
+                profile
+            };
+            const { data: { ok, user_id, data: profile_result } } = <AxiosResponse<UpdateProfileResponse>>await axios.patch('/api/users/' + this.user_id + '/profiles', obj);
         },
         on_new: async (msg: UsersNewSocket) => {
             console.log('users.on_new', msg);
@@ -234,13 +246,21 @@ export class Model {
                     await this.users.saveDb(users);
                     break;
                 }
-                case 'profile': {
+                case 'user': {
                     if (msg.user) {
                         users[msg.user_id] = msg.user;
                         console.log('Saving users', users);
                         await this.users.saveDb(users);
-                        break;
                     }
+                    break;
+                }
+                case 'profile': {
+                    if (msg.profile) {
+                        users[msg.user_id].profile = msg.profile;
+                        console.log('Saving users', users);
+                        await this.users.saveDb(users);
+                    }
+                    break;
                 }
             }
         },
@@ -249,6 +269,10 @@ export class Model {
                 return null;
             }
             const fingerprint: string = await crypto.fingerPrint(u.publicKey) || '';
+            const profile_list = [];
+            map(u.profile, (v, k) => {
+                profile_list.push([k, v]);
+            });
             return {
                 id: u.id,
                 fullname: u.fullname || '',
@@ -256,7 +280,8 @@ export class Model {
                 emails: u.emails || [],
                 avatar: u.avatar || '',
                 online: u.online || false,
-                fingerprint
+                fingerprint,
+                profile: profile_list
             };
         }
     }

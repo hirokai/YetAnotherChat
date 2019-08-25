@@ -167,6 +167,7 @@ type User = {
     online: boolean,
     publicKey: JsonWebKey,
     fingerprint?: string,
+    profile?: { [key: string]: string }
 }
 
 type UserClient = {
@@ -177,6 +178,7 @@ type UserClient = {
     avatar: string,
     online: boolean,
     fingerprint: string,
+    profile: string[][]
 }
 
 // For merge user
@@ -283,10 +285,26 @@ type GetUserResponse = {
     }
 }
 
+type GetProfileResponse = {
+    ok: boolean,
+    user_id: string
+    data: { [key: string]: string }
+}
+
+type UpdateProfileResponse = {
+    ok: boolean,
+    user_id: string
+    data: { [key: string]: string }
+}
+
 interface UpdateUserData {
     username?: string
     fullname?: string
     email?: string
+}
+
+interface UpdateProfileData {
+    profile?: { [key: string]: string }
 }
 
 type UpdateUserResponse = {
@@ -382,11 +400,12 @@ type UsersNewSocket = {
 
 type UsersUpdateSocket = {
     __type: 'users.update',
-    action: 'online' | 'public_key' | 'profile';
+    action: 'online' | 'public_key' | 'profile' | 'user';
     timestamp: number,
     user_id: string,
     online?: boolean,
     user?: User,
+    profile?: { [key: string]: string }
     public_key?: JsonWebKey,
 }
 

@@ -150,7 +150,7 @@ enterUser : String -> Model -> ( Model, Cmd Msg )
 enterUser u model =
     let
         new_model =
-            { model | page = UserPage u, userPageStatus = { sessions = [], messages = [], shownFileID = Nothing, newFileBox = False } }
+            { model | page = UserPage u, userPageModel = { sessions = [], messages = [], shownFileID = Nothing, newFileBox = False, selectedSDGs = Set.empty } }
     in
     ( new_model, Cmd.batch [ updatePageHash new_model, getSessionsOf u, getUserMessages u ] )
 

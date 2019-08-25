@@ -81,6 +81,9 @@ if (!token || token == '') {
         localStorage['yacht.show_users_with_email_only'] = JSON.stringify(show_users_with_email_only);
     });
 
+    app.ports.saveSDGs.subscribe(async (s) => {
+        await model.users.update_my_info('SDGs', s);
+    })
 
     axios.get('/api/verify_token').then(({ data }) => {
         if (!data.valid) {
@@ -202,6 +205,7 @@ if (!token || token == '') {
     app.ports.initializeData.subscribe(() => {
         model.users.list().then(async (us) => {
             Promise.all(map(us, model.users.toClient)).then((users) => {
+                console.log('Feeding users', users);
                 app.ports.feedUsers.send(users);
             })
         });
@@ -620,6 +624,7 @@ interface ElmAppPorts {
     resetUserCache: ElmSub<void>;
     setValue: ElmSend<string[]>;
     initializeData: ElmSub<void>;
+    saveSDGs: ElmSub<string>;
 }
 
 interface ElmApp {

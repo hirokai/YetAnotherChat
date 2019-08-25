@@ -12,7 +12,7 @@ const glob = require("glob");
 const bodyParser = require("body-parser");
 // const _ = require('lodash');
 import * as _ from 'lodash';
-import { uniq, includes, keyBy } from 'lodash';
+import { uniq, includes, keyBy, map } from 'lodash';
 const path = require('path');
 const sqlite3 = require('sqlite3');
 const db = new sqlite3.Database(path.join(__dirname, 'private/db.sqlite3'));
@@ -340,7 +340,7 @@ app.patch('/api/users/:id', (req: MyPostRequest<UpdateUserData>, res: JsonRespon
         model.update_user(user_id, { username, fullname, email }).then((user: User) => {
             const obj: UsersUpdateSocket = {
                 __type: 'users.update',
-                action: 'profile',
+                action: 'user',
                 timestamp,
                 user_id,
                 user
@@ -353,6 +353,39 @@ app.patch('/api/users/:id', (req: MyPostRequest<UpdateUserData>, res: JsonRespon
     }
 });
 
+app.get('/api/users/:id/profiles', (req, res: JsonResponse<GetProfileResponse>) => {
+    const user_id = req.decoded.user_id;
+    model.get_profile(user_id).then((data) => {
+        const obj: GetProfileResponse = {
+            ok: data != null,
+            user_id,
+            data
+        };
+        res.json(obj);
+    });
+});
+
+app.patch('/api/users/:id/profiles', (req: MyPostRequest<UpdateProfileData>, res: JsonResponse<UpdateProfileResponse>) => {
+    const user_id = req.decoded.user_id;
+    const profile = req.body.profile;
+    const ps = map(profile, (v, k) => {
+        return model.set_profile(user_id, k, v);
+    });
+    Promise.all(ps).then(() => {
+        model.get_profile(user_id).then((profile) => {
+            const timestamp = new Date().getTime();
+            const obj: UsersUpdateSocket = {
+                __type: 'users.update',
+                action: 'profile',
+                user_id,
+                timestamp,
+                profile   // Not only changed values but also all values are included.
+            };
+            io.emit('users.update', obj);
+            res.json({ ok: true, user_id, data: profile });
+        });
+    });
+});
 
 app.get('/api/users/:id/comments', (req, res: JsonResponse<GetCommentsResponse>) => {
     const user_id = req.decoded.user_id

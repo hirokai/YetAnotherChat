@@ -602,3 +602,27 @@ span.config-name {
 .config-row {
     margin-bottom: 3px;
 }
+
+.SDGs-icon {
+    display: inline-block;
+    margin: 3px;
+    width: 100px;
+    height: 100px;
+    cursor: pointer;
+    border: 2px rgba(0, 0, 0, 0) solid;
+    padding: 0px;
+}
+
+.SDGs-icon.selected {
+    border: 2px blue solid;
+}
+
+.SDGs-icon img {
+    width: 96px;
+    z-index: -100;
+    opacity: 0.4;
+}
+
+.SDGs-icon.selected img {
+    opacity: 1;
+}

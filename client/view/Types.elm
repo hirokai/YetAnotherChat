@@ -41,6 +41,9 @@ type alias User =
     , avatar : String
     , online : Bool
     , fingerprint : String
+    , sdgs : List Int
+
+    -- , profile : List (List String)
     }
 
 
@@ -87,7 +90,7 @@ type alias Model =
     , selected : Set.Set String
     , roomInfo : Dict RoomID RoomInfo
     , newSessionStatus : NewSessionStatus
-    , userPageStatus : UserPageModel
+    , userPageModel : UserPageModel
     , chatPageStatus : ChatPageModel
     , userListPageStatus : UserListPageStatus
     , settingsPageModel : SettingsPageModel
@@ -121,6 +124,7 @@ type alias UserPageModel =
     , messages : List ChatEntry
     , shownFileID : Maybe String
     , newFileBox : Bool
+    , selectedSDGs : Set.Set Int
     }
 
 
@@ -215,6 +219,8 @@ type UserPageMsg
     | SetShownImageID String
     | AddNewFileBox
     | DeletePosterImage String
+    | SelectSDG Int
+    | SaveSDGs
 
 
 type UserListPageMsg
