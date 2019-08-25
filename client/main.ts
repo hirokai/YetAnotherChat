@@ -1,7 +1,7 @@
 /// <reference path="../common/types.d.ts" />
 
 // @ts-ignore
-import { Elm } from './Main.elm';
+import { Elm } from './view/Main.elm';
 import map from 'lodash/map';
 import values from 'lodash/values';
 import includes from 'lodash/includes';
@@ -10,8 +10,8 @@ import $ from 'jquery';
 import moment from 'moment';
 import 'bootstrap';
 import io from "socket.io-client";
-import { Model, processData } from './client_model';
-import * as crypto from './cryptography';
+import { Model, processData } from './model';
+import * as crypto from './model/cryptography';
 require('moment/locale/ja');
 moment.locale('ja');
 

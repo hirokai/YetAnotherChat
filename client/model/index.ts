@@ -1,4 +1,4 @@
-/// <reference path="../common/types.d.ts" />
+/// <reference path="../../common/types.d.ts" />
 
 import axios from 'axios';
 // import { map, sortBy, find, filter, keyBy, max, cloneDeep, values, zip, isEmpty, every } from 'lodash-es';
@@ -18,7 +18,6 @@ import moment from 'moment';
 const shortid = require('shortid').generate;
 import $ from 'jquery';
 import * as crypto from './cryptography';
-import { Session } from 'inspector';
 
 interface SessionCache {
     id: string
