@@ -5,7 +5,7 @@ const path = require('path');
 import { map, filter, includes, orderBy, groupBy, keyBy, min, max, chain, compact, zip, sum, values, sortedUniq, sortBy, difference, cloneDeep } from 'lodash';
 
 import { fingerPrint } from '../common/common_model';
-
+import * as ethereum from './ethereum';
 const sqlite3 = require('sqlite3');
 const db = new sqlite3.Database(path.join(__dirname, './private/db.sqlite3'));
 // const ulid = require('ulid').ulid;
@@ -957,6 +957,12 @@ export async function register_public_key({ user_id, for_user, jwk, privateKeyFi
             db.run('insert into public_keys (user_id,for_user,public_key,timestamp,private_fingerprint) values (?,?,?,?,?);', user_id, for_user, JSON.stringify(jwk), timestamp, privateKeyFingerprint, (err) => {
                 if (!err) {
                     console.log(user_id);
+                    fingerPrint(jwk).then((pub_fp) => {
+                        console.log('Adding fingerprint to ethereum', pub_fp);
+                        ethereum.add_to_ethereum(credentials.ethereum.ropsten, user_id, timestamp, pub_fp).then(() => {
+                            console.log('add_to_ethereum done');
+                        })
+                    });
                     resolve({ ok: true, timestamp });
                 } else {
                     console.log('register_public_key', err);

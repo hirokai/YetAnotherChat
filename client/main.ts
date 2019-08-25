@@ -86,7 +86,7 @@ if (!token || token == '') {
 
     socket.on("users.update", async (msg: UsersUpdateSocket) => {
         await model.users.on_update(msg);
-        const users = await model.users.list();
+        const users = await model.users.list().catch(() => []);
         const ps = map(values(users), model.users.toClient);
         const usersClient = await Promise.all(ps);
         console.log('Feeding users', usersClient);

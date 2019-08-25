@@ -111,6 +111,10 @@ export class Model {
         const self = this;
         return new Promise((resolve, reject) => {
             const openReq = indexedDB.open(dbName, version);
+            if (!openReq) {
+                reject();
+                return;
+            }
             // console.log('loadDb', openReq);
             openReq.onupgradeneeded = function (event: any) {
                 const db = (<IDBRequest>event.target).result;
@@ -136,6 +140,9 @@ export class Model {
                 }
                 console.log(dbName, storeName, store)
                 const getReq = store ? (key ? store.get(key) : store.getAll()) : null;
+                if (getReq == null) {
+                    return;
+                }
                 getReq.onsuccess = function () {
                     // console.log('get data success', getReq.result);
                     resolve(getReq.result);
@@ -184,7 +191,7 @@ export class Model {
     }
     users = {
         list: async (): Promise<{ [key: string]: User }> => {
-            const snapshot: { [key: string]: User } = keyBy(await this.loadDb('yacht.users', 'id'), 'id');
+            const snapshot: { [key: string]: User } = keyBy(await this.loadDb('yacht.users', 'id').catch(() => []), 'id');
             // console.log('users snapshot', snapshot);
             if (snapshot && Object.keys(snapshot).length > 0) {
                 // console.log('Returning users from local DB.')
@@ -193,9 +200,9 @@ export class Model {
                 console.log('Getting users and save to local DB')
                 const r = await axios.get('/api/users');
                 const { data: { data: { users } } } = r;
-                await map(users, (u) => {
+                await Promise.all(map(users, (u) => {
                     return this.saveDb('yacht.users', 'id', u.id, u, true);
-                });
+                })).catch(() => null);
                 return keyBy(users, 'id');
             }
         },
