@@ -18,7 +18,7 @@ import moment from 'moment';
 const shortid = require('shortid').generate;
 import $ from 'jquery';
 import * as crypto from './cryptography';
-import { mapValues } from 'lodash-es';
+import { mapValues, includes } from 'lodash-es';
 
 import * as CryptoJS from "crypto-js";
 
@@ -197,6 +197,16 @@ export class Model {
         resetCacheAndReload: async () => {
             await this.removeDb('yacht.users');
             await this.users.list();
+        },
+        update_my_info: async (key: string, value: string) => {
+            if (includes(['username', 'fullname', 'email'], key)) {
+                const obj: UpdateUserData = Object.assign({},
+                    key == 'username' ? { username: value } : null,
+                    key == 'fullname' ? { fullname: value } : null,
+                    key == 'email' ? { email: value } : null);
+                axios.patch('/api/users/' + this.user_id, obj);
+                console.log('update_my_info', key, value);
+            }
         },
         on_update: async (msg: UsersUpdateSocket) => {
             console.log('users.on_update', msg);

@@ -1087,40 +1087,50 @@ async function update_user_profile(user_id: string, key: ProfileKey, value: stri
     return false;
 }
 
+export async function update_user(user_id: string, { username, fullname, email }: { username?: string, fullname?: string, email?: string }) {
+    return new Promise((resolve) => {
+        db.serialize(() => {
+            if (username) {
+                db.run('update users set username=? where id=?;', username, user_id);
+            }
+            if (fullname) {
+                db.run('update users set fullname=? where id=?;', fullname, user_id);
+            }
+            if (email) {
+                db.run('update user_emails set email=? where user_id=?;', email, user_id);
+            }
+        });
+    });
+}
+
 export async function set_user_config(user_id: string, key: string, value: string): Promise<{ ok: boolean }> {
     console.log('set_user_config', user_id, key, value);
-    // return { ok: false };
     return new Promise((resolve) => {
-        if (includes(['username', 'fullname', 'email', 'password'], key)) {
-            update_user_profile(user_id, <ProfileKey>key, value).then((ok) => resolve({ ok }));
-        } else {
-            db.get('select * from user_configs where user_id=? and config_name=?;', user_id, key, (err, row) => {
-                if (err) {
-                    resolve({ ok: false })
-                }
-                if (row) {
-                    const timestamp = new Date().getTime();
-                    db.run('update user_configs set timestamp=?,config_value=? where user_id=? and config_name=?;', timestamp, value, user_id, key, (err) => {
-                        if (!err) {
-                            resolve({ ok: true });
-                        } else {
-                            // console.log('set_user_config update', err)
-                            resolve({ ok: false });
-                        }
-                    });
-                } else {
-                    const timestamp = new Date().getTime();
-                    db.run('insert into user_configs (timestamp,user_id,config_name,config_value) values (?,?,?,?);', timestamp, user_id, key, value, (err) => {
-                        if (!err) {
-                            resolve({ ok: true });
-                        } else {
-                            // console.log('set_user_config insert', err)
-                            resolve({ ok: false });
-                        }
-                    });
-                }
-            });
-
-        }
+        db.get('select * from user_configs where user_id=? and config_name=?;', user_id, key, (err, row) => {
+            if (err) {
+                resolve({ ok: false })
+            }
+            if (row) {
+                const timestamp = new Date().getTime();
+                db.run('update user_configs set timestamp=?,config_value=? where user_id=? and config_name=?;', timestamp, value, user_id, key, (err) => {
+                    if (!err) {
+                        resolve({ ok: true });
+                    } else {
+                        // console.log('set_user_config update', err)
+                        resolve({ ok: false });
+                    }
+                });
+            } else {
+                const timestamp = new Date().getTime();
+                db.run('insert into user_configs (timestamp,user_id,config_name,config_value) values (?,?,?,?);', timestamp, user_id, key, value, (err) => {
+                    if (!err) {
+                        resolve({ ok: true });
+                    } else {
+                        // console.log('set_user_config insert', err)
+                        resolve({ ok: false });
+                    }
+                });
+            }
+        });
     });
 }

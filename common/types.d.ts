@@ -274,11 +274,24 @@ type GetUsersResponse = {
         users: User[]
     }
 }
+
 type GetUserResponse = {
     ok: boolean,
     data: {
         user: User
     }
+}
+
+interface UpdateUserData {
+    username?: string
+    fullname?: string
+    email?: string
+}
+
+type UpdateUserResponse = {
+    ok: boolean
+    data?: User
+    error?: string
 }
 
 type PostSessionsResponse = {

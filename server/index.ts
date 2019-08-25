@@ -319,6 +319,21 @@ app.get('/api/users/:id', (req, res: JsonResponse<GetUserResponse>) => {
     });
 });
 
+app.patch('/api/users/:id', (req: MyPostRequest<UpdateUserData>, res: JsonResponse<UpdateUserResponse>) => {
+    if (req.decoded.user_id == req.params.id) {
+        const user_id = req.decoded.user_id;
+        const username = req.body.username;
+        const fullname = req.body.fullname;
+        const email = req.body.email;
+        model.update_user(user_id, { username, fullname, email }).then((user: User) => {
+            res.json({ ok: true, data: user });
+        });
+    } else {
+        res.json({ ok: false, error: 'Only myself can be changed.' })
+    }
+});
+
+
 app.get('/api/users/:id/comments', (req, res: JsonResponse<GetCommentsResponse>) => {
     const user_id = req.decoded.user_id
     model.list_comments(user_id, null, user_id).then((comments) => {

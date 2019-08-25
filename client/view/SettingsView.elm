@@ -13,6 +13,9 @@ import Types exposing (..)
 port setConfigValue : { key : String, value : String } -> Cmd msg
 
 
+port setProfileValue : { key : String, value : String } -> Cmd msg
+
+
 port feedConfigValues : (List ( String, String ) -> msg) -> Sub msg
 
 
@@ -204,7 +207,11 @@ updateSettingsPageStatus msg model =
         SaveConfigValue k ->
             case Dict.get k model.configValues of
                 Just v ->
-                    ( model, setConfigValue { key = k, value = v } )
+                    if k == "username" || k == "fullname" || k == "email" then
+                        ( model, setProfileValue { key = k, value = v } )
+
+                    else
+                        ( model, setConfigValue { key = k, value = v } )
 
                 Nothing ->
                     ( model, Cmd.none )

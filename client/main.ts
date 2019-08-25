@@ -347,6 +347,9 @@ if (!token || token == '') {
         model.config.save(key, value);
     });
 
+    app.ports.setProfileValue.subscribe(({ key, value }) => {
+        model.users.update_my_info(key, value);
+    });
 
     app.ports.getConfig.subscribe(async () => {
         const configList: string[][] = await model.config.get();
@@ -575,6 +578,7 @@ interface ElmAppPorts {
     getConfig: ElmSub<void>
     feedConfigValues: ElmSend<string[][]>;
     setConfigValue: ElmSub<{ key: string, value: string }>;
+    setProfileValue: ElmSub<{ key: string, value: string }>;
     getUsers: ElmSub<void>;
     feedUsers: ElmSend<UserClient[]>;
     getUserMessages: ElmSub<string>;
