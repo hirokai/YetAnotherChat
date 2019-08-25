@@ -517,7 +517,8 @@ export class Model {
             return await this.saveDbWithName('yacht.keyPair', keys);
         },
         lockDbMine: async (password: string) => {
-            const keys = await this.keys.loadDbMine();
+            const keys: any = await this.keys.loadDbMine();
+            console.log('lockDbMine before locking', keys, JSON.stringify(keys));
             var ciphertext: string = CryptoJS.AES.encrypt(JSON.stringify(keys), password).toString();
             await this.keys.saveDbMineLocked(ciphertext);
         },

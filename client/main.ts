@@ -41,12 +41,8 @@ if (!token || token == '') {
         user_id, token
     });
     await model.init();
-    model.keys.get_my_fingerprint().then((fp) => {
-        if (fp) {
-            app.ports.setValue.send(['my_public_key', fp.pub || ""]);
-            app.ports.setValue.send(['my_private_key', fp.prv || ""]);
-        }
-    });
+    const fp = await model.keys.get_my_fingerprint();
+
     window['model'] = model;
 
     var show_toppane = JSON.parse(localStorage['yacht.show_toppane'] || "false") || false;
@@ -54,12 +50,16 @@ if (!token || token == '') {
     var show_users_with_email_only = JSON.parse(localStorage['yacht.show_users_with_email_only'] || "false") || false;
 
     await Promise.all([
-        model.keys.unlockDbMine(password),
+        // model.keys.unlockDbMine(password),
         model.users.unlockDb(password),
         model.sessions.unlockDb(password)]);
+    // return;
 
     const app: ElmApp = Elm.Main.init({ flags: { user_id, show_toppane, expand_chatinput, show_users_with_email_only } });
-
+    if (fp && app) {
+        app.ports.setValue.send(['my_public_key', fp.pub || ""]);
+        app.ports.setValue.send(['my_private_key', fp.prv || ""]);
+    }
     window.setTimeout(() => {
         recalcPositions(show_toppane, expand_chatinput);
     }, 100);
@@ -360,7 +360,7 @@ if (!token || token == '') {
 
     app.ports.logout.subscribe(async () => {
         await Promise.all([
-            model.keys.lockDbMine(password),
+            // model.keys.lockDbMine(password),
             model.users.lockDb(password),
             model.sessions.lockDb(password)]);
         $.post('/api/logout', { token }).then((res) => {
@@ -368,7 +368,7 @@ if (!token || token == '') {
                 localStorage.removeItem('yacht.token');
                 localStorage.removeItem('yacht.user_id');
                 localStorage.removeItem('yacht.username');
-                location.href = '/login';
+                // location.href = '/login';
             }
         })
     });
