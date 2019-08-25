@@ -325,7 +325,16 @@ app.patch('/api/users/:id', (req: MyPostRequest<UpdateUserData>, res: JsonRespon
         const username = req.body.username;
         const fullname = req.body.fullname;
         const email = req.body.email;
+        const timestamp = new Date().getTime();
         model.update_user(user_id, { username, fullname, email }).then((user: User) => {
+            const obj: UsersUpdateSocket = {
+                __type: 'users.update',
+                action: 'profile',
+                timestamp,
+                user_id,
+                user
+            };
+            io.emit('users.update', obj);
             res.json({ ok: true, data: user });
         });
     } else {

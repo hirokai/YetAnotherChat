@@ -1,6 +1,7 @@
 module HomeView exposing (homeView)
 
 import Components exposing (..)
+import Dict
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
@@ -21,7 +22,7 @@ homeView model =
                     [ h1 [] [ text "新しい会話を開始" ]
                     , div [ id "people-wrapper" ] <|
                         List.map (\u -> mkPeoplePanel model model.newSessionStatus.selected u.id)
-                            model.users
+                            (List.map Tuple.second <| Dict.toList model.users)
                     , div
                         [ style "clear" "both" ]
                         []

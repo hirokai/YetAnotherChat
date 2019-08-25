@@ -31,7 +31,7 @@ init { user_id, show_toppane, expand_chatinput, show_users_with_email_only } =
       , roomInfo = Dict.empty
       , rooms = [ "Home", "COI" ]
       , page = NewSession
-      , users = []
+      , users = Dict.empty
       , selected = Set.empty
       , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
       , userPageStatus = { sessions = [], messages = [], shownFileID = Nothing, newFileBox = False }
@@ -72,7 +72,7 @@ update msg model =
             ( model, reloadSessions () )
 
         FeedUsers users ->
-            ( { model | users = users }, Cmd.none )
+            ( { model | users = Dict.fromList <| List.map (\u -> ( u.id, u )) users }, Cmd.none )
 
         FeedRoomInfo v ->
             let

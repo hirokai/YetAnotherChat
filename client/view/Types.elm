@@ -82,7 +82,7 @@ type ChatEntry
 type alias Model =
     { page : Page
     , rooms : List RoomID
-    , users : List User
+    , users : Dict String User
     , myself : Member
     , selected : Set.Set String
     , roomInfo : Dict RoomID RoomInfo
@@ -256,7 +256,7 @@ truncate n s =
 
 getUserInfo : Model -> String -> Maybe User
 getUserInfo model uid =
-    List.Extra.find (\u -> u.id == uid) model.users
+    Dict.get uid model.users
 
 
 getUserName : Model -> String -> String

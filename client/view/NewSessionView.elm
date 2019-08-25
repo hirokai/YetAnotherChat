@@ -24,7 +24,7 @@ newSessionView model =
                     [ h1 [] [ text "新しい会話を開始" ]
                     , div [ id "people-wrapper" ] <|
                         List.map (\u -> mkPeoplePanel model model.newSessionStatus.selected u.id)
-                            model.users
+                            (List.map Tuple.second <| Dict.toList model.users)
                     , div
                         [ style "clear" "both" ]
                         []

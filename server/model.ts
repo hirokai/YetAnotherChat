@@ -24,6 +24,7 @@ const saltRounds = 10;
 import * as credentials from './private/credential';
 import { createCipher, createDecipher } from 'crypto';
 import * as crypto from 'crypto';
+import { resolve } from "path";
 
 export async function save_password(user_id: string, password: string): Promise<boolean> {
     const hash = await bcrypt.hash(password, saltRounds);
@@ -1043,62 +1044,33 @@ export async function get_user_config(user_id: string): Promise<string[][]> {
 
 type ProfileKey = 'username' | 'fullname' | 'email' | 'password';
 
-async function update_user_profile(user_id: string, key: ProfileKey, value: string): Promise<boolean> {
-    console.log('update_user_profile', user_id, key, value);
-    if (!user_id || !key || !value) {
-        return
+export async function update_user(user_id: string, { username, fullname, email }: { username?: string, fullname?: string, email?: string }): Promise<User> {
+    const f = (s, value): Promise<boolean> => {
+        return new Promise((r1) => {
+            db.run(s, value, user_id, (err) => {
+                r1(err == null);
+            });
+        })
     }
-    switch (key) {
-        case 'username':
-            db.run('update users set name=? where id=?;', value, user_id, (err) => {
-                return err == null;
-            });
-            break;
-
-        case 'fullname':
-            console.log('Fullname', user_id, value)
-            db.run('update users set fullname=? where id=?;', value, user_id, (err) => {
-                return err == null;
-            });
-            break;
-
-        case 'email':
-            console.log('Email', user_id, value)
-            //ToDo: Support multiple email addresses
-            // Currently this removes all preivous email addresses of the user.
-            db.run('delete from user_emails where user_id=?;', user_id, (err) => {
-                db.run('insert into user_emails (email,user_id) values (?,?);', value, user_id, (err1) => {
-                    return err1 == null;
-                });
-            });
-            console.log('Email', user_id, value)
-            break;
-        case 'password':
-            const password = value;
-            bcrypt.hash(password, saltRounds, function (err, hash) {
-                if (!err) {
-                    db.run('update users set password=? where id=?', hash, user_id, (err) => {
-                        return err == null;
-                    });
-                }
-            });
-            break;
+    const g = (): Promise<boolean> => {
+        return new Promise((r1) => {
+            r1(true);
+        });
     }
-    return false;
-}
-
-export async function update_user(user_id: string, { username, fullname, email }: { username?: string, fullname?: string, email?: string }) {
     return new Promise((resolve) => {
         db.serialize(() => {
-            if (username) {
-                db.run('update users set username=? where id=?;', username, user_id);
-            }
-            if (fullname) {
-                db.run('update users set fullname=? where id=?;', fullname, user_id);
-            }
-            if (email) {
-                db.run('update user_emails set email=? where user_id=?;', email, user_id);
-            }
+            const p1 = username ? f('update users set name=? where id=?;', username) : g();
+            const p2 = fullname ? f('update users set fullname=? where id=?;', fullname) : g();
+            const p3 = email ? f('update user_emails set email=? where user_id=?;', email) : g();
+            Promise.all([p1, p2, p3]).then(([r1, r2, r3]) => {
+                if (r1 && r2 && r3) {
+                    get_user({ myself: user_id, user_id }).then((user) => {
+                        resolve(user);
+                    });
+                } else {
+                    resolve(null);
+                }
+            })
         });
     });
 }

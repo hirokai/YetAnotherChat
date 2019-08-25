@@ -204,13 +204,13 @@ export class Model {
                     key == 'username' ? { username: value } : null,
                     key == 'fullname' ? { fullname: value } : null,
                     key == 'email' ? { email: value } : null);
-                axios.patch('/api/users/' + this.user_id, obj);
                 console.log('update_my_info', key, value);
+                const r = await axios.patch('/api/users/' + this.user_id, obj);
+                console.log('update_my_info', key, value, r);
             }
         },
         on_update: async (msg: UsersUpdateSocket) => {
             console.log('users.on_update', msg);
-            const timestamp = new Date().getTime();
             var users: { [key: string]: User } = await this.users.loadDb();
             const u = users[msg.user_id];
             if (u == null) {
@@ -228,9 +228,20 @@ export class Model {
                     await this.users.saveDb(users);
                     break;
                 }
+                case 'profile': {
+                    if (msg.user) {
+                        users[msg.user_id] = msg.user;
+                        console.log('Saving users', users);
+                        await this.users.saveDb(users);
+                        break;
+                    }
+                }
             }
         },
         toClient: async (u: User): Promise<UserClient> => {
+            if (u == null) {
+                return null;
+            }
             const fingerprint: string = await crypto.fingerPrint(u.publicKey) || '';
             return {
                 id: u.id,

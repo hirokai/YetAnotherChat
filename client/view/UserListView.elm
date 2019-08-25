@@ -1,6 +1,7 @@
 module UserListView exposing (mkPeopleDivInList, updateUserListPageStatus, userListView)
 
 import Components exposing (..)
+import Dict
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
@@ -29,12 +30,20 @@ userListView model =
                 in
                 String.contains kw (String.toLower u.fullname) || String.contains kw (String.toLower u.username) || String.contains kw (String.toLower <| String.join "," u.emails)
 
+        userFilter : User -> Bool
         userFilter =
             if model.userListPageStatus.userWithIdOnly then
                 \u -> filterWithEmailExists u && filterWithName u
 
             else
                 filterWithName
+
+        filteredUsers : List User
+        filteredUsers =
+            List.filter userFilter <|
+                List.map Tuple.second <|
+                    Dict.toList
+                        model.users
     in
     { title = appName
     , body =
@@ -47,8 +56,8 @@ userListView model =
                     , div [ class "btn-group" ] [ input [ type_ "input", id "search-user", class "form-control", onInput SearchUser, value model.searchKeyword, placeholder "検索", autocomplete False ] [], i [ class "searchclear far fa-times-circle", onClick (SearchUser "") ] [], button [ class "btn btn-light", id "reset-user-cache", onClick ResetUserCache ] [ text "Reload" ] ]
                     , div [] [ input [ type_ "checkbox", id "check-user-with-id-only", checked model.userListPageStatus.userWithIdOnly, onCheck (CheckUserWithIdOnly >> UserListPageMsg) ] [], label [ for "check-user-with-id-only" ] [ text "メールアドレスの無いユーザーを隠す" ] ]
                     , div [ id "list-people-wrapper" ] <|
-                        List.map (\u -> mkPeopleDivInList model model.newSessionStatus.selected u.id) <|
-                            List.filter userFilter model.users
+                        List.map (\u -> mkPeopleDivInList model model.newSessionStatus.selected u.id)
+                            filteredUsers
                     , div
                         [ style "clear" "both" ]
                         []
