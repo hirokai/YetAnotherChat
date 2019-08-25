@@ -18,6 +18,7 @@ import moment from 'moment';
 const shortid = require('shortid').generate;
 import $ from 'jquery';
 import * as crypto from './cryptography';
+import { Session } from 'inspector';
 
 interface SessionCache {
     id: string
@@ -33,6 +34,7 @@ export class Model {
     token: string
     privateKeyJson: JsonWebKey
     onInit: () => void;
+    readonly DB_VERSION: number = 3;
     constructor({ user_id, token, onInit }: { user_id: string, token: string, onInit?: () => void }) {
         this.user_id = user_id;
         this.token = token;
@@ -55,43 +57,21 @@ export class Model {
 
         })();
     }
-    saveDb(dbName: string, keyName: string, key: string, data: any, use_internal_key: boolean, version: number = 1): Promise<void> {
-        const storeName = this.user_id;
+    saveDbWithName(dbName: string, data: any): Promise<void> {
+        const storeName = 'default';
         const self = this;
         return new Promise((resolve, reject) => {
-            const openReq = indexedDB.open(dbName, version);
+            const openReq = indexedDB.open(dbName, this.DB_VERSION);
             openReq.onupgradeneeded = function (event: any) {
                 var db = (<IDBRequest>event.target).result;
-                const tx = (<IDBRequest>event.target).transaction;
-                try {
-                    db.createObjectStore(storeName, { keyPath: keyName });
-                } catch (e) {
-                    tx.objectStore(storeName);
-                }
+                db.createObjectStore(storeName);
             }
             openReq.onsuccess = function (event: any) {
                 // console.log('openReq.onsuccess');
                 var db = event.target.result;
-                try {
-                    var trans = db.transaction(storeName, 'readwrite');
-                    var store = trans.objectStore(storeName);
-                } catch (e) {
-                    self.saveDb(dbName, keyName, key, data, use_internal_key, db.version + 1);
-                    return;
-                }
-                if (store == null) {
-                    self.saveDb(dbName, keyName, key, data, use_internal_key, db.version + 1);
-                    return;
-                }
-                let obj;
-                if (use_internal_key) {
-                    obj = data;
-                } else {
-                    obj = { data };
-                    obj[keyName] = key;
-                }
-                // console.log('saveDb put', obj);
-                const putReq = store.put(obj);
+                var trans = db.transaction(storeName, 'readwrite');
+                var store = trans.objectStore(storeName);
+                const putReq = store.put(data, self.user_id);
                 putReq.onsuccess = function () {
                     // console.log('get data success', getReq.result);
                     resolve();
@@ -106,40 +86,25 @@ export class Model {
             }
         });
     }
-    loadDb(dbName: string, keyName: string, key: string = null, version: number = 1): Promise<any> {
-        const storeName = this.user_id;
+    loadDbWithName(dbName: string): Promise<any> {
+        const storeName = 'default';
         const self = this;
         return new Promise((resolve, reject) => {
-            const openReq = indexedDB.open(dbName, version);
-            if (!openReq) {
-                reject();
-                return;
-            }
-            // console.log('loadDb', openReq);
+            const openReq = indexedDB.open(dbName, this.DB_VERSION);
             openReq.onupgradeneeded = function (event: any) {
-                const db = (<IDBRequest>event.target).result;
-                const tx = (<IDBRequest>event.target).transaction;
+                var db = (<IDBRequest>event.target).result;
                 try {
-                    db.createObjectStore(storeName, { keyPath: keyName });
+                    db.createObjectStore(storeName);
                 } catch (e) {
-                    tx.objectStore(storeName);
+                    console.log(e);
                 }
             }
             openReq.onsuccess = function (event: any) {
-                // console.log('loadDb. onsuccess', storeName);
-                // console.log('openReq.onsuccess');
                 const db = (<IDBRequest>event.target).result;
                 console.log('loadDb.openReq.success', dbName, storeName);
-                let store;
-                try {
-                    const trans = db.transaction(storeName, 'readonly');
-                    store = trans.objectStore(storeName);
-                } catch (e) {
-                    console.log(e, dbName, storeName);
-                    self.loadDb(dbName, keyName, key, db.version + 1);
-                }
-                console.log(dbName, storeName, store)
-                const getReq = store ? (key ? store.get(key) : store.getAll()) : null;
+                const trans = db.transaction(storeName, 'readonly');
+                const store = trans.objectStore(storeName);
+                const getReq = store.get(self.user_id);
                 if (getReq == null) {
                     return;
                 }
@@ -157,13 +122,18 @@ export class Model {
             }
         });
     }
-    removeDb(dbName: string, keyName: string, key?: string): Promise<void> {
-        const storeName = this.user_id;
+    removeDb(dbName: string): Promise<void> {
+        const storeName = 'default';
+        const self = this;
         return new Promise((resolve, reject) => {
             const openReq = indexedDB.open(dbName);
             openReq.onupgradeneeded = function (event: any) {
                 var db = (<IDBRequest>event.target).result;
-                db.createObjectStore(storeName, { keyPath: keyName });
+                try {
+                    db.createObjectStore(storeName);
+                } catch (e) {
+                    console.log(e);
+                }
             }
             openReq.onsuccess = function (event: any) {
                 // console.log('openReq.onsuccess');
@@ -171,11 +141,7 @@ export class Model {
                 var trans = db.transaction(storeName, 'readwrite');
                 var store = trans.objectStore(storeName);
                 let req;
-                if (key == null) {
-                    req = store.clear();
-                } else {
-                    req = store.delete(key);
-                }
+                req = store.delete(self.user_id);
                 req.onsuccess = function () {
                     // console.log('get data success', getReq.result);
                     resolve();
@@ -191,47 +157,48 @@ export class Model {
     }
     users = {
         list: async (): Promise<{ [key: string]: User }> => {
-            const snapshot: { [key: string]: User } = keyBy(await this.loadDb('yacht.users', 'id').catch(() => []), 'id');
+            const snapshot: { [key: string]: User } = await this.users.loadDb();
             // console.log('users snapshot', snapshot);
             if (snapshot && Object.keys(snapshot).length > 0) {
                 // console.log('Returning users from local DB.')
                 return snapshot;
             } else {
                 console.log('Getting users and save to local DB')
-                const r = await axios.get('/api/users');
+                const r = <AxiosResponse<GetUsersResponse>>await axios.get('/api/users');
                 const { data: { data: { users } } } = r;
-                await Promise.all(map(users, (u) => {
-                    return this.saveDb('yacht.users', 'id', u.id, u, true);
-                })).catch(() => null);
-                return keyBy(users, 'id');
+                const users_dict = keyBy(users, 'id');
+                await this.users.saveDb(users_dict);
+                return users_dict;
             }
         },
-        resetCache: async () => {
-            await this.removeDb('yacht.users', 'id');
-            await this.users.list();
+        loadDb: async (): Promise<{ [key: string]: User }> => {
+            return await this.loadDbWithName('yacht.users');
         },
-        reloadAll: async () => {
-            await this.removeDb('yacht.users', 'id');
+        saveDb: async (users: { [key: string]: User }): Promise<void> => {
+            return await this.saveDbWithName('yacht.users', users);
+        },
+        resetCacheAndReload: async () => {
+            await this.removeDb('yacht.users');
             await this.users.list();
         },
         on_update: async (msg: UsersUpdateSocket) => {
             console.log('users.on_update', msg);
             const timestamp = new Date().getTime();
-            var users: User[] = await this.loadDb('yacht.users', 'id');
-            const u = find(users, { id: msg.user_id });
+            var users: { [key: string]: User } = await this.users.loadDb();
+            const u = users[msg.user_id];
             if (u == null) {
                 return;
             }
             switch (msg.action) {
                 case 'online': {
                     u.online = msg.online;
-                    await this.saveDb('yacht.users', 'id', u.id, u, true);
+                    await this.users.saveDb(users);
                     break;
                 }
                 case 'public_key': {
                     u.publicKey = msg.public_key;
                     u.fingerprint = await crypto.fingerPrint(msg.public_key);
-                    await this.saveDb('yacht.users', 'id', u.id, u, true);
+                    await this.users.saveDb(users);
                     break;
                 }
             }
@@ -371,7 +338,7 @@ export class Model {
             return { id: msg.id, session_id: msg.session_id };
         },
         delete_cache_of_session: async (session_id: string) => {
-            const _ = await this.removeDb('yacht.sessions', 'id', session_id);
+            const _ = await this.removeDb('yacht.sessions');
             console.log('delete_cache_of_session done');
         }
     }
@@ -396,6 +363,12 @@ export class Model {
             }
             return infos;
         },
+        loadDb: async (): Promise<{ [key: string]: SessionCache }> => {
+            return await this.loadDbWithName('yacht.sessions');
+        },
+        saveDb: async (sessions: { [key: string]: SessionCache }): Promise<void> => {
+            return await this.saveDbWithName('yacht.sessions', sessions);
+        },
         toClient: (d: RoomInfo): RoomInfoClient => {
             const r: RoomInfoClient = {
                 name: d.name,
@@ -410,11 +383,19 @@ export class Model {
             return r;
         },
         load: async (session_id: string): Promise<SessionCache> => {
-            return await this.loadDb('yacht.sessions', 'id', session_id);
+            const sessions: { [key: string]: SessionCache } = await this.sessions.loadDb();
+            return sessions ? sessions[session_id] : null;
         },
         save: async (session_id: string, data: SessionCache) => {
             console.log('sessions.save', session_id);
-            await this.saveDb('yacht.sessions', 'id', session_id, data, true);
+            let sessions: { [key: string]: SessionCache } = await this.sessions.loadDb();
+            if (sessions != null) {
+                sessions[session_id] = data;
+            } else {
+                sessions = {};
+                sessions[session_id] = data;
+            }
+            await this.sessions.saveDb(sessions);
         },
         reload: async (session_id: string) => {
             await this.comments.delete_cache_of_session(session_id);
@@ -423,7 +404,7 @@ export class Model {
             return comments;
         },
         deleteDb: async (session_id: string) => {
-            await this.removeDb('yacht.sessions', 'id', session_id);
+            await this.removeDb('yacht.sessions');
         },
         get: async (id: string): Promise<RoomInfo> => {
             const { data: r }: { data: GetSessionResponse } = await axios.get('/api/sessions/' + id);
@@ -460,7 +441,8 @@ export class Model {
     }
     keys = {
         get: async (user_id: string): Promise<CryptoKey> => {
-            const user: User = await this.loadDb('yacht.users', 'id', user_id);
+            const users = await this.users.loadDb();
+            const user = users ? users[user_id] : null;
             if (user) {
                 const key = await crypto.importKey(user.publicKey, true, true);
                 const fp = await crypto.fingerPrint1(key);
@@ -471,10 +453,10 @@ export class Model {
             }
         },
         save_public_key: async (user_id: string, jwk: JsonWebKey): Promise<void> => {
-            const user: User = await this.loadDb('yacht.users', 'id', user_id);
-            if (user != null) {
-                user.publicKey = jwk;
-                await this.saveDb('yacht.users', 'id', user_id, user, true);
+            const users = await this.users.loadDb();
+            if (users != null && users[user_id] != null) {
+                users[user_id].publicKey = jwk;
+                await this.users.saveDb(users);
             }
         },
         get_my_fingerprint: async (): Promise<{ prv: string, pub: string }> => {
@@ -485,8 +467,14 @@ export class Model {
                 return { prv, pub }
             });
         },
+        loadDbMine: async (): Promise<MyKeyCacheData> => {
+            return await this.loadDbWithName('yacht.keyPair');
+        },
+        saveDbMine: async (keys: MyKeyCacheData): Promise<void> => {
+            return await this.saveDbWithName('yacht.keyPair', keys);
+        },
         get_my_keys: async (): Promise<CryptoKeyPair> => {
-            const data: MyKeyCacheData = await this.loadDb('yacht.keyPair', 'id', 'myself');
+            const data: MyKeyCacheData = await this.keys.loadDbMine();
             if (data) {
                 const publicKey = await crypto.importKey(data.publicKey, true, true);
                 const privateKey = await crypto.importKey(data.privateKey, false, true);
@@ -516,7 +504,7 @@ export class Model {
                     obj.publicKey = await crypto.exportKey(old.publicKey);
                 }
             }
-            await this.saveDb('yacht.keyPair', 'id', 'myself', obj, true);
+            await this.keys.saveDbMine(obj);
         },
         import_private_key: async (jwk: JsonWebKey): Promise<{ fingerprint: string, verified: boolean }> => {
             const keyPair: CryptoKeyPair = await this.keys.get_my_keys();

@@ -146,7 +146,7 @@ if (!token || token == '') {
     });
 
     app.ports.resetUserCache.subscribe(async () => {
-        await model.users.resetCache();
+        await model.users.resetCacheAndReload();
     });
 
     app.ports.deleteSession.subscribe(async ({ id }) => {
