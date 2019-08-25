@@ -93,6 +93,7 @@ userSettingView user model =
                                 [ span [ class "config-name" ] [ text "Email: " ]
                                 , input
                                     [ class "config-value"
+                                    , type_ "email"
                                     , value (Maybe.withDefault "" <| Dict.get "email" m1.configValues)
                                     , onInput (\s -> SettingsMsg <| UpdateConfigEditingValue "email" s)
                                     ]
@@ -152,7 +153,7 @@ userSettingView user model =
                             , a [ class "link", href "https://ja.wikipedia.org/wiki/%E6%A5%95%E5%86%86%E6%9B%B2%E7%B7%9A%E3%83%87%E3%82%A3%E3%83%95%E3%82%A3%E3%83%BC%E3%83%BB%E3%83%98%E3%83%AB%E3%83%9E%E3%83%B3%E9%8D%B5%E5%85%B1%E6%9C%89" ] [ text "楕円曲線ディフィー・ヘルマン鍵共有（ECDH）" ]
                             , text "および128ビット"
                             , a [ class "link", href "https://ja.wikipedia.org/wiki/Advanced_Encryption_Standard" ] [ text "AES-GCM" ]
-                            , text "によってエンドツーエンド暗号化されています。秘密鍵は各ユーザーの端末のみに保存されるため，サーバー管理者でさえもエンドツーエンド暗号化された内容を読むことができません。公開鍵が改ざんされていないことがEthereumブロックチェーンで確認できます。"
+                            , text "によってエンドツーエンド暗号化されています。秘密鍵は各ユーザーの端末のみに保存されるため，サーバー管理者でさえもエンドツーエンド暗号化された内容を読むことができません。ユーザー間の公開鍵の交換はサーバーを介して行われますが，公開鍵が改ざんされていないことがEthereumブロックチェーンで確認できます。"
                             , a [ href "/public_keys", class "link" ] [ text "鍵一覧のページ" ]
                             , br [] []
                             , text "同じユーザーが他の端末で使用する場合は，下記より秘密鍵を書き出してから他の端末で読み込むか，あるいは一時的にサーバーに秘密鍵を預けてから他の端末でログインすることで利用が可能になります。なお，送信日時，送信ユーザーIDなどのメタデータ，プロフィール情報はサーバー上に暗号化して保存され，サーバー管理者が読み取り可能です。"

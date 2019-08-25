@@ -993,11 +993,11 @@ export async function register_public_key({ user_id, for_user, jwk, privateKeyFi
             db.run('insert into public_keys (user_id,for_user,public_key,timestamp,private_fingerprint) values (?,?,?,?,?);', user_id, for_user, JSON.stringify(jwk), timestamp, privateKeyFingerprint, (err) => {
                 if (!err) {
                     console.log(user_id);
-                    fingerPrint(jwk).then((pub_fp) => {
-                        ethereum.add_to_ethereum(credentials.ethereum, user_id, timestamp, pub_fp).then(() => {
-                            console.log('add_to_ethereum done');
-                        })
-                    });
+                    // fingerPrint(jwk).then((pub_fp) => {
+                    //     ethereum.add_to_ethereum(credentials.ethereum, user_id, timestamp, pub_fp).then(() => {
+                    //         console.log('add_to_ethereum done');
+                    //     })
+                    // });
                     resolve({ ok: true, timestamp });
                 } else {
                     console.log('register_public_key', err);
@@ -1044,27 +1044,36 @@ export async function get_user_config(user_id: string): Promise<string[][]> {
 type ProfileKey = 'username' | 'fullname' | 'email' | 'password';
 
 async function update_user_profile(user_id: string, key: ProfileKey, value: string): Promise<boolean> {
+    console.log('update_user_profile', user_id, key, value);
+    if (!user_id || !key || !value) {
+        return
+    }
     switch (key) {
-        case 'username': {
+        case 'username':
             db.run('update users set name=? where id=?;', value, user_id, (err) => {
                 return err == null;
             });
-        }
-        case 'fullname': {
+            break;
+
+        case 'fullname':
+            console.log('Fullname', user_id, value)
             db.run('update users set fullname=? where id=?;', value, user_id, (err) => {
                 return err == null;
             });
-        }
-        case 'email': {
+            break;
+
+        case 'email':
+            console.log('Email', user_id, value)
             //ToDo: Support multiple email addresses
             // Currently this removes all preivous email addresses of the user.
             db.run('delete from user_emails where user_id=?;', user_id, (err) => {
-                db.run('insert user_emails (email,user_id) values (?,?);', value, user_id, (err1) => {
+                db.run('insert into user_emails (email,user_id) values (?,?);', value, user_id, (err1) => {
                     return err1 == null;
                 });
             });
-        }
-        case 'password': {
+            console.log('Email', user_id, value)
+            break;
+        case 'password':
             const password = value;
             bcrypt.hash(password, saltRounds, function (err, hash) {
                 if (!err) {
@@ -1073,14 +1082,14 @@ async function update_user_profile(user_id: string, key: ProfileKey, value: stri
                     });
                 }
             });
-
-        }
+            break;
     }
     return false;
 }
 
 export async function set_user_config(user_id: string, key: string, value: string): Promise<{ ok: boolean }> {
-    // console.log('set_user_config');
+    console.log('set_user_config', user_id, key, value);
+    // return { ok: false };
     return new Promise((resolve) => {
         if (includes(['username', 'fullname', 'email', 'password'], key)) {
             update_user_profile(user_id, <ProfileKey>key, value).then((ok) => resolve({ ok }));

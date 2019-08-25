@@ -100,7 +100,6 @@ export class Model {
             }
             openReq.onsuccess = function (event: any) {
                 const db = (<IDBRequest>event.target).result;
-                console.log('loadDb.openReq.success', dbName, storeName);
                 const trans = db.transaction(storeName, 'readonly');
                 const store = trans.objectStore(storeName);
                 const getReq = store.get(self.user_id);
@@ -363,13 +362,10 @@ export class Model {
     sessions = {
         list: async (): Promise<RoomInfoClient[]> => {
             const { data: { data: rooms } }: AxiosResponse<GetSessionsResponse> = await axios.get('/api/sessions');
-            console.log('sessions.list', rooms);
             const timestamp = new Date().getTime();
             const infos = [];
             for (let room of rooms) {
-                console.log('sessions.list loading', room.id)
                 let room_cache = await this.sessions.load(room.id);
-                console.log('sessions.list loaded', room.id)
                 const info = this.sessions.toClient(room);
                 if (!room_cache) {
                     room_cache = { id: room.id };
@@ -424,7 +420,6 @@ export class Model {
             return sessions ? sessions[session_id] : null;
         },
         save: async (session_id: string, data: SessionCache) => {
-            console.log('sessions.save', session_id);
             let sessions: { [key: string]: SessionCache } = await this.sessions.loadDb();
             if (sessions != null) {
                 sessions[session_id] = data;
@@ -671,7 +666,9 @@ export class Model {
             return data;
         },
         save: async (key: string, value: string): Promise<boolean> => {
+            // console.log('config.save', key, value);
             const data: PostConfigData = { key, value };
+            console.log('PostConfigData', data);
             const { data: { ok } }: AxiosResponse<PostConfigResponse> = await axios.post('/api/config', data);
             return ok;
         }

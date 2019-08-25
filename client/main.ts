@@ -27,7 +27,7 @@ axios.defaults.headers.common['x-access-token'] = token;
 window['importKey'] = crypto.importKey;
 
 if (!token || token == '') {
-    location.href = '/login' + location.hash;
+    // location.href = '/login' + location.hash;
 }
 
 // crypto.test_crypto();
@@ -368,7 +368,7 @@ if (!token || token == '') {
                 localStorage.removeItem('yacht.token');
                 localStorage.removeItem('yacht.user_id');
                 localStorage.removeItem('yacht.username');
-                // location.href = '/login';
+                location.href = '/login';
             }
         })
     });

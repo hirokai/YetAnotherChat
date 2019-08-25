@@ -73,12 +73,12 @@ CREATE TABLE sessions
 CREATE TABLE users
 (
     id text not null unique,
+    timestamp integer not null,
+    source text,
     name text not null,
     fullname text,
     password text,
-    db_local_password text,
-    timestamp integer not null,
-    source text
+    db_local_password text
 );
 
 CREATE TABLE public_keys
