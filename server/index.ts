@@ -175,7 +175,16 @@ app.get('/matrix', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/html/matrix.html'));
 });
 
-app.post('/api/register', (req, res) => {
+type RegisterResponse = {
+    ok: boolean,
+    error?: string,
+    error_code?: number,
+    token?: string,
+    decoded?: object,
+    local_db_password?: string
+}
+
+app.post('/api/register', (req, res: JsonResponse<RegisterResponse>) => {
     (async () => {
         const { username, password, fullname, email } = req.body;
         console.log({ username, password, fullname, email });
@@ -192,7 +201,9 @@ app.post('/api/register', (req, res) => {
         const token = jwt.sign({ username, user_id: user.id }, credential.jwt_secret, { expiresIn: 604800 });
         jwt.verify(token, credential.jwt_secret, function (err, decoded) {
             if (!err) {
-                res.json({ ok: true, token, decoded });
+                model.get_local_db_password(user.id).then((local_db_password) => {
+                    res.json({ ok: true, token, decoded, local_db_password });
+                });
             } else {
                 res.json({ ok: false, error: 'Token verificaiton error' });
             }
@@ -211,7 +222,9 @@ app.post('/api/login', (req: MyPostRequest<LoginParams>, res) => {
                     console.log('find_user_from_username', user);
                     const token = jwt.sign({ username, user_id: user.id }, credential.jwt_secret, { expiresIn: 604800 });
                     jwt.verify(token, credential.jwt_secret, function (err, decoded) {
-                        res.json({ ok: true, token, decoded });
+                        model.get_local_db_password(user.id).then((local_db_password) => {
+                            res.json({ ok: true, token, decoded, local_db_password });
+                        });
                     });
                 } else {
                     res.json({ ok: false, error: 'Wrong user name or password.' }); //User not found

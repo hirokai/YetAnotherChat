@@ -20,6 +20,8 @@ const shortid = require('shortid').generate;
 
 const token: string = localStorage.getItem('yacht.token') || "";
 const user_id: string = localStorage['yacht.user_id'] || "";
+const password: string = localStorage['yacht.db_password'] || "";
+
 axios.defaults.headers.common['x-access-token'] = token;
 
 window['importKey'] = crypto.importKey;
@@ -36,14 +38,13 @@ if (!token || token == '') {
 
 (async () => {
     const model = new Model({
-        user_id, token, password,
-        onInit: () => {
-            model.keys.get_my_fingerprint().then((fp) => {
-                if (fp) {
-                    app.ports.setValue.send(['my_public_key', fp.pub || ""]);
-                    app.ports.setValue.send(['my_private_key', fp.prv || ""]);
-                }
-            });
+        user_id, token
+    });
+    await model.init();
+    model.keys.get_my_fingerprint().then((fp) => {
+        if (fp) {
+            app.ports.setValue.send(['my_public_key', fp.pub || ""]);
+            app.ports.setValue.send(['my_private_key', fp.prv || ""]);
         }
     });
     window['model'] = model;
@@ -51,6 +52,11 @@ if (!token || token == '') {
     var show_toppane = JSON.parse(localStorage['yacht.show_toppane'] || "false") || false;
     var expand_chatinput = JSON.parse(localStorage['yacht.expand_chatinput'] || "false") || false;
     var show_users_with_email_only = JSON.parse(localStorage['yacht.show_users_with_email_only'] || "false") || false;
+
+    await Promise.all([
+        model.keys.unlockDbMine(password),
+        model.users.unlockDb(password),
+        model.sessions.unlockDb(password)]);
 
     const app: ElmApp = Elm.Main.init({ flags: { user_id, show_toppane, expand_chatinput, show_users_with_email_only } });
 
@@ -352,7 +358,11 @@ if (!token || token == '') {
         handleDownload(content);
     });
 
-    app.ports.logout.subscribe(() => {
+    app.ports.logout.subscribe(async () => {
+        await Promise.all([
+            model.keys.lockDbMine(password),
+            model.users.lockDb(password),
+            model.sessions.lockDb(password)]);
         $.post('/api/logout', { token }).then((res) => {
             if (res.ok) {
                 localStorage.removeItem('yacht.token');

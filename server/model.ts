@@ -23,6 +23,7 @@ import bcrypt from 'bcrypt';
 const saltRounds = 10;
 import * as credentials from './private/credential';
 import { createCipher, createDecipher } from 'crypto';
+import * as crypto from 'crypto';
 
 export async function save_password(user_id: string, password: string): Promise<boolean> {
     const hash = await bcrypt.hash(password, saltRounds);
@@ -707,6 +708,41 @@ export async function register_user({ username, password, email, fullname, sourc
     }
 }
 
+export async function get_local_db_password(user_id: string): Promise<string> {
+    console.log('get_local_db_password', user_id);
+    return new Promise((resolve) => {
+        if (!user_id) {
+            resolve(null);
+            return;
+        }
+        db.get('select db_local_password from users where id=?;', user_id, (err, row) => {
+            let db_local_password;
+            if (!err && row) {
+                db_local_password = row['db_local_password'];
+            }
+            if (db_local_password) {
+                resolve(db_local_password);
+                // crypto.randomBytes(32, (err, buf) => {
+                //     const db_local_password_new = buf.toString('base64');
+                //     db.run('update users set db_local_password=? where id=?;', db_local_password_new, user_id, (err1, row1) => { });
+                // });
+            } else {
+                crypto.randomBytes(32, (err, buf) => {
+                    const db_local_password = buf.toString('base64');
+                    db.run('update users set db_local_password=? where id=?;', db_local_password, user_id, (err1, row1) => {
+                        if (!err1) {
+                            resolve(db_local_password);
+                        } else {
+                            resolve(null);
+                        }
+                    });
+
+                });
+                resolve(null);
+            }
+        });
+    });
+}
 
 export function cipher(plainText: string, password: string = credentials.cipher_secret) {
     try {

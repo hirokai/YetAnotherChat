@@ -36,32 +36,25 @@ axios.defaults.headers.common['x-access-token'] = token;
 export class Model {
     user_id: string
     token: string
-    password: string
     privateKeyJson: JsonWebKey
     onInit: () => void;
     readonly DB_VERSION: number = 3;
-    constructor({ user_id, password, token, onInit }: { user_id: string, password: string, token: string, onInit?: () => void }) {
+    constructor({ user_id, token, onInit }: { user_id: string, token: string, onInit?: () => void }) {
         this.user_id = user_id;
         this.token = token;
-        this.password = password;
-        console.log('Model initalized:', { token });
-        (async () => {
-            let keyPair = await this.keys.download_my_keys_from_server();
-            console.log('Downloaded key pair', keyPair);
-            if (keyPair == null || keyPair.publicKey == null) {
-                await this.keys.reset();
-            } else {
-                await this.keys.save_my_keys(keyPair, true);
-            }
-            if (keyPair && keyPair.privateKey) {
-                //For user export, it has to be prepared beforehand (no async operation)
-                this.privateKeyJson = await crypto.exportKey(keyPair.privateKey);;
-            }
-            if (onInit != null) {
-                onInit();
-            }
-
-        })();
+    }
+    async init() {
+        let keyPair = await this.keys.download_my_keys_from_server();
+        console.log('Downloaded key pair', keyPair);
+        if (keyPair == null || keyPair.publicKey == null) {
+            await this.keys.reset();
+        } else {
+            await this.keys.save_my_keys(keyPair, true);
+        }
+        if (keyPair && keyPair.privateKey) {
+            //For user export, it has to be prepared beforehand (no async operation)
+            this.privateKeyJson = await crypto.exportKey(keyPair.privateKey);;
+        }
     }
     saveDbWithName(dbName: string, data: any): Promise<void> {
         const storeName = 'default';
@@ -178,27 +171,29 @@ export class Model {
             }
         },
         loadDb: async (): Promise<{ [key: string]: User }> => {
-            const users = await this.loadDbWithName('yacht.users');
-            return mapValues(users, (u) => {
-                try {
-                    var username_crp = CryptoJS.AES.decrypt(u.username, this.password).toString(CryptoJS.enc.Utf8);
-                } catch (e) {
-
-                }
-                // console.log('loadDb decrypted', u.username, this.password, username_crp)
-                u.username = username_crp;
-                return u;
-            });
+            return await this.loadDbWithName('yacht.users');
         },
-        saveDb: async (users_: { [key: string]: User }): Promise<void> => {
-            const users = cloneDeep(users_);
-            mapValues(users, (u) => {
-                var username_crp = CryptoJS.AES.encrypt(u.username, this.password).toString();
-                // console.log('loadDb encrypted', u.username, this.password, username_crp)
-                u.username = username_crp;
-                return u;
-            });
+        loadDbLocked: async (): Promise<string> => {
+            return await this.loadDbWithName('yacht.users');
+        },
+        saveDb: async (users: { [key: string]: User }): Promise<void> => {
             return await this.saveDbWithName('yacht.users', users);
+        },
+        saveDbLocked: async (users: string): Promise<void> => {
+            return await this.saveDbWithName('yacht.users', users);
+        },
+        lockDb: async (password: string) => {
+            const users = await this.users.loadDb();
+            var ciphertext: string = CryptoJS.AES.encrypt(JSON.stringify(users), password).toString();
+            await this.users.saveDbLocked(ciphertext);
+        },
+        unlockDb: async (password: string) => {
+            const users_str: any = await this.users.loadDbLocked();
+            if (users_str && typeof users_str == 'string') {
+                var bytes = CryptoJS.AES.decrypt(users_str, password);
+                var decryptedData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+                await this.users.saveDb(decryptedData);
+            }
         },
         resetCacheAndReload: async () => {
             await this.removeDb('yacht.users');
@@ -392,6 +387,25 @@ export class Model {
         saveDb: async (sessions: { [key: string]: SessionCache }): Promise<void> => {
             return await this.saveDbWithName('yacht.sessions', sessions);
         },
+        loadDbLocked: async (): Promise<string> => {
+            return await this.loadDbWithName('yacht.sessions');
+        },
+        saveDbLocked: async (sessions: string): Promise<void> => {
+            return await this.saveDbWithName('yacht.sessions', sessions);
+        },
+        lockDb: async (password: string) => {
+            const sessions = await this.sessions.loadDb();
+            var ciphertext: string = CryptoJS.AES.encrypt(JSON.stringify(sessions), password).toString();
+            await this.sessions.saveDbLocked(ciphertext);
+        },
+        unlockDb: async (password: string) => {
+            const sessions_str: any = await this.sessions.loadDbLocked();
+            if (sessions_str && typeof sessions_str == 'string') {
+                var bytes = CryptoJS.AES.decrypt(sessions_str, password);
+                var decryptedData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+                await this.sessions.saveDb(decryptedData);
+            }
+        },
         toClient: (d: RoomInfo): RoomInfoClient => {
             const r: RoomInfoClient = {
                 name: d.name,
@@ -495,6 +509,25 @@ export class Model {
         },
         saveDbMine: async (keys: MyKeyCacheData): Promise<void> => {
             return await this.saveDbWithName('yacht.keyPair', keys);
+        },
+        loadDbMineLocked: async (): Promise<string> => {
+            return await this.loadDbWithName('yacht.keyPair');
+        },
+        saveDbMineLocked: async (keys: string): Promise<void> => {
+            return await this.saveDbWithName('yacht.keyPair', keys);
+        },
+        lockDbMine: async (password: string) => {
+            const keys = await this.keys.loadDbMine();
+            var ciphertext: string = CryptoJS.AES.encrypt(JSON.stringify(keys), password).toString();
+            await this.keys.saveDbMineLocked(ciphertext);
+        },
+        unlockDbMine: async (password: string) => {
+            const keys_str: any = await this.keys.loadDbMineLocked();
+            if (keys_str && typeof keys_str == 'string') {
+                var bytes = CryptoJS.AES.decrypt(keys_str, password);
+                var decryptedData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+                await this.keys.saveDbMine(decryptedData);
+            }
         },
         get_my_keys: async (): Promise<CryptoKeyPair> => {
             const data: MyKeyCacheData = await this.keys.loadDbMine();

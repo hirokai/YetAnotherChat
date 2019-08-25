@@ -114,11 +114,12 @@
                     const password = $('#password').val();
                     console.log(username, password);
                     $.post('/api/login', { username, password }).then((res) => {
-                        console.log(res);
+                        // console.log(res);
                         if (res.ok && res.token) {
                             localStorage.setItem("yacht.token", res.token);
                             localStorage.setItem("yacht.user_id", res.decoded.user_id);
                             localStorage.setItem("yacht.username", res.decoded.username);
+                            localStorage.setItem("yacht.db_password", res.local_db_password);
                             location.href = '/main' + location.hash;
                         } else {
                             $('#password').val('');

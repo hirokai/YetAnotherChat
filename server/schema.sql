@@ -76,6 +76,7 @@ CREATE TABLE users
     name text not null,
     fullname text,
     password text,
+    db_local_password text,
     timestamp integer not null,
     source text
 );
