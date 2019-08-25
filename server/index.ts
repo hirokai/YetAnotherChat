@@ -151,11 +151,12 @@ app.get('/main', (req, res) => {
 });
 
 app.get('/public_keys', (req, res) => {
-    const net = credential.ethereum.ropsten;
+    const net = credential.ethereum;
     console.log(net);
     res.render(path.join(__dirname, './public_keys.ejs'), {
         contract: net.contract,
         owner: net.account,
+        name: net.name,
         abi: net.abi,
         url: net.url
     });

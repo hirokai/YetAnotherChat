@@ -21,7 +21,7 @@ export async function add_to_ethereum(net: Ethereum, user_id: string, timestamp:
         web3.eth.accounts.wallet.add(account);
         const myContract = new web3.eth.Contract(abi, net.contract);
         const user_id_hash = crypto.createHash('sha256').update(user_id, 'utf8').digest().toString('base64');
-        myContract.methods.add(user_id_hash, timestamp, hash).send({ from: net.account, gas: 500000, gasPrice: 20e9 }).then((e, r) => {
+        myContract.methods.add(user_id_hash, timestamp, hash).send({ from: net.account, gas: 100000, gasPrice: 1e9 }).then((e, r) => {
             // console.log('set() result', e, r);
             resolve(r);
         })

@@ -39,12 +39,12 @@
                     <div class="col-md-12">
                         <ul>
                             <li>Ethereumのコントラクト<a
-                                    href="https://ropsten.etherscan.io/address/<%= contract %>#readContract"><%= contract %></a>のデータを表示しています（リンク先のRead
+                                    href="https://<%= name == 'mainnet' ? '' : name  + '.' %>etherscan.io/address/<%= contract %>#readContract"><%= contract %></a>のデータを表示しています（リンク先のRead
                                 Contractのボタンを押すと同様の生データが表示されます）。
                             </li>
 
                             <li>このコントラクトの作者（<a
-                                    href="https://ropsten.etherscan.io/address/<%= owner %>"><%= owner %></a>）は，COI
+                                    href="https://<%= name == 'mainnet' ? '' : name + '.' %>etherscan.io/address/<%= owner %>"><%= owner %></a>）は，COI
                                 SNSの作者であり，それ以外の人はコントラクトへの書き込みができません。</li>
                             <li> (1) このページに表示される公開鍵 (2) あなたのアカウント設定ページに表示される公開鍵 (3) 相手ユーザーにおけるあなたのプロフィールページに表示される公開鍵
                                 以上の3つが一致していれば，サーバー（管理者）がユーザーの公開鍵を改竄していないということになります。
