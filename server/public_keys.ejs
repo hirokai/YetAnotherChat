@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
+        integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/ethereum/web3.js@1.0.0-beta.34/dist/web3.min.js"></script>
+    <script async src='https://cdnjs.cloudflare.com/ajax/libs/jsSHA/2.3.1/sha256.js'></script>
+    <style>
+        body {
+            font-size: 14px;
+        }
+
+        td {
+            word-break: break-all;
+        }
+
+        table {
+            margin-top: 20px;
+        }
+
+        input {
+            width: 150px ! important;
+        }
+    </style>
+</head>
+
+<body>
+    <div class='container'>
+        <div class='row'>
+            <div class="col-md-12">
+                <h1>公開鍵のリスト</h1>
+                <div class='row'>
+                    <div class="col-md-12">
+                        <ul>
+                            <li>Ethereumのコントラクト<a
+                                    href="https://ropsten.etherscan.io/address/<%= contract %>#readContract"><%= contract %></a>のデータを表示しています（リンク先のRead
+                                Contractのボタンを押すと同様の生データが表示されます）。
+                            </li>
+
+                            <li>このコントラクトの作者（<a
+                                    href="https://ropsten.etherscan.io/address/<%= owner %>"><%= owner %></a>）は，COI
+                                SNSの作者であり，それ以外の人はコントラクトへの書き込みができません。</li>
+                            <li> このページに表示される公開鍵，あなたのアカウント設定ページに表示される公開鍵，相手ユーザーにおけるあなたのプロフィールページに表示される公開鍵，の3つが一致していれば，サーバー（管理者）がユーザーの公開鍵を改竄していないということになります。
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <div class='row'>
+                    <div class="col-md-12">
+                        <input id='id-input' class='form-control' style='display:inline-block' type="text"
+                            placeholder="IDを入力">
+                        <button id='calc-hash' class='btn btn-light btn-sm'>IDのSHA256ハッシュを計算</button>
+                        <span id='hash-result'></span>
+                    </div>
+                    <table class='table'>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th style='width: 150px; min-width:150px; max-width:150px;'>登録時刻</th>
+                                <th>ユーザーIDのSHA256ハッシュ</th>
+                                <th>公開鍵のfingerprint</th>
+                            </tr>
+                        </thead>
+                        <tbody id='key-list'>
+                            <tr>
+                                <td colspan='4'>Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </div>
+        <p id="abi" style="display:none"><%= JSON.stringify(abi) %></p>
+    </div>
+    </div>
+    <script>
+
+        function getSHA256Hash(txt) {
+            var shaObj = new jsSHA("SHA-256", "TEXT");
+            shaObj.update(txt);
+            return shaObj.getHash("B64");
+        }
+
+
+        function formatDate(date) {
+            var y = date.getFullYear();
+            var m = date.getMonth() + 1;
+            var d = date.getDate();
+            var w = date.getDay();
+            const h = date.getHours();
+            var mm = date.getMinutes();
+            if (mm < 10) mm = '0' + mm;
+
+            var wNames = ['日', '月', '火', '水', '木', '金', '土'];
+            return y + '年' + m + '月' + d + '日 (' + wNames[w] + ') ' + h + ':' + mm;
+        }
+
+        function get_and_add() {
+            const url = '<%= url %>';
+            const contract = '<%= contract %>';
+            const abi = JSON.parse($('#abi').text());
+
+            console.log(url, contract);
+            var web3 = new Web3(new Web3.providers.HttpProvider(
+                url
+            ));
+            const myContract = new web3.eth.Contract(abi, contract);
+            myContract.methods.length().call().then((len) => {
+                const el = $('#key-list');
+                el.html('');
+                const ps = [];
+                for (let i = 0; i < len; i++) {
+                    ps.push(myContract.methods.get(i).call());
+                }
+                Promise.all(ps).then(function (results) {
+                    results = results.map(function (d, i) {
+                        d['idx'] = i;
+                        return d;
+                    }).sort(function (a, b) {
+                        if (+a['timestamp'] < +b['timestamp']) {
+                            return 1;
+                        } else if (+a['timestamp'] > +b['timestamp']) {
+                            return -1;
+                        } else {
+                            return 0;
+                        }
+                    });
+                    for (let i = 0; i < len; i++) {
+                        const r = results[i];
+                        console.log('get(' + r['idx'] + ') result', r);
+                        el.append('<tr><td style="min-width:50px;">' + r['idx'] + '</td><td>' + formatDate(new Date(+r.timestamp)) + '</td><td>' + r.user + '</td><td>' + r.hash + '</td></tr>');
+                    }
+                });
+            })
+        }
+
+        $(function () {
+            get_and_add();
+            $('#calc-hash').click(function () {
+                $('#hash-result').text(getSHA256Hash($('#id-input').val()));
+            });
+        })
+
+    </script>
+
+</body>
+
+</html>

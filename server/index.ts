@@ -150,6 +150,17 @@ app.get('/main', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/html/main.html'));
 });
 
+app.get('/public_keys', (req, res) => {
+    const net = credential.ethereum.ropsten;
+    console.log(net);
+    res.render(path.join(__dirname, './public_keys.ejs'), {
+        contract: net.contract,
+        owner: net.account,
+        abi: net.abi,
+        url: net.url
+    });
+});
+
 app.get('/email/:id', (req, res) => {
     model.get_original_email_highlighted(req.params.id).then(({ lines, subject, range }) => {
         res.render(path.join(__dirname, './email.ejs'), { lines, subject, range });
