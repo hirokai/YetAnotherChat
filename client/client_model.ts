@@ -320,6 +320,7 @@ export class Model {
             const temporary_id = shortid();
             const my_keys = await this.keys.get_my_keys();
             const ds = await Promise.all(map(room.members, (id) => {
+
                 return this.keys.get(id);
             })).then((ps) => {
                 console.log('imported keys', ps)
@@ -459,7 +460,6 @@ export class Model {
     }
     keys = {
         get: async (user_id: string): Promise<CryptoKey> => {
-            return null;
             const user: User = await this.loadDb('yacht.users', 'id', user_id);
             if (user) {
                 const key = await crypto.importKey(user.publicKey, true, true);
@@ -471,7 +471,6 @@ export class Model {
             }
         },
         save_public_key: async (user_id: string, jwk: JsonWebKey): Promise<void> => {
-            return;
             const user: User = await this.loadDb('yacht.users', 'id', user_id);
             if (user != null) {
                 user.publicKey = jwk;
@@ -762,7 +761,7 @@ function judgeKind(comment: string): ChatEntryKind {
 
 export async function processData(rawEntries: ChatEntry[], model: Model): Promise<ChatEntryClient[]> {
     // console.log('processData latest', rawEntries[rawEntries.length - 1], rawEntries[rawEntries.length - 1].comment);
-    const entries = await Promise.all(map(rawEntries, async (m: ChatEntry) => {
+    const entries = await Promise.all(map(rawEntries || [], async (m: ChatEntry) => {
         if ('comment' in m) {
             const { decrypted, encrypt } = await decryptComment(m.comment, m.user_id, m.encrypt, model).catch((e) => { return { decrypted: m.comment, encrypt: m.encrypt } });
             m.comment = decrypted || m.comment;
