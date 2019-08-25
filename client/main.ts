@@ -152,6 +152,11 @@ if (!token || token == '') {
 
     app.ports.resetUserCache.subscribe(async () => {
         await model.users.resetCacheAndReload();
+        model.users.list().then(async (us) => {
+            Promise.all(map(us, model.users.toClient)).then((users) => {
+                app.ports.feedUsers.send(users);
+            })
+        });
     });
 
     app.ports.deleteSession.subscribe(async ({ id }) => {
