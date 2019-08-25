@@ -20,7 +20,6 @@ const shortid = require('shortid').generate;
 
 const token: string = localStorage.getItem('yacht.token') || "";
 const user_id: string = localStorage['yacht.user_id'] || "";
-
 axios.defaults.headers.common['x-access-token'] = token;
 
 window['importKey'] = crypto.importKey;
@@ -37,7 +36,7 @@ if (!token || token == '') {
 
 (async () => {
     const model = new Model({
-        user_id, token,
+        user_id, token, password,
         onInit: () => {
             model.keys.get_my_fingerprint().then((fp) => {
                 if (fp) {

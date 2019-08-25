@@ -18,6 +18,11 @@ import moment from 'moment';
 const shortid = require('shortid').generate;
 import $ from 'jquery';
 import * as crypto from './cryptography';
+import { mapValues } from 'lodash-es';
+
+import * as CryptoJS from "crypto-js";
+
+window['CryptoJS'] = CryptoJS;
 
 interface SessionCache {
     id: string
@@ -31,12 +36,14 @@ axios.defaults.headers.common['x-access-token'] = token;
 export class Model {
     user_id: string
     token: string
+    password: string
     privateKeyJson: JsonWebKey
     onInit: () => void;
     readonly DB_VERSION: number = 3;
-    constructor({ user_id, token, onInit }: { user_id: string, token: string, onInit?: () => void }) {
+    constructor({ user_id, password, token, onInit }: { user_id: string, password: string, token: string, onInit?: () => void }) {
         this.user_id = user_id;
         this.token = token;
+        this.password = password;
         console.log('Model initalized:', { token });
         (async () => {
             let keyPair = await this.keys.download_my_keys_from_server();
@@ -171,9 +178,26 @@ export class Model {
             }
         },
         loadDb: async (): Promise<{ [key: string]: User }> => {
-            return await this.loadDbWithName('yacht.users');
+            const users = await this.loadDbWithName('yacht.users');
+            return mapValues(users, (u) => {
+                try {
+                    var username_crp = CryptoJS.AES.decrypt(u.username, this.password).toString(CryptoJS.enc.Utf8);
+                } catch (e) {
+
+                }
+                // console.log('loadDb decrypted', u.username, this.password, username_crp)
+                u.username = username_crp;
+                return u;
+            });
         },
-        saveDb: async (users: { [key: string]: User }): Promise<void> => {
+        saveDb: async (users_: { [key: string]: User }): Promise<void> => {
+            const users = cloneDeep(users_);
+            mapValues(users, (u) => {
+                var username_crp = CryptoJS.AES.encrypt(u.username, this.password).toString();
+                // console.log('loadDb encrypted', u.username, this.password, username_crp)
+                u.username = username_crp;
+                return u;
+            });
             return await this.saveDbWithName('yacht.users', users);
         },
         resetCacheAndReload: async () => {
@@ -676,7 +700,6 @@ async function getThumbnail(url: string, iv_str?: string, encryption_key?: strin
         const secret = await crypto.importEncryptionKey(encryption_key, true);
         arr_decrypted = await crypto.decryptWithEncryptionKey(new Uint8Array(arr), iv_str, secret).catch(() => new Uint8Array([]));
     }
-    console.log('arr_decrypted', arr_decrypted);
     const thumbnailBase64 = "data:image/jpeg;base64," + crypto.encode(new Uint8Array(arr_decrypted));
     return thumbnailBase64;
 }
