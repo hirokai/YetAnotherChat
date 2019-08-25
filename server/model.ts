@@ -958,7 +958,6 @@ export async function register_public_key({ user_id, for_user, jwk, privateKeyFi
                 if (!err) {
                     console.log(user_id);
                     fingerPrint(jwk).then((pub_fp) => {
-                        console.log('Adding fingerprint to ethereum', pub_fp);
                         ethereum.add_to_ethereum(credentials.ethereum, user_id, timestamp, pub_fp).then(() => {
                             console.log('add_to_ethereum done');
                         })
