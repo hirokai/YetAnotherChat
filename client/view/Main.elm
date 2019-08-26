@@ -36,7 +36,7 @@ init { user_id, show_toppane, expand_chatinput, show_users_with_email_only } =
       , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
       , userPageModel = { sessions = [], messages = [], shownFileID = Nothing, newFileBox = False, selectedSDGs = Set.empty }
       , chatPageStatus = initialChatPageStatus show_toppane expand_chatinput
-      , userListPageStatus = { userWithIdOnly = show_users_with_email_only }
+      , userListPageModel = initialUserListPageModel show_users_with_email_only
       , settingsPageModel = initialSettingsPageModel
       , editing = Set.empty
       , editingValue = Dict.empty
@@ -72,6 +72,10 @@ update msg model =
             ( model, reloadSessions () )
 
         FeedUsers users ->
+            let
+                _ =
+                    Debug.log "FeedUsers" users
+            in
             ( { model | users = Dict.fromList <| List.map (\u -> ( u.id, u )) users }, Cmd.none )
 
         FeedRoomInfo v ->
@@ -109,9 +113,9 @@ update msg model =
         UserListPageMsg msg1 ->
             let
                 ( m, c ) =
-                    updateUserListPageStatus msg1 model.userListPageStatus
+                    updateUserListPageModel msg1 model.userListPageModel
             in
-            ( { model | userListPageStatus = m }, c )
+            ( { model | userListPageModel = m }, c )
 
         ChatPageMsg msg1 ->
             let

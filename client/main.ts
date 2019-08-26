@@ -106,7 +106,7 @@ if (!token || token == '') {
         const users = await model.users.list().catch(() => []);
         const ps = map(values(users), model.users.toClient);
         const usersClient = await Promise.all(ps);
-        console.log('Feeding users', usersClient);
+        console.log('users.update Feeding users', usersClient);
         app.ports.feedUsers.send(usersClient);
     });
 

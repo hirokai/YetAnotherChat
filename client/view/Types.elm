@@ -1,4 +1,4 @@
-module Types exposing (ChatEntry(..), ChatFileTyp, ChatPageModel, ChatPageMsg(..), CommentTyp, FilterMode(..), Member, Model, Msg(..), NewSessionMsg(..), NewSessionStatus, Page(..), RoomID, RoomInfo, SessionEventTyp, SettingsMsg(..), SettingsPageModel, User, UserListPageMsg(..), UserListPageStatus, UserPageModel, UserPageMsg(..), appName, getId, getKind, getRoomID, getUser, getUserFullname, getUserInfo, getUserName, getUserNameDisplay, roomName, roomUsers, toggleSet, truncate)
+module Types exposing (ChatEntry(..), ChatFileTyp, ChatPageModel, ChatPageMsg(..), CommentTyp, FilterMode(..), Member, Model, Msg(..), NewSessionMsg(..), NewSessionStatus, Page(..), RoomID, RoomInfo, SessionEventTyp, SettingsMsg(..), SettingsPageModel, User, UserListPageModel, UserListPageMsg(..), UserListShowMode(..), UserPageModel, UserPageMsg(..), appName, getId, getKind, getRoomID, getUser, getUserFullname, getUserInfo, getUserName, getUserNameDisplay, roomName, roomUsers, toggleSet, truncate)
 
 import Dict exposing (Dict)
 import Json.Decode as Json
@@ -41,9 +41,7 @@ type alias User =
     , avatar : String
     , online : Bool
     , fingerprint : String
-    , sdgs : List Int
-
-    -- , profile : List (List String)
+    , profile : List ( String, String )
     }
 
 
@@ -92,7 +90,7 @@ type alias Model =
     , newSessionStatus : NewSessionStatus
     , userPageModel : UserPageModel
     , chatPageStatus : ChatPageModel
-    , userListPageStatus : UserListPageStatus
+    , userListPageModel : UserListPageModel
     , settingsPageModel : SettingsPageModel
     , editing : Set.Set String
     , editingValue : Dict String String
@@ -133,8 +131,13 @@ type alias SettingsPageModel =
     }
 
 
-type alias UserListPageStatus =
-    { userWithIdOnly : Bool }
+type UserListShowMode
+    = Table
+    | Panel
+
+
+type alias UserListPageModel =
+    { userWithIdOnly : Bool, showMode : UserListShowMode }
 
 
 type FilterMode
@@ -225,6 +228,7 @@ type UserPageMsg
 
 type UserListPageMsg
     = CheckUserWithIdOnly Bool
+    | ChangeShowMode UserListShowMode
 
 
 type ChatPageMsg

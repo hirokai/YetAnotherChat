@@ -38,7 +38,7 @@ chatRoomView room model =
                                                 case getUserInfo model u of
                                                     Just user ->
                                                         li []
-                                                            [ span [ classList [ ( "online-mark", True ), ( "hidden", not user.online ) ] ] [ text "●" ]
+                                                            [ span [ classList [ ( "online-mark", True ), ( "hidden-animate", not user.online ) ] ] [ text "●" ]
                                                             , a [ onClick (EnterUser u), class "clickable" ] [ text user.username ]
                                                             , text "("
                                                             , a [] [ text <| String.join "," <| List.intersperse "," user.emails ]

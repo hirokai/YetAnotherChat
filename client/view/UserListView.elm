@@ -1,4 +1,4 @@
-module UserListView exposing (mkPeopleDivInList, updateUserListPageStatus, userListView)
+module UserListView exposing (initialUserListPageModel, mkPeopleDivInList, updateUserListPageModel, userListView)
 
 import Components exposing (..)
 import Dict
@@ -32,7 +32,7 @@ userListView model =
 
         userFilter : User -> Bool
         userFilter =
-            if model.userListPageStatus.userWithIdOnly then
+            if model.userListPageModel.userWithIdOnly then
                 \u -> filterWithEmailExists u && filterWithName u
 
             else
@@ -54,18 +54,75 @@ userListView model =
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text "ユーザー一覧" ]
                     , div [ class "btn-group" ] [ input [ type_ "input", id "search-user", class "form-control", onInput SearchUser, value model.searchKeyword, placeholder "検索", autocomplete False ] [], i [ class "searchclear far fa-times-circle", onClick (SearchUser "") ] [], button [ class "btn btn-light", id "reset-user-cache", onClick ResetUserCache ] [ text "Reload" ] ]
-                    , div [] [ input [ type_ "checkbox", id "check-user-with-id-only", checked model.userListPageStatus.userWithIdOnly, onCheck (CheckUserWithIdOnly >> UserListPageMsg) ] [], label [ for "check-user-with-id-only" ] [ text "メールアドレスの無いユーザーを隠す" ] ]
-                    , div [ id "list-people-wrapper" ] <|
-                        List.map (\u -> mkPeopleDivInList model model.newSessionStatus.selected u.id)
-                            filteredUsers
-                    , div
-                        [ style "clear" "both" ]
-                        []
+                    , div [] [ input [ type_ "checkbox", id "check-user-with-id-only", checked model.userListPageModel.userWithIdOnly, onCheck (CheckUserWithIdOnly >> UserListPageMsg) ] [], label [ for "check-user-with-id-only" ] [ text "メールアドレスの無いユーザーを隠す" ] ]
+                    , div []
+                        [ span [] [ text "表示" ]
+                        , button [ class "btn btn-sm btn-light", onClick (UserListPageMsg <| ChangeShowMode Table) ] [ text "テーブル" ]
+                        , button [ class "btn btn-sm btn-light", onClick (UserListPageMsg <| ChangeShowMode Panel) ] [ text "パネル" ]
+                        ]
+                    , if model.userListPageModel.showMode == Table then
+                        showTable model filteredUsers
+
+                      else
+                        showPanels model filteredUsers
                     ]
                 ]
             ]
         ]
     }
+
+
+showTable : Model -> List User -> Html Msg
+showTable model users =
+    let
+        showItem : User -> Html Msg
+        showItem user =
+            let
+                profileDict =
+                    Dict.fromList user.profile
+
+                sdgs : Set.Set Int
+                sdgs =
+                    case Dict.get "SDGs" profileDict of
+                        Just s ->
+                            Set.fromList <| List.filterMap String.toInt <| String.split "," s
+
+                        Nothing ->
+                            Set.empty
+
+                sdgIcons =
+                    List.map (\n -> img [ src (sdgIcon n), classList [ ( "hidden", not (Set.member n sdgs) ) ] ] []) (List.range 1 10)
+                        ++ [ br [] [] ]
+                        ++ List.map (\n -> img [ src (sdgIcon n), classList [ ( "hidden", not (Set.member n sdgs) ) ] ] []) (List.range 11 17)
+            in
+            tr []
+                [ td [] [ img [ class "table-user-icon", src user.avatar ] [] ]
+                , td [] [ text user.username ]
+                , td [] [ text user.fullname ]
+                , td [ class "fingerprint" ] [ text user.fingerprint ]
+                , td [ class "userlist-SDGs" ] sdgIcons
+                ]
+    in
+    div []
+        [ table [ class "table", id "userlist-table" ]
+            [ thead []
+                [ tr [] [ th [] [], th [] [ text "ユーザー名" ], th [] [ text "フルネーム" ], th [] [ text "公開鍵" ], th [] [ text "SDGs" ] ]
+                ]
+            , tbody [] <|
+                List.map showItem users
+            ]
+        ]
+
+
+showPanels model filteredUsers =
+    div []
+        [ div [ id "list-people-wrapper" ] <|
+            List.map (\u -> mkPeopleDivInList model model.newSessionStatus.selected u.id)
+                filteredUsers
+        , div
+            [ style "clear" "both" ]
+            []
+        ]
 
 
 mkPeopleDivInList : Model -> Set.Set String -> String -> Html Msg
@@ -100,8 +157,20 @@ mkPeopleDivInList model selected user =
             text ""
 
 
-updateUserListPageStatus : UserListPageMsg -> UserListPageStatus -> ( UserListPageStatus, Cmd msg )
-updateUserListPageStatus msg model =
+updateUserListPageModel : UserListPageMsg -> UserListPageModel -> ( UserListPageModel, Cmd msg )
+updateUserListPageModel msg model =
     case msg of
         CheckUserWithIdOnly b ->
             ( { model | userWithIdOnly = b }, saveConfig { userWithEmailOnly = b } )
+
+        ChangeShowMode s ->
+            case s of
+                Table ->
+                    ( { model | showMode = s }, Cmd.none )
+
+                Panel ->
+                    ( { model | showMode = s }, Cmd.none )
+
+
+initialUserListPageModel show_users_with_email_only =
+    { userWithIdOnly = show_users_with_email_only, showMode = Table }

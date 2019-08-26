@@ -1,4 +1,4 @@
-module Components exposing (iconOfUser, leftMenu, makeLinkToOriginal, mkPeoplePanel, onKeyDown, ourFormatter, showChannels, showSource, smallMenu, topPane, updateRoomName)
+module Components exposing (iconOfUser, leftMenu, makeLinkToOriginal, mkPeoplePanel, onKeyDown, ourFormatter, sdgIcon, showChannels, showSource, smallMenu, topPane, updateRoomName)
 
 import DateFormat
 import Dict exposing (Dict)
@@ -20,6 +20,19 @@ import Types exposing (..)
 iconOfUser : User -> String
 iconOfUser user =
     user.avatar
+
+
+sdgIcon : Int -> String
+sdgIcon i =
+    "/public/img/SDGs/sdg_icon_"
+        ++ (if i < 10 then
+                "0"
+
+            else
+                ""
+           )
+        ++ String.fromInt i
+        ++ "_ja.png"
 
 
 showSource : String -> Html Msg

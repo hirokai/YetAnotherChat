@@ -2,7 +2,7 @@
 const webpack = require('webpack');
 const path = require('path');
 const TerserPlugin = require('terser-webpack-plugin');
-// const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin
+const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin
 
 module.exports = env => {
     const mode = (env && env.production) ? 'production' : 'development';
@@ -61,7 +61,6 @@ module.exports = env => {
             alias: {
                 'axios': path.resolve(__dirname, 'node_modules/axios/'),
                 'moment': path.resolve(__dirname, 'node_modules/moment/'),
-                'lodash-es': path.resolve(__dirname, 'node_modules/lodash-es/'),
                 'jquery': path.resolve(__dirname, 'node_modules/jquery/')
             },
             modules: ['node_modules'],

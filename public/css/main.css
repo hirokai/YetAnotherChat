@@ -572,7 +572,7 @@ textarea[disabled] {
     color: #444;
 }
 
-.hidden {
+.hidden-animate {
     opacity: 0;
     transition: opacity linear 0.2s;
 }
@@ -625,4 +625,21 @@ span.config-name {
 
 .SDGs-icon.selected img {
     opacity: 1;
+}
+
+.table-user-icon {
+    height: 30px;
+}
+
+#userlist-table {
+    font-size: 14px ! important;
+}
+
+.userlist-SDGs img {
+    height: 40px;
+}
+
+.userlist-SDGs img.hidden {
+    opacity: 0.1;
+    height: 40px;
 }

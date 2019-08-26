@@ -5,7 +5,9 @@ import axios from 'axios';
 import map from 'lodash/map'
 import sortBy from 'lodash/sortBy'
 import find from 'lodash/find'
+import range from 'lodash/range'
 import filter from 'lodash/filter'
+import includes from 'lodash/includes'
 import keyBy from 'lodash/keyBy'
 import max from 'lodash/max'
 import cloneDeep from 'lodash/cloneDeep'
@@ -18,7 +20,6 @@ import moment from 'moment';
 const shortid = require('shortid').generate;
 import $ from 'jquery';
 import * as crypto from './cryptography';
-import { mapValues, includes } from 'lodash-es';
 
 import * as CryptoJS from "crypto-js";
 
@@ -280,8 +281,8 @@ export class Model {
                 emails: u.emails || [],
                 avatar: u.avatar || '',
                 online: u.online || false,
-                fingerprint,
-                profile: profile_list
+                fingerprint
+                , profile: [["SDGs", map(range(1, 18), (i) => (Math.random() > 0.5 ? '' + i : '')).join(',')]]//profile_list.join(',')
             };
         }
     }

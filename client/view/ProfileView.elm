@@ -150,17 +150,7 @@ sdgsDiv user model =
                                 style "visibility" "visible"
                             ]
                             [ img
-                                [ src
-                                    ("/public/img/SDGs/sdg_icon_"
-                                        ++ (if i < 10 then
-                                                "0"
-
-                                            else
-                                                ""
-                                           )
-                                        ++ String.fromInt i
-                                        ++ "_ja.png"
-                                    )
+                                [ src (sdgIcon i)
                                 ]
                                 []
                             ]
