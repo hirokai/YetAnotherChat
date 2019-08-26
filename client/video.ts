@@ -7,13 +7,13 @@ let localStream: MediaStream;
 let sfuRoom;
 
 export function terminate(user_id: string, roomName: string) {
+    sfuRoom.close();
     localStream.getTracks().forEach((track) => {
         track.stop();
     });
-    sfuRoom.close();
 }
 
-export function start(user_id: string, roomName: string) {
+export function start(user_id: string, roomName: string, onPeerJoin: (string) => void, onPeerLeave: (string) => void) {
     const peer = new Peer(user_id, { key: credentials.skyway_key });
 
     const constraints = {
@@ -57,6 +57,16 @@ export function start(user_id: string, roomName: string) {
                 // console.log('Joined to video', peerId, sfuRoom.remoteStreams);
                 //@ts-ignore
                 document.getElementById('remote-video.' + stream.peerId).srcObject = stream;
+            });
+
+            sfuRoom.on('peerJoin', (peerId: string) => {
+                onPeerJoin(peerId)
+            });
+
+            sfuRoom.on('peerLeave', (peerId: string) => {
+                //@ts-ignore
+                document.getElementById('remote-video.' + peerId).srcObject = null;
+                onPeerLeave(peerId);
             });
 
         }).catch(err => {

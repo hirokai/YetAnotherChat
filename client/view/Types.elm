@@ -157,6 +157,7 @@ type alias ChatPageModel =
     , expandChatInput : Bool
     , chatInputActive : Bool
     , showVideoDiv : Bool
+    , videoMembers : Set.Set String
     }
 
 
@@ -245,6 +246,8 @@ type ChatPageMsg
     | ClickExpandInput
     | StartVideo RoomID
     | StopVideo RoomID
+    | VideoJoin String
+    | VideoLeft String
 
 
 type SettingsMsg

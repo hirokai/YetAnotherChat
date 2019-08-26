@@ -1,4 +1,4 @@
-port module Ports exposing (createNewSession, deleteFile, deleteSession, downloadPrivateKey, enterSession, feedMessages, feedRoomInfo, feedSessionsOf, feedSessionsWithSameMembers, feedUserImages, feedUserMessages, feedUsers, getConfig, getMessages, getRoomInfo, getSessionsOf, getSessionsWithSameMembers, getUserMessages, getUsers, hashChanged, initializeData, joinRoom, logout, onChangeData, recalcElementPositions, receiveNewRoomInfo, reloadSession, reloadSessions, removeItemRemote, resetKeys, resetUserCache, saveConfig, scrollTo, scrollToBottom, sendRoomName, setPageHash, setValue, startPosterSession, startVideo, stopVideo, uploadPrivateKey)
+port module Ports exposing (createNewSession, deleteFile, deleteSession, downloadPrivateKey, enterSession, feedMessages, feedRoomInfo, feedSessionsOf, feedSessionsWithSameMembers, feedUserImages, feedUserMessages, feedUsers, getConfig, getMessages, getRoomInfo, getSessionsOf, getSessionsWithSameMembers, getUserMessages, getUsers, hashChanged, initializeData, joinRoom, logout, onChangeData, recalcElementPositions, receiveNewRoomInfo, reloadSession, reloadSessions, removeItemRemote, resetKeys, resetUserCache, saveConfig, scrollTo, scrollToBottom, sendRoomName, setPageHash, setValue, startPosterSession, startVideo, stopVideo, uploadPrivateKey, videoJoin, videoLeft)
 
 import Json.Decode as Json
 import Types exposing (..)
@@ -122,6 +122,12 @@ port startVideo : String -> Cmd msg
 
 
 port stopVideo : String -> Cmd msg
+
+
+port videoJoin : (String -> msg) -> Sub msg
+
+
+port videoLeft : (String -> msg) -> Sub msg
 
 
 port logout : () -> Cmd msg

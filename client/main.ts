@@ -501,7 +501,14 @@ if (!token || token == '') {
 
     app.ports.startVideo.subscribe((roomName) => {
         console.log('start video');
-        video.start(user_id, roomName);
+        socket.emit('new.video', { session_id: roomName });
+        const onPeerJoin = (uid: string) => {
+            app.ports.videoJoin.send(uid);
+        };
+        const onPeerLeave = (uid: string) => {
+            app.ports.videoLeft.send(uid);
+        };
+        video.start(user_id, roomName, onPeerJoin, onPeerLeave);
     })
 
     app.ports.stopVideo.subscribe((roomName) => {
@@ -640,6 +647,8 @@ interface ElmAppPorts {
     initializeData: ElmSub<void>;
     startVideo: ElmSub<string>;
     stopVideo: ElmSub<string>;
+    videoJoin: ElmSend<string>;
+    videoLeft: ElmSend<string>;
     saveSDGs: ElmSub<string>;
 }
 

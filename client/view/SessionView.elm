@@ -1,4 +1,4 @@
-port module SessionView exposing (addComment, chatRoomView, getMembers, initialChatPageStatus, mkComment, onKeyDownTextArea, removeItem, sendCommentToServer, sendCommentToServerDone, showAll, showItem, submitComment, updateChatPageStatus)
+port module SessionView exposing (addComment, chatRoomView, getMembers, initialChatPageStatus, mkComment, onKeyDownTextArea, removeItem, sendCommentToServer, sendCommentToServerDone, sessionSubscriptions, showAll, showItem, submitComment, updateChatPageStatus)
 
 import Components exposing (..)
 import Dict exposing (Dict)
@@ -14,7 +14,7 @@ import Types exposing (..)
 
 initialChatPageStatus : Bool -> Bool -> ChatPageModel
 initialChatPageStatus show_top_pane expand_chatinput =
-    { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing, topPaneExpanded = show_top_pane, shrunkEntries = False, fontSize = 3, expandChatInput = expand_chatinput, chatInputActive = True, showVideoDiv = False }
+    { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing, topPaneExpanded = show_top_pane, shrunkEntries = False, fontSize = 3, expandChatInput = expand_chatinput, chatInputActive = True, showVideoDiv = False, videoMembers = Set.empty }
 
 
 chatRoomView : RoomID -> Model -> { title : String, body : List (Html Msg) }
@@ -85,7 +85,11 @@ roomTitle room model =
         , a [ id "edit-roomname", class "clickable", onClick (StartEditing "room-title" (roomName room model)) ] [ text "Edit" ]
         , a [ id "delete-room", class "clickable", onClick (DeleteRoom room) ] [ text "Delete" ]
         , a [ id "reload-room", class "btn btn-light", onClick (ReloadRoom room) ] [ text "Reload" ]
-        , a [ id "start-video", class "btn btn-light", onClick (ChatPageMsg <| StartVideo room) ] [ text "ビデオ通話" ]
+        , if Set.isEmpty model.chatPageStatus.videoMembers then
+            a [ id "start-video", class "btn btn-sm btn-light", onClick (ChatPageMsg <| StartVideo room) ] [ text "ビデオ通話を開始" ]
+
+          else
+            a [ id "start-video", class "btn btn-sm btn-primary", onClick (ChatPageMsg <| StartVideo room) ] [ text "ビデオ通話に参加" ]
         ]
 
 
@@ -413,6 +417,12 @@ updateChatPageStatus msg model =
         StopVideo r ->
             ( { model | showVideoDiv = False }, stopVideo r )
 
+        VideoJoin u ->
+            ( { model | videoMembers = Set.insert u model.videoMembers }, Cmd.none )
+
+        VideoLeft u ->
+            ( { model | videoMembers = Set.remove u model.videoMembers }, Cmd.none )
+
 
 removeItem : String -> ChatPageModel -> ( ChatPageModel, Cmd msg )
 removeItem id model =
@@ -476,3 +486,8 @@ getMembers entries =
 showAll : List ChatEntry -> Dict String Bool
 showAll messages =
     Dict.fromList <| List.map (\m -> ( m, True )) (getMembers messages)
+
+
+sessionSubscriptions : List (Sub Msg)
+sessionSubscriptions =
+    [ videoJoin (ChatPageMsg << VideoJoin), videoLeft (ChatPageMsg << VideoLeft) ]

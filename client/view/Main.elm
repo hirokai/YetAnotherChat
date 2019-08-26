@@ -400,6 +400,7 @@ subscriptions _ =
         , setValue (\( k, v ) -> SetValue k v)
         ]
             ++ configSubscriptions
+            ++ sessionSubscriptions
 
 
 type alias Flags =
