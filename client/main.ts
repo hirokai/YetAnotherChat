@@ -27,10 +27,6 @@ axios.defaults.headers.common['x-access-token'] = token;
 
 window['importKey'] = crypto.importKey;
 
-if (!token || token == '') {
-    // location.href = '/login' + location.hash;
-}
-
 // crypto.test_crypto();
 // crypto.test_crypto1();
 // crypto.test_crypto2();
@@ -43,7 +39,7 @@ if (!token || token == '') {
     });
     const init_ok = await model.init();
     if (!init_ok) {
-        location.href = '/login'
+        location.href = '/login?redirect=' + location.hash;
     }
     const fp = await model.keys.get_my_fingerprint();
 
