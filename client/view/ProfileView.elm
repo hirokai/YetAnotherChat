@@ -124,9 +124,6 @@ sdgsDiv user model =
 
             else
                 Set.fromList [ 1, 2, 4 ]
-
-        _ =
-            Debug.log "user" selectedSDGs
     in
     div [ id "sdgs-div" ] <|
         [ h2
