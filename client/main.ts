@@ -40,7 +40,10 @@ if (!token || token == '') {
     const model = new Model({
         user_id, token
     });
-    await model.init();
+    const init_ok = await model.init();
+    if (!init_ok) {
+        location.href = '/login'
+    }
     const fp = await model.keys.get_my_fingerprint();
 
     window['model'] = model;

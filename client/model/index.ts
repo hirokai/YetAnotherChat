@@ -44,7 +44,10 @@ export class Model {
         this.user_id = user_id;
         this.token = token;
     }
-    async init() {
+    async init(): Promise<boolean> {
+        if (!this.token) {
+            return false;
+        }
         let keyPair = await this.keys.download_my_keys_from_server();
         console.log('Downloaded key pair', keyPair);
         if (keyPair == null || keyPair.publicKey == null) {
@@ -56,6 +59,7 @@ export class Model {
             //For user export, it has to be prepared beforehand (no async operation)
             this.privateKeyJson = await crypto.exportKey(keyPair.privateKey);;
         }
+        return true;
     }
     saveDbWithName(dbName: string, data: any): Promise<void> {
         const storeName = 'default';
