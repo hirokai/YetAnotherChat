@@ -103,7 +103,7 @@ userSettingView user model =
                                     []
                                 , button [ onClick (SettingsMsg <| SaveConfigValue "email") ] [ text "保存" ]
                                 ]
-                            , a [ href <| "/main#/profiles/" ++ model.myself ] [ text "⇒詳細プロフィール編集" ]
+                            , a [ href <| "/main#/profiles/edit" ] [ text "⇒詳細プロフィール編集" ]
                             ]
                         ]
                     , div [ class "setting-group" ]
