@@ -158,7 +158,10 @@ enterUser u model =
 enterUserProfile : String -> Model -> ( Model, Cmd Msg )
 enterUserProfile u model =
     let
+        upm =
+            model.userPageModel
+
         new_model =
-            { model | page = UserProfilePage u }
+            { model | page = UserProfilePage u, userPageModel = { upm | selectedSDGs = Set.fromList [ 1, 2, 3 ] } }
     in
     ( new_model, Cmd.batch [ updatePageHash new_model ] )
