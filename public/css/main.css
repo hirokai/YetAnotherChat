@@ -661,8 +661,17 @@ span.config-name {
 
 #video-div video {
     border: 1px solid black;
-    width: 300px;
+    width: fit-content;
     height: 200px;
     margin: 5px;
     box-shadow: 3px 3px black;
+    position: -webkit-sticky;
+}
+
+.video-div-cell {
+    float: left;
+}
+
+.video-username {
+    font-size: 13px;
 }

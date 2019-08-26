@@ -143,7 +143,7 @@ chatBody room model =
                     )
                         ++ [ hr [] [], div [ id "end-line" ] [ text "（最新のメッセージです）" ] ]
                 , if model.chatPageStatus.showVideoDiv then
-                    videoDiv room
+                    videoDiv room model
 
                   else
                     text ""
@@ -154,12 +154,27 @@ chatBody room model =
             []
 
 
-videoDiv room =
-    div [ id "video-div" ]
-        [ video [ autoplay True, Html.Attributes.attribute "playsinline" "true", id "their-video" ] []
-        , video [ autoplay True, Html.Attributes.attribute "playsinline" "true", id "my-video", Html.Attributes.attribute "muted" "true" ] []
-        , button [ class "btn btn-primary", id "stop-video", onClick (ChatPageMsg <| StopVideo room) ] [ text "終了" ]
+videoDiv room model =
+    let
+        remoteVideoCell uid n =
+            div [ class "video-div-cell" ]
+                [ span [ class "video-username" ] [ text (getUserNameDisplay model uid) ]
+                , br [] []
+                , video [ autoplay True, Html.Attributes.attribute "playsinline" "true", id ("remote-video." ++ uid), Html.Attributes.attribute "muted" "true" ] []
+                ]
+
+        users =
+            List.filter (\u -> u /= model.myself) <| roomUsers room model
+    in
+    div [ id "video-div" ] <|
+        [ div [ class "video-div-cell" ]
+            [ span [ class "video-username" ] [ text (getUserNameDisplay model model.myself) ]
+            , br [] []
+            , video [ autoplay True, Html.Attributes.attribute "playsinline" "true", id "my-video", Html.Attributes.attribute "muted" "true" ] []
+            ]
         ]
+            ++ List.indexedMap (\i u -> remoteVideoCell u i) users
+            ++ [ button [ class "btn btn-primary", id "stop-video", onClick (ChatPageMsg <| StopVideo room) ] [ text "終了" ] ]
 
 
 footer : String -> Model -> Html Msg

@@ -501,12 +501,12 @@ if (!token || token == '') {
 
     app.ports.startVideo.subscribe((roomName) => {
         console.log('start video');
-        video.start(roomName);
+        video.start(user_id, roomName);
     })
 
     app.ports.stopVideo.subscribe((roomName) => {
         console.log('stop video');
-        video.terminate(roomName);
+        video.terminate(user_id, roomName);
     })
 
     function postPosterData(formData: FormData) {

@@ -2,51 +2,67 @@ let existingCall;
 import $ from 'jquery';
 import Peer, { SfuRoom } from 'skyway-js';
 import * as credentials from '../server/private/credential';
-const peer = new Peer({ key: credentials.skyway_key });
 
 let localStream: MediaStream;
 let sfuRoom;
 
-export function terminate(roomName: string) {
+export function terminate(user_id: string, roomName: string) {
     localStream.getTracks().forEach((track) => {
         track.stop();
     });
     sfuRoom.close();
 }
 
-export function start(roomName: string) {
+export function start(user_id: string, roomName: string) {
+    const peer = new Peer(user_id, { key: credentials.skyway_key });
 
     const constraints = {
         audio: { deviceId: undefined },
-        video: { deviceId: undefined, width: { max: 300 }, height: { max: 200 } },
+        video: { deviceId: undefined, width: { ideal: 300 }, height: { ideal: 200 } },
     };
 
-    navigator.mediaDevices.getUserMedia(constraints).then(stream => {
-        //@ts-ignore
-        $('#my-video').get(0).srcObject = stream;
-        localStream = stream;
-
-        if (existingCall) {
-            existingCall.replaceStream(stream);
-            return;
-        }
-
-        sfuRoom = peer.joinRoom(roomName, {
-            mode: 'sfu',
-            stream: localStream,
-        });
-        window['sfuRoom'] = sfuRoom;
-        sfuRoom.on('open', () => { console.log('Opened', sfuRoom) });
-
-        sfuRoom.on('stream', stream => {
+    peer.on('open', (peerId) => {
+        console.log(constraints);
+        navigator.mediaDevices.getUserMedia(constraints).then(stream => {
             //@ts-ignore
-            // console.log('Joined to video', peerId, sfuRoom.remoteStreams);
-            //@ts-ignore
-            $('#their-video').get(0).srcObject = stream;
+            $('#my-video').get(0).srcObject = stream;
+            localStream = stream;
+
+            if (existingCall) {
+                existingCall.replaceStream(stream);
+                return;
+            }
+
+            sfuRoom = peer.joinRoom(roomName, {
+                mode: 'sfu',
+                stream: localStream,
+            });
+            sfuRoom.send({ user_id, })
+            window['sfuRoom'] = sfuRoom;
+            sfuRoom.on('open', () => { console.log('Opened', sfuRoom) });
+            sfuRoom.on('stream', stream => {
+                const elemId = '#remote-video.' + stream.peerId;
+                const count = Object.keys(sfuRoom.remoteStreams).length;
+                const new_constraints = {
+                    audio: { deviceId: undefined },
+                    video: { deviceId: undefined, width: { ideal: 300 / Math.sqrt(count + 1) }, height: { ideal: 200 / Math.sqrt(count + 1) } },
+                };
+                console.log(new_constraints);
+                navigator.mediaDevices.getUserMedia(new_constraints).then(new_stream => {
+                    sfuRoom.replaceStream(new_stream);
+                });
+
+                console.log('sfuRoom.on', elemId, stream);
+                //@ts-ignore
+                // console.log('Joined to video', peerId, sfuRoom.remoteStreams);
+                //@ts-ignore
+                document.getElementById('remote-video.' + stream.peerId).srcObject = stream;
+            });
+
+        }).catch(err => {
+            $('#step1-error').show();
+            console.error(err);
         });
 
-    }).catch(err => {
-        $('#step1-error').show();
-        console.error(err);
     });
 }
