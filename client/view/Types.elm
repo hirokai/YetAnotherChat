@@ -166,6 +166,7 @@ type Page
     | SessionListPage
     | UserPage String
     | UserProfilePage String
+    | ProfileEditPage
     | UserSettingPage
     | UserListPage
     | HomePage

@@ -186,6 +186,9 @@ update msg model =
                     UserProfilePage u ->
                         enterUserProfile u model
 
+                    ProfileEditPage ->
+                        enterProfileEdit model
+
                     UserListPage ->
                         enterUserList model
 
@@ -364,6 +367,9 @@ view model =
 
                 Nothing ->
                     notFoundView model
+
+        ProfileEditPage ->
+            profileEditView model
 
         UserSettingPage ->
             case getUserInfo model model.myself of

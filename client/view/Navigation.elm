@@ -1,4 +1,4 @@
-port module Navigation exposing (enterHome, enterNewSession, enterRoom, enterSessionList, enterUser, enterUserList, enterUserProfile, enterUserSetting, notFound, notFoundView, pageToPath, pathToPage, updatePageHash)
+port module Navigation exposing (enterHome, enterNewSession, enterProfileEdit, enterRoom, enterSessionList, enterUser, enterUserList, enterUserProfile, enterUserSetting, notFound, notFoundView, pageToPath, pathToPage, updatePageHash)
 
 import Dict
 import Html exposing (..)
@@ -24,6 +24,9 @@ pageToPath page =
 
         UserProfilePage u ->
             "/profiles/" ++ u
+
+        ProfileEditPage ->
+            "/profiles/edit"
 
         UserSettingPage ->
             "/settings"
@@ -64,6 +67,9 @@ pathToPage hash =
         "profiles" :: u :: _ ->
             if u == "" then
                 NotFound
+
+            else if u == "edit" then
+                ProfileEditPage
 
             else
                 UserProfilePage u
@@ -115,6 +121,18 @@ enterHome model =
 enterUserList : Model -> ( Model, Cmd Msg )
 enterUserList model =
     ( { model | page = UserListPage }, Cmd.none )
+
+
+enterProfileEdit : Model -> ( Model, Cmd Msg )
+enterProfileEdit model =
+    let
+        upm =
+            model.userPageModel
+
+        sdgs =
+            Maybe.withDefault Set.empty <| Maybe.map getSDGs (getUserInfo model model.myself)
+    in
+    ( { model | page = ProfileEditPage, userPageModel = { upm | selectedSDGs = sdgs } }, Cmd.none )
 
 
 enterSessionList : Model -> ( Model, Cmd Msg )
