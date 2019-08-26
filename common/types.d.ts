@@ -291,6 +291,12 @@ type GetProfileResponse = {
     data: { [key: string]: string }
 }
 
+type GetProfilesResponse = {
+    ok: boolean,
+    user_id: string
+    data: { [key: string]: { [key: string]: string } }
+}
+
 type UpdateProfileResponse = {
     ok: boolean,
     user_id: string

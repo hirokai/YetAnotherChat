@@ -72,10 +72,6 @@ update msg model =
             ( model, reloadSessions () )
 
         FeedUsers users ->
-            let
-                _ =
-                    Debug.log "FeedUsers" users
-            in
             ( { model | users = Dict.fromList <| List.map (\u -> ( u.id, u )) users }, Cmd.none )
 
         FeedRoomInfo v ->

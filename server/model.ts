@@ -692,6 +692,21 @@ export async function get_profile(user_id: string): Promise<{ [key: string]: str
     });
 }
 
+export async function get_profiles(): Promise<{ [key: string]: { [key: string]: string } }> {
+    return new Promise((resolve) => {
+        db.all('select * from profiles;', (err, rows) => {
+            const profiles: { [key: string]: { [key: string]: string } } = {};
+            rows.forEach((row) => {
+                const user_id = row['user_id'];
+                if (!profiles[user_id]) {
+                    profiles[user_id] = {};
+                }
+                profiles[user_id][row['profile_name']] = row['profile_value'];
+            });
+            resolve(profiles);
+        });
+    });
+}
 export async function set_profile(user_id: string, key: string, value: string) {
     console.log('set_profile', user_id, key, value);
     return new Promise((resolve) => {

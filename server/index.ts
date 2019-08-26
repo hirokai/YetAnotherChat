@@ -353,6 +353,20 @@ app.patch('/api/users/:id', (req: MyPostRequest<UpdateUserData>, res: JsonRespon
     }
 });
 
+
+app.get('/api/users/all/profiles', (req, res: JsonResponse<GetProfilesResponse>) => {
+    const user_id = req.decoded.user_id;
+    console.log('get_profiles');
+    model.get_profiles().then((data) => {
+        const obj: GetProfilesResponse = {
+            ok: data != null,
+            user_id,
+            data
+        };
+        res.json(obj);
+    });
+});
+
 app.get('/api/users/:id/profiles', (req, res: JsonResponse<GetProfileResponse>) => {
     const user_id = req.decoded.user_id;
     model.get_profile(user_id).then((data) => {
@@ -364,6 +378,7 @@ app.get('/api/users/:id/profiles', (req, res: JsonResponse<GetProfileResponse>) 
         res.json(obj);
     });
 });
+
 
 app.patch('/api/users/:id/profiles', (req: MyPostRequest<UpdateProfileData>, res: JsonResponse<UpdateProfileResponse>) => {
     const user_id = req.decoded.user_id;

@@ -162,10 +162,21 @@ export class Model {
                 // console.log('Returning users from local DB.')
                 return snapshot;
             } else {
-                console.log('Getting users and save to local DB')
-                const r = <AxiosResponse<GetUsersResponse>>await axios.get('/api/users');
-                const { data: { data: { users } } } = r;
-                const users_dict = keyBy(users, 'id');
+                console.log('users.list(): Getting users and save to local DB')
+                const p1 = <Promise<AxiosResponse<GetUsersResponse>>>axios.get('/api/users');
+                const p2 = <Promise<AxiosResponse<GetProfilesResponse>>>axios.get('/api/users/all/profiles');
+                const [r1, r2] = await Promise.all([p1, p2]);
+                console.log('r1,r2', r1, r2)
+                const { data: { data: { users } } } = r1;
+                const { data: { data: profiles } } = r2;
+                const users_dict: { [key: string]: User } = keyBy(users, 'id');
+                // console.log(users_dict);
+                map(profiles, (profile, user_id) => {
+                    // console.log(profile, user_id, users_dict[user_id]);
+                    if (users_dict[user_id]) {
+                        users_dict[user_id].profile = profile;
+                    }
+                });
                 await this.users.saveDb(users_dict);
                 return users_dict;
             }
@@ -282,7 +293,8 @@ export class Model {
                 avatar: u.avatar || '',
                 online: u.online || false,
                 fingerprint
-                , profile: [["SDGs", map(range(1, 18), (i) => (Math.random() > 0.5 ? '' + i : '')).join(',')]]//profile_list.join(',')
+                , profile: profile_list
+                // , profile: [["SDGs", map(range(1, 18), (i) => (Math.random() > 0.5 ? '' + i : '')).join(',')]]//profile_list.join(',')
             };
         }
     }
