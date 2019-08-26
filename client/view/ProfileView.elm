@@ -173,6 +173,14 @@ profileEditView model =
 
 sdgsDiv : User -> Model -> Bool -> Html Msg
 sdgsDiv user model editable =
+    let
+        selected =
+            if editable then
+                model.userPageModel.selectedSDGs
+
+            else
+                getSDGs user
+    in
     div [ id "sdgs-div" ] <|
         [ h2
             []
@@ -187,7 +195,7 @@ sdgsDiv user model editable =
             ++ (List.map
                     (\i ->
                         a
-                            [ classList [ ( "SDGs-icon", True ), ( "selected", Set.member i (getSDGs user) ) ]
+                            [ classList [ ( "SDGs-icon", True ), ( "selected", Set.member i selected ) ]
                             , if editable then
                                 onClick (UserPageMsg <| SelectSDG i)
 
