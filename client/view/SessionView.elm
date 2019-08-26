@@ -212,7 +212,11 @@ showItem model entry =
                                 , span [ class "chat_timestamp" ] [ text m.formattedTime ]
                                 , a [ href (makeLinkToOriginal m) ] [ showSource m.source ]
                                 , span [ style "margin-left" "10px" ] [ text m.id ]
-                                , span [ class "remove-item clickable", onClick (ChatPageMsg (RemoveItem m.id)) ] [ text "×" ]
+                                , if m.user == model.myself then
+                                    span [ class "remove-item clickable", onClick (ChatPageMsg (RemoveItem m.id)) ] [ text "×" ]
+
+                                  else
+                                    text ""
                                 ]
                             , div [ classList [ ( "chat_comment_content", True ), ( "font-" ++ String.fromInt model.chatPageStatus.fontSize, True ) ] ] <| mkComment m.comment
                             ]

@@ -473,11 +473,16 @@ app.get('/api/sessions/:id', (req, res: JsonResponse<GetSessionResponse>) => {
     })
 });
 
-app.delete('/api/comments/:id', (req, res: JsonResponse<DeleteCommentResponse>) => {
+app.delete('/api/comments/:id', (req: GetAuthRequest, res: JsonResponse<DeleteCommentResponse>) => {
     const comment_id = req.params.id;
     db.get('select * from comments where id=?;', comment_id, (err, row) => {
         if (row) {
             const session_id = row['session_id'];
+            const user_id = row['user_id'];
+            if (user_id != req.decoded.user_id) {
+                res.json({ ok: false, error: 'Cannot delete comments by other users' })
+                return;
+            }
             const encrypt_group = row['encrypt_group'];
             db.run('delete from comments where encrypt_group=?;', encrypt_group, (err) => {
                 if (!err) {
