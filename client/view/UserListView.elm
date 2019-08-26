@@ -83,12 +83,7 @@ showTable model users =
 
                 sdgs : Set.Set Int
                 sdgs =
-                    case Dict.get "SDGs" profileDict of
-                        Just s ->
-                            Set.fromList <| List.filterMap String.toInt <| String.split "," s
-
-                        Nothing ->
-                            Set.empty
+                    getSDGs user
 
                 sdgIcons =
                     List.map (\n -> img [ src (sdgIcon n), classList [ ( "hidden", not (Set.member n sdgs) ) ] ] []) (List.range 1 10)
