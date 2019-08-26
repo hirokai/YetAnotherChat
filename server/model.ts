@@ -735,7 +735,7 @@ export async function set_profile(user_id: string, key: string, value: string) {
 function choose_avatar(username: string): string {
     if (username[0].match(/\w/)) {
         const num = 1 + Math.floor(Math.random() * 5);
-        return '/public/img/letter/' + username[0] + '.' + num + '.png';
+        return '/public/img/letter/' + username[0].toLowerCase() + '.' + num + '.png';
     } else {
         return '/public/img/portrait.png';
     }
@@ -1064,11 +1064,11 @@ export async function register_public_key({ user_id, for_user, jwk, privateKeyFi
             db.run('insert into public_keys (user_id,for_user,public_key,timestamp,private_fingerprint) values (?,?,?,?,?);', user_id, for_user, JSON.stringify(jwk), timestamp, privateKeyFingerprint, (err) => {
                 if (!err) {
                     console.log(user_id);
-                    // fingerPrint(jwk).then((pub_fp) => {
-                    //     ethereum.add_to_ethereum(credentials.ethereum, user_id, timestamp, pub_fp).then(() => {
-                    //         console.log('add_to_ethereum done');
-                    //     })
-                    // });
+                    fingerPrint(jwk).then((pub_fp) => {
+                        ethereum.add_to_ethereum(credentials.ethereum, user_id, timestamp, pub_fp).then(() => {
+                            console.log('add_to_ethereum done');
+                        })
+                    });
                     resolve({ ok: true, timestamp });
                 } else {
                     console.log('register_public_key', err);
