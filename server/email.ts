@@ -54,7 +54,7 @@ function send_email({ subject, to: tos, from, content }: { subject: string, to: 
 export async function send_emails_to_session_members({ session_id, user_id, comment }: { session_id: string, user_id: string, comment: string }): Promise<void> {
     const session = await model.get_session_info(session_id);
     const online_users = await model.list_online_users();
-    const members = await model.get_members({ session_id });
+    const members = await model.get_members({ myself: user_id, session_id });
     const from: User = find(members, (m => m.id == user_id));
     if (from != null) {
         send_email({ subject: 'Re: ' + session.name, to: members, from, content: comment });

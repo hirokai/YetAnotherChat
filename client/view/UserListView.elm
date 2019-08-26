@@ -94,14 +94,15 @@ showTable model users =
                 [ td [] [ img [ class "table-user-icon", src user.avatar ] [] ]
                 , td [] [ text user.username ]
                 , td [] [ text user.fullname ]
-                , td [ class "fingerprint" ] [ text user.fingerprint ]
+                , td [] [ text <| Maybe.withDefault "" <| List.head user.emails ]
+                , td [ class "fingerprint" ] [ div [] [ text user.fingerprint ] ]
                 , td [ class "userlist-SDGs" ] sdgIcons
                 ]
     in
     div []
         [ table [ class "table", id "userlist-table" ]
             [ thead []
-                [ tr [] [ th [] [], th [] [ text "ユーザー名" ], th [] [ text "フルネーム" ], th [] [ text "公開鍵" ], th [] [ text "SDGs" ] ]
+                [ tr [] [ th [] [], th [] [ text "ユーザー名" ], th [] [ text "フルネーム" ], th [] [ text "Email" ], th [] [ text "公開鍵" ], th [] [ text "SDGs" ] ]
                 ]
             , tbody [] <|
                 List.map showItem users
