@@ -211,7 +211,6 @@ showItem model entry =
                                     text ""
                                 , span [ class "chat_timestamp" ] [ text m.formattedTime ]
                                 , a [ href (makeLinkToOriginal m) ] [ showSource m.source ]
-                                , span [ style "margin-left" "10px" ] [ text m.id ]
                                 , if m.user == model.myself then
                                     span [ class "remove-item clickable", onClick (ChatPageMsg (RemoveItem m.id)) ] [ text "×" ]
 

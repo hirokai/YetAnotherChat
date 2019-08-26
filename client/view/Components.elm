@@ -58,6 +58,9 @@ makeLinkToOriginal c =
         "email" ->
             "/email/" ++ c.originalUrl
 
+        "self" ->
+            "/comments/" ++ c.id
+
         _ ->
             c.originalUrl
 
