@@ -14,7 +14,7 @@ import Types exposing (..)
 
 initialChatPageStatus : Bool -> Bool -> ChatPageModel
 initialChatPageStatus show_top_pane expand_chatinput =
-    { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing, topPaneExpanded = show_top_pane, shrunkEntries = False, fontSize = 3, expandChatInput = expand_chatinput, chatInputActive = True }
+    { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing, topPaneExpanded = show_top_pane, shrunkEntries = False, fontSize = 3, expandChatInput = expand_chatinput, chatInputActive = True, showVideoDiv = False }
 
 
 chatRoomView : RoomID -> Model -> { title : String, body : List (Html Msg) }
@@ -51,7 +51,7 @@ chatRoomView room model =
                                             (roomUsers room model)
                                     ]
                                 , hr [] []
-                                , div [] (chatBody model)
+                                , div [] (chatBody room model)
                                 ]
                             ]
                         ]
@@ -85,11 +85,12 @@ roomTitle room model =
         , a [ id "edit-roomname", class "clickable", onClick (StartEditing "room-title" (roomName room model)) ] [ text "Edit" ]
         , a [ id "delete-room", class "clickable", onClick (DeleteRoom room) ] [ text "Delete" ]
         , a [ id "reload-room", class "btn btn-light", onClick (ReloadRoom room) ] [ text "Reload" ]
+        , a [ id "start-video", class "btn btn-light", onClick (ChatPageMsg <| StartVideo room) ] [ text "ビデオ通話" ]
         ]
 
 
-chatBody : Model -> List (Html Msg)
-chatBody model =
+chatBody : String -> Model -> List (Html Msg)
+chatBody room model =
     case model.chatPageStatus.messages of
         Just messages ->
             let
@@ -141,11 +142,24 @@ chatBody model =
                             messages_filtered
                     )
                         ++ [ hr [] [], div [ id "end-line" ] [ text "（最新のメッセージです）" ] ]
+                , if model.chatPageStatus.showVideoDiv then
+                    videoDiv room
+
+                  else
+                    text ""
                 ]
             ]
 
         Nothing ->
             []
+
+
+videoDiv room =
+    div [ id "video-div" ]
+        [ video [ autoplay True, Html.Attributes.attribute "playsinline" "true", id "their-video" ] []
+        , video [ autoplay True, Html.Attributes.attribute "playsinline" "true", id "my-video", Html.Attributes.attribute "muted" "true" ] []
+        , button [ class "btn btn-primary", id "stop-video", onClick (ChatPageMsg <| StopVideo room) ] [ text "終了" ]
+        ]
 
 
 footer : String -> Model -> Html Msg
@@ -377,6 +391,12 @@ updateChatPageStatus msg model =
               }
             , recalcElementPositions { show_toppane = model.topPaneExpanded, expand_chatinput = new_v }
             )
+
+        StartVideo r ->
+            ( { model | showVideoDiv = True }, startVideo r )
+
+        StopVideo r ->
+            ( { model | showVideoDiv = False }, stopVideo r )
 
 
 removeItem : String -> ChatPageModel -> ( ChatPageModel, Cmd msg )

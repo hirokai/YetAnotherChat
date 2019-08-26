@@ -654,3 +654,15 @@ span.config-name {
     opacity: 0.1;
     height: 40px;
 }
+
+#video-div {
+    border: 1px solid black;
+}
+
+#video-div video {
+    border: 1px solid black;
+    width: 300px;
+    height: 200px;
+    margin: 5px;
+    box-shadow: 3px 3px black;
+}

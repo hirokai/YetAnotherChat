@@ -12,6 +12,7 @@ import 'bootstrap';
 import io from "socket.io-client";
 import { Model, processData } from './model';
 import * as crypto from './model/cryptography';
+import * as video from './video';
 require('moment/locale/ja');
 moment.locale('ja');
 
@@ -498,6 +499,16 @@ if (!token || token == '') {
         });
     });
 
+    app.ports.startVideo.subscribe((roomName) => {
+        console.log('start video');
+        video.start(roomName);
+    })
+
+    app.ports.stopVideo.subscribe((roomName) => {
+        console.log('stop video');
+        video.terminate(roomName);
+    })
+
     function postPosterData(formData: FormData) {
         $.ajax({
             url: '/api/files?kind=poster&token=' + token,
@@ -627,6 +638,8 @@ interface ElmAppPorts {
     resetUserCache: ElmSub<void>;
     setValue: ElmSend<string[]>;
     initializeData: ElmSub<void>;
+    startVideo: ElmSub<string>;
+    stopVideo: ElmSub<string>;
     saveSDGs: ElmSub<string>;
 }
 

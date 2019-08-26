@@ -156,6 +156,7 @@ type alias ChatPageModel =
     , fontSize : Int -- 1 to 5
     , expandChatInput : Bool
     , chatInputActive : Bool
+    , showVideoDiv : Bool
     }
 
 
@@ -242,6 +243,8 @@ type ChatPageMsg
     | SmallerFont
     | LargerFont
     | ClickExpandInput
+    | StartVideo RoomID
+    | StopVideo RoomID
 
 
 type SettingsMsg
