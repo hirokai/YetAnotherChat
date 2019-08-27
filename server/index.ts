@@ -17,7 +17,7 @@ const path = require('path');
 const sqlite3 = require('sqlite3');
 const db = new sqlite3.Database(path.join(__dirname, 'private/db.sqlite3'));
 // const model = require('./model');
-const fs = require('fs');
+import * as fs from 'fs';
 const moment = require('moment');
 const jwt = require('jsonwebtoken');
 const credential = require('./private/credential');
@@ -25,6 +25,7 @@ import * as ec from './error_codes';
 import multer from 'multer';
 import { fingerPrint } from '../common/common_model';
 // import chalk from 'chalk';
+import * as mail_algo from './mail_algo'
 
 const http = require('http').createServer(app);
 
@@ -224,6 +225,14 @@ app.post('/api/register', (req, res: JsonResponse<RegisterResponse>) => {
             });
         }
     })();
+});
+
+app.post('/webhook/mailgun', multer().none(), (req, res) => {
+    res.json({ status: "ok" });
+    console.log('Received email from: ', req.body['From']);
+    mail_algo.update_db_on_mailgun_webhook({ body: req.body, db, myio: io }).then(() => {
+        console.log('Parsing done.');
+    });
 });
 
 app.post('/api/login', (req: MyPostRequest<LoginParams>, res) => {

@@ -8,6 +8,7 @@ const moment = require('moment');
 moment.locale('ja');
 import * as model from './model';
 import * as user_info from './private/user_info';
+import * as fs from 'fs';
 
 
 // https://stackoverflow.com/questions/21900713/finding-all-connected-components-of-an-undirected-graph
@@ -315,13 +316,19 @@ export function mk_user_name(fullname: string): string {
 
 
 export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_recipient = false }: { body: object, db, myio?: SocketIO.Server, ignore_recipient?: boolean }): Promise<{ added_users: User[] }> {
-    const recipient = body['recipient'].split('@')[0];
+    const recipient: string = body['recipient'].split('@')[0].replace('.', '');
+    fs.mkdir('imported_data/mailgun/' + recipient, { recursive: true }, () => {
+        fs.writeFile('imported_data/mailgun/' + recipient + '/' + body['Message-Id'] + '.json', JSON.stringify(body, null, 2), () => {
+
+        });
+    });
+
     var myself;
     if (!ignore_recipient) {
         const user_id = recipient;
-        myself = await model.get_user(user_id);
+        myself = await model.get_user({ myself: user_id, user_id });
         if (myself == null) {
-            console.log('Recipent ID invalid.');
+            console.log('Recipent ID invalid:', recipient);
             return { added_users: [] };
         }
         console.log('Adding to user: ', myself);
@@ -369,7 +376,7 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
             const url = data.message_id + '::lines=' + data.lines.start + '-' + data.lines.end;
             const r1: JoinSessionResponse = await model.join_session({ session_id, user_id: u.id, timestamp, source: 'email_thread' });
             console.log('update_db_on_mailgun_webhook', { session_id, user_id: u.id, fullname, email, 'data.from': data.from, r1 });
-            const { ok, data: data1 } = await model.post_comment({ user_id: u.id, session_id, timestamp, comment: data.comment, original_url: url, source: "email", for_user: u.id, encrypt: 'ecdh.v1' });
+            const { ok, data: data1 } = await model.post_comment({ user_id: u.id, session_id, timestamp, comment: data.comment, original_url: url, source: "email", for_user: u.id, encrypt: 'none' });
             console.log('Heading and comment beginning', data.heading, data.comment.slice(0, 100));
             results_comments.push(data1);
             if (ok) {
