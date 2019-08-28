@@ -15,7 +15,7 @@ const random_str = (N) => {
 };
 
 
-async function register(opt?: { basename?: string, username?: string, fullname?: string, password?: string, email?: string, source?: string }) {
+export async function register(opt?: { basename?: string, username?: string, fullname?: string, password?: string, email?: string, source?: string }) {
     opt = opt || {};
     const username = (opt.basename || random_str(4)) + Math.floor(Math.random() * 100000);
     const fullname = opt.fullname;
@@ -27,9 +27,9 @@ async function register(opt?: { basename?: string, username?: string, fullname?:
 
 beforeEach(done => {
     return new Promise((resolve, reject) => {
-        exec('rm server/private/db.sqlite3').then(({ stderr, stdout }) => {
-            exec('sqlite3 server/private/db.sqlite3 < server/schema.sql').then(() => {
-                connectToDB('server/private/db.sqlite3');
+        exec('rm server/private/db_test.sqlite3').then(({ stderr, stdout }) => {
+            exec('sqlite3 server/private/db_test.sqlite3 < server/schema.sql').then(() => {
+                connectToDB('server/private/db_test.sqlite3');
                 done();
                 // exec('sqlite3 server/private/db_test.sqlite3 < server/schema.sql').then(({ stderr, stdout }) => {
                 // the *entire* stdout and stderr (buffered)
