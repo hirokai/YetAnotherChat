@@ -1,5 +1,5 @@
 import { map, filter, includes, orderBy } from 'lodash';
-import { db, shortid } from './utils'
+import { db, db_, shortid } from './utils'
 import bcrypt from 'bcrypt';
 
 import { get_public_key } from './keys'
@@ -13,12 +13,9 @@ import { fingerPrint } from '../../common/common_model'
 
 const saltRounds = 10;
 
-export function get_socket_ids(user_id: string): Promise<string[]> {
-    return new Promise((resolve) => {
-        db.all('select socket_id from user_connections where user_id=?;', user_id, (err, rows) => {
-            resolve(map(rows, 'socket_id'));
-        });
-    });
+export async function get_socket_ids(user_id: string): Promise<string[]> {
+    const rows = await db_.all('select socket_id from user_connections where user_id=?;', user_id);
+    return map(rows, 'socket_id');
 }
 
 export function save_socket_id(user_id: string, socket_id: string): Promise<{ ok: boolean, timestamp: number }> {
@@ -31,36 +28,23 @@ export function save_socket_id(user_id: string, socket_id: string): Promise<{ ok
     });
 }
 
-export function get({ myself, user_id }: { myself: string, user_id: string }): Promise<User> {
-    return new Promise((resolve) => {
-        db.get('select users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname from users join user_emails on users.id=user_emails.user_id where users.id=? group by users.id;', user_id, (err, row) => {
-            if (row) {
-                const emails = row['emails'].split(',');
-                keys.get_public_key({ user_id, for_user: myself }).then(({ publicKey }) => {
-                    list_online_users().then((online_users) => {
-                        const id = row['id']
-                        const online: boolean = includes(online_users, id);
-                        resolve({ username: row['name'], id, emails, avatar: "", fullname: row['fullname'], online, publicKey, timestamp: row['timestamp'] });
-                    });
-                });
-            } else {
-                resolve(null);
-            }
-
-        });
-    });
+export async function get({ myself, user_id }: { myself: string, user_id: string }): Promise<User> {
+    const row = await db_.get<UserWithEmail>('select users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname from users join user_emails on users.id=user_emails.user_id where users.id=? group by users.id;', user_id);
+    if (row) {
+        const emails = (row['emails'] || '').split(',');
+        const { publicKey } = await keys.get_public_key({ user_id, for_user: myself });
+        const online_users = await list_online_users();
+        const id = row['id']
+        const online: boolean = includes(online_users, id);
+        return ({ username: row['name'], id, emails, avatar: "", fullname: row['fullname'], online, publicKey, timestamp: row['timestamp'] });
+    } else {
+        return (null);
+    }
 }
 
 export async function list(myself: string): Promise<User[]> {
-    const rows: { [key: string]: any } = await new Promise((resolve, reject) => {
-        db.all("select users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profiles.profile_value as avatar from users join user_emails on users.id=user_emails.user_id join profiles on users.id=profiles.user_id where profiles.profile_name='avatar' group by users.id;", (err, rows: object) => {
-            if (err) {
-                reject();
-            } else {
-                resolve(rows);
-            }
-        });
-    });
+    const rows: { [key: string]: any } = await
+        db_.all("select users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profiles.profile_value as avatar from users join user_emails on users.id=user_emails.user_id join profiles on users.id=profiles.user_id where profiles.profile_name='avatar' group by users.id;");
     const online_users = await list_online_users();
     const users = await Promise.all(map(rows, async (row): Promise<User> => {
         const user_id = row['id'];
@@ -209,26 +193,34 @@ export async function save_password(user_id: string, password: string): Promise<
     // return res;
 }
 
-export function find_user_from_email({ myself, email }: { myself: string, email: string }): Promise<User> {
-    return new Promise((resolve) => {
-        if (!email || email.trim() == "") {
-            resolve(null);
-        } else {
-            db.get('select users.timestamp,users.id,users.name,users.fullname,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id group by users.id having emails like ?;', '%' + email + '%', (err, row) => {
-                if (!err && row) {
-                    const user_id = row['id']
-                    get_public_key({ user_id, for_user: myself }).then(({ publicKey }) => {
-                        list_online_users().then((online_users) => {
-                            const online: boolean = includes(online_users, user_id);
-                            resolve({ username: row['name'], fullname: row['fullname'], id: user_id, emails: row['emails'], avatar: '', online, publicKey, timestamp: row['timestamp'] });
-                        });
-                    });
-                } else {
-                    resolve(null);
-                }
+interface UserWithEmail {
+    id: string,
+    name: string,
+    fullname: string,
+    timestamp: number,
+    emails: string
+}
+
+export async function find_user_from_email({ myself, email }: { myself: string, email: string }): Promise<User> {
+    if (!email || email.trim() == "") {
+        return null;
+    } else {
+        const { err, row } = await new Promise<{ err: any, row: UserWithEmail }>((resolve) => {
+            db.get('select users.timestamp,users.id,users.name,users.fullname,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id group by users.id having emails like ?;', '%' + email + '%', (err, row: UserWithEmail) => {
+                resolve({ err, row })
             });
+        });
+        if (!err && row) {
+            const user_id = row.id;
+            const { publicKey } = await get_public_key({ user_id, for_user: myself });
+            const online_users = await list_online_users();
+            const online: boolean = includes(online_users, user_id);
+            const emails = (row.emails || '').split(',');
+            return { username: row.name, fullname: row.fullname, id: user_id, emails, avatar: '', online, publicKey, timestamp: row.timestamp };
+        } else {
+            return null;
         }
-    });
+    }
 }
 
 export function find_from_username({ myself, username }: { myself: string, username: string }): Promise<User> {
