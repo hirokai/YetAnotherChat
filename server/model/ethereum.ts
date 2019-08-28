@@ -12,21 +12,18 @@ type Ethereum = {
 
 //https://stackoverflow.com/questions/46611117/how-to-authenticate-and-send-contract-method-using-web3-js-1-0
 export async function add_to_ethereum(net: Ethereum, user_id: string, timestamp: number, hash: string): Promise<any> {
-    return new Promise((resolve) => {
-        var web3 = new Web3(new Web3.providers.HttpProvider(
-            net.url
-        ));
-        const account = web3.eth.accounts.privateKeyToAccount('0x' + net.privateKey);
-        web3.eth.accounts.wallet.add(account);
-        const myContract = new web3.eth.Contract(abi, net.contract);
-        const user_id_hash = crypto.createHash('sha256').update(user_id, 'utf8').digest().toString('base64');
-        const gasLimit = 400000;
-        const gasPrice = 1e9;
-        console.log('Adding fingerprint to ethereum with gas limit and gas price', gasLimit, gasPrice / 1e9, user_id, hash);
-        myContract.methods.add(user_id_hash, timestamp, hash).send({ from: net.account, gas: gasLimit, gasPrice }).then((r) => {
-            // console.log('set() result', e, r);
-            resolve(r);
-        })
-    });
+    var web3 = new Web3(new Web3.providers.HttpProvider(
+        net.url
+    ));
+    const account = web3.eth.accounts.privateKeyToAccount('0x' + net.privateKey);
+    web3.eth.accounts.wallet.add(account);
+    const myContract = new web3.eth.Contract(abi, net.contract);
+    const user_id_hash = crypto.createHash('sha256').update(user_id, 'utf8').digest().toString('base64');
+    const gasLimit = 400000;
+    const gasPrice = 1e9;
+    console.log('Adding fingerprint to ethereum with gas limit and gas price', gasLimit, gasPrice / 1e9, user_id, hash);
+    const r = await myContract.methods.add(user_id_hash, timestamp, hash).send({ from: net.account, gas: gasLimit, gasPrice });
+    // console.log('set() result', e, r);
+    return r;
 }
 

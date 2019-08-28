@@ -2,6 +2,7 @@
 
 import * as fs from "fs";
 import { shortid, db } from './utils'
+import { groupBy, map } from 'lodash';
 
 export function save_user_file(user_id: string, path: string, kind: string, session_id?: string): Promise<{ file_id: string, path: string }> {
     return new Promise((resolve, reject) => {
@@ -42,11 +43,10 @@ export function update_user_file(user_id: string, file_id: string, new_path: str
     });
 }
 
-export function list_user_files(kind: string): Promise<{ [key: string]: { url: string } }> {
+export function list_user_files(kind: string): Promise<{ [key: string]: { url: string }[] }> {
     return new Promise((resolve) => {
         db.all('select * from files where kind=?;', kind, (err, rows) => {
-            //@ts-ignore
-            const files: { [key: string]: { url: string } } = groupBy(map(rows || [], (row): { url: string } => {
+            const files: { [key: string]: { url: string }[] } = groupBy(map(rows || [], (row): { url: string } => {
                 return row;
             }), 'user_id');
             resolve(files);

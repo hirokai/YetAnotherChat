@@ -62,52 +62,44 @@ export async function list(myself: string): Promise<User[]> {
         });
     });
     const online_users = await list_online_users();
-    const users = await Promise.all(map(rows, (row): Promise<User> => {
-        return new Promise((resolve) => {
-            const user_id = row['id'];
-            get_public_key({ user_id, for_user: myself }).then(({ publicKey: pk1 }) => {
-                if (pk1) {
-                    fingerPrint(pk1).then((fingerprint) => {
-                        // console.log('model.list_users() publicKey', user_id, myself, pk1);
-                        const obj: User = {
-                            emails: row['emails'].split(','),
-                            timestamp: row['timestamp'],
-                            username: row['name'] || row['id'],
-                            fullname: row['fullname'] || "",
-                            id: user_id,
-                            avatar: row['avatar'],
-                            publicKey: pk1,
-                            online: includes(online_users, user_id),
-                            fingerprint
-                        }
-                        resolve(obj);
-                    });
-                } else {
-                    //ToDo: Currently default public key has for_user=user_id.
-                    //But 1-to-1 communication better requires different public keys for every sent-to user.
-                    get_public_key({ user_id, for_user: user_id }).then(({ publicKey: pk2 }) => {
-                        fingerPrint(pk2).then((fingerprint) => {
-
-                            // console.log('model.list_users() publicKey', user_id, user_id, pk2);
-                            const obj: User = {
-                                emails: row['emails'].split(','),
-                                timestamp: row['timestamp'],
-                                username: row['name'] || row['id'],
-                                fullname: row['fullname'] || "",
-                                id: user_id,
-                                avatar: row['avatar'],
-                                publicKey: pk2,
-                                online: includes(online_users, user_id),
-                                fingerprint
-                            }
-                            resolve(obj);
-                        });
-                    });
-                }
-            });
-        });
+    const users = await Promise.all(map(rows, async (row): Promise<User> => {
+        const user_id = row['id'];
+        const { publicKey: pk1 } = await get_public_key({ user_id, for_user: myself });
+        if (pk1) {
+            const fingerprint = await fingerPrint(pk1);
+            // console.log('model.list_users() publicKey', user_id, myself, pk1);
+            const obj: User = {
+                emails: row['emails'].split(','),
+                timestamp: row['timestamp'],
+                username: row['name'] || row['id'],
+                fullname: row['fullname'] || "",
+                id: user_id,
+                avatar: row['avatar'],
+                publicKey: pk1,
+                online: includes(online_users, user_id),
+                fingerprint
+            }
+            return obj;
+        } else {
+            //ToDo: Currently default public key has for_user=user_id.
+            //But 1-to-1 communication better requires different public keys for every sent-to user.
+            const { publicKey: pk2 } = await get_public_key({ user_id, for_user: user_id });
+            const fingerprint = await fingerPrint(pk2);
+            // console.log('model.list_users() publicKey', user_id, user_id, pk2);
+            const obj: User = {
+                emails: row['emails'].split(','),
+                timestamp: row['timestamp'],
+                username: row['name'] || row['id'],
+                fullname: row['fullname'] || "",
+                id: user_id,
+                avatar: row['avatar'],
+                publicKey: pk2,
+                online: includes(online_users, user_id),
+                fingerprint
+            }
+            return obj;
+        }
     }));
-    //@ts-ignore
     return users;
 }
 
