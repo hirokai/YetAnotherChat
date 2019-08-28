@@ -1,6 +1,6 @@
 const Web3 = require('web3');
 import fs from 'fs';
-import * as credential from './private/credential'
+import * as credential from '../private/credential'
 const abi = JSON.parse(fs.readFileSync('./server/HashStorage3.json', 'utf8')).abi;
 import * as crypto from 'crypto';
 

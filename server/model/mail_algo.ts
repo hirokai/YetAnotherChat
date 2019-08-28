@@ -6,8 +6,8 @@ const shortid = shortid_.generate;
 import * as _ from 'lodash';
 const moment = require('moment');
 moment.locale('ja');
-import * as model from './model';
-import * as user_info from './private/user_info';
+import * as model from './index';
+import * as user_info from '../private/user_info';
 import * as fs from 'fs';
 
 

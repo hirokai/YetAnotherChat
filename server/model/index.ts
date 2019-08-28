@@ -1,13 +1,13 @@
-/// <reference path="../common/types.d.ts" />
+/// <reference path="../../common/types.d.ts" />
 
 import * as fs from "fs";
 const path = require('path');
 import { map, filter, includes, orderBy, groupBy, keyBy, min, max, chain, compact, zip, sum, values, sortedUniq, sortBy, difference, cloneDeep } from 'lodash';
 
-import { fingerPrint } from '../common/common_model';
+import { fingerPrint } from '../../common/common_model';
 import * as ethereum from './ethereum';
 const sqlite3 = require('sqlite3');
-const db = new sqlite3.Database(path.join(__dirname, './private/db.sqlite3'));
+const db = new sqlite3.Database(path.join(__dirname, '../private/db.sqlite3'));
 // const ulid = require('ulid').ulid;
 const shortid_ = require('shortid');
 shortid_.characters('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$_');
@@ -17,11 +17,11 @@ import * as mail_algo from './mail_algo';
 const emojis = require("./emojis.json").emojis;
 const emoji_dict = keyBy(emojis, 'shortname');
 
-import * as user_info from './private/user_info';
-import * as error_code from './error_codes';
+import * as user_info from '../private/user_info';
+import * as error_code from '../error_codes';
 import bcrypt from 'bcrypt';
 const saltRounds = 10;
-import * as credentials from './private/credential';
+import * as credentials from '../private/credential';
 import { createCipher, createDecipher } from 'crypto';
 import * as crypto from 'crypto';
 import { resolve } from "path";

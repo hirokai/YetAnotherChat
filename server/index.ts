@@ -25,7 +25,7 @@ import * as ec from './error_codes';
 import multer from 'multer';
 import { fingerPrint } from '../common/common_model';
 // import chalk from 'chalk';
-import * as mail_algo from './mail_algo'
+import * as mail_algo from './model/mail_algo'
 
 const http = require('http').createServer(app);
 
