@@ -15,7 +15,6 @@ import * as _ from 'lodash';
 import { uniq, includes, keyBy, map } from 'lodash';
 const path = require('path');
 const sqlite3 = require('sqlite3');
-const db = new sqlite3.Database(path.join(__dirname, 'private/db.sqlite3'));
 // const model = require('./model');
 import * as fs from 'fs';
 const moment = require('moment');
@@ -26,6 +25,10 @@ import multer from 'multer';
 import { fingerPrint } from '../common/common_model';
 // import chalk from 'chalk';
 import * as mail_algo from './model/mail_algo'
+import * as utils from './model/utils'
+import { db } from './model/utils'
+
+utils.connectToDB();
 
 const http = require('http').createServer(app);
 
@@ -120,9 +123,6 @@ app.use(pretty({ query: 'pretty' }));
 
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.use(bodyParser.json());
-
-// db.run('drop table if exists comments;')
-db.run('create table  if not exists comments (user_id text, comment text, timestamp integer);')
 
 app.use(function (req: Request, res: MyResponse, next) {
     res.header("Access-Control-Allow-Origin", "*");

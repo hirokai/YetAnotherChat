@@ -8,7 +8,12 @@ import { createCipher, createDecipher } from 'crypto';
 shortid_.characters('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$_');
 export const shortid = shortid_.generate;
 
-export const db = new sqlite3.Database(path.join(__dirname, '../private/db.sqlite3'));
+export let db: sqlite3.Database;
+
+const default_database = path.join(__dirname, '../private/db.sqlite3');
+export function connectToDB(db_path: string = default_database) {
+    db = new sqlite3.Database(db_path);
+}
 
 function isFunction(functionToCheck) {
     return functionToCheck && {}.toString.call(functionToCheck) === '[object Function]';
@@ -34,19 +39,23 @@ export const db_ = {
             });
         }
     },
-    get_: db.get,
-    get: <T>(query: string, ...args: any[]): Promise<T[]> => {
+    get_: (query: string, ...rest) => {
+        db.get(query, rest);
+    },
+    get: <T>(query: string, ...args: any[]): Promise<T> => {
         return new Promise((resolve, reject) => {
-            db.all(query, args, (err, rows: T[]) => {
+            db.get(query, args, (err, row: T) => {
                 if (err) {
                     reject(err)
                 } else {
-                    resolve(rows);
+                    resolve(row);
                 }
             });
         });
     },
-    all_: db.all,
+    all_: (query: string, ...rest) => {
+        db.all(query, rest);
+    },
     all: <T>(query: string, ...args: any[]): Promise<T[]> => {
         return new Promise((resolve, reject) => {
             db.all(query, args, (err, rows) => {
@@ -58,8 +67,12 @@ export const db_ = {
             });
         });
     },
-    serialize: db.serialize,
-    close: db.close
+    serialize: (...rest) => {
+        db.serialize(...rest);
+    },
+    close: (...rest) => {
+        db.close(...rest);
+    }
 }
 
 export function cipher(plainText: string, password: string = credentials.cipher_secret) {

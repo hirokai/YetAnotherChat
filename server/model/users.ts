@@ -11,6 +11,7 @@ import crypto from 'crypto'
 
 import { fingerPrint } from '../../common/common_model'
 
+
 const saltRounds = 10;
 
 export async function get_socket_ids(user_id: string): Promise<string[]> {
@@ -21,7 +22,7 @@ export async function get_socket_ids(user_id: string): Promise<string[]> {
 export function save_socket_id(user_id: string, socket_id: string): Promise<{ ok: boolean, timestamp: number }> {
     return new Promise((resolve) => {
         const timestamp: number = new Date().getTime();
-        db.run('insert into user_connections (socket_id,user_id, timestamp) values (?,?,?);', socket_id, user_id, timestamp, (err) => {
+        db.run('insert into user_connections (socket_id,user_id,timestamp) values (?,?,?);', socket_id, user_id, timestamp, (err) => {
             const ok = !err;
             resolve({ ok: !err, timestamp: ok ? timestamp : null });
         });
@@ -29,14 +30,14 @@ export function save_socket_id(user_id: string, socket_id: string): Promise<{ ok
 }
 
 export async function get({ myself, user_id }: { myself: string, user_id: string }): Promise<User> {
-    const row = await db_.get<UserWithEmail>('select users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname from users join user_emails on users.id=user_emails.user_id where users.id=? group by users.id;', user_id);
-    if (row) {
-        const emails = (row['emails'] || '').split(',');
+    const row = await db_.get<UserWithEmail>("select users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profile_value from users join user_emails on users.id=user_emails.user_id join profiles as p on p.user_id=users.id where users.id=? and p.profile_name='avatar' group by users.id;", user_id);
+    if (row && row.id) {
+        const emails = row.emails ? row.emails.split(',') : [];
         const { publicKey } = await keys.get_public_key({ user_id, for_user: myself });
         const online_users = await list_online_users();
         const id = row['id']
         const online: boolean = includes(online_users, id);
-        return ({ username: row['name'], id, emails, avatar: "", fullname: row['fullname'], online, publicKey, timestamp: row['timestamp'] });
+        return ({ username: row.name, id, emails, avatar: row['profile_value'], fullname: row.fullname, online, publicKey, timestamp: row.timestamp });
     } else {
         return (null);
     }
@@ -183,20 +184,20 @@ export async function update(user_id: string, { username, fullname, email }: { u
 
 export async function save_password(user_id: string, password: string): Promise<boolean> {
     const hash = await bcrypt.hash(password, saltRounds);
-    const r = await new Promise<boolean>((resolve) => {
-        db.run('update users set password=? where id=?', hash, user_id, (err) => {
-            resolve(err == null);
-        });
-    });
-    return r;
-    // const res = await bcrypt.compare(password, hash);
-    // return res;
+    const r = await db_.get<{ id: string }>('select id from users where id=?;', user_id);
+    if (!r || !r.id) {
+        return false;
+    } else {
+        await db_.run('update users set password=? where id=?', hash, user_id);
+        return true;
+    }
 }
 
 interface UserWithEmail {
     id: string,
     name: string,
     fullname: string,
+    username: string,
     timestamp: number,
     emails: string
 }
@@ -206,7 +207,7 @@ export async function find_user_from_email({ myself, email }: { myself: string, 
         return null;
     } else {
         const { err, row } = await new Promise<{ err: any, row: UserWithEmail }>((resolve) => {
-            db.get('select users.timestamp,users.id,users.name,users.fullname,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id group by users.id having emails like ?;', '%' + email + '%', (err, row: UserWithEmail) => {
+            db.get('select users.timestamp,users.id,users.name,users.fullname,group_concat(distinct user_emails.email) as emails,profile_value from users join user_emails on users.id=user_emails.user_id join profiles on profiles.user_id=users.id group by users.id having emails like ?;', '%' + email + '%', (err, row: UserWithEmail) => {
                 resolve({ err, row })
             });
         });
@@ -216,7 +217,7 @@ export async function find_user_from_email({ myself, email }: { myself: string, 
             const online_users = await list_online_users();
             const online: boolean = includes(online_users, user_id);
             const emails = (row.emails || '').split(',');
-            return { username: row.name, fullname: row.fullname, id: user_id, emails, avatar: '', online, publicKey, timestamp: row.timestamp };
+            return { username: row.name, fullname: row.fullname, id: user_id, emails, avatar: row['profile_value'], online, publicKey, timestamp: row.timestamp };
         } else {
             return null;
         }
@@ -225,15 +226,15 @@ export async function find_user_from_email({ myself, email }: { myself: string, 
 
 export function find_from_username({ myself, username }: { myself: string, username: string }): Promise<User> {
     return new Promise((resolve) => {
-        db.get('select users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails from users join user_emails on users.id=user_emails.user_id where users.name=? group by users.id;', username, (err, row) => {
+        db.get("select users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails, profile_value from users join user_emails on users.id=user_emails.user_id join profiles on profiles.user_id=users.id where users.name=? and profiles.profile_name='avatar' group by users.id;", username, (err, row) => {
             if (row) {
                 console.log('find_user_from_username', row);
                 const user_id = row['id']
-                const emails = row['emails'].split(',');
+                const emails = row['emails'] ? row['emails'].split(',') : [];
                 get_public_key({ user_id, for_user: myself }).then(({ publicKey }) => {
                     list_online_users().then((online_users) => {
                         const online: boolean = includes(online_users, user_id);
-                        resolve({ username: row['name'], id: user_id, emails, avatar: "", fullname: row['fullname'], online, publicKey, timestamp: row['timestamp'] });
+                        resolve({ username: row['name'], id: user_id, emails, avatar: row['profile_value'], fullname: row['fullname'] || null, online, publicKey, timestamp: row['timestamp'] });
                     });
                 });
             } else {
@@ -262,7 +263,6 @@ export async function get_user_config(user_id: string): Promise<string[][]> {
 }
 
 export async function set_user_config(user_id: string, key: string, value: string): Promise<{ ok: boolean }> {
-    console.log('set_user_config', user_id, key, value);
     return new Promise((resolve) => {
         db.get('select * from user_configs where user_id=? and config_name=?;', user_id, key, (err, row) => {
             if (err) {
@@ -293,18 +293,23 @@ export async function set_user_config(user_id: string, key: string, value: strin
     });
 }
 
-export async function register({ username, password, email, fullname, source }: { username: string, password: string, email?: string, fullname?: string, source: string }): Promise<{ ok: boolean, user?: User, error?: string, error_code?: number }> {
+export async function register({ username, password, email, fullname = null, source }: { username: string, password: string, email?: string, fullname?: string, source: string }): Promise<{ ok: boolean, user?: User, error?: string, error_code?: number }> {
     const user_id = shortid();
     if (!username || !password) {
         return { ok: false, error: 'Username and password are required' };
+    } else if (username.length > 64 || password.length > 64) {
+        return { ok: false, error: 'Username or password is too long' };
     } else {
         if (username.indexOf('__') == 0) {
             return { ok: false, error: 'User name invalid.' };
         }
         const existing_user: User = await find_from_username({ myself: user_id, username });
+        const existing_user2: User = await find_user_from_email({ myself: user_id, email });
         return new Promise((resolve) => {
             if (existing_user) {
                 resolve({ ok: false, error_code: error_code.USER_EXISTS, error: 'User name already exists' });
+            } else if (existing_user2) {
+                resolve({ ok: false, error_code: error_code.USER_EXISTS, error: 'User email already exists' });
             } else {
                 bcrypt.hash(password, saltRounds, function (err, hash) {
                     if (err) {
@@ -359,7 +364,6 @@ export async function get_local_db_password(user_id: string): Promise<string> {
                     });
 
                 });
-                resolve(null);
             }
         });
     });
@@ -394,7 +398,7 @@ function choose_avatar(username: string): string {
 
 export async function get_profile(user_id: string): Promise<{ [key: string]: string }> {
     return new Promise((resolve) => {
-        db.all('select * from profiles where user_id=?', user_id, (err, rows) => {
+        db.all('select * from profiles where user_id=?;', user_id, (err, rows) => {
             const obj: { [key: string]: string } = {};
             rows.forEach((row) => {
                 obj[row['profile_name']] = row['profile_value'];
@@ -420,8 +424,7 @@ export async function get_profiles(): Promise<{ [key: string]: { [key: string]: 
     });
 }
 
-export async function set_profile(user_id: string, key: string, value: string) {
-    console.log('set_profile', user_id, key, value);
+export async function set_profile(user_id: string, key: string, value: string): Promise<boolean> {
     return new Promise((resolve) => {
         db.get('select * from profiles where user_id=? and profile_name=?;', user_id, key, (err, row) => {
             if (err) {
