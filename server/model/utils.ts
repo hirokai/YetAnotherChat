@@ -3,8 +3,7 @@ import path from 'path'
 import sqlite3 from 'sqlite3'
 import * as CryptoJS from "crypto-js";
 import * as credentials from '../private/credential';
-import { resolve } from 'url';
-import { reject } from 'lodash-es';
+import { createCipher, createDecipher } from 'crypto';
 
 shortid_.characters('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$_');
 export const shortid = shortid_.generate;
@@ -65,6 +64,33 @@ export const db_ = {
 
 export function cipher(plainText: string, password: string = credentials.cipher_secret) {
     try {
+        var cipher = createCipher('aes192', password);
+        var cipheredText = cipher.update(plainText, 'utf8', 'hex');
+        cipheredText += cipher.final('hex');
+        // console.log('ciphered length', cipheredText.length);
+        return cipheredText;
+
+    } catch (e) {
+        console.log(e, plainText);
+        return null;
+    }
+}
+
+export function decipher(cipheredText: string, password: string = credentials.cipher_secret) {
+    try {
+        var decipher = createDecipher('aes192', password);
+        var dec = decipher.update(cipheredText, 'hex', 'utf8');
+        dec += decipher.final('utf8');
+        // console.log('deciphered length', dec.length);
+        return dec;
+    } catch (e) {
+        console.log(e, cipheredText);
+        return null;
+    }
+}
+
+export function cipher2(plainText: string, password: string = credentials.cipher_secret) {
+    try {
         var cipheredText: string = CryptoJS.AES.encrypt(plainText, password).toString();
         return cipheredText;
     } catch (e) {
@@ -73,7 +99,7 @@ export function cipher(plainText: string, password: string = credentials.cipher_
     }
 }
 
-export function decipher(cipheredText: string, password: string = credentials.cipher_secret) {
+export function decipher2(cipheredText: string, password: string = credentials.cipher_secret) {
     try {
         var bytes = CryptoJS.AES.decrypt(cipheredText, password);
         var depheredText = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
