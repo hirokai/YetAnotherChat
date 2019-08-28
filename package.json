@@ -47,12 +47,14 @@
     "deploy": "gcloud app deploy",
     "start": "npx ts-node server/index.ts",
     "forever": "sudo PORT=80 forever -c node ./server/index.js",
-    "forever:nohup": "nohup sudo PORT=80 forever -c node ./server/index.js &"
+    "forever:nohup": "nohup sudo PORT=80 forever -c node ./server/index.js &",
+    "test": "jest"
   },
   "devDependencies": {
     "@types/axios": "^0.14.0",
     "@types/bcrypt": "^3.0.0",
     "@types/express": "^4.17.0",
+    "@types/jest": "^24.0.18",
     "@types/jquery": "^3.3.30",
     "@types/lodash": "^4.14.136",
     "@types/lodash-es": "^4.17.3",
@@ -67,10 +69,12 @@
     "eslint": "^6.1.0",
     "eslint-config-prettier": "^6.0.0",
     "eslint-plugin-prettier": "^3.1.0",
+    "jest": "^24.9.0",
     "nodemon": "^1.19.1",
     "prettier": "^1.18.2",
     "style-loader": "^0.23.1",
     "terser-webpack-plugin": "^1.4.1",
+    "ts-jest": "^24.0.2",
     "ts-loader": "^6.0.4",
     "ts-node-dev": "^1.0.0-pre.40",
     "uglify-js": "^3.6.0",

@@ -102,7 +102,7 @@ export function cipher2(plainText: string, password: string = credentials.cipher
 export function decipher2(cipheredText: string, password: string = credentials.cipher_secret) {
     try {
         var bytes = CryptoJS.AES.decrypt(cipheredText, password);
-        var depheredText = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+        var depheredText = bytes.toString(CryptoJS.enc.Utf8);
         return depheredText;
     } catch (e) {
         console.log(e, cipheredText);
