@@ -34,7 +34,7 @@
     "socket.io-client": "^2.2.0",
     "sqlite3": "^4.0.9",
     "ts-node": "^8.3.0",
-    "typescript": "^3.5.3",
+    "typescript": "^3.6.2",
     "ulid": "^2.3.0",
     "web3": "^1.2.1"
   },
@@ -48,7 +48,7 @@
     "start": "npx ts-node server/index.ts",
     "forever": "sudo PORT=80 forever -c node ./server/index.js",
     "forever:nohup": "nohup sudo PORT=80 forever -c node ./server/index.js &",
-    "test": "jest"
+    "test": "npx jest"
   },
   "devDependencies": {
     "@types/axios": "^0.14.0",
@@ -79,8 +79,8 @@
     "ts-loader": "^6.0.4",
     "ts-node-dev": "^1.0.0-pre.40",
     "uglify-js": "^3.6.0",
-    "webpack": "^4.38.0",
+    "webpack": "^4.39.3",
     "webpack-bundle-analyzer": "^3.3.2",
-    "webpack-cli": "^3.3.6"
+    "webpack-cli": "^3.3.7"
   }
 }
