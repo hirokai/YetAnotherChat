@@ -1,6 +1,4 @@
-const path = require('path');
-const sqlite3 = require('sqlite3');
-const db = new sqlite3.Database(path.join(__dirname, '../server/private/db.sqlite3'));
+import { db } from '../server/model/utils'
 import * as _ from 'lodash';
 import * as model from '../server/model';
 
@@ -25,7 +23,7 @@ db.all("select group_concat(user_id),email,group_concat(users.name,'####'),group
                 return { id, username, fullname };
             });
             console.log(users);
-            model.merge_users(db, users);
+            model.users.merge(db, users);
         }
     });
 });

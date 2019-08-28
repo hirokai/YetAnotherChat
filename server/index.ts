@@ -193,7 +193,7 @@ app.post('/api/register', (req, res: JsonResponse<RegisterResponse>) => {
             res.json({ ok: false, error: 'User name and password are required.' });
             return;
         }
-        const r1 = await model.register_user({ username, password, email, fullname, source: 'self_register' });
+        const r1 = await model.users.register({ username, password, email, fullname, source: 'self_register' });
         if (r1 == null) {
             res.json({ ok: false });
         } else {
@@ -202,7 +202,7 @@ app.post('/api/register', (req, res: JsonResponse<RegisterResponse>) => {
                 res.json({ ok: false, error: error_code == ec.USER_EXISTS ? 'User already exists' : error, error_code });
                 return;
             }
-            const r: boolean = await model.save_password(user.id, password);
+            const r: boolean = await model.users.save_password(user.id, password);
             if (!r) {
                 res.json({ ok: false, error: 'Password save error' });
                 return;
@@ -210,7 +210,7 @@ app.post('/api/register', (req, res: JsonResponse<RegisterResponse>) => {
             const token = jwt.sign({ username, user_id: user.id }, credential.jwt_secret, { expiresIn: 604800 });
             jwt.verify(token, credential.jwt_secret, function (err, decoded) {
                 if (!err) {
-                    model.get_local_db_password(user.id).then((local_db_password) => {
+                    model.users.get_local_db_password(user.id).then((local_db_password) => {
                         res.json({ ok: true, token, decoded, local_db_password });
                         const obj: UsersNewSocket = {
                             __type: 'users.new',
@@ -238,15 +238,15 @@ app.post('/webhook/mailgun', multer().none(), (req, res) => {
 app.post('/api/login', (req: MyPostRequest<LoginParams>, res) => {
     const { username, password } = req.body;
     console.log({ username, password })
-    model.passwordMatch(null, username, password).then((matched) => {
+    model.users.match_password(null, username, password).then((matched) => {
         if (matched) {
             console.log("login ok", username, password);
-            model.find_user_from_username({ myself: null, username }).then((user) => {
+            model.users.find_from_username({ myself: null, username }).then((user) => {
                 if (user != null) {
                     console.log('find_user_from_username', user);
                     const token = jwt.sign({ username, user_id: user.id }, credential.jwt_secret, { expiresIn: 604800 });
                     jwt.verify(token, credential.jwt_secret, function (err, decoded) {
-                        model.get_local_db_password(user.id).then((local_db_password) => {
+                        model.users.get_local_db_password(user.id).then((local_db_password) => {
                             res.json({ ok: true, token, decoded, local_db_password });
                         });
                     });
@@ -266,7 +266,7 @@ app.get('/api/verify_token', (req, res) => {
         if (err) {
             res.status(200).json({ valid: false });
         } else {
-            model.get_user({ myself: decoded.user_id, user_id: decoded.user_id }).then((user) => {
+            model.users.get({ myself: decoded.user_id, user_id: decoded.user_id }).then((user) => {
                 if (user) {
                     req.decoded = decoded;
                     res.status(200).json({ valid: true, decoded });
@@ -328,13 +328,13 @@ app.get('/api/matrix', (req, res) => {
 });
 
 app.get('/api/users', (req: GetAuthRequest, res: JsonResponse<GetUsersResponse>) => {
-    model.list_users(req.decoded.user_id).then(users => {
+    model.users.list(req.decoded.user_id).then(users => {
         res.json({ ok: true, data: { users } });
     });
 });
 
 app.get('/api/users/:id', (req, res: JsonResponse<GetUserResponse>) => {
-    model.get_user(req.params.id).then((user: User) => {
+    model.users.get(req.params.id).then((user: User) => {
         res.json({ ok: true, data: { user } });
     });
 });
@@ -346,7 +346,7 @@ app.patch('/api/users/:id', (req: MyPostRequest<UpdateUserData>, res: JsonRespon
         const fullname = req.body.fullname;
         const email = req.body.email;
         const timestamp = new Date().getTime();
-        model.update_user(user_id, { username, fullname, email }).then((user: User) => {
+        model.users.update(user_id, { username, fullname, email }).then((user: User) => {
             const obj: UsersUpdateSocket = {
                 __type: 'users.update',
                 action: 'user',
@@ -366,7 +366,7 @@ app.patch('/api/users/:id', (req: MyPostRequest<UpdateUserData>, res: JsonRespon
 app.get('/api/users/all/profiles', (req, res: JsonResponse<GetProfilesResponse>) => {
     const user_id = req.decoded.user_id;
     console.log('get_profiles');
-    model.get_profiles().then((data) => {
+    model.users.get_profiles().then((data) => {
         const obj: GetProfilesResponse = {
             ok: data != null,
             user_id,
@@ -378,7 +378,7 @@ app.get('/api/users/all/profiles', (req, res: JsonResponse<GetProfilesResponse>)
 
 app.get('/api/users/:id/profiles', (req, res: JsonResponse<GetProfileResponse>) => {
     const user_id = req.decoded.user_id;
-    model.get_profile(user_id).then((data) => {
+    model.users.get_profile(user_id).then((data) => {
         const obj: GetProfileResponse = {
             ok: data != null,
             user_id,
@@ -393,10 +393,10 @@ app.patch('/api/users/:id/profiles', (req: MyPostRequest<UpdateProfileData>, res
     const user_id = req.decoded.user_id;
     const profile = req.body.profile;
     const ps = map(profile, (v, k) => {
-        return model.set_profile(user_id, k, v);
+        return model.users.set_profile(user_id, k, v);
     });
     Promise.all(ps).then(() => {
-        model.get_profile(user_id).then((profile) => {
+        model.users.get_profile(user_id).then((profile) => {
             const timestamp = new Date().getTime();
             const obj: UsersUpdateSocket = {
                 __type: 'users.update',
@@ -413,7 +413,7 @@ app.patch('/api/users/:id/profiles', (req: MyPostRequest<UpdateProfileData>, res
 
 app.get('/api/users/:id/comments', (req, res: JsonResponse<GetCommentsResponse>) => {
     const user_id = req.decoded.user_id
-    model.list_comments(user_id, null, user_id).then((comments) => {
+    model.sessions.list_comments(user_id, null, user_id).then((comments) => {
         res.json({ ok: true, data: comments });
     });
 });
@@ -473,7 +473,7 @@ app.get('/api/comments_by_date_user', (req, res) => {
 });
 
 app.get('/api/sessions/:id', (req, res: JsonResponse<GetSessionResponse>) => {
-    model.get_session_info(req.params.id).then((data) => {
+    model.sessions.get(req.params.id).then((data) => {
         if (data) {
             res.json({ ok: true, data });
         } else {
@@ -515,20 +515,19 @@ app.delete('/api/comments/:id', (req: GetAuthRequest, res: JsonResponse<DeleteCo
 });
 
 app.patch('/api/sessions/:id', (req, res: JsonResponse<PatchSessionResponse>) => {
-    const id = req.params.id;
+    const session_id = req.params.id;
     const { name, members } = req.body;
     console.log(name, members);
-    const timestamp = new Date().getTime();
-    db.run('update sessions set name=? where id=?;', model.cipher(name), id, () => {
-        res.json({ ok: true });
+    model.sessions.update({ session_id, name }).then(({ ok, timestamp }) => {
         const data: SessionsUpdateSocket = {
             __type: 'sessions.update',
-            id,
+            id: session_id,
             name,
             timestamp
         };
         io.emit('sessions.update', data);
-    });
+        res.json({ ok });
+    })
 });
 
 app.delete('/api/sessions/:id', (req, res: JsonResponse<CommentsDeleteResponse>) => {
@@ -556,7 +555,7 @@ app.get('/api/sessions', (req: GetAuthRequest, res: JsonResponse<GetSessionsResp
     const of_members: string[] = ms ? ms.split(",") : undefined;
     const is_all: boolean = !(typeof req.query.is_all === 'undefined');
     const user_id: string = req.decoded.user_id;
-    model.get_session_list({ user_id, of_members, is_all }).then((r: RoomInfo[]) => {
+    model.sessions.get_session_list({ user_id, of_members, is_all }).then((r: RoomInfo[]) => {
         res.json({ ok: true, data: r });
     })
 });
@@ -581,7 +580,7 @@ app.post('/api/sessions', (req: PostRequest<PostSessionsParam>, res: JsonRespons
     const temporary_id = body.temporary_id;
     (async () => {
         if (name && members) {
-            const data = await model.create_new_session(name, members);
+            const data = await model.sessions.create(name, members);
             if (file_id) {
                 await model.post_file_to_session(data.id, req.decoded.user_id, file_id);
             }
@@ -592,7 +591,7 @@ app.post('/api/sessions', (req: PostRequest<PostSessionsParam>, res: JsonRespons
             };
             io.emit("sessions.new", obj);
             _.map(members, async (m: string) => {
-                const socket_ids: string[] = await model.getSocketIds(m);
+                const socket_ids: string[] = await model.users.get_socket_ids(m);
                 console.log('emitting to', socket_ids);
                 socket_ids.forEach(socket_id => {
 
@@ -628,16 +627,9 @@ app.get('/api/sessions/:session_id/comments', (req: GetAuthRequest1<GetCommentsP
         const session_id = req.params.session_id;
         const by_user = req.query.by_user;
         const after = req.query.after;
-        const comments: ChatEntry[] = await model.list_comments(req.decoded.user_id, session_id, by_user, after);
+        const comments: ChatEntry[] = await model.sessions.list_comments(req.decoded.user_id, session_id, by_user, after);
         res.json({ ok: comments != null, data: comments });
     })().catch(next);
-});
-
-app.get('/api/sent_email', (req, res) => {
-    model.get_sent_mail(req.query.q).then((data) => {
-        res.header("Content-Type", "application/json; charset=utf-8");
-        res.json(data);
-    });
 });
 
 app.post('/api/join_session', (req: PostRequest<JoinSessionParam>, res: JsonResponse<JoinSessionResponse>, next) => {
@@ -646,20 +638,20 @@ app.post('/api/join_session', (req: PostRequest<JoinSessionParam>, res: JsonResp
         const myself = req.decoded.user_id;
         const source = 'manual';
         const timestamp = new Date().getTime();
-        const r: JoinSessionResponse = await model.join_session({ session_id, user_id: req.decoded.user_id, source, timestamp });
+        const r: JoinSessionResponse = await model.sessions.join({ session_id, user_id: req.decoded.user_id, source, timestamp });
         res.json(r);
         if (r.ok) {
             _.map(r.data.members.concat([myself]), async (m: string) => {
-                const socket_ids: string[] = await model.getSocketIds(m);
+                const socket_ids: string[] = await model.users.get_socket_ids(m);
                 const data1 = { session_id, user_id: myself };
                 socket_ids.forEach(socket_id => {
                     io.to(socket_id).emit("message", _.extend({}, { __type: "new_member" }, data1));
                 })
             });
-            const socket_ids_newmember: string[] = await model.getSocketIds(myself);
+            const socket_ids_newmember: string[] = await model.users.get_socket_ids(myself);
             console.log('emitting to new member', socket_ids_newmember);
 
-            const data2: RoomInfo = await model.get_session_info(session_id);
+            const data2: RoomInfo = await model.sessions.get(session_id);
             socket_ids_newmember.forEach(socket_id => {
                 io.to(socket_id).emit("message", _.extend({}, { __type: "new_session" }, data2));
             });
@@ -678,7 +670,7 @@ app.post('/api/sessions/:session_id/comments', (req: MyPostRequest<PostCommentDa
         console.log('/api/comments');
 
         if (encrypt == 'ecdh.v1' || encrypt == 'none') {
-            const rs = await model.post_comment_for_session_members(user_id, session_id, timestamp, comments, encrypt);
+            const rs = await model.sessions.post_comment_for_session_members(user_id, session_id, timestamp, comments, encrypt);
             res.json({ ok: true });
             for (let r of rs) {
                 const { data: d, for_user, ok, error } = r;
@@ -689,7 +681,7 @@ app.post('/api/sessions/:session_id/comments', (req: MyPostRequest<PostCommentDa
                         temporary_id,
                         entry: d
                     };
-                    const socket_ids = await model.getSocketIds(for_user);
+                    const socket_ids = await model.users.get_socket_ids(for_user);
                     console.log('Emitting comments.new', obj);
                     for (let sid of socket_ids) {
                         io.to(sid).emit("comments.new", obj);
@@ -703,7 +695,7 @@ app.post('/api/sessions/:session_id/comments', (req: MyPostRequest<PostCommentDa
 });
 
 app.get('/api/files', (req, res) => {
-    model.list_user_files(req.query.kind).then((files) => {
+    model.files.list_user_files(req.query.kind).then((files) => {
         res.json({ ok: true, files: files });
     });
 });
@@ -713,7 +705,7 @@ app.post('/api/files', (req, res) => {
         const { kind, session_id } = req.query;
         console.log('/api/files', err, req.file);
         if (!err) {
-            model.save_user_file(req.decoded.user_id, req.file.path, kind, session_id).then(({ file_id }) => {
+            model.files.save_user_file(req.decoded.user_id, req.file.path, kind, session_id).then(({ file_id }) => {
                 console.log('save_user_file done', file_id)
                 const file = {
                     path: '/' + req.file.path,
@@ -734,7 +726,7 @@ app.patch('/api/files/:id', (req, res: JsonResponse<PostFileResponse>) => {
     upload(req, <any>res, function (err) {
         console.log('/api/files', err, req.file);
         if (!err) {
-            model.update_user_file(req.decoded.user_id, req.params.id, req.file.path).then((r) => {
+            model.files.update_user_file(req.decoded.user_id, req.params.id, req.file.path).then((r) => {
                 if (r != null) {
                     const data: PostFileResponseData = {
                         path: '/' + req.file.path,
@@ -757,7 +749,7 @@ app.delete('/api/files/:id', (req: DeleteRequest<DeleteFileRequestParam, DeleteF
     console.log('delete comment');
     const file_id = req.params.id;
     const user_id = req.body.user_id;
-    model.delete_file({ user_id, file_id }).then((r) => {
+    model.files.delete_file({ user_id, file_id }).then((r) => {
         res.json(r);
         if (r.ok) {
             const obj: FilesDeleteSocket = {
@@ -770,7 +762,7 @@ app.delete('/api/files/:id', (req: DeleteRequest<DeleteFileRequestParam, DeleteF
 
 app.get('/api/private_key', (req, res) => {
     const user_id = req.decoded.user_id;
-    model.get_private_key(user_id).then(({ ok, privateKey }) => {
+    model.keys.get_private_key(user_id).then(({ ok, privateKey }) => {
         res.json({ ok, privateKey });
     })
 });
@@ -778,20 +770,20 @@ app.get('/api/private_key', (req, res) => {
 app.post('/api/private_key', (req, res: JsonResponse<PostPrivateKeyResponse>) => {
     const user_id = req.decoded.user_id;
     const private_key: JsonWebKey = req.body.private_key;
-    model.temporarily_store_private_key(user_id, private_key).then((ok) => {
+    model.keys.temporarily_store_private_key(user_id, private_key).then((ok) => {
         res.json({ ok });
     })
 });
 
 //Periodically remove old IDs.
 setInterval(async () => {
-    await model.remove_old_temporary_private_key();
+    await model.keys.remove_old_temporary_private_key();
 }, 10000);
 
 app.get('/api/public_keys/me', (req: GetAuthRequest, res: JsonResponse<GetPublicKeysResponse>) => {
     const user_id = req.decoded.user_id;
     const for_user = req.query.for_user || user_id;
-    model.get_public_key({ user_id, for_user }).then(({ publicKey: pub, prv_fingerprint }) => {
+    model.keys.get_public_key({ user_id, for_user }).then(({ publicKey: pub, prv_fingerprint }) => {
         res.json({ ok: pub != null, publicKey: pub, privateKeyFingerprint: prv_fingerprint });
     });
 });
@@ -801,7 +793,7 @@ app.post('/api/public_keys', (req: MyPostRequest<PostPublicKeyParams>, res) => {
     const jwk = req.body.publicKey;
     const for_user = req.body.for_user;
     const privateKeyFingerprint = req.body.privateKeyFingerprint;
-    model.register_public_key({ user_id, for_user, jwk, privateKeyFingerprint }).then(({ ok, timestamp }) => {
+    model.keys.register_public_key({ user_id, for_user, jwk, privateKeyFingerprint }).then(({ ok, timestamp }) => {
         res.json({ ok, timestamp });
         if (ok) {
             const obj: UsersUpdateSocket = { __type: "users.update", action: 'public_key', user_id, timestamp, public_key: jwk };
@@ -811,7 +803,7 @@ app.post('/api/public_keys', (req: MyPostRequest<PostPublicKeyParams>, res) => {
 });
 
 app.get('/api/config', (req: GetAuthRequest, res: JsonResponse<GetConfigResponse>) => {
-    model.get_user_config(req.decoded.user_id).then((configs) => {
+    model.users.get_user_config(req.decoded.user_id).then((configs) => {
         res.json({ ok: true, data: configs });
     });
 });
@@ -819,7 +811,7 @@ app.get('/api/config', (req: GetAuthRequest, res: JsonResponse<GetConfigResponse
 app.post('/api/config', (req: MyPostRequest<PostConfigData>, res) => {
     const key = req.body.key;
     const value = req.body.value;
-    model.set_user_config(req.decoded.user_id, key, value).then((r) => {
+    model.users.set_user_config(req.decoded.user_id, key, value).then((r) => {
         res.json(r);
     });
 });
@@ -851,8 +843,8 @@ io.on('connection', function (socket: SocketIO.Socket) {
         jwt.verify(token, credential.jwt_secret, function (err, decoded) {
             if (decoded) {
                 const user_id = decoded.user_id;
-                model.list_online_users().then((previous) => {
-                    model.saveSocketId(user_id, socket.id).then((r) => {
+                model.users.list_online_users().then((previous) => {
+                    model.users.save_socket_id(user_id, socket.id).then((r) => {
                         console.log('saveSocketId', r, 'socket id', user_id, socket.id)
                         console.log('Online users:', previous, user_id)
                         if (!includes(previous, user_id)) {

@@ -13,11 +13,12 @@ import io from "socket.io-client";
 import { Model, processData } from './model';
 import * as crypto from './model/cryptography';
 import * as video from './video';
-require('moment/locale/ja');
+import 'moment/locale/ja'
 moment.locale('ja');
 
-const shortid = require('shortid').generate;
-
+import * as shortid_ from 'shortid';
+shortid_.characters('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$_');
+const shortid = shortid_.generate;
 
 const token: string = localStorage.getItem('yacht.token') || "";
 const user_id: string = localStorage['yacht.user_id'] || "";

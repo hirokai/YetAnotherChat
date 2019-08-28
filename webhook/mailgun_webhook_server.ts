@@ -5,17 +5,14 @@ const express = require('express');
 const app = express();
 const fs = require('fs');
 const multer = require('multer');
-import * as mail_algo from '../server/mail_algo';
+import * as mail_algo from '../server/model/mail_algo';
 import * as model from '../server/model';
-const path = require('path');
-const sqlite3 = require('sqlite3');
-const db = new sqlite3.Database(path.join(__dirname, '../server/private/db.sqlite3'));
+import { db } from '../server/model/utils'
 import * as _ from 'lodash';
 import axios from 'axios';
 const bodyParser = require("body-parser");
 import * as credential from '../server/private/credential';
 import request from 'request';
-import Axios from 'axios';
 const shortid_ = require('shortid');
 shortid_.characters('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$_');
 const shortid = shortid_.generate;
@@ -59,8 +56,11 @@ app.post('/slack_endpoint', (req, res) => {
             const comment = msg.text;
             const timestamp = Math.floor(timestamp_us * 1000);
             console.log({ id, session_id, user_id, timestamp, comment });
-            const url = 'slack://channel?team=' + event.team + '&id=' + channel + '&message_ts=' + timestamp_us
-            model.post_comment(user_id, session_id, timestamp, comment, url, "", "slack:channel:" + channel).then((r) => {
+            const url = 'slack://channel?team=' + event.team + '&id=' + channel + '&message_ts=' + timestamp_us;
+            return; //Stub
+            /*
+            const rs = await model.sessions.post_comment_for_session_members(user_id, session_id, timestamp, comments, encrypt);
+            model.sessions.post_comment({ user_id, session_id, timestamp, comment, url, "", "slack:channel:" + channel }).then((r) => {
                 if (r.data) {
                     const obj = _.extend({}, { __type: "new_comment", temporary_id: "" }, r.data);
                     axios.post('http://localhost:3000/internal/emit_socket', obj).then((r2) => {
@@ -68,8 +68,7 @@ app.post('/slack_endpoint', (req, res) => {
                     });
                 }
             })
-
-            // db.run('insert into comments (id,session_id,user_id,timestamp,comment) values (?,?,?,?,?)', id, session_id, user_id, timestamp, model.cipher(comment));
+            */
         }
     });
 })

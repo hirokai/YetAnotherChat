@@ -1,9 +1,7 @@
-import { update_db_on_mailgun_webhook } from '../server/mail_algo';
+import { update_db_on_mailgun_webhook } from '../server/model/mail_algo';
 import * as fs from 'fs';
 
-const path = require('path');
-const sqlite3 = require('sqlite3');
-const db = new sqlite3.Database(path.join(__dirname, '../server/private/db.sqlite3'));
+import { db } from '../server/model/utils'
 
 const filename = process.argv[2];
 

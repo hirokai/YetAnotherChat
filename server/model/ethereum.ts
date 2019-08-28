@@ -1,6 +1,5 @@
-const Web3 = require('web3');
+import Web3 from 'web3';
 import fs from 'fs';
-import * as credential from '../private/credential'
 const abi = JSON.parse(fs.readFileSync('./server/HashStorage3.json', 'utf8')).abi;
 import * as crypto from 'crypto';
 
@@ -24,7 +23,7 @@ export async function add_to_ethereum(net: Ethereum, user_id: string, timestamp:
         const gasLimit = 400000;
         const gasPrice = 1e9;
         console.log('Adding fingerprint to ethereum with gas limit and gas price', gasLimit, gasPrice / 1e9, user_id, hash);
-        myContract.methods.add(user_id_hash, timestamp, hash).send({ from: net.account, gas: gasLimit, gasPrice }).then((e, r) => {
+        myContract.methods.add(user_id_hash, timestamp, hash).send({ from: net.account, gas: gasLimit, gasPrice }).then((r) => {
             // console.log('set() result', e, r);
             resolve(r);
         })

@@ -1,4 +1,4 @@
-var crypto = require("crypto");
+import * as crypto from "crypto";
 
 // https://stackoverflow.com/a/42590106
 // Extended for private key

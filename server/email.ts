@@ -1,8 +1,6 @@
 /// <reference path="../common/types.d.ts" />
 
-const path = require('path');
-const sqlite3 = require('sqlite3');
-const db = new sqlite3.Database(path.join(__dirname, './private/db.sqlite3'));
+import { db } from '../server/model/utils'
 import * as model from './model';
 import * as credentials from './private/credential';
 import { find, map, includes, compact } from 'lodash';
@@ -52,9 +50,9 @@ function send_email({ subject, to: tos, from, content }: { subject: string, to: 
 //     .catch(err => console.log(err)); // logs any error
 
 export async function send_emails_to_session_members({ session_id, user_id, comment }: { session_id: string, user_id: string, comment: string }): Promise<void> {
-    const session = await model.get_session_info(session_id);
-    const online_users = await model.list_online_users();
-    const members = await model.get_members({ myself: user_id, session_id });
+    const session = await model.sessions.get(session_id);
+    const online_users = await model.users.list_online_users();
+    const members = await model.sessions.get_members({ myself: user_id, session_id });
     const from: User = find(members, (m => m.id == user_id));
     if (from != null) {
         send_email({ subject: 'Re: ' + session.name, to: members, from, content: comment });
