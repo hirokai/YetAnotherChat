@@ -1,4 +1,5 @@
 /// <reference path="../../common/types.d.ts" />
+/// <reference path="./types.d.ts" />
 
 import * as fs from "fs";
 const path = require('path');

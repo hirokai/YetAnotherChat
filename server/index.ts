@@ -263,7 +263,7 @@ app.post('/api/login', (req: MyPostRequest<LoginParams>, res, next) => {
         const matched = await model.users.match_password(null, username, password);
         if (matched) {
             console.log("login ok", username, password);
-            const user = await model.users.find_from_username({ myself: null, username });
+            const user = await model.users.find_from_username(username);
             if (user != null) {
                 console.log('find_user_from_username', user);
                 const token = jwt.sign({ username, user_id: user.id }, credential.jwt_secret, { expiresIn: 604800 });
@@ -302,7 +302,7 @@ app.get('/api/verify_token', (req, res, next) => {
         if (decoded == null) {
             res.status(200).json({ valid: false });
         } else {
-            const user = await model.users.get({ myself: decoded.user_id, user_id: decoded.user_id });
+            const user = await model.users.get(decoded.user_id);
             if (user) {
                 req.decoded = decoded;
                 res.status(200).json({ valid: true, decoded });
@@ -636,7 +636,10 @@ app.post('/api/sessions/:session_id/comments', (req: MyPostRequest<PostCommentDa
         console.log('/api/comments');
 
         if (encrypt == 'ecdh.v1' || encrypt == 'none') {
-            const rs = await model.sessions.post_comment_for_session_members(user_id, session_id, timestamp, comments, encrypt);
+            const p: PostCommentModelParams = {
+                user_id, session_id, timestamp, comments, encrypt
+            }
+            const rs = await model.sessions.post_comment(p);
             res.json({ ok: true });
             for (let r of rs) {
                 const { data: d, for_user, ok, error } = r;
@@ -758,8 +761,7 @@ setInterval(async () => {
 app.get('/api/public_keys/me', (req: GetAuthRequest, res: JsonResponse<GetPublicKeysResponse>, next) => {
     (async () => {
         const user_id = req.decoded.user_id;
-        const for_user = req.query.for_user || user_id;
-        const { publicKey: pub, prv_fingerprint } = await model.keys.get_public_key({ user_id, for_user });
+        const { publicKey: pub, prv_fingerprint } = await model.keys.get_public_key(user_id);
         res.json({ ok: pub != null, publicKey: pub, privateKeyFingerprint: prv_fingerprint });
     })().catch(next);
 });

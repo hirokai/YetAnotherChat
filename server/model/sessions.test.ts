@@ -43,7 +43,7 @@ describe('Sessions', () => {
         var ss = await sessions.get_session_list({ user_id: myself.id, of_members: [], is_all: false });
         expect(ss).toHaveLength(1)
         s = await sessions.create(random_str(30), [myself.id]);
-        const ms = await sessions.get_member_ids({ session_id: s.id });
+        const ms = await sessions.get_member_ids({ myself: myself.id, session_id: s.id });
         expect(ms).toContain(myself.id);
         ss = await sessions.get_session_list({ user_id: myself.id, of_members: [], is_all: false });
         expect(ss).toHaveLength(2)
@@ -64,7 +64,17 @@ describe('Sessions', () => {
 
         var timestamp = new Date().getTime();
         const comments = _.map([myself.id], (uid) => { return { for_user: uid, content: 'Hoge' } });
-        const ms = await sessions.post_comment_for_session_members(myself.id, s.id, timestamp, comments, 'none');
+        const p: PostCommentModelParams = {
+            user_id: myself.id,
+            session_id: s.id,
+            timestamp,
+            encrypt: 'none',
+            comments: [{
+                for_user: myself.id,
+                content: random_str(16),
+            }]
+        }
+        const ms = await sessions.post_comment(p);
 
         const r1 = await sessions.delete_session(s.id);
         expect(r1).toBe(true);
@@ -92,7 +102,14 @@ describe('Sessions', () => {
         var s = await sessions.create(random_str(30), [myself.id]);
         var timestamp = new Date().getTime();
         const comments = _.map([myself.id], (uid) => { return { for_user: uid, content: 'Hoge' } });
-        const ms = await sessions.post_comment_for_session_members(myself.id, s.id, timestamp, comments, 'none');
+        const p: PostCommentModelParams = {
+            user_id: myself.id,
+            session_id: s.id,
+            timestamp,
+            encrypt: 'none',
+            comments
+        }
+        const ms = await sessions.post_comment(p);
         const cs = await sessions.list_comments(myself.id, s.id);
         expect(cs).toHaveLength(1);
         done();
@@ -103,7 +120,14 @@ describe('Sessions', () => {
         var s = await sessions.create(random_str(30), [myself.id]);
         var timestamp = new Date().getTime();
         const comments = _.map([myself.id], (uid) => { return { for_user: uid, content: 'Hoge' } });
-        const cs = await sessions.post_comment_for_session_members(myself.id, s.id, timestamp, comments, 'none');
+        const p: PostCommentModelParams = {
+            user_id: myself.id,
+            session_id: s.id,
+            timestamp,
+            encrypt: 'none',
+            comments
+        }
+        const cs = await sessions.post_comment(p);
         const r = await sessions.delete_comment(myself.id, cs[0].data.id);
         expect(r.ok).toBe(true);
         const cs2 = await sessions.list_comments(myself.id, s.id);

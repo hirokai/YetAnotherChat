@@ -1,3 +1,5 @@
+/// <reference path="./types.d.ts" />
+
 import { db, shortid, cipher, decipher, db_ } from './utils'
 import * as users from './users'
 import { get_public_key } from './keys'
@@ -16,9 +18,9 @@ export async function delete_session(id: string) {
 }
 
 export async function get_members({ myself, session_id, only_registered = true }: { myself: string, session_id: string, only_registered?: boolean }): Promise<User[]> {
-    const ids = await get_member_ids({ session_id, only_registered });
+    const ids = await get_member_ids({ myself, session_id, only_registered });
     return await Promise.all(map(ids, (user_id: string) => {
-        return users.get({ user_id, myself });
+        return users.get(user_id);
     }));
 }
 
@@ -31,18 +33,24 @@ export function is_member(session_id: string, user_id: string): Promise<boolean>
     });
 }
 
-export function get_member_ids({ session_id, only_registered = true }: { session_id: string, only_registered?: boolean }): Promise<string[]> {
-    return new Promise((resolve) => {
-        if (only_registered) {
-            db.all("select user_id from session_current_members where session_id=? and source<>'email_thread'", session_id, (err, rows) => {
-                resolve(map(rows, 'user_id'));
-            });
+export async function get_member_ids({ myself, session_id, only_registered = true }: { myself: string, session_id: string, only_registered?: boolean }): Promise<string[]> {
+    if (only_registered) {
+        const rows = await db_.all<{ user_id: string }>("select user_id from session_current_members where session_id=? and source<>'email_thread'", session_id);
+        const ids = map(rows, 'user_id');
+        if (!includes(ids, myself)) {  //The user is not a member.
+            return null;
         } else {
-            db.all('select user_id from session_current_members where session_id=?', session_id, (err, rows) => {
-                resolve(map(rows, 'user_id'));
-            });
+            return ids;
         }
-    });
+    } else {
+        const rows = await db_.all<{ user_id: string }>('select user_id from session_current_members where session_id=?', session_id);
+        const ids = map(rows, 'user_id');
+        if (!includes(ids, myself)) {  //The user is not a member.
+            return null;
+        } else {
+            return ids;
+        }
+    }
 }
 
 
@@ -223,8 +231,8 @@ export function join({ session_id, user_id, timestamp = -1, source }: { session_
         const ts: number = timestamp > 0 ? timestamp : new Date().getTime();
         const id: string = shortid();
         db.serialize(async () => {
-            const is_registered_user = (await users.get({ user_id, myself: user_id })) != null;
-            const members: string[] = await get_member_ids({ session_id });
+            const is_registered_user = (await users.get(user_id)) != null;
+            const members: string[] = await get_member_ids({ myself: user_id, session_id });
             console.log(members);
             const is_member: boolean = includes(members, user_id);
             if (!is_registered_user) {
@@ -254,21 +262,32 @@ export function join({ session_id, user_id, timestamp = -1, source }: { session_
     });
 }
 
-
-export async function post_comment_for_session_members(user_id: string, session_id: string, timestamp: number, comments: { for_user: string; content: string; }[], encrypt: EncryptionMode): Promise<{ ok: boolean, for_user: string, data?: CommentTyp, error?: string }[]> {
+export async function post_comment(p: PostCommentModelParams): Promise<{ ok: boolean, for_user: string, data?: CommentTyp, error?: string }[]> {
     const encrypt_group = shortid();
-    return Promise.all(map(comments, ({ for_user, content }) => {
+    return Promise.all(map(p.comments, ({ for_user, content }) => {
         const comment_id = shortid();
-        return post_comment({ comment_id, user_id, session_id, timestamp, comment: content, encrypt, for_user, source: "self", encrypt_group });
+        return post_comment_for_each(p.user_id, p.session_id, p.timestamp, encrypt_group, for_user, content, p.encrypt, p.original_url, p.sent_to, p.source, p.comment_id);
     }));
 }
 
-async function post_comment({ user_id, session_id, timestamp, comment, for_user, sent_to, original_url = "", source = "", encrypt = "none", comment_id, encrypt_group }: { user_id: string, session_id: string, timestamp: number, comment: string, for_user: string, original_url?: string, sent_to?: string, source?: string, encrypt: EncryptionMode, comment_id?: string, encrypt_group: string }): Promise<{ ok: boolean, for_user: string, data?: CommentTyp, error?: string }> {
+async function post_comment_for_each(
+    user_id: string,
+    session_id: string,
+    timestamp: number,
+    encrypt_group: string,
+    for_user: string,
+    comment: string,
+    encrypt: EncryptionMode,
+    original_url?: string,
+    sent_to?: string,
+    source?: string,
+    comment_id?: string,
+): Promise<{ ok: boolean, for_user: string, data?: CommentTyp, error?: string }> {
     console.log('post_comment start');
     comment_id = comment_id || shortid();
     // Currently key is same for all recipients.
-    const { publicKey: pub_from } = await get_public_key({ user_id, for_user: user_id });
-    const { publicKey: pub_to } = await get_public_key({ user_id: for_user, for_user });
+    const { publicKey: pub_from } = await get_public_key(user_id);
+    const { publicKey: pub_to } = await get_public_key(for_user);
     const fp_from = await fingerPrint(pub_from);
     const fp_to = await fingerPrint(pub_to);
     // console.log('Posting with key: ' + fingerprint, publicKey, user_id, for_user);

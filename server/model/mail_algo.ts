@@ -321,10 +321,10 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
         });
     });
 
-    var myself;
+    let myself: User;
     if (!ignore_recipient) {
         const user_id = recipient;
-        myself = await model.users.get({ myself: user_id, user_id });
+        myself = await model.users.get(user_id);
         if (myself == null) {
             console.log('Recipent ID invalid:', recipient);
             return { added_users: [] };
@@ -374,19 +374,22 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
             const url = data.message_id + '::lines=' + data.lines.start + '-' + data.lines.end;
             const r1: JoinSessionResponse = await model.sessions.join({ session_id, user_id: u.id, timestamp, source: 'email_thread' });
             console.log('update_db_on_mailgun_webhook', { session_id, user_id: u.id, fullname, email, 'data.from': data.from, r1 });
-            const { ok, data: data1 } = await model.sessions.post_comment({ user_id: u.id, session_id, timestamp, comment: data.comment, original_url: url, source: "email", for_user: u.id, encrypt: 'none' });
+            const comments = [{ for_user: myself.id, content: data.comment }];
+            const params: PostCommentModelParams = { user_id: u.id, session_id, timestamp, comments, original_url: url, source: "email", encrypt: 'none' };
+            const comments_posted = await model.sessions.post_comment(params);
             console.log('Heading and comment beginning', data.heading, data.comment.slice(0, 100));
-            results_comments.push(data1);
-            if (ok) {
-                const obj = _.extend({ __type: "new_comment" }, data1);
+            if (comments_posted && comments_posted[0])
+                results_comments.push(comments_posted[0].data);
+            if (comments_posted[0].ok) {
+                const obj = _.extend({ __type: "new_comment" }, comments_posted[0].data);
                 if (myio) {
                     myio.emit("message", obj);
                 }
             }
         }
     }
-    // console.log('results_comments', datas.length, results_comments);
-    // console.log('results', results);
+    console.log('results_comments', datas.length, results_comments);
+    console.log('results', results);
     return { added_users: results };
 }
 
@@ -407,11 +410,11 @@ async function find_or_make_user_for_email(db, fullname: string, email: string):
             name_base = mk_random_username();
         }
         var name = name_base;
-        var user1: User = await model.users.find_from_username({ myself: null, username: name });
+        var user1: User = await model.users.find_from_username(name);
         if (user1 != null) {
             for (var i = 2; i < 10000; i++) {
                 name = name_base + i;
-                user1 = await model.users.find_from_username({ myself: null, username: name });
+                user1 = await model.users.find_from_username(name);
                 if (user1 == null) {
                     break;
                 }

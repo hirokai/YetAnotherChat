@@ -35,27 +35,27 @@ beforeEach(done => {
 });
 
 
-test('Get by random ID should be null', () => {
+test('Get by random ID should be null', async done => {
     const user_id = shortid();
     expect(user_id).toEqual(expect.anything());
-    return model.users.get({ myself: user_id, user_id }).then(user => {
-        expect(user).toBeNull();
-    });
+    const user = await model.users.get(user_id);
+    expect(user).toBeNull();
+    done();
 });
 
 test('Add and get', async done => {
     const { ok, error, user } = await register();
     expect(error).toBeUndefined();
     expect(ok).toBe(true);
-    const user2 = await model.users.get({ myself: user.id, user_id: user.id });
+    const user2 = await model.users.get(user.id);
     expect(user2).toEqual(user);
     done();
 });
 
 test('Get by name multiple times', async done => {
     const { ok, error, user } = await register();
-    const user2 = await model.users.find_from_username({ myself: user.id, username: user.username });
-    const user3 = await model.users.find_from_username({ myself: user2.id, username: user2.username });
+    const user2 = await model.users.find_from_username(user.username);
+    const user3 = await model.users.find_from_username(user2.username);
     expect(user2).toEqual(user);
     expect(user3).toEqual(user);
     done();

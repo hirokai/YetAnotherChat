@@ -29,11 +29,11 @@ export function save_socket_id(user_id: string, socket_id: string): Promise<{ ok
     });
 }
 
-export async function get({ myself, user_id }: { myself: string, user_id: string }): Promise<User> {
+export async function get(user_id: string): Promise<User> {
     const row = await db_.get<UserWithEmail>("select users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profile_value from users join user_emails on users.id=user_emails.user_id join profiles as p on p.user_id=users.id where users.id=? and p.profile_name='avatar' group by users.id;", user_id);
     if (row && row.id) {
         const emails = row.emails ? row.emails.split(',') : [];
-        const { publicKey } = await keys.get_public_key({ user_id, for_user: myself });
+        const { publicKey } = await keys.get_public_key(user_id);
         const online_users = await list_online_users();
         const id = row['id']
         const online: boolean = includes(online_users, id);
@@ -49,7 +49,7 @@ export async function list(myself: string): Promise<User[]> {
     const online_users = await list_online_users();
     const users = await Promise.all(map(rows, async (row): Promise<User> => {
         const user_id = row['id'];
-        const { publicKey: pk1 } = await get_public_key({ user_id, for_user: myself });
+        const { publicKey: pk1 } = await get_public_key(user_id);
         if (pk1) {
             const fingerprint = await fingerPrint(pk1);
             // console.log('model.list_users() publicKey', user_id, myself, pk1);
@@ -68,7 +68,7 @@ export async function list(myself: string): Promise<User[]> {
         } else {
             //ToDo: Currently default public key has for_user=user_id.
             //But 1-to-1 communication better requires different public keys for every sent-to user.
-            const { publicKey: pk2 } = await get_public_key({ user_id, for_user: user_id });
+            const { publicKey: pk2 } = await get_public_key(user_id);
             const fingerprint = await fingerPrint(pk2);
             // console.log('model.list_users() publicKey', user_id, user_id, pk2);
             const obj: User = {
@@ -169,7 +169,7 @@ export async function update(user_id: string, { username, fullname, email }: { u
     const p3 = email ? f('update user_emails set email=? where user_id=?;', email) : g();
     const [r1, r2, r3] = await Promise.all([p1, p2, p3]);
     if (r1 && r2 && r3) {
-        const user = await get({ myself: user_id, user_id });
+        const user = await get(user_id);
         return user;
     } else {
         return null;
@@ -207,7 +207,7 @@ export async function find_user_from_email({ myself, email }: { myself: string, 
         });
         if (!err && row) {
             const user_id = row.id;
-            const { publicKey } = await get_public_key({ user_id, for_user: myself });
+            const { publicKey } = await get_public_key(user_id);
             const online_users = await list_online_users();
             const online: boolean = includes(online_users, user_id);
             const emails = (row.emails || '').split(',');
@@ -218,12 +218,12 @@ export async function find_user_from_email({ myself, email }: { myself: string, 
     }
 }
 
-export async function find_from_username({ myself, username }: { myself: string, username: string }): Promise<User> {
+export async function find_from_username(username: string): Promise<User> {
     const row = await db_.get("select users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails, profile_value from users join user_emails on users.id=user_emails.user_id join profiles on profiles.user_id=users.id where users.name=? and profiles.profile_name='avatar' group by users.id;", username);
     if (row) {
         const user_id = row['id']
         const emails = row['emails'] ? row['emails'].split(',') : [];
-        const { publicKey } = await get_public_key({ user_id, for_user: myself });
+        const { publicKey } = await get_public_key(user_id);
         const online_users = await list_online_users();
         const online: boolean = includes(online_users, user_id);
         return { username: row['name'], id: user_id, emails, avatar: row['profile_value'], fullname: row['fullname'] || null, online, publicKey, timestamp: row['timestamp'] };
@@ -235,7 +235,7 @@ export async function find_from_username({ myself, username }: { myself: string,
 export async function get_user_config(user_id: string): Promise<string[][]> {
     const rows = await db_.all<any>('select * from user_configs where user_id=?;', user_id);
     if (rows) {
-        const user = await users.get({ myself: user_id, user_id });
+        const user = await users.get(user_id);
         console.log('get_user_config', user);
         const cs = filter(map(rows, (row) => [row['config_name'], row['config_value']]).concat(
             [['username', user.username], ['fullname', user.fullname], ['email', user.emails[0]]]
@@ -279,7 +279,7 @@ export async function register({ username, password, email, fullname = null, sou
         if (username.indexOf('__') == 0) {
             return { ok: false, error: 'User name invalid.' };
         }
-        const existing_user: User = await find_from_username({ myself: user_id, username });
+        const existing_user: User = await find_from_username(username);
         const existing_user2: User = await find_user_from_email({ myself: user_id, email });
         return new Promise((resolve) => {
             if (existing_user) {
@@ -346,7 +346,7 @@ export async function get_local_db_password(user_id: string): Promise<string> {
 }
 
 export async function match_password(myself: string, username: string, password: string): Promise<boolean> {
-    const user = await users.find_from_username({ myself, username });
+    const user = await users.find_from_username(username);
     if (user != null) {
         console.log('passwordMatch', user);
         const hash = await users.get_user_password_hash(user.id);
