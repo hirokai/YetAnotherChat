@@ -547,14 +547,10 @@ app.post('/api/sessions', (req: PostRequest<PostSessionsParam>, res: JsonRespons
     const body = req.body;
     const members = uniq(body.members.concat([req.decoded.user_id]));
     const name = body.name;
-    const file_id = body.file_id;
     const temporary_id = body.temporary_id;
     (async () => {
         if (name && members) {
             const data = await model.sessions.create(name, members);
-            if (file_id) {
-                await model.post_file_to_session(data.id, req.decoded.user_id, file_id);
-            }
             const obj: SessionsNewSocket = {
                 __type: 'sessions.new',
                 temporary_id,

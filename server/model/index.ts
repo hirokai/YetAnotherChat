@@ -21,18 +21,6 @@ export function make_email_content(c: CommentTyp): string {
     return c.comment + '\r\n\r\n--------\r\n' + 'このメールに返信すると，COI SNS上で会話を続けられます。\r\n' + 'COI SNSでリアルタイムチャット： ' + 'https://coi-sns.com/main#/sessions/' + c.session_id;
 }
 
-export async function post_file_to_session(session_id: string, user_id: string, file_id: string): Promise<{ ok: boolean }> {
-    if (null == file_id) {
-        return { ok: false };
-    }
-    const timestamp = new Date().getTime();
-    const r = await files_.get(file_id);
-    if (r != null) {
-        const { ok } = await sessions.post_comment({ user_id, session_id, timestamp, comment: "<__file::" + file_id + "::" + r.url + ">", for_user: "", encrypt: 'none' });
-        return { ok };
-    }
-}
-
 export async function list_comment_delta({ for_user, session_id, cached_ids, last_updated }: { for_user: string, session_id: string, cached_ids: string[], last_updated: number }): Promise<CommentChange[]> {
     const comments = await sessions.list_comments(for_user, session_id, null);
     console.log('Comments length:', comments.length);

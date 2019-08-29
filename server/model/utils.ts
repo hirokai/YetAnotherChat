@@ -42,7 +42,7 @@ export const db_ = {
     get_: (query: string, ...rest) => {
         db.get(query, rest);
     },
-    get: <T>(query: string, ...args: any[]): Promise<T> => {
+    get: <T = any>(query: string, ...args: any[]): Promise<T> => {
         return new Promise((resolve, reject) => {
             db.get(query, args, (err, row: T) => {
                 if (err) {
@@ -56,7 +56,7 @@ export const db_ = {
     all_: (query: string, ...rest) => {
         db.all(query, rest);
     },
-    all: <T>(query: string, ...args: any[]): Promise<T[]> => {
+    all: <T = any>(query: string, ...args: any[]): Promise<T[]> => {
         return new Promise((resolve, reject) => {
             db.all(query, args, (err, rows) => {
                 if (err) {
