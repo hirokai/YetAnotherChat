@@ -3,5 +3,7 @@ elm:
   - elm0.19.0 # default, or equivalently, '0.19.0'
 node_js: '12'
 
-before_script: npm install
+before_script:
+  pyenv install anaconda2-5.1.0
+  npm install
 script: npm run build
