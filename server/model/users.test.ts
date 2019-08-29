@@ -31,9 +31,6 @@ beforeEach(done => {
         await exec('sqlite3 server/private/db_test.sqlite3 < server/schema.sql');
         connectToDB('server/private/db_test.sqlite3');
         done();
-        // exec('sqlite3 server/private/db_test.sqlite3 < server/schema.sql').then(({ stderr, stdout }) => {
-        // the *entire* stdout and stderr (buffered)
-        // });
     });
 });
 

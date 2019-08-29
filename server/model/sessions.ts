@@ -282,15 +282,13 @@ export function create(name: string, members: string[]): Promise<RoomInfo> {
     return create_session_with_id(session_id, name, members);
 }
 
-export function create_session_with_id(session_id: string, name: string, members: string[]): Promise<RoomInfo> {
+export async function create_session_with_id(session_id: string, name: string, members: string[]): Promise<RoomInfo> {
     return new Promise((resolve) => {
         const timestamp = new Date().getTime();
-        db.serialize(() => {
-            db.run('insert or ignore into sessions (id, name, timestamp) values (?,?,?);', session_id, cipher(name), timestamp);
-            Promise.all(map(members, (m) => join({ session_id, user_id: m, timestamp, source: 'owner' }))).then(() => {
-                get(session_id).then((roomInfo) => {
-                    resolve(roomInfo);
-                });
+        db.run('insert or ignore into sessions (id, name, timestamp) values (?,?,?);', session_id, cipher(name), timestamp);
+        Promise.all(map(members, (m) => join({ session_id, user_id: m, timestamp, source: 'owner' }))).then(() => {
+            get(session_id).then((roomInfo) => {
+                resolve(roomInfo);
             });
         });
     });

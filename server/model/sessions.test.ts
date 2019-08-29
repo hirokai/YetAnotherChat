@@ -24,25 +24,19 @@ export async function register(opt?: { basename?: string, username?: string, ful
     return await model.users.register({ username, password, fullname, email, source });
 }
 
-
 beforeEach(done => {
-    return new Promise((resolve, reject) => {
-        exec('rm server/private/db_test.sqlite3').then(({ stderr, stdout }) => {
-            exec('sqlite3 server/private/db_test.sqlite3 < server/schema.sql').then(() => {
-                connectToDB('server/private/db_test.sqlite3');
-                done();
-                // exec('sqlite3 server/private/db_test.sqlite3 < server/schema.sql').then(({ stderr, stdout }) => {
-                // the *entire* stdout and stderr (buffered)
-                // });
-            });
-        });
+    return new Promise(async (resolve, reject) => {
+        await exec('sqlite3 server/private/db_test.sqlite3 < server/schema.sql');
+        connectToDB('server/private/db_test.sqlite3');
+        done();
     });
 });
 
-test('Create and get members', async () => {
+test('Create and get members', async done => {
     const { user: myself } = await register();
     const { user: other } = await register();
     var s = await sessions.create(random_str(30), [myself.id]);
+    expect(s).not.toBeNull();
     var ss = await sessions.get_session_list({ user_id: myself.id, of_members: [], is_all: false });
     expect(ss).toHaveLength(1)
     s = await sessions.create(random_str(30), [myself.id]);
@@ -54,5 +48,6 @@ test('Create and get members', async () => {
     ss = await sessions.get_session_list({ user_id: myself.id, of_members: [], is_all: false });
     expect(ss).toHaveLength(2)
     ss = await sessions.get_session_list({ user_id: other.id, of_members: [], is_all: false });
-    expect(ss).toHaveLength(1)
+    expect(ss).toHaveLength(1);
+    done();
 });
