@@ -18,10 +18,3 @@ export async function fingerPrint(jwk: JsonWebKey): Promise<string> {
         return hash;
     }
 }
-
-export function encodeBase64URL(data: Uint8Array): string {
-    let output = '';
-    for (let i = 0; i < data.length; i++)
-        output += String.fromCharCode(data[i]);
-    return btoa(output.replace(/\+/g, '-').replace(/\//g, '_')).replace(/=+$/, '');
-}

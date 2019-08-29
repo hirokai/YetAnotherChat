@@ -55,6 +55,26 @@ describe('Sessions', () => {
         done();
     });
 
+    test.only('Create and delete session', async done => {
+        const { user: myself } = await register();
+        const { user: other } = await register();
+        var s = await sessions.create(random_str(30), [myself.id, other.id]);
+        let r = await db_.all('select * from sessions;');
+        expect(r).toHaveLength(1);
+
+        var timestamp = new Date().getTime();
+        const comments = _.map([myself.id], (uid) => { return { for_user: uid, content: 'Hoge' } });
+        const ms = await sessions.post_comment_for_session_members(myself.id, s.id, timestamp, comments, 'none');
+
+        await sessions.delete_session(s.id);
+        r = await db_.all('select * from sessions;');
+        expect(r).toHaveLength(0);
+        r = await db_.all('select * from comments;');
+        expect(r).toHaveLength(0);
+
+        done();
+    });
+
     test('Create and get members', async done => {
         const { user: myself } = await register();
         const { user: other } = await register();
