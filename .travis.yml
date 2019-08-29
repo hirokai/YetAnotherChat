@@ -4,6 +4,8 @@ elm:
 node_js: '12'
 
 before_script:
-  pyenv install anaconda2-5.1.0
-  npm install
-script: npm run build
+  - pyenv install anaconda2-5.1.0
+  - npm install
+
+script:
+  - npm run build
