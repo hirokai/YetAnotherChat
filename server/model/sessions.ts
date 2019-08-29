@@ -8,10 +8,10 @@ const emoji_dict = keyBy(emojis, 'shortname');
 
 
 export async function delete_session(id: string) {
-    const err = await db_.run('delete from sessions where id=?;', [id]);
-    const err2 = await db_.run('delete from comments where session_id=?;', [id]);
-    const err3 = await db_.run('delete from session_current_members where session_id=?;', [id]);
-    const err4 = await db_.run('delete from session_events where session_id=?;', [id]);
+    const err = await db_.run('delete from sessions where id=?;', id);
+    const err2 = await db_.run('delete from comments where session_id=?;', id);
+    const err3 = await db_.run('delete from session_current_members where session_id=?;', id);
+    const err4 = await db_.run('delete from session_events where session_id=?;', id);
     return !err && !err2 && !err3 && !err4;
 }
 
