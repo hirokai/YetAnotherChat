@@ -7,14 +7,11 @@ import values from 'lodash/values';
 import includes from 'lodash/includes';
 import axios from 'axios';
 import $ from 'jquery';
-import moment from 'moment';
 import 'bootstrap';
 import io from "socket.io-client";
-import { Model, processData } from './model';
+import { Model, processData, formatTime2 } from './model';
 import * as crypto from './model/cryptography';
 import * as video from './video';
-import 'moment/locale/ja'
-moment.locale('ja');
 
 import * as shortid_ from 'shortid';
 shortid_.characters('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$_');
@@ -190,7 +187,7 @@ window['importKey'] = crypto.importKey;
         var name: string = args[0];
         const members: string[] = args[1];
         if (name == "") {
-            name = moment().format('MM/DD HH:mm') + " 会話"
+            name = formatTime2(new Date().getTime()) + " 会話"
         }
         const { sessions, messages } = await model.sessions.new({ name, members });
 
@@ -344,7 +341,7 @@ window['importKey'] = crypto.importKey;
     app.ports.startPosterSession.subscribe(async (file_id: string) => {
         console.log('startPosterSession', file_id);
         const members: string[] = [localStorage['yacht.user_id']];
-        const name: string = "ポスターセッション: " + moment().format('MM/DD HH:mm')
+        const name: string = "ポスターセッション: " + formatTime2(new Date().getTime())
         const temporary_id: string = shortid();
         const post_data: PostSessionsParam = { name, members, temporary_id, file_id };
         const { data }: PostSessionsResponse = await axios.post('/api/sessions', post_data);

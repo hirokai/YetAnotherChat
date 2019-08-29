@@ -1,7 +1,7 @@
 import map from 'lodash/map';
 import keyBy from 'lodash/keyBy';
-import moment from 'moment';
 import $ from 'jquery';
+import { formatTime } from './model';
 const { Elm } = require('./view/Matrix.elm');
 const app = Elm.Main.init();
 
@@ -30,7 +30,7 @@ const processComment = (comment) => {
 
 const processMessages = (res) => {
     return map(res, (m) => {
-        return { user: m.user || 'myself', comment: processComment(m.text || ""), timestamp: moment(m.ts * 1000).format('YYYY/M/D HH:mm:ss'), originalUrl: m.original_url || "", sentTo: m.sent_to || "", source: m.source || "unknown" };
+        return { user: m.user || 'myself', comment: processComment(m.text || ""), timestamp: formatTime(m.ts * 1000), originalUrl: m.original_url || "", sentTo: m.sent_to || "", source: m.source || "unknown" };
     });
 };
 

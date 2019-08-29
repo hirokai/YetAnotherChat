@@ -4,8 +4,6 @@ import axios from 'axios';
 // import { map, sortBy, find, filter, keyBy, max, cloneDeep, values, zip, isEmpty, every } from 'lodash-es';
 import map from 'lodash/map'
 import sortBy from 'lodash/sortBy'
-import find from 'lodash/find'
-import range from 'lodash/range'
 import filter from 'lodash/filter'
 import includes from 'lodash/includes'
 import keyBy from 'lodash/keyBy'
@@ -16,7 +14,6 @@ import zip from 'lodash/zip'
 import isEmpty from 'lodash/isEmpty'
 import every from 'lodash/every'
 
-import moment from 'moment';
 const shortid = require('shortid').generate;
 import $ from 'jquery';
 import * as crypto from './cryptography';
@@ -896,14 +893,50 @@ export async function processData(rawEntries: ChatEntry[], model: Model): Promis
     }
 }
 
+function formatDate(date) {
+    var y = date.getFullYear();
+    var m = date.getMonth() + 1;
+    var d = date.getDate();
+    var w = date.getDay();
+    const h = date.getHours();
+    var mm = date.getMinutes();
+    if (mm < 10) mm = '0' + mm;
+
+    var wNames = ['日', '月', '火', '水', '木', '金', '土'];
+    return y + '年' + m + '月' + d + '日 (' + wNames[w] + ') ' + h + ':' + mm;
+}
+
 export function formatTime(timestamp: number): string {
     if (timestamp < 0) {
         return '(日時不明)'
     } else {
-        return moment(timestamp).format('YYYY/M/D HH:mm:ss');
+        const date = new Date(timestamp);
+        var y = date.getFullYear();
+        var m = date.getMonth() + 1;
+        var d = date.getDate();
+        var w = date.getDay();
+        const h = date.getHours();
+        var mm = date.getMinutes();
+        const mm_s = mm < 10 ? '0' + mm : '' + mm;
+        return y + '/' + m + '/' + d + ' ' + h + ':' + mm_s;
     }
 }
 
+export function formatTime2(timestamp: number): string {
+    if (timestamp < 0) {
+        return '(日時不明)'
+    } else {
+        const date = new Date(timestamp);
+        var y = date.getFullYear();
+        var m = date.getMonth() + 1;
+        var d = date.getDate();
+        var w = date.getDay();
+        const h = date.getHours();
+        var mm = date.getMinutes();
+        const mm_s = mm < 10 ? '0' + mm : '' + mm;
+        return '' + m + '/' + d + ' ' + h + ':' + mm_s;
+    }
+}
 
 //export async function decrypt(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey, encrypted: EncryptedData, info?: any): Promise<Uint8Array> {
 

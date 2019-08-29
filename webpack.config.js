@@ -1,6 +1,5 @@
 // const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin
 const webpack = require('webpack');
-const path = require('path');
 const TerserPlugin = require('terser-webpack-plugin');
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin
 
@@ -39,7 +38,7 @@ module.exports = env => {
             ]
         },
         plugins: [
-            // new BundleAnalyzerPlugin({ analyzerPort: 4000, }),
+            new BundleAnalyzerPlugin({ analyzerPort: 4000, }),
             new webpack.IgnorePlugin(/^\.\/locale$/, /moment$/),
         ],
         module: {
@@ -59,9 +58,6 @@ module.exports = env => {
         },
         resolve: {
             alias: {
-                'axios': path.resolve(__dirname, 'node_modules/axios/'),
-                'moment': path.resolve(__dirname, 'node_modules/moment/'),
-                'jquery': path.resolve(__dirname, 'node_modules/jquery/')
             },
             modules: ['node_modules'],
             extensions: [".ts", ".js"]
