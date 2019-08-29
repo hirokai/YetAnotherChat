@@ -5,28 +5,26 @@
 const production = false;
 
 import * as model from './model'
+import { Timespan, expandSpan } from './model'
 const express = require('express');
-const morgan = require('morgan');
+import morgan from 'morgan';
 const app = express();
-const glob = require("glob");
-const bodyParser = require("body-parser");
-// const _ = require('lodash');
+import glob from "glob";
+import bodyParser from "body-parser";
 import * as _ from 'lodash';
-import { uniq, includes, keyBy, map } from 'lodash';
+import { uniq, includes, map } from 'lodash';
 const path = require('path');
-const sqlite3 = require('sqlite3');
-// const model = require('./model');
 import * as fs from 'fs';
-const moment = require('moment');
-const jwt = require('jsonwebtoken');
-const credential = require('./private/credential');
+import moment from 'moment';
+
+import * as jwt from 'jsonwebtoken';
 import * as ec from './error_codes';
 import multer from 'multer';
-import { fingerPrint } from '../common/common_model';
-// import chalk from 'chalk';
 import * as mail_algo from './model/mail_algo'
 import * as utils from './model/utils'
 import { db } from './model/utils'
+const credential = require('./private/credential');
+
 
 utils.connectToDB();
 
@@ -52,7 +50,7 @@ if (production) {
 const io = require('socket.io')(production ? https : http);
 
 const morgan_date = morgan.token('date', (req, res) => {
-    return new moment().format();
+    return moment().format();
 });
 
 const morgan_user_id = morgan.token('user_id', (req, res) => {
@@ -75,12 +73,6 @@ const upload = multer({
         fileSize: 1000000000
     }
 }).single('user_image');
-
-enum Timespan {
-    day,
-    week,
-    month
-}
 
 interface MyResponse extends Response {
     token: any;
@@ -131,6 +123,16 @@ app.use(function (req: Request, res: MyResponse, next) {
     next();
 });
 
+function clientErrorHandler(err, req, res, next) {
+    if (req.xhr) {
+        res.status(500).send({ error: 'Something failed!' })
+    } else {
+        next(err)
+    }
+}
+
+app.use(clientErrorHandler);
+
 app.get('/.well-known/acme-challenge/QGHcMRRCmxHp5-pvGxCorKDreEX8CuWOPgIUelUPPww', (req, res) => {
     res.send('QGHcMRRCmxHp5-pvGxCorKDreEX8CuWOPgIUelUPPww.RmGjYrLQ6ArB1jFRESCFgvLvQImuoIXVUWklPV4Ivtc');
 });
@@ -139,41 +141,59 @@ app.get('/', (req, res) => {
     res.redirect('/main#/');
 });
 
-app.get('/register', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public/html/register.html'));
+app.get('/register', (req, res, next) => {
+    try {
+        res.sendFile(path.join(__dirname, '../public/html/register.html'));
+    } catch (e) {
+        next(e);
+    }
 });
 
-app.get('/login', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public/html/login.html'));
+app.get('/login', (req, res, next) => {
+    try {
+        res.sendFile(path.join(__dirname, '../public/html/login.html'));
+    } catch (e) {
+        next(e);
+    }
 });
 
-app.get('/main', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public/html/main.html'));
+app.get('/main', (req, res, next) => {
+    try {
+        res.sendFile(path.join(__dirname, '../public/html/main.html'));
+    } catch (e) {
+        next(e);
+    }
 });
 
-app.get('/public_keys', (req, res) => {
-    const net = credential.ethereum;
-    console.log(net);
-    res.render(path.join(__dirname, './public_keys.ejs'), {
-        contract: net.contract,
-        owner: net.account,
-        name: net.name,
-        abi: net.abi,
-        url: net.url
-    });
+app.get('/public_keys', (req, res, next) => {
+    try {
+        const net = credential.ethereum;
+        console.log(net);
+        res.render(path.join(__dirname, './public_keys.ejs'), {
+            contract: net.contract,
+            owner: net.account,
+            name: net.name,
+            abi: net.abi,
+            url: net.url
+        });
+    } catch (e) {
+        next(e);
+    }
 });
 
-app.get('/email/:id', (req, res) => {
-    model.get_original_email_highlighted(req.params.id).then(({ lines, subject, range }) => {
+app.get('/email/:id', (req, res, next) => {
+    (async () => {
+        const { lines, subject, range } = await model.get_original_email_highlighted(req.params.id);
         res.render(path.join(__dirname, './email.ejs'), { lines, subject, range });
-    }).catch((err) => {
-        console.log(err);
-        res.send('Error.');
-    });
+    })().catch(next);
 });
 
-app.get('/matrix', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public/html/matrix.html'));
+app.get('/matrix', (req, res, next) => {
+    try {
+        res.sendFile(path.join(__dirname, '../public/html/matrix.html'));
+    } catch (e) {
+        next(e);
+    }
 });
 
 type RegisterResponse = {
@@ -185,7 +205,7 @@ type RegisterResponse = {
     local_db_password?: string
 }
 
-app.post('/api/register', (req, res: JsonResponse<RegisterResponse>) => {
+app.post('/api/register', (req, res: JsonResponse<RegisterResponse>, next) => {
     (async () => {
         const { username, password, fullname, email } = req.body;
         console.log({ username, password, fullname, email });
@@ -208,97 +228,113 @@ app.post('/api/register', (req, res: JsonResponse<RegisterResponse>) => {
                 return;
             }
             const token = jwt.sign({ username, user_id: user.id }, credential.jwt_secret, { expiresIn: 604800 });
-            jwt.verify(token, credential.jwt_secret, function (err, decoded) {
-                if (!err) {
-                    model.users.get_local_db_password(user.id).then((local_db_password) => {
-                        res.json({ ok: true, token, decoded, local_db_password });
-                        const obj: UsersNewSocket = {
-                            __type: 'users.new',
-                            timestamp: user.timestamp,
-                            user
-                        };
-                        io.emit('users.new', obj);
-                    });
-                } else {
-                    res.json({ ok: false, error: 'Token verificaiton error' });
-                }
+            const decoded = await jwt_verify(token, credential.jwt_secret).catch(() => {
+                res.json({ ok: false, error: 'Token verificaiton error' });
             });
+            if (decoded) {
+                const local_db_password = await model.users.get_local_db_password(user.id);
+                res.json({ ok: true, token, decoded, local_db_password });
+                const obj: UsersNewSocket = {
+                    __type: 'users.new',
+                    timestamp: user.timestamp,
+                    user
+                };
+                io.emit('users.new', obj);
+            } else {
+
+            }
         }
-    })();
+    })().catch(next);
 });
 
-app.post('/webhook/mailgun', multer().none(), (req, res) => {
-    res.json({ status: "ok" });
-    console.log('Received email from: ', req.body['From']);
-    mail_algo.update_db_on_mailgun_webhook({ body: req.body, db, myio: io }).then(() => {
+app.post('/webhook/mailgun', multer().none(), (req, res, next) => {
+    (async () => {
+        res.json({ status: "ok" });
+        console.log('Received email from: ', req.body['From']);
+        await mail_algo.update_db_on_mailgun_webhook({ body: req.body, db, myio: io });
         console.log('Parsing done.');
-    });
+    })().catch(next);
 });
 
-app.post('/api/login', (req: MyPostRequest<LoginParams>, res) => {
-    const { username, password } = req.body;
-    console.log({ username, password })
-    model.users.match_password(null, username, password).then((matched) => {
+app.post('/api/login', (req: MyPostRequest<LoginParams>, res, next) => {
+    (async () => {
+        const { username, password } = req.body;
+        console.log({ username, password });
+        const matched = await model.users.match_password(null, username, password);
         if (matched) {
             console.log("login ok", username, password);
-            model.users.find_from_username({ myself: null, username }).then((user) => {
-                if (user != null) {
-                    console.log('find_user_from_username', user);
-                    const token = jwt.sign({ username, user_id: user.id }, credential.jwt_secret, { expiresIn: 604800 });
-                    jwt.verify(token, credential.jwt_secret, function (err, decoded) {
-                        model.users.get_local_db_password(user.id).then((local_db_password) => {
-                            res.json({ ok: true, token, decoded, local_db_password });
-                        });
+            const user = await model.users.find_from_username({ myself: null, username });
+            if (user != null) {
+                console.log('find_user_from_username', user);
+                const token = jwt.sign({ username, user_id: user.id }, credential.jwt_secret, { expiresIn: 604800 });
+                const decoded = await new Promise((resolve) => {
+                    jwt.verify(token, credential.jwt_secret, (err, decoded) => {
+                        resolve(decoded);
                     });
-                } else {
-                    res.json({ ok: false, error: 'Wrong user name or password.' }); //User not found
-                }
-            });
+                });
+                const local_db_password = await model.users.get_local_db_password(user.id);
+                res.json({ ok: true, token, decoded, local_db_password });
+            } else {
+                res.json({ ok: false, error: 'Wrong user name or password.' }); //User not found
+            }
         } else {
             res.json({ ok: false, error: 'Wrong user name or password.' });
         }
-    });
+    })().catch(next);
 });
 
-app.get('/api/verify_token', (req, res) => {
-    var token = req.body.token || req.query.token || req.headers['x-access-token'];
-    jwt.verify(token, credential.jwt_secret, function (err, decoded) {
-        if (err) {
+const jwt_verify = (token: string, secret: string): Promise<any> => {
+    return new Promise((resolve) => {
+        jwt.verify(token, credential.jwt_secret, function (err, decoded) {
+            if (err) {
+                resolve(null);
+            } else {
+                resolve(decoded);
+            }
+        });
+    });
+}
+
+app.get('/api/verify_token', (req, res, next) => {
+    (async () => {
+        var token = req.body.token || req.query.token || req.headers['x-access-token'];
+        const decoded = await jwt_verify(token, credential.jwt_secret);
+        if (decoded == null) {
             res.status(200).json({ valid: false });
         } else {
-            model.users.get({ myself: decoded.user_id, user_id: decoded.user_id }).then((user) => {
-                if (user) {
-                    req.decoded = decoded;
-                    res.status(200).json({ valid: true, decoded });
-                } else {
-                    res.json({ valid: false, error: 'Unknown user' })
-                }
-            });
+            const user = await model.users.get({ myself: decoded.user_id, user_id: decoded.user_id });
+            if (user) {
+                req.decoded = decoded;
+                res.status(200).json({ valid: true, decoded });
+            } else {
+                res.json({ valid: false, error: 'Unknown user' })
+            }
         }
-    });
+    })().catch(next);
 });
 
 // http://dotnsf.blog.jp/archives/1067083257.html
 
 app.use(function (req, res, next) {
-    if (req.path.indexOf('/api/') != 0) {
-        next();
-        return;
-    }
-    var token = req.body.token || req.query.token || req.headers['x-access-token'];
-    if (!production) {
-        if ('debug' in req.query) {
-            token = token || credential.test_token;
-            req.query['pretty'] = "";
-            console.log(req.query);
+    (async () => {
+        if (req.path.indexOf('/api/') != 0) {
+            next();
+            return;
         }
-    }
-    if (!token) {
-        res.status(403).send({ ok: false, message: 'No token provided.' });
-        return
-    }
-    jwt.verify(token, credential.jwt_secret, function (err, decoded) {
-        if (err) {
+        var token = req.body.token || req.query.token || req.headers['x-access-token'];
+        if (!production) {
+            if ('debug' in req.query) {
+                token = token || credential.test_token;
+                req.query['pretty'] = "";
+                console.log(req.query);
+            }
+        }
+        if (!token) {
+            res.status(403).send({ ok: false, message: 'No token provided.' });
+            return
+        }
+        const decoded = await jwt_verify(token, credential.jwt_secret);
+        if (!decoded) {
             res.status(403).json({ ok: false, error: 'Invalid token.' });
         } else {
             //. 正当な値が定されていた場合は処理を続ける
@@ -308,45 +344,51 @@ app.use(function (req, res, next) {
             }
             next();
         }
-    });
+    })().catch(next);
 });
 
-app.post('/api/logout/', (req, res) => {
-    const user_id = req.decoded.user_id;
-    model.delete_connection_of_user(user_id).then(({ timestamp }) => {
+app.post('/api/logout/', (req, res, next) => {
+    (async () => {
+        const user_id = req.decoded.user_id;
+        const { timestamp } = await model.delete_connection_of_user(user_id);
         const obj: UsersUpdateSocket = { __type: 'users.update', action: 'online', user_id, online: false, timestamp };
         // ToDo: Add logout for all clients of the same user.
         io.emit('users.update', obj);
-    });
-    res.json({ ok: true, user_id });
+        res.json({ ok: true, user_id });
+    })().catch(next);
 })
 
-app.get('/api/matrix', (req, res) => {
-    const span = req.query.timespan;
-    res.set('Content-Type', 'application/json')
-    res.send(fs.readFileSync('private/slack_count_' + span + '.json', 'utf8'));
+app.get('/api/matrix', (req, res, next) => {
+    (async () => {
+        const span = req.query.timespan;
+        res.set('Content-Type', 'application/json')
+        res.send(fs.readFileSync('private/slack_count_' + span + '.json', 'utf8'));
+    })().catch(next);
 });
 
-app.get('/api/users', (req: GetAuthRequest, res: JsonResponse<GetUsersResponse>) => {
-    model.users.list(req.decoded.user_id).then(users => {
+app.get('/api/users', (req: GetAuthRequest, res: JsonResponse<GetUsersResponse>, next) => {
+    (async () => {
+        const users = await model.users.list(req.decoded.user_id);
         res.json({ ok: true, data: { users } });
-    });
+    })().catch(next);
 });
 
-app.get('/api/users/:id', (req, res: JsonResponse<GetUserResponse>) => {
-    model.users.get(req.params.id).then((user: User) => {
+app.get('/api/users/:id', (req, res: JsonResponse<GetUserResponse>, next) => {
+    (async () => {
+        const user = await model.users.get(req.params.id);
         res.json({ ok: true, data: { user } });
-    });
+    })().catch(next);
 });
 
-app.patch('/api/users/:id', (req: MyPostRequest<UpdateUserData>, res: JsonResponse<UpdateUserResponse>) => {
-    if (req.decoded.user_id == req.params.id) {
-        const user_id = req.decoded.user_id;
-        const username = req.body.username;
-        const fullname = req.body.fullname;
-        const email = req.body.email;
-        const timestamp = new Date().getTime();
-        model.users.update(user_id, { username, fullname, email }).then((user: User) => {
+app.patch('/api/users/:id', (req: MyPostRequest<UpdateUserData>, res: JsonResponse<UpdateUserResponse>, next) => {
+    (async () => {
+        if (req.decoded.user_id == req.params.id) {
+            const user_id = req.decoded.user_id;
+            const username = req.body.username;
+            const fullname = req.body.fullname;
+            const email = req.body.email;
+            const timestamp = new Date().getTime();
+            const user = await model.users.update(user_id, { username, fullname, email });
             const obj: UsersUpdateSocket = {
                 __type: 'users.update',
                 action: 'user',
@@ -356,169 +398,103 @@ app.patch('/api/users/:id', (req: MyPostRequest<UpdateUserData>, res: JsonRespon
             };
             io.emit('users.update', obj);
             res.json({ ok: true, data: user });
-        });
-    } else {
-        res.json({ ok: false, error: 'Only myself can be changed.' })
-    }
+        } else {
+            res.json({ ok: false, error: 'Only myself can be changed.' })
+        }
+    })().catch(next);
+
 });
 
-
-app.get('/api/users/all/profiles', (req, res: JsonResponse<GetProfilesResponse>) => {
-    const user_id = req.decoded.user_id;
-    console.log('get_profiles');
-    model.users.get_profiles().then((data) => {
+app.get('/api/users/all/profiles', (req, res: JsonResponse<GetProfilesResponse>, next) => {
+    (async () => {
+        const user_id = req.decoded.user_id;
+        console.log('get_profiles');
+        const data = await model.users.get_profiles();
         const obj: GetProfilesResponse = {
             ok: data != null,
             user_id,
             data
         };
         res.json(obj);
-    });
+    })().catch(next);
 });
 
-app.get('/api/users/:id/profiles', (req, res: JsonResponse<GetProfileResponse>) => {
-    const user_id = req.decoded.user_id;
-    model.users.get_profile(user_id).then((data) => {
+app.get('/api/users/:id/profiles', (req, res: JsonResponse<GetProfileResponse>, next) => {
+    (async () => {
+        const user_id = req.decoded.user_id;
+        const data = await model.users.get_profile(user_id);
         const obj: GetProfileResponse = {
             ok: data != null,
             user_id,
             data
         };
         res.json(obj);
-    });
+    })().catch(next);
 });
 
-
-app.patch('/api/users/:id/profiles', (req: MyPostRequest<UpdateProfileData>, res: JsonResponse<UpdateProfileResponse>) => {
-    const user_id = req.decoded.user_id;
-    const profile = req.body.profile;
-    const ps = map(profile, (v, k) => {
-        return model.users.set_profile(user_id, k, v);
-    });
-    Promise.all(ps).then(() => {
-        model.users.get_profile(user_id).then((profile) => {
-            const timestamp = new Date().getTime();
-            const obj: UsersUpdateSocket = {
-                __type: 'users.update',
-                action: 'profile',
-                user_id,
-                timestamp,
-                profile   // Not only changed values but also all values are included.
-            };
-            io.emit('users.update', obj);
-            res.json({ ok: true, user_id, data: profile });
+app.patch('/api/users/:id/profiles', (req: MyPostRequest<UpdateProfileData>, res: JsonResponse<UpdateProfileResponse>, next) => {
+    (async () => {
+        const user_id = req.decoded.user_id;
+        const profile_ = req.body.profile;
+        const ps = map(profile_, (v, k) => {
+            return model.users.set_profile(user_id, k, v);
         });
-    });
+        await Promise.all(ps);
+        const profile = await model.users.get_profile(user_id);
+        const timestamp = new Date().getTime();
+        const obj: UsersUpdateSocket = {
+            __type: 'users.update',
+            action: 'profile',
+            user_id,
+            timestamp,
+            profile   // Not only changed values but also all values are included.
+        };
+        io.emit('users.update', obj);
+        res.json({ ok: true, user_id, data: profile });
+    })().catch(next);
 });
 
-app.get('/api/users/:id/comments', (req, res: JsonResponse<GetCommentsResponse>) => {
-    const user_id = req.decoded.user_id
-    model.sessions.list_comments(user_id, null, user_id).then((comments) => {
+app.get('/api/users/:id/comments', (req, res: JsonResponse<GetCommentsResponse>, next) => {
+    (async () => {
+        const user_id = req.decoded.user_id
+        const comments = await model.sessions.list_comments(user_id, null, user_id);
         res.json({ ok: true, data: comments });
-    });
+    })().catch(next);
 });
 
-function expandSpan(date: string, span: Timespan): string[] {
-    console.log('expandSpan', span);
-    if (span == Timespan.day) {
-        return [date];
-    } else if (span == Timespan.week) {
-        const m = moment(date, "YYYYMMDD");
-        return _.map(_.range(1, 8), (i) => {
-            const m1 = _.clone(m);
-            m1.isoWeekday(i);
-            return m1.format("YYYYMMDD");
-        });
-    } else if (span == Timespan.month) {
-        const m = moment(date, "YYYYMMDD");
-        const daysList = [31, m.isLeapYear() ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-        return _.map(_.range(1, daysList[m.month()] + 1), (i: number) => {
-            const m1 = _.clone(m);
-            m1.date(i);
-            return m1.format("YYYYMMDD");
-        });
-    }
-}
-
-app.get('/api/comments_by_date_user', (req, res) => {
-    const date_ = req.query.date;
-    const user = req.query.user;
-    const span: Timespan = Timespan[<string>req.query.timespan];
-    try {
-        const dates = expandSpan(date_, span);
-        const all_files = _.flatMap(dates, (date) => {
-            if (user == "__all") {
-                return glob.sync('private/slack_matrix/' + date + "-*.json");
-            } else {
-                const filename = "private/slack_matrix/" + date + "-" + user + ".json";
-                return [path.join(__dirname, filename)];
-            }
-        });
-        const comments = _.sortBy(_.compact(_.flatMap(all_files, (filename) => {
-            if (fs.existsSync(filename)) {
-                return JSON.parse(fs.readFileSync(filename, 'utf8'));
-            } else {
-                return null;
-            }
-        })), (e) => { return parseFloat(e.ts); });
-        res.json(_.map(comments, (c) => {
-            const _ts_str = "" + (c.ts * 1000000)
-            return _.extend({ source: "Slack" }, c)
-        }));
-    } catch (e) {
-        console.log(e);
-        res.status(404);
-        res.json({ error: "File not found" })
-    }
-});
-
-app.get('/api/sessions/:id', (req, res: JsonResponse<GetSessionResponse>) => {
-    model.sessions.get(req.params.id).then((data) => {
+app.get('/api/sessions/:id', (req, res: JsonResponse<GetSessionResponse>, next) => {
+    (async () => {
+        const data = await model.sessions.get(req.params.id);
         if (data) {
             res.json({ ok: true, data });
         } else {
             res.status(404).json({ ok: false });
         }
-    })
+    })().catch(next);
 });
 
-app.delete('/api/comments/:id', (req: GetAuthRequest, res: JsonResponse<DeleteCommentResponse>) => {
-    const comment_id = req.params.id;
-    db.get('select * from comments where id=?;', comment_id, (err, row) => {
-        if (row) {
-            const session_id = row['session_id'];
-            const user_id = row['user_id'];
-            if (user_id != req.decoded.user_id) {
-                res.json({ ok: false, error: 'Cannot delete comments by other users' })
-                return;
-            }
-            const encrypt_group = row['encrypt_group'];
-            db.run('delete from comments where encrypt_group=?;', encrypt_group, (err) => {
-                if (!err) {
-                    const data: DeleteCommentData = { comment_id, encrypt_group, session_id };
-                    res.json({ ok: true, data });
-                    const obj: CommentsDeleteSocket = {
-                        __type: 'comments.delete',
-                        id: comment_id,
-                        session_id
-                    };
-                    io.emit("comments.delete", obj);
-                } else {
-                    res.json({ ok: true });
-                }
-            });
-        } else {
-            console.log('DELETE /api/comments/ Error', err);
-            res.json({ ok: false, error: 'Comment ' + comment_id + ' does not belong to any session.' })
+app.delete('/api/comments/:id', (req: GetAuthRequest, res: JsonResponse<DeleteCommentResponse>, next) => {
+    (async () => {
+        const comment_id = req.params.id;
+        const r = await model.sessions.delete_comment(req.decoded.user_id, comment_id);
+        res.json(r);
+        if (r.data) {
+            const obj: CommentsDeleteSocket = {
+                __type: 'comments.delete',
+                id: comment_id,
+                session_id: r.data.session_id
+            };
+            io.emit("comments.delete", obj);
         }
-    });
+    })().catch(next);
 });
 
-app.patch('/api/sessions/:id', (req, res: JsonResponse<PatchSessionResponse>) => {
-    const session_id = req.params.id;
-    const { name, members } = req.body;
-    console.log(name, members);
-    model.sessions.update({ session_id, name }).then(({ ok, timestamp }) => {
+app.patch('/api/sessions/:id', (req, res: JsonResponse<PatchSessionResponse>, next) => {
+    (async () => {
+        const session_id = req.params.id;
+        const { name, members } = req.body;
+        console.log(name, members);
+        const { ok, timestamp } = await model.sessions.update({ session_id, name });
         const data: SessionsUpdateSocket = {
             __type: 'sessions.update',
             id: session_id,
@@ -527,37 +503,33 @@ app.patch('/api/sessions/:id', (req, res: JsonResponse<PatchSessionResponse>) =>
         };
         io.emit('sessions.update', data);
         res.json({ ok });
-    })
+    })().catch(next);
 });
 
-app.delete('/api/sessions/:id', (req, res: JsonResponse<CommentsDeleteResponse>) => {
-    const id = req.params.id;
-    db.run('delete from sessions where id=?;', id, (err) => {
-        db.run('delete from comments where session_id=?;', id, (err2) => {
-            db.run('delete from session_current_members where session_id=?;', id, (err3) => {
-                db.run('delete from session_events where session_id=?;', id, (err4) => {
-                    if (!err && !err2 && !err3 && !err4) {
-                        res.json({ ok: true });
-                        const obj: SessionsDeleteSocket = { __type: 'sessions.delete', id };
-                        io.emit('sessions.delete', obj);
-                    } else {
-                        res.json({ ok: false });
-                    }
-                });
-            });
-        });
-    });
+app.delete('/api/sessions/:id', (req, res: JsonResponse<CommentsDeleteResponse>, next) => {
+    (async () => {
+        const id = req.params.id;
+        const ok = await model.sessions.delete_session(id);
+        if (ok) {
+            res.json({ ok: true });
+            const obj: SessionsDeleteSocket = { __type: 'sessions.delete', id };
+            io.emit('sessions.delete', obj);
+        } else {
+            res.json({ ok: false });
+        }
+    })().catch(next);
 });
 
 
-app.get('/api/sessions', (req: GetAuthRequest, res: JsonResponse<GetSessionsResponse>) => {
-    const ms: string = req.query.of_members;
-    const of_members: string[] = ms ? ms.split(",") : undefined;
-    const is_all: boolean = !(typeof req.query.is_all === 'undefined');
-    const user_id: string = req.decoded.user_id;
-    model.sessions.get_session_list({ user_id, of_members, is_all }).then((r: RoomInfo[]) => {
+app.get('/api/sessions', (req: GetAuthRequest, res: JsonResponse<GetSessionsResponse>, next) => {
+    (async () => {
+        const ms: string = req.query.of_members;
+        const of_members: string[] = ms ? ms.split(",") : undefined;
+        const is_all: boolean = !(typeof req.query.is_all === 'undefined');
+        const user_id: string = req.decoded.user_id;
+        const r = await model.sessions.get_session_list({ user_id, of_members, is_all });
         res.json({ ok: true, data: r });
-    })
+    })().catch(next);
 });
 
 interface PostRequest<T> {
@@ -570,7 +542,6 @@ interface DeleteRequest<T, U> {
     body: U,
     params: T
 }
-
 
 app.post('/api/sessions', (req: PostRequest<PostSessionsParam>, res: JsonResponse<PostSessionsResponse>) => {
     const body = req.body;
@@ -622,7 +593,6 @@ app.post('/api/sessions/:session_id/comments/delta', (req: MyPostRequest<GetComm
 });
 
 app.get('/api/sessions/:session_id/comments', (req: GetAuthRequest1<GetCommentsParams>, res: JsonResponse<GetCommentsResponse>, next) => {
-    // https://qiita.com/yukin01/items/1a36606439123525dc6d
     (async () => {
         const session_id = req.params.session_id;
         const by_user = req.query.by_user;
@@ -694,62 +664,69 @@ app.post('/api/sessions/:session_id/comments', (req: MyPostRequest<PostCommentDa
     });
 });
 
-app.get('/api/files', (req, res) => {
-    model.files.list_user_files(req.query.kind).then((files) => {
+app.get('/api/files', (req, res, next) => {
+    (async () => {
+        const files = await model.files.list_user_files(req.query.kind);
         res.json({ ok: true, files: files });
-    });
+    })().catch(next);
 });
 
-app.post('/api/files', (req, res) => {
-    upload(req, res, function (err) {
+app.post('/api/files', (req, res, next) => {
+    (async () => {
         const { kind, session_id } = req.query;
+        const err = await new Promise((resolve) => {
+            upload(req, res, function (e) {
+                resolve(e);
+            });
+        });
         console.log('/api/files', err, req.file);
         if (!err) {
-            model.files.save_user_file(req.decoded.user_id, req.file.path, kind, session_id).then(({ file_id }) => {
-                console.log('save_user_file done', file_id)
-                const file = {
+            const { file_id } = await model.files.save_user_file(req.decoded.user_id, req.file.path, kind, session_id);
+            console.log('save_user_file done', file_id)
+            const file = {
+                path: '/' + req.file.path,
+                file_id,
+            }
+            res.json({ ok: true, files: [file] });
+        } else {
+            res.json({ ok: false });
+        }
+    })().catch(next);
+});
+
+app.patch('/api/files/:id', (req, res: JsonResponse<PostFileResponse>, next) => {
+    (async () => {
+        const err = await new Promise((resolve) => {
+            upload(req, <any>res, function (e) {
+                resolve(e);
+            });
+        });
+        console.log('/api/files', err, req.file);
+        if (!err) {
+            const r = await model.files.update_user_file(req.decoded.user_id, req.params.id, req.file.path);
+            if (r != null) {
+                const data: PostFileResponseData = {
                     path: '/' + req.file.path,
-                    file_id,
-                }
-                res.json({ ok: true, files: [file] });
-            }).catch((e) => {
-                console.log(e);
-                res.json({ ok: false });
-            });
+                    file_id: r.file_id,
+                    user_id: req.decoded.user_id
+                };
+                res.json({ ok: true, data });
+                const obj = _.extend({}, { __type: "new_file" }, data);
+                console.log('/api/files/:id emitting', obj);
+                io.emit("message", obj);
+            }
         } else {
             res.json({ ok: false });
         }
-    });
+    })().catch(next);
 });
 
-app.patch('/api/files/:id', (req, res: JsonResponse<PostFileResponse>) => {
-    upload(req, <any>res, function (err) {
-        console.log('/api/files', err, req.file);
-        if (!err) {
-            model.files.update_user_file(req.decoded.user_id, req.params.id, req.file.path).then((r) => {
-                if (r != null) {
-                    const data: PostFileResponseData = {
-                        path: '/' + req.file.path,
-                        file_id: r.file_id,
-                        user_id: req.decoded.user_id
-                    };
-                    res.json({ ok: true, data });
-                    const obj = _.extend({}, { __type: "new_file" }, data);
-                    console.log('/api/files/:id emitting', obj);
-                    io.emit("message", obj);
-                }
-            });
-        } else {
-            res.json({ ok: false });
-        }
-    });
-});
-
-app.delete('/api/files/:id', (req: DeleteRequest<DeleteFileRequestParam, DeleteFileRequestData>, res: JsonResponse<DeleteFileResponse>) => {
-    console.log('delete comment');
-    const file_id = req.params.id;
-    const user_id = req.body.user_id;
-    model.files.delete_file({ user_id, file_id }).then((r) => {
+app.delete('/api/files/:id', (req: DeleteRequest<DeleteFileRequestParam, DeleteFileRequestData>, res: JsonResponse<DeleteFileResponse>, next) => {
+    (async () => {
+        console.log('delete comment');
+        const file_id = req.params.id;
+        const user_id = req.body.user_id;
+        const r = await model.files.delete_file({ user_id, file_id });
         res.json(r);
         if (r.ok) {
             const obj: FilesDeleteSocket = {
@@ -757,22 +734,24 @@ app.delete('/api/files/:id', (req: DeleteRequest<DeleteFileRequestParam, DeleteF
             };
             io.emit("files.delete", obj);
         }
-    });
+    })().catch(next);
 });
 
-app.get('/api/private_key', (req, res) => {
-    const user_id = req.decoded.user_id;
-    model.keys.get_private_key(user_id).then(({ ok, privateKey }) => {
+app.get('/api/private_key', (req, res, next) => {
+    (async () => {
+        const user_id = req.decoded.user_id;
+        const { ok, privateKey } = await model.keys.get_private_key(user_id);
         res.json({ ok, privateKey });
-    })
+    })().catch(next);
 });
 
-app.post('/api/private_key', (req, res: JsonResponse<PostPrivateKeyResponse>) => {
-    const user_id = req.decoded.user_id;
-    const private_key: JsonWebKey = req.body.private_key;
-    model.keys.temporarily_store_private_key(user_id, private_key).then((ok) => {
+app.post('/api/private_key', (req, res: JsonResponse<PostPrivateKeyResponse>, next) => {
+    (async () => {
+        const user_id = req.decoded.user_id;
+        const private_key: JsonWebKey = req.body.private_key;
+        const ok = await model.keys.temporarily_store_private_key(user_id, private_key);
         res.json({ ok });
-    })
+    })().catch(next);
 });
 
 //Periodically remove old IDs.
@@ -780,40 +759,44 @@ setInterval(async () => {
     await model.keys.remove_old_temporary_private_key();
 }, 10000);
 
-app.get('/api/public_keys/me', (req: GetAuthRequest, res: JsonResponse<GetPublicKeysResponse>) => {
-    const user_id = req.decoded.user_id;
-    const for_user = req.query.for_user || user_id;
-    model.keys.get_public_key({ user_id, for_user }).then(({ publicKey: pub, prv_fingerprint }) => {
+app.get('/api/public_keys/me', (req: GetAuthRequest, res: JsonResponse<GetPublicKeysResponse>, next) => {
+    (async () => {
+        const user_id = req.decoded.user_id;
+        const for_user = req.query.for_user || user_id;
+        const { publicKey: pub, prv_fingerprint } = await model.keys.get_public_key({ user_id, for_user });
         res.json({ ok: pub != null, publicKey: pub, privateKeyFingerprint: prv_fingerprint });
-    });
+    })().catch(next);
 });
 
-app.post('/api/public_keys', (req: MyPostRequest<PostPublicKeyParams>, res) => {
-    const user_id = req.decoded.user_id;
-    const jwk = req.body.publicKey;
-    const for_user = req.body.for_user;
-    const privateKeyFingerprint = req.body.privateKeyFingerprint;
-    model.keys.register_public_key({ user_id, for_user, jwk, privateKeyFingerprint }).then(({ ok, timestamp }) => {
+app.post('/api/public_keys', (req: MyPostRequest<PostPublicKeyParams>, res, next) => {
+    (async () => {
+        const user_id = req.decoded.user_id;
+        const jwk = req.body.publicKey;
+        const for_user = req.body.for_user;
+        const privateKeyFingerprint = req.body.privateKeyFingerprint;
+        const { ok, timestamp } = await model.keys.register_public_key({ user_id, for_user, jwk, privateKeyFingerprint });
         res.json({ ok, timestamp });
         if (ok) {
             const obj: UsersUpdateSocket = { __type: "users.update", action: 'public_key', user_id, timestamp, public_key: jwk };
             io.emit('users.update', obj);
         }
-    });
+    })().catch(next);
 });
 
-app.get('/api/config', (req: GetAuthRequest, res: JsonResponse<GetConfigResponse>) => {
-    model.users.get_user_config(req.decoded.user_id).then((configs) => {
+app.get('/api/config', (req: GetAuthRequest, res: JsonResponse<GetConfigResponse>, next) => {
+    (async () => {
+        const configs = await model.users.get_user_config(req.decoded.user_id);
         res.json({ ok: true, data: configs });
-    });
+    })().catch(next);
 });
 
-app.post('/api/config', (req: MyPostRequest<PostConfigData>, res) => {
-    const key = req.body.key;
-    const value = req.body.value;
-    model.users.set_user_config(req.decoded.user_id, key, value).then((r) => {
+app.post('/api/config', (req: MyPostRequest<PostConfigData>, res, next) => {
+    (async () => {
+        const key = req.body.key;
+        const value = req.body.value;
+        const r = await model.users.set_user_config(req.decoded.user_id, key, value);
         res.json(r);
-    });
+    })().catch(next);
 });
 
 if (!production) {
@@ -823,13 +806,11 @@ if (!production) {
     });
 }
 
-
 model.delete_all_connections().then(() => {
     http.listen(port, () => {
         console.log("server is running at port " + port);
     })
 });
-
 
 if (production) {
     https.listen(443, () => {
@@ -837,48 +818,33 @@ if (production) {
     })
 }
 
-io.on('connection', function (socket: SocketIO.Socket) {
+io.on('connection', (socket: SocketIO.Socket) => {
     console.log('A user connected', socket.id);
-    socket.on('subscribe', ({ token }) => {
-        jwt.verify(token, credential.jwt_secret, function (err, decoded) {
-            if (decoded) {
-                const user_id = decoded.user_id;
-                model.users.list_online_users().then((previous) => {
-                    model.users.save_socket_id(user_id, socket.id).then((r) => {
-                        console.log('saveSocketId', r, 'socket id', user_id, socket.id)
-                        console.log('Online users:', previous, user_id)
-                        if (!includes(previous, user_id)) {
-                            const obj: UsersUpdateSocket = { __type: "users.update", action: 'online', user_id, online: true, timestamp: r.timestamp }
-                            io.emit('users.update', obj);
-                        }
-                    });
-
-                });
+    socket.on('subscribe', async ({ token }) => {
+        const decoded = await jwt_verify(token, credential.jwt_secret);
+        if (decoded) {
+            const user_id = decoded.user_id;
+            const previous = await model.users.list_online_users();
+            const r = await model.users.save_socket_id(user_id, socket.id);
+            console.log('saveSocketId', r, 'socket id', user_id, socket.id)
+            console.log('Online users:', previous, user_id)
+            if (!includes(previous, user_id)) {
+                const obj: UsersUpdateSocket = { __type: "users.update", action: 'online', user_id, online: true, timestamp: r.timestamp }
+                io.emit('users.update', obj);
             }
-        });
+        }
     });
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
         console.log('disconnected', socket.id);
-        model.delete_connection(socket.id).then(({ user_id, online, timestamp }) => {
-            const obj: UsersUpdateSocket = {
-                __type: 'users.update',
-                action: 'online',
-                user_id, online, timestamp
-            }
-            io.emit('users.update', obj);
-        });
+        const { user_id, online, timestamp } = await model.delete_connection(socket.id);
+        const obj: UsersUpdateSocket = {
+            __type: 'users.update',
+            action: 'online',
+            user_id, online, timestamp
+        }
+        io.emit('users.update', obj);
     })
 });
-
-function clientErrorHandler(err, req, res, next) {
-    if (req.xhr) {
-        res.status(500).send({ error: 'Something failed!' })
-    } else {
-        next(err)
-    }
-}
-
-app.use(clientErrorHandler);
 
 // setInterval(() => {
 //     var clients = Object.keys(io.sockets.clients().connected);

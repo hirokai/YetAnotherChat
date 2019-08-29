@@ -14,25 +14,23 @@ import * as sessions_ from './sessions'
 export const sessions = sessions_;
 import * as keys_ from './keys'
 export const keys = keys_;
+import * as _ from 'lodash';
+import moment from 'moment';
 
 export function make_email_content(c: CommentTyp): string {
     return c.comment + '\r\n\r\n--------\r\n' + 'このメールに返信すると，COI SNS上で会話を続けられます。\r\n' + 'COI SNSでリアルタイムチャット： ' + 'https://coi-sns.com/main#/sessions/' + c.session_id;
 }
 
-export function post_file_to_session(session_id: string, user_id: string, file_id: string): Promise<{ ok: boolean }> {
-    return new Promise((resolve) => {
-        if (null == file_id) {
-            resolve({ ok: false })
-        }
-        const timestamp = new Date().getTime();
-        files_.get(file_id).then((r) => {
-            if (r != null) {
-                sessions.post_comment({ user_id, session_id, timestamp, comment: "<__file::" + file_id + "::" + r.url + ">", for_user: "", encrypt: 'none' }).then(() => {
-                    resolve({ ok: true });
-                });
-            }
-        });
-    });
+export async function post_file_to_session(session_id: string, user_id: string, file_id: string): Promise<{ ok: boolean }> {
+    if (null == file_id) {
+        return { ok: false };
+    }
+    const timestamp = new Date().getTime();
+    const r = await files_.get(file_id);
+    if (r != null) {
+        const { ok } = await sessions.post_comment({ user_id, session_id, timestamp, comment: "<__file::" + file_id + "::" + r.url + ">", for_user: "", encrypt: 'none' });
+        return { ok };
+    }
 }
 
 export async function list_comment_delta({ for_user, session_id, cached_ids, last_updated }: { for_user: string, session_id: string, cached_ids: string[], last_updated: number }): Promise<CommentChange[]> {
@@ -111,7 +109,7 @@ export async function delete_connection(socket_id: string): Promise<{ user_id: s
     });
 }
 
-export async function delete_connection_of_user(user_id: string) {
+export async function delete_connection_of_user(user_id: string): Promise<{ timestamp: number }> {
     return new Promise((resolve) => {
         const timestamp = new Date().getTime();
         db.run('delete from user_connections where user_id=?;', user_id, () => {
@@ -126,4 +124,32 @@ export async function delete_all_connections(): Promise<boolean> {
             resolve(!err);
         });
     });
+}
+
+export function expandSpan(date: string, span: Timespan): string[] {
+    console.log('expandSpan', span);
+    if (span == Timespan.day) {
+        return [date];
+    } else if (span == Timespan.week) {
+        const m = moment(date, "YYYYMMDD");
+        return _.map(_.range(1, 8), (i) => {
+            const m1 = _.clone(m);
+            m1.isoWeekday(i);
+            return m1.format("YYYYMMDD");
+        });
+    } else if (span == Timespan.month) {
+        const m = moment(date, "YYYYMMDD");
+        const daysList = [31, m.isLeapYear() ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        return _.map(_.range(1, daysList[m.month()] + 1), (i: number) => {
+            const m1 = _.clone(m);
+            m1.date(i);
+            return m1.format("YYYYMMDD");
+        });
+    }
+}
+
+export enum Timespan {
+    day,
+    week,
+    month
 }

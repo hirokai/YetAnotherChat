@@ -5,6 +5,7 @@ import { exec as exec_ } from 'child_process'
 import * as util from 'util'
 import * as _ from 'lodash';
 import { map } from 'lodash-es';
+import { prependListener } from 'cluster';
 const exec = util.promisify(exec_);
 
 jest.setTimeout(1000);
@@ -26,18 +27,16 @@ export async function register(opt?: { basename?: string, username?: string, ful
 }
 
 beforeEach(done => {
-    return new Promise((resolve, reject) => {
-        exec('rm server/private/db_test.sqlite3').then(({ stderr, stdout }) => {
-            exec('sqlite3 server/private/db_test.sqlite3 < server/schema.sql').then(() => {
-                connectToDB('server/private/db_test.sqlite3');
-                done();
-                // exec('sqlite3 server/private/db_test.sqlite3 < server/schema.sql').then(({ stderr, stdout }) => {
-                // the *entire* stdout and stderr (buffered)
-                // });
-            });
-        });
+    return new Promise(async (resolve, reject) => {
+        await exec('sqlite3 server/private/db_test.sqlite3 < server/schema.sql');
+        connectToDB('server/private/db_test.sqlite3');
+        done();
+        // exec('sqlite3 server/private/db_test.sqlite3 < server/schema.sql').then(({ stderr, stdout }) => {
+        // the *entire* stdout and stderr (buffered)
+        // });
     });
 });
+
 
 test('Get by random ID should be null', () => {
     const user_id = shortid();
@@ -115,13 +114,15 @@ test('User config', async () => {
     const { user, error } = await model.users.register({ username, password, email, source });
     const key = 'avatar';
     const value = '/public/img/test.png';
-    const L = 30;
+    const L = 10;
     const kvs = _.fromPairs(_.map(_.range(L), () => { return [random_str(100), random_str(100)]; }));
-    const oks = await Promise.all(_.map(kvs, async (v, k) => {
+    const oks = [];
+    for (let [k, v] of _.toPairs(kvs)) {
         const { ok } = await model.users.set_user_config(user.id, k, v);
-        return ok;
-    }));
+        oks.push(ok);
+    }
     expect(_.every(oks)).toBeTruthy();
+    console.log(oks);
     const cs = await model.users.get_user_config(user.id);
 
     expect(cs).toHaveLength(L + 2); //username, email ToDo: Remove these.
@@ -216,7 +217,7 @@ describe('Socket', () => {
         expect(new Set(ids_get)).toEqual(new Set(ids));
     });
 })
-
+/*
 test('Merge', async () => {
     const L = 10;
     const fullname = random_str(16);
@@ -230,3 +231,4 @@ test('Merge', async () => {
     expect(users_get).toHaveLength(1);
 
 });
+*/

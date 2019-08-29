@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS users;
 CREATE TABLE users
 (
     id text not null unique,
@@ -9,6 +10,7 @@ CREATE TABLE users
     db_local_password text
 );
 
+DROP TABLE IF EXISTS comments;
 CREATE TABLE comments
 (
     id text not null unique,
@@ -28,6 +30,7 @@ CREATE TABLE comments
     fingerprint_to text
 );
 
+DROP TABLE IF EXISTS session_current_members;
 CREATE TABLE session_current_members
 (
     session_id text,
@@ -36,6 +39,7 @@ CREATE TABLE session_current_members
     unique(session_id,user_id)
 );
 
+DROP TABLE IF EXISTS user_connections;
 CREATE TABLE user_connections
 (
     user_id text not null,
@@ -43,6 +47,7 @@ CREATE TABLE user_connections
     timestamp integer not null
 );
 
+DROP TABLE IF EXISTS files;
 CREATE TABLE files
 (
     id text not null,
@@ -52,6 +57,7 @@ CREATE TABLE files
     kind text
 );
 
+DROP TABLE IF EXISTS session_events;
 CREATE TABLE session_events
 (
     id text not null,
@@ -61,12 +67,14 @@ CREATE TABLE session_events
     action text
 );
 
+DROP TABLE IF EXISTS user_emails;
 CREATE TABLE user_emails
 (
     user_id text not null,
     email text not null
 );
 
+DROP TABLE IF EXISTS private_key_temporary;
 CREATE TABLE private_key_temporary
 (
     timestamp integer not null,
@@ -74,6 +82,7 @@ CREATE TABLE private_key_temporary
     private_key text unique not null
 );
 
+DROP TABLE IF EXISTS sessions;
 CREATE TABLE sessions
 (
     id text not null unique,
@@ -81,6 +90,7 @@ CREATE TABLE sessions
     name text not null
 );
 
+DROP TABLE IF EXISTS public_keys;
 CREATE TABLE public_keys
 (
     timestamp integer,
@@ -90,6 +100,7 @@ CREATE TABLE public_keys
     private_fingerprint text
 );
 
+DROP TABLE IF EXISTS user_configs;
 CREATE TABLE user_configs
 (
     timestamp integer not null,
@@ -98,6 +109,7 @@ CREATE TABLE user_configs
     config_value text not null
 );
 
+DROP TABLE IF EXISTS profiles;
 CREATE TABLE profiles
 (
     timestamp integer not null,

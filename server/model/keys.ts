@@ -1,4 +1,4 @@
-import { db } from './utils'
+import { db, db_ } from './utils'
 import * as ethereum from './ethereum'
 import * as credentials from '../private/credential'
 import { fingerPrint } from '../../common/common_model'
@@ -24,30 +24,27 @@ export async function update_public_key({ user_id, for_user, jwk }: { user_id: s
 }
 
 export async function register_public_key({ user_id, for_user, jwk, privateKeyFingerprint }: { user_id: string, for_user: string, jwk: JsonWebKey, privateKeyFingerprint: string }): Promise<{ ok: boolean, timestamp?: number }> {
-    return new Promise((resolve) => {
-        const timestamp = new Date().getTime();
-        for_user = for_user != null ? for_user : '';
-        console.log('register_public_key', { user_id, for_user, jwk })
-        if (user_id != null && jwk != null) {
-            db.run('insert into public_keys (user_id,for_user,public_key,timestamp,private_fingerprint) values (?,?,?,?,?);', user_id, for_user, JSON.stringify(jwk), timestamp, privateKeyFingerprint, (err) => {
-                if (!err) {
-                    console.log(user_id);
-                    fingerPrint(jwk).then((pub_fp) => {
-                        ethereum.add_to_ethereum(credentials.ethereum, user_id, timestamp, pub_fp).then(() => {
-                            console.log('add_to_ethereum done');
-                        })
-                    });
-                    resolve({ ok: true, timestamp });
-                } else {
-                    console.log('register_public_key', err);
-                    resolve({ ok: false });
-                }
-            });
+    const timestamp = new Date().getTime();
+    for_user = for_user != null ? for_user : '';
+    console.log('register_public_key', { user_id, for_user, jwk })
+    if (user_id != null && jwk != null) {
+        const err = await db_.run('insert into public_keys (user_id,for_user,public_key,timestamp,private_fingerprint) values (?,?,?,?,?);', user_id, for_user, JSON.stringify(jwk), timestamp, privateKeyFingerprint);
+        if (!err) {
+            console.log(user_id);
+            const pub_fp = await fingerPrint(jwk);
+            //Do not "await" the following. It takes time.
+            ethereum.add_to_ethereum(credentials.ethereum, user_id, timestamp, pub_fp).then(() => {
+                console.log('add_to_ethereum done');
+            })
+            return { ok: true, timestamp };
         } else {
-            console.log('register_public_key error', user_id, jwk)
-            resolve({ ok: false });
+            console.log('register_public_key', err);
+            return { ok: false };
         }
-    });
+    } else {
+        console.log('register_public_key error', user_id, jwk)
+        return { ok: false };
+    }
 }
 
 

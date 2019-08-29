@@ -1,4 +1,4 @@
-import { db, shortid, cipher, decipher } from './utils'
+import { db, shortid, cipher, decipher, db_ } from './utils'
 import * as users from './users'
 import { get_public_key } from './keys'
 import { fingerPrint } from '../../common/common_model'
@@ -6,17 +6,20 @@ import { map, includes, orderBy, keyBy, min, max, chain, compact, zip, sum, valu
 const emojis = require("./emojis.json").emojis;
 const emoji_dict = keyBy(emojis, 'shortname');
 
-export function get_members({ myself, session_id, only_registered = true }: { myself: string, session_id: string, only_registered?: boolean }): Promise<User[]> {
-    return new Promise((resolve) => {
-        get_member_ids({ session_id, only_registered }).then((ids) => {
-            const ps = map(ids, (user_id: string) => {
-                return users.get({ user_id, myself });
-            });
-            Promise.all(ps).then((users) => {
-                resolve(users);
-            })
-        });
-    });
+
+export async function delete_session(id: string) {
+    const err = await db_.run('delete from sessions where id=?;', [id]);
+    const err2 = await db_.run('delete from comments where session_id=?;', [id]);
+    const err3 = await db_.run('delete from session_current_members where session_id=?;', [id]);
+    const err4 = await db_.run('delete from session_events where session_id=?;', [id]);
+    return !err && !err2 && !err3 && !err4;
+}
+
+export async function get_members({ myself, session_id, only_registered = true }: { myself: string, session_id: string, only_registered?: boolean }): Promise<User[]> {
+    const ids = await get_member_ids({ session_id, only_registered });
+    return await Promise.all(map(ids, (user_id: string) => {
+        return users.get({ user_id, myself });
+    }));
 }
 
 export function is_member(session_id: string, user_id: string): Promise<boolean> {
@@ -135,6 +138,22 @@ export function list_comments(for_user: string, session_id: string, user_id: str
 
 }
 
+export async function delete_comment(user_id: string, comment_id: string): Promise<{ ok: boolean, data?: DeleteCommentData, error?: string }> {
+    const row = await db_.get('select * from comments where id=?;', comment_id);
+    if (row) {
+        const session_id = row['session_id'];
+        const user_id_ = row['user_id'];
+        if (user_id != user_id_) {
+            return { ok: false, error: 'Cannot delete comments by other users' };
+        }
+        const encrypt_group = row['encrypt_group'];
+        await db_.run('delete from comments where encrypt_group=?;', encrypt_group);
+        const data: DeleteCommentData = { comment_id, encrypt_group, session_id };
+        return { ok: true, data };
+    } else {
+        return { ok: false, error: 'Comment ' + comment_id + ' does not belong to any session.' };
+    }
+}
 
 export function get_session_list(params: { user_id: string, of_members: string[], is_all: boolean }): Promise<RoomInfo[]> {
     const { user_id, of_members, is_all } = params;
@@ -233,39 +252,29 @@ export async function post_comment_for_session_members(user_id: string, session_
     }));
 }
 
-export function post_comment({ user_id, session_id, timestamp, comment, for_user, sent_to, original_url = "", source = "", encrypt = "none", comment_id, encrypt_group }: { user_id: string, session_id: string, timestamp: number, comment: string, for_user: string, original_url?: string, sent_to?: string, source?: string, encrypt: EncryptionMode, comment_id?: string, encrypt_group?: string }): Promise<{ ok: boolean, for_user: string, data?: CommentTyp, error?: string }> {
+export async function post_comment({ user_id, session_id, timestamp, comment, for_user, sent_to, original_url = "", source = "", encrypt = "none", comment_id, encrypt_group }: { user_id: string, session_id: string, timestamp: number, comment: string, for_user: string, original_url?: string, sent_to?: string, source?: string, encrypt: EncryptionMode, comment_id?: string, encrypt_group?: string }): Promise<{ ok: boolean, for_user: string, data?: CommentTyp, error?: string }> {
     console.log('post_comment start');
     comment_id = comment_id || shortid();
-    return new Promise((resolve, reject) => {
-        // Currently key is same for all recipients.
-        get_public_key({ user_id, for_user: user_id }).then(({ publicKey: pub_from }) => {
-            get_public_key({ user_id: for_user, for_user }).then(({ publicKey: pub_to }) => {
-                fingerPrint(pub_from).then((fp_from) => {
-                    fingerPrint(pub_to).then((fp_to) => {
-
-                        // console.log('Posting with key: ' + fingerprint, publicKey, user_id, for_user);
-                        db.run(`insert into comments (
+    // Currently key is same for all recipients.
+    const { publicKey: pub_from } = await get_public_key({ user_id, for_user: user_id });
+    const { publicKey: pub_to } = await get_public_key({ user_id: for_user, for_user });
+    const fp_from = await fingerPrint(pub_from);
+    const fp_to = await fingerPrint(pub_to);
+    // console.log('Posting with key: ' + fingerprint, publicKey, user_id, for_user);
+    const err1 = await db_.run(`insert into comments (
                                 id,user_id,comment,for_user,encrypt,timestamp,session_id,original_url,sent_to,source,encrypt_group,fingerprint_from,fingerprint_to
-                                ) values (?,?,?,?,?,?,?,?,?,?,?,?,?);`, comment_id, user_id, comment, for_user, encrypt, timestamp, session_id, original_url, sent_to, source, encrypt_group, fp_from, fp_to, (err1) => {
-                                db.run('insert or ignore into session_current_members (session_id,user_id) values (?,?)', session_id, user_id, (err2) => {
-                                    if (!err1 && !err2) {
-                                        const data: CommentTyp = {
-                                            id: comment_id, timestamp: timestamp, user_id, comment: comment, session_id, original_url, sent_to, source, kind: "comment", encrypt,
-                                            fingerprint: { from: fp_from, to: fp_to }
-                                        };
-                                        resolve({ ok: true, for_user, data });
-                                    } else {
-                                        console.log('post_comment error', err1, err2)
-                                        reject([err1, err2]);
-                                    }
-                                });
-                            });
-
-                    });
-                });
-            });
-        })
-    });
+                                ) values (?,?,?,?,?,?,?,?,?,?,?,?,?);`, comment_id, user_id, comment, for_user, encrypt, timestamp, session_id, original_url, sent_to, source, encrypt_group, fp_from, fp_to);
+    const err2 = await db.run('insert or ignore into session_current_members (session_id,user_id) values (?,?)', session_id, user_id);
+    if (!err1 && !err2) {
+        const data: CommentTyp = {
+            id: comment_id, timestamp: timestamp, user_id, comment: comment, session_id, original_url, sent_to, source, kind: "comment", encrypt,
+            fingerprint: { from: fp_from, to: fp_to }
+        };
+        return { ok: true, for_user, data };
+    } else {
+        console.log('post_comment error', err1, err2)
+        throw [err1, err2];
+    }
 }
 
 export function create(name: string, members: string[]): Promise<RoomInfo> {

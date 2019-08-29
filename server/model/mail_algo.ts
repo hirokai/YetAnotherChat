@@ -116,25 +116,22 @@ export function group_email_sessions(threads: MailgunParsed[][]): MailGroup[] {
 
 }
 
-export function find_email_session(db: any, data: MailgunParsed): Promise<string> {
-    const ps: Promise<string>[] = _.map(data.references, (r) => {
-        return new Promise<string>((resolve) => {
-            db.get("select session_id from comments where url_original=?", r, (err, row) => {
-                // console.log('find_email_session', r, err, row);
-                if (row && row['session_id']) {
-                    resolve(row['session_id']);
-                } else {
-                    resolve(null)
-                }
-            });
+export async function find_email_session(db: any, data: MailgunParsed): Promise<string> {
+    const results = await Promise.all(_.map(data.references, async (r) => {
+        const row = await new Promise<any>((resolve) => {
+            db.get("select session_id from comments where url_original=?", r, (err, r) => {
+                resolve(r);
+            })
         });
-    });
-    return Promise.all(ps).then((results: string[]) => {
-        const session_id = _.compact(results)[0];
-        return session_id;
-    })
+        if (row && row['session_id']) {
+            return row['session_id'];
+        } else {
+            return null;
+        }
+    }));
+    const session_id = _.compact(results)[0];
+    return session_id;
 }
-
 
 export function split_replies(txt: string): MailThreadItem[] {
     var replies: MailThreadItem[] = [];

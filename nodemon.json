@@ -2,6 +2,9 @@
     "watch": [
         "server"
     ],
+    "ignore": [
+        "*.test.ts"
+    ],
     "ext": "ts",
     "exec": "ts-node ./server/index.ts"
 }

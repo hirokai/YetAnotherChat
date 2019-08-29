@@ -164,22 +164,16 @@ export async function update(user_id: string, { username, fullname, email }: { u
             r1(true);
         });
     }
-    return new Promise((resolve) => {
-        db.serialize(() => {
-            const p1 = username ? f('update users set name=? where id=?;', username) : g();
-            const p2 = fullname ? f('update users set fullname=? where id=?;', fullname) : g();
-            const p3 = email ? f('update user_emails set email=? where user_id=?;', email) : g();
-            Promise.all([p1, p2, p3]).then(([r1, r2, r3]) => {
-                if (r1 && r2 && r3) {
-                    get({ myself: user_id, user_id }).then((user) => {
-                        resolve(user);
-                    });
-                } else {
-                    resolve(null);
-                }
-            })
-        });
-    });
+    const p1 = username ? f('update users set name=? where id=?;', username) : g();
+    const p2 = fullname ? f('update users set fullname=? where id=?;', fullname) : g();
+    const p3 = email ? f('update user_emails set email=? where user_id=?;', email) : g();
+    const [r1, r2, r3] = await Promise.all([p1, p2, p3]);
+    if (r1 && r2 && r3) {
+        const user = await get({ myself: user_id, user_id });
+        return user;
+    } else {
+        return null;
+    }
 }
 
 export async function save_password(user_id: string, password: string): Promise<boolean> {
@@ -224,73 +218,55 @@ export async function find_user_from_email({ myself, email }: { myself: string, 
     }
 }
 
-export function find_from_username({ myself, username }: { myself: string, username: string }): Promise<User> {
-    return new Promise((resolve) => {
-        db.get("select users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails, profile_value from users join user_emails on users.id=user_emails.user_id join profiles on profiles.user_id=users.id where users.name=? and profiles.profile_name='avatar' group by users.id;", username, (err, row) => {
-            if (row) {
-                console.log('find_user_from_username', row);
-                const user_id = row['id']
-                const emails = row['emails'] ? row['emails'].split(',') : [];
-                get_public_key({ user_id, for_user: myself }).then(({ publicKey }) => {
-                    list_online_users().then((online_users) => {
-                        const online: boolean = includes(online_users, user_id);
-                        resolve({ username: row['name'], id: user_id, emails, avatar: row['profile_value'], fullname: row['fullname'] || null, online, publicKey, timestamp: row['timestamp'] });
-                    });
-                });
-            } else {
-                resolve(null);
-            }
-        });
-    });
+export async function find_from_username({ myself, username }: { myself: string, username: string }): Promise<User> {
+    const row = await db_.get("select users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails, profile_value from users join user_emails on users.id=user_emails.user_id join profiles on profiles.user_id=users.id where users.name=? and profiles.profile_name='avatar' group by users.id;", username);
+    if (row) {
+        const user_id = row['id']
+        const emails = row['emails'] ? row['emails'].split(',') : [];
+        const { publicKey } = await get_public_key({ user_id, for_user: myself });
+        const online_users = await list_online_users();
+        const online: boolean = includes(online_users, user_id);
+        return { username: row['name'], id: user_id, emails, avatar: row['profile_value'], fullname: row['fullname'] || null, online, publicKey, timestamp: row['timestamp'] };
+    } else {
+        return null;
+    }
 }
 
 export async function get_user_config(user_id: string): Promise<string[][]> {
-    return new Promise((resolve) => {
-        db.all('select * from user_configs where user_id=?;', user_id, (err, rows) => {
-            if (rows) {
-                users.get({ myself: user_id, user_id }).then((user) => {
-                    console.log('get_user_config', user);
-                    const cs = filter(map(rows, (row) => [row['config_name'], row['config_value']]).concat(
-                        [['username', user.username], ['fullname', user.fullname], ['email', user.emails[0]]]
-                    ), (c) => { return c[0] != null && c[1] != null; });
-                    resolve(cs)
-                });
-            } else {
-                resolve([]);
-            }
-        });
-    });
+    const rows = await db_.all<any>('select * from user_configs where user_id=?;', user_id);
+    if (rows) {
+        const user = await users.get({ myself: user_id, user_id });
+        console.log('get_user_config', user);
+        const cs = filter(map(rows, (row) => [row['config_name'], row['config_value']]).concat(
+            [['username', user.username], ['fullname', user.fullname], ['email', user.emails[0]]]
+        ), (c) => { return c[0] != null && c[1] != null; });
+        return cs;
+    } else {
+        return [];
+    }
 }
 
 export async function set_user_config(user_id: string, key: string, value: string): Promise<{ ok: boolean }> {
-    return new Promise((resolve) => {
-        db.get('select * from user_configs where user_id=? and config_name=?;', user_id, key, (err, row) => {
-            if (err) {
-                resolve({ ok: false })
-            }
-            if (row) {
-                const timestamp = new Date().getTime();
-                db.run('update user_configs set timestamp=?,config_value=? where user_id=? and config_name=?;', timestamp, value, user_id, key, (err) => {
-                    if (!err) {
-                        resolve({ ok: true });
-                    } else {
-                        // console.log('set_user_config update', err)
-                        resolve({ ok: false });
-                    }
-                });
-            } else {
-                const timestamp = new Date().getTime();
-                db.run('insert into user_configs (timestamp,user_id,config_name,config_value) values (?,?,?,?);', timestamp, user_id, key, value, (err) => {
-                    if (!err) {
-                        resolve({ ok: true });
-                    } else {
-                        // console.log('set_user_config insert', err)
-                        resolve({ ok: false });
-                    }
-                });
-            }
-        });
-    });
+    const row = await db_.get('select * from user_configs where user_id=? and config_name=?;', user_id, key);
+    if (row) {
+        const timestamp = new Date().getTime();
+        const err = await db_.run('update user_configs set timestamp=?,config_value=? where user_id=? and config_name=?;', timestamp, value, user_id, key);
+        if (err) {
+            console.error('set_user_config', err);
+            return { ok: false };
+        } else {
+            return { ok: true };
+        }
+    } else {
+        const timestamp = new Date().getTime();
+        const err = await db_.run('insert into user_configs (timestamp,user_id,config_name,config_value) values (?,?,?,?);', timestamp, user_id, key, value);
+        if (err) {
+            console.error('set_user_config', err);
+            return { ok: false };
+        } else {
+            return { ok: true };
+        }
+    }
 }
 
 export async function register({ username, password, email, fullname = null, source }: { username: string, password: string, email?: string, fullname?: string, source: string }): Promise<{ ok: boolean, user?: User, error?: string, error_code?: number }> {
@@ -435,12 +411,10 @@ export async function set_profile(user_id: string, key: string, value: string): 
             const timestamp = new Date().getTime();
             if (!row) {
                 db.run('insert into profiles (timestamp,user_id,profile_name,profile_value) values (?,?,?,?);', timestamp, user_id, key, value, (err1) => {
-                    console.log(err1);
                     resolve(!err1);
                 });
             } else {
                 db.run('update profiles set timestamp=?,profile_value=? where user_id=? and profile_name=?;', timestamp, value, user_id, key, (err1) => {
-                    console.log(err1);
                     resolve(!err1);
                 });
             }
