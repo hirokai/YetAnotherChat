@@ -4,27 +4,10 @@ import * as model from './index'
 import { exec as exec_ } from 'child_process'
 import * as util from 'util'
 import * as _ from 'lodash';
-import { map } from 'lodash-es';
-import { prependListener } from 'cluster';
+import { random_str, register } from './test_utils'
 const exec = util.promisify(exec_);
 
 jest.setTimeout(1000);
-
-const random_str = (N) => {
-    const S = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-    return Array.from(Array(N)).map(() => S[Math.floor(Math.random() * S.length)]).join('');
-};
-
-
-export async function register(opt?: { basename?: string, username?: string, fullname?: string, password?: string, email?: string, source?: string }) {
-    opt = opt || {};
-    const username = (opt.basename || random_str(4)) + Math.floor(Math.random() * 100000);
-    const fullname = opt.fullname;
-    const password = opt.password || random_str(16);
-    const source = opt.source || 'self_register';
-    const email = opt.email || ('' + Math.floor(Math.random() * 100000) + '@gmail.com');
-    return await model.users.register({ username, password, fullname, email, source });
-}
 
 beforeEach(done => {
     return new Promise(async (resolve, reject) => {
@@ -33,7 +16,6 @@ beforeEach(done => {
         done();
     });
 });
-
 
 test('Get by random ID should be null', async done => {
     const user_id = shortid();
