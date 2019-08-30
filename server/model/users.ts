@@ -43,47 +43,73 @@ export async function get(user_id: string): Promise<User> {
     }
 }
 
+type CreateWorkspaceParams = {
+    name: string
+    public: boolean
+}
+
+type Workspace = {
+    id: string
+    name: string
+    public: boolean
+}
+
+export async function create_workspace(myself: string, options: CreateWorkspaceParams): Promise<Workspace> {
+    const id = shortid();
+    const timestamp = new Date().getTime();
+    const kind = options.public ? 'public' : 'private';
+    await db_.run('insert into workspaces (id,name,timestamp,kind) values (?,?,?,?);', id, options.name, timestamp, kind);
+    return { name: options.name, public: options.public, id };
+}
+
+export async function remove_workspace(workspace_id: string): Promise<boolean> {
+    const id = shortid();
+    await db_.run('delete from workspaces where id=?;', workspace_id);
+    return true;
+}
+
+export async function join_workspace(myself: string, workspace: string) {
+    const timestamp = new Date().getTime()
+    await db_.run('insert into users_in_workspaces (user_id,workspace_id,timestamp) values (?,?,?);', myself, workspace, timestamp);
+    return true;
+}
+
+export async function get_workspace_member_ids(workspace_id: string): Promise<string[]> {
+    const timestamp = new Date().getTime()
+    const rows = await db_.all<{ user_id: string }>('select * from users_in_workspaces where workspace_id=?;', workspace_id);
+    return map(rows, 'user_id');
+}
+
+export async function add_to_contact(myself: string, contact: string) {
+    const timestamp = new Date().getTime()
+    await db_.run('insert into contacts (user_id,contact_id,timestamp,source) values (?,?,?,?);', myself, contact, timestamp, 'manual');
+    return true;
+}
+
 export async function list(myself: string): Promise<User[]> {
     const rows: { [key: string]: any } = await
-        db_.all("select users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profiles.profile_value as avatar from users join user_emails on users.id=user_emails.user_id join profiles on users.id=profiles.user_id where profiles.profile_name='avatar' group by users.id;");
+        db_.all("select users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profiles.profile_value as avatar from users join user_emails on users.id=user_emails.user_id join profiles on users.id=profiles.user_id join contacts on contacts.contact_id=users.id where profiles.profile_name='avatar' and contacts.user_id=? group by users.id;", myself);
     const online_users = await list_online_users();
     const users = await Promise.all(map(rows, async (row): Promise<User> => {
         const user_id = row['id'];
         const { publicKey: pk1 } = await get_public_key(user_id);
+        let fingerprint: string;
         if (pk1) {
-            const fingerprint = await fingerPrint(pk1);
-            // console.log('model.list_users() publicKey', user_id, myself, pk1);
-            const obj: User = {
-                emails: row['emails'].split(','),
-                timestamp: row['timestamp'],
-                username: row['name'] || row['id'],
-                fullname: row['fullname'] || "",
-                id: user_id,
-                avatar: row['avatar'],
-                publicKey: pk1,
-                online: includes(online_users, user_id),
-                fingerprint
-            }
-            return obj;
-        } else {
-            //ToDo: Currently default public key has for_user=user_id.
-            //But 1-to-1 communication better requires different public keys for every sent-to user.
-            const { publicKey: pk2 } = await get_public_key(user_id);
-            const fingerprint = await fingerPrint(pk2);
-            // console.log('model.list_users() publicKey', user_id, user_id, pk2);
-            const obj: User = {
-                emails: row['emails'].split(','),
-                timestamp: row['timestamp'],
-                username: row['name'] || row['id'],
-                fullname: row['fullname'] || "",
-                id: user_id,
-                avatar: row['avatar'],
-                publicKey: pk2,
-                online: includes(online_users, user_id),
-                fingerprint
-            }
-            return obj;
+            fingerprint = await fingerPrint(pk1);
         }
+        // console.log('model.list_users() publicKey', user_id, myself, pk1);
+        const obj: User = {
+            emails: row['emails'].split(','),
+            timestamp: row['timestamp'],
+            username: row['name'] || row['id'],
+            fullname: row['fullname'] || "",
+            id: user_id,
+            avatar: row['avatar'],
+            publicKey: pk1,
+            online: includes(online_users, user_id),
+            fingerprint
+        };
+        return obj;
     }));
     return users;
 }

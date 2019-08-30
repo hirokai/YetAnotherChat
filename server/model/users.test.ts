@@ -1,5 +1,5 @@
 import * as path from 'path'
-import { connectToDB, shortid, db } from './utils'
+import { connectToDB, shortid, db, db_ } from './utils'
 import * as model from './index'
 import { exec as exec_ } from 'child_process'
 import * as util from 'util'
@@ -98,6 +98,8 @@ test('List', async done => {
     const username2 = 'Tanaka' + Math.floor(Math.random() * 100000);
     const email2 = '' + Math.floor(Math.random() * 100000) + '@gmail.com';
     const { user: user2 } = await model.users.register({ username: username2, password, email: email2, source });
+    await model.users.add_to_contact(user.id, user.id);
+    await model.users.add_to_contact(user.id, user2.id);
     const users = await model.users.list(user.id).catch(() => []);
     expect(users).toHaveLength(2);
     done();
@@ -214,6 +216,40 @@ describe('Socket', () => {
         expect(new Set(ids_get)).toEqual(new Set(ids));
     });
 })
+
+describe('Contacts', () => {
+    test('Invisible before contact addition', async done => {
+        const { user: me } = await register();
+        const { user: u2 } = await register();
+        const users_from_me = _.map(await model.users.list(me.id), 'id');
+        expect(users_from_me).not.toContainEqual(u2.id);
+        done();
+    });
+    test('Visible after contact addition', async done => {
+        const { user: me } = await register();
+        const { user: u2 } = await register();
+        model.users.add_to_contact(me.id, u2.id);
+        const users_from_me = _.map(await model.users.list(me.id), 'id');
+        expect(users_from_me).toContainEqual(u2.id);
+        const users_from_u2 = _.map(await model.users.list(u2.id), 'id');
+        expect(users_from_u2).not.toContainEqual(me.id);
+        done();
+    });
+});
+
+describe('Workspaces', () => {
+    test('Add and remove', async done => {
+        const { user: me } = await register();
+        const ws = await model.users.create_workspace(me.id, { name: 'Test', public: false });
+        await model.users.join_workspace(me.id, ws.id);
+        await model.users.remove_workspace(ws.id);
+        const rows = await db_.all('select * from workspaces;');
+        expect(rows).toHaveLength(0);
+        done();
+    });
+
+});
+
 /*
 test('Merge', async () => {
     const L = 10;
