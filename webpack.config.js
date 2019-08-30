@@ -1,7 +1,7 @@
 // const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin
 const webpack = require('webpack');
 const TerserPlugin = require('terser-webpack-plugin');
-const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin
+// const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin
 
 module.exports = env => {
     const mode = (env && env.production) ? 'production' : 'development';
@@ -38,7 +38,7 @@ module.exports = env => {
             ]
         },
         plugins: [
-            new BundleAnalyzerPlugin({ analyzerPort: 4000, }),
+            // new BundleAnalyzerPlugin({ analyzerPort: 4000, }),
             new webpack.IgnorePlugin(/^\.\/locale$/, /moment$/),
         ],
         module: {

@@ -25,6 +25,7 @@ import * as utils from './model/utils'
 import { db } from './model/utils'
 const credential = require('./private/credential');
 
+console.log(process.env);
 
 utils.connectToDB();
 
