@@ -1,8 +1,7 @@
 /// <reference path="../common/types.d.ts" />
 
 
-// const production = true; //process.env.PRODUCTION;
-const production = false;
+const production = !!process.env.NODE_PRODUCTION;
 
 import * as model from './model'
 import { Timespan, expandSpan } from './model'
@@ -24,8 +23,6 @@ import * as mail_algo from './model/mail_algo'
 import * as utils from './model/utils'
 import { db } from './model/utils'
 const credential = require('./private/credential');
-
-console.log(process.env);
 
 utils.connectToDB();
 
