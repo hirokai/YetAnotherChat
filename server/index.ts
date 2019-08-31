@@ -105,6 +105,8 @@ const pretty = require('express-prettify');
 
 // app.use('/public', express.static(__dirname + '/../public'))
 
+app.use('/about', express.static(path.join(__dirname, '../public/about')))
+
 app.use('/public', express.static(path.join(__dirname, '../public')))
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
 
@@ -361,6 +363,14 @@ app.get('/api/matrix', (req, res, next) => {
         const span = req.query.timespan;
         res.set('Content-Type', 'application/json')
         res.send(fs.readFileSync('private/slack_count_' + span + '.json', 'utf8'));
+    })().catch(next);
+});
+
+app.get('/api/workspaces', (req: GetAuthRequest, res: JsonResponse<GetWorkspacesResponse>, next) => {
+    (async () => {
+        const user_id = req.decoded.user_id;
+        const wss = await model.workspaces.list(user_id);
+        res.json({ ok: true, data: wss });
     })().catch(next);
 });
 

@@ -23,12 +23,14 @@ import Time exposing (utc)
 import Types exposing (..)
 import UserListView exposing (..)
 import UserPageView exposing (..)
+import Workspace exposing (..)
 
 
 init : Flags -> ( Model, Cmd Msg )
 init { user_id, show_toppane, expand_chatinput, show_users_with_email_only } =
     ( { myself = user_id
       , roomInfo = Dict.empty
+      , workspaces = Dict.empty
       , rooms = [ "Home", "COI" ]
       , page = NewSession
       , users = Dict.empty
@@ -70,6 +72,9 @@ update msg model =
 
         ReloadSessions ->
             ( model, reloadSessions () )
+
+        FeedWorkspaces ws ->
+            ( { model | workspaces = Dict.fromList <| List.map (\u -> ( u.id, u )) ws }, Cmd.none )
 
         FeedUsers users ->
             ( { model | users = Dict.fromList <| List.map (\u -> ( u.id, u )) users }, Cmd.none )
@@ -194,6 +199,12 @@ update msg model =
 
                     UserSettingPage ->
                         enterUserSetting model
+
+                    WorkspaceListPage ->
+                        enterWorkspaceList model
+
+                    WorkspacePage id ->
+                        enterWorkspace model id
 
                     RoomPage r ->
                         enterRoom r model
@@ -368,6 +379,16 @@ view model =
                 Nothing ->
                     notFoundView model
 
+        WorkspaceListPage ->
+            workspaceListView model
+
+        WorkspacePage id->
+            case Dict.get id model.workspaces of
+                Just ws ->
+                    workspaceView model ws
+                Nothing ->
+                    notFoundView model
+
         ProfileEditPage ->
             profileEditView model
 
@@ -393,6 +414,7 @@ subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.batch <|
         [ feedUsers FeedUsers
+        , feedWorkspaces FeedWorkspaces
         , feedMessages (\ms -> ChatPageMsg <| FeedMessages (Result.withDefault [] (Json.decodeValue chatEntriesDecoder ms)))
         , feedUserMessages (\ms -> UserPageMsg <| FeedUserMessages (Result.withDefault [] (Json.decodeValue chatEntriesDecoder ms)))
         , receiveNewRoomInfo ReceiveNewSessionId

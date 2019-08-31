@@ -740,6 +740,12 @@ export class Model {
             return ok;
         }
     }
+    workspaces = {
+        list: async (): Promise<{ [key: string]: Workspace }> => {
+            const { data: { ok, data } }: AxiosResponse<GetWorkspacesResponse> = await axios.get('/api/workspaces');
+            return keyBy(data, (d) => d.id);
+        }
+    }
 }
 
 async function decryptComment(comment: string, from_user: string, encrypt: EncryptionMode, model: Model): Promise<{ decrypted: string, encrypt: EncryptionMode }> {

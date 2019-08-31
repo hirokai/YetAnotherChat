@@ -1,4 +1,4 @@
-port module Navigation exposing (enterHome, enterNewSession, enterProfileEdit, enterRoom, enterSessionList, enterUser, enterUserList, enterUserProfile, enterUserSetting, notFound, notFoundView, pageToPath, pathToPage, updatePageHash)
+port module Navigation exposing (enterHome, enterNewSession, enterProfileEdit, enterRoom, enterSessionList, enterUser, enterUserList, enterUserProfile, enterUserSetting, notFound, notFoundView, pageToPath, pathToPage, updatePageHash,enterWorkspace,enterWorkspaceList)
 
 import Dict
 import Html exposing (..)
@@ -17,10 +17,19 @@ pageToPath page =
             "/sessions/" ++ r
 
         SessionListPage ->
-            "/sessions/"
+            "/sessions"
 
         UserPage u ->
             "/users/" ++ u
+
+        UserListPage ->
+            "/users"
+
+        WorkspacePage id ->
+            "/workspaces/" ++ id
+
+        WorkspaceListPage ->
+            "/workspaces"
 
         UserProfilePage u ->
             "/profiles/" ++ u
@@ -30,9 +39,6 @@ pageToPath page =
 
         UserSettingPage ->
             "/settings"
-
-        UserListPage ->
-            "/users/"
 
         HomePage ->
             "/"
@@ -74,6 +80,13 @@ pathToPage hash =
             else
                 UserProfilePage u
 
+        "workspaces" :: id :: _ ->
+            if id == "" then
+                WorkspaceListPage
+
+            else
+                WorkspacePage id
+
         [ "settings" ] ->
             UserSettingPage
 
@@ -107,6 +120,22 @@ enterNewSession model =
     in
     ( new_model, updatePageHash new_model )
 
+
+enterWorkspaceList : Model -> ( Model, Cmd Msg )
+enterWorkspaceList model =
+    let
+        new_model =
+            { model | page = WorkspaceListPage}
+    in
+    ( new_model, updatePageHash new_model )
+
+enterWorkspace : Model -> String -> ( Model, Cmd Msg )
+enterWorkspace model wid =
+    let
+        new_model =
+            { model | page = WorkspacePage wid}
+    in
+    ( new_model, updatePageHash new_model )
 
 notFound : Model -> ( Model, Cmd Msg )
 notFound model =

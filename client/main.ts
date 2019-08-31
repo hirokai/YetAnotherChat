@@ -200,7 +200,7 @@ window['importKey'] = crypto.importKey;
         model.sessions.get(session_id);
     });
 
-    app.ports.initializeData.subscribe(() => {
+    app.ports.initializeData.subscribe(async () => {
         model.users.list().then(async (us) => {
             Promise.all(map(us, model.users.toClient)).then((users) => {
                 console.log('Feeding users', users);
@@ -209,6 +209,9 @@ window['importKey'] = crypto.importKey;
         });
         getUserImages();
         getAndfeedRoomInfo();
+        model.workspaces.list().then((ws) => {
+            app.ports.feedWorkspaces.send(values(ws));
+        })
     });
 
     app.ports.reloadSessions.subscribe(() => {
@@ -607,6 +610,7 @@ interface ElmAppPorts {
     feedConfigValues: ElmSend<string[][]>;
     setConfigValue: ElmSub<{ key: string, value: string }>;
     setProfileValue: ElmSub<{ key: string, value: string }>;
+    feedWorkspaces: ElmSend<Workspace[]>;
     getUsers: ElmSub<void>;
     feedUsers: ElmSend<UserClient[]>;
     getUserMessages: ElmSub<string>;

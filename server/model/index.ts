@@ -15,6 +15,8 @@ import * as sessions_ from './sessions'
 export const sessions = sessions_;
 import * as keys_ from './keys'
 export const keys = keys_;
+import * as workspaces_ from './workspaces'
+export const workspaces = workspaces_;
 import * as _ from 'lodash';
 import moment from 'moment';
 

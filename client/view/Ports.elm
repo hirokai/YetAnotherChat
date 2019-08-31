@@ -1,4 +1,4 @@
-port module Ports exposing (createNewSession, deleteFile, deleteSession, downloadPrivateKey, enterSession, feedMessages, feedRoomInfo, feedSessionsOf, feedSessionsWithSameMembers, feedUserImages, feedUserMessages, feedUsers, getConfig, getMessages, getRoomInfo, getSessionsOf, getSessionsWithSameMembers, getUserMessages, getUsers, hashChanged, initializeData, joinRoom, logout, onChangeData, recalcElementPositions, receiveNewRoomInfo, reloadSession, reloadSessions, removeItemRemote, resetKeys, resetUserCache, saveConfig, scrollTo, scrollToBottom, sendRoomName, setPageHash, setValue, startPosterSession, startVideo, stopVideo, uploadPrivateKey, videoJoin, videoLeft)
+port module Ports exposing (createNewSession, deleteFile, deleteSession, downloadPrivateKey, enterSession, feedMessages, feedRoomInfo, feedSessionsOf, feedSessionsWithSameMembers, feedUserImages, feedUserMessages, feedUsers, getConfig, getMessages, getRoomInfo, getSessionsOf, getSessionsWithSameMembers, getUserMessages, getUsers, hashChanged, initializeData, joinRoom, logout, onChangeData, recalcElementPositions, receiveNewRoomInfo, reloadSession, reloadSessions, removeItemRemote, resetKeys, resetUserCache, saveConfig, scrollTo, scrollToBottom, sendRoomName, setPageHash, setValue, startPosterSession, startVideo, stopVideo, uploadPrivateKey, videoJoin, videoLeft,feedWorkspaces)
 
 import Json.Decode as Json
 import Types exposing (..)
@@ -18,6 +18,7 @@ port getUsers : () -> Cmd msg
 
 port feedUsers : (List User -> msg) -> Sub msg
 
+port feedWorkspaces : (List Workspace -> msg) -> Sub msg
 
 port onChangeData : ({ resource : String, id : String, operation : String } -> msg) -> Sub msg
 

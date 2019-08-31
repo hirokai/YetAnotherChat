@@ -148,6 +148,12 @@ interface SessionEventClient extends ChatEntryClientCommon {
     action: string
 }
 
+interface Workspace {
+    id: string
+    name: string
+    members: string[]
+}
+
 interface UserSlack {
     id: string,
     real_name: string,
@@ -353,6 +359,11 @@ type PrivateUserInfo = {
 }
 
 type GetConfigResponse = { ok: boolean, data: string[][] }
+
+type GetWorkspacesResponse = {
+    ok: boolean,
+    data?: Workspace[]
+}
 
 type PostConfigData = {
     key: string,

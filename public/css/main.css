@@ -404,6 +404,18 @@ a {
     color: inherit;
 }
 
+.workspace-list-item {
+    float: left;
+    margin: 10px;
+    width: 200px;
+    height: 80px;
+    border: 1px solid black;
+    border-radius: 5px;
+    padding: 5px;
+    box-shadow: rgba(0, 0, 0, 0.5) 3px 3px 5px;
+}
+
+
 .userlist-person {
     float: left;
     margin: 10px;
@@ -676,4 +688,8 @@ span.config-name {
 .video-username {
     font-size: 13px;
     margin: 0px;
+}
+
+.workspace-panel-member {
+    font-size: 12px;
 }

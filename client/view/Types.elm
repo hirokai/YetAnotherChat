@@ -1,4 +1,4 @@
-module Types exposing (ChatEntry(..), ChatFileTyp, ChatPageModel, ChatPageMsg(..), CommentTyp, FilterMode(..), Member, Model, Msg(..), NewSessionMsg(..), NewSessionStatus, Page(..), RoomID, RoomInfo, SessionEventTyp, SettingsMsg(..), SettingsPageModel, User, UserListPageModel, UserListPageMsg(..), UserListShowMode(..), UserPageModel, UserPageMsg(..), appName, getId, getKind, getRoomID, getSDGs, getUser, getUserFullname, getUserInfo, getUserName, getUserNameDisplay, roomName, roomUsers, toggleSet, truncate)
+module Types exposing (ChatEntry(..), ChatFileTyp, ChatPageModel, ChatPageMsg(..), CommentTyp, FilterMode(..), Member, Model, Msg(..), NewSessionMsg(..), NewSessionStatus, Page(..), RoomID, RoomInfo, SessionEventTyp, SettingsMsg(..), SettingsPageModel, User, UserListPageModel, UserListPageMsg(..), UserListShowMode(..), UserPageModel, UserPageMsg(..), appName, getId, getKind, getRoomID, getSDGs, getUser, getUserFullname, getUserInfo, getUserName, getUserNameDisplay, roomName, roomUsers, toggleSet, truncate,Workspace)
 
 import Dict exposing (Dict)
 import Json.Decode as Json
@@ -11,6 +11,11 @@ appName : String
 appName =
     "COI SNS"
 
+type alias Workspace = {
+    id: String,
+    name: String,
+    members: List String
+    }
 
 type alias CommentTyp =
     { id : String
@@ -83,6 +88,7 @@ type ChatEntry
 
 type alias Model =
     { page : Page
+    , workspaces : Dict String Workspace
     , rooms : List RoomID
     , users : Dict String User
     , myself : Member
@@ -166,10 +172,12 @@ type Page
     = RoomPage RoomID
     | SessionListPage
     | UserPage String
+    | UserListPage
     | UserProfilePage String
     | ProfileEditPage
     | UserSettingPage
-    | UserListPage
+    | WorkspaceListPage
+    | WorkspacePage String
     | HomePage
     | NewSession
     | NotFound
@@ -187,6 +195,7 @@ type Msg
     | StartSession (Set.Set Member)
     | ReceiveNewSessionId { timestamp : Int, name : String, id : RoomID }
     | FeedRoomInfo Json.Value
+    | FeedWorkspaces (List Workspace)
     | FeedUsers (List User)
     | ReloadSessions
     | EnterNewSessionScreen

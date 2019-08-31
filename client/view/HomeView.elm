@@ -18,6 +18,10 @@ homeView model =
             [ div [ class "row" ]
                 [ leftMenu model
                 , smallMenu
+                , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ] [
+                    h1 [] [text "ワークスペース"],
+                    div [] (List.map (mkWorkspacePanel model) (Dict.values model.workspaces))
+                ]
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text "新しい会話を開始" ]
                     , div [ id "people-wrapper" ] <|
@@ -34,3 +38,18 @@ homeView model =
             ]
         ]
     }
+
+mkWorkspacePanel : Model -> Workspace -> Html Msg
+mkWorkspacePanel  model ws =
+    div
+        [ classList [ ( "workspace-list-item", True )]
+        ]
+        [ div [  ]
+            [ div [ class "name" ]
+                [ a [ href <| "#/workspaces/" ++ ws.id ]
+                    [ text ws.name
+                    ]
+                ]
+                , div [class "workspace-panel-member"] (List.intersperse (text ", ") <| List.map (\n -> span [] [text (getUserName model n)]) ws.members)
+            ]
+        ]
