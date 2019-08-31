@@ -30,14 +30,15 @@ export function save_socket_id(user_id: string, socket_id: string): Promise<{ ok
 }
 
 export async function get(user_id: string): Promise<User> {
-    const row = await db_.get<UserWithEmail>("select users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profile_value from users join user_emails on users.id=user_emails.user_id join profiles as p on p.user_id=users.id where users.id=? and p.profile_name='avatar' group by users.id;", user_id);
+    const row = await db_.get<UserWithEmail>("select users.source,users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profile_value from users join user_emails on users.id=user_emails.user_id join profiles as p on p.user_id=users.id where users.id=? and p.profile_name='avatar' group by users.id;", user_id);
     if (row && row.id) {
         const emails = row.emails ? row.emails.split(',') : [];
         const { publicKey } = await keys.get_public_key(user_id);
         const online_users = await list_online_users();
         const id = row['id']
         const online: boolean = includes(online_users, id);
-        return ({ username: row.name, id, emails, avatar: row['profile_value'], fullname: row.fullname, online, publicKey, timestamp: row.timestamp });
+        const registered = row['source'] == 'self_register';
+        return ({ username: row.name, id, emails, avatar: row['profile_value'], fullname: row.fullname, online, publicKey, timestamp: row.timestamp, registered });
     } else {
         return (null);
     }
@@ -88,8 +89,8 @@ export async function add_to_contact(myself: string, contact: string) {
 
 export async function list(myself: string): Promise<User[]> {
     const rows: { [key: string]: any } = await
-        db_.all("select users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profiles.profile_value as avatar from users join user_emails on users.id=user_emails.user_id join profiles on users.id=profiles.user_id join contacts on contacts.contact_id=users.id where profiles.profile_name='avatar' and contacts.user_id=? group by users.id;", myself);
-    const rows_from_ws = await db_.all('select users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profiles.profile_value as avatar from users join user_emails on users.id=user_emails.user_id join profiles on users.id=profiles.user_id join users_in_workspaces as w1 on users.id=w1.user_id join users_in_workspaces as w2 on w1.workspace_id=w2.workspace_id where w2.user_id=? group by w1.user_id;', myself);
+        db_.all("select users.source,users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profiles.profile_value as avatar from users join user_emails on users.id=user_emails.user_id join profiles on users.id=profiles.user_id join contacts on contacts.contact_id=users.id where profiles.profile_name='avatar' and contacts.user_id=? group by users.id;", myself);
+    const rows_from_ws = await db_.all('select users.source,users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profiles.profile_value as avatar from users join user_emails on users.id=user_emails.user_id join profiles on users.id=profiles.user_id join users_in_workspaces as w1 on users.id=w1.user_id join users_in_workspaces as w2 on w1.workspace_id=w2.workspace_id where w2.user_id=? group by w1.user_id;', myself);
     const online_users = await list_online_users();
     const rows_all = rows.concat(rows_from_ws);
     const users = await Promise.all(map(rows_all, async (row): Promise<User> => {
@@ -107,6 +108,7 @@ export async function list(myself: string): Promise<User[]> {
             fullname: row['fullname'] || "",
             id: user_id,
             avatar: row['avatar'],
+            registered: row['source'] == 'self_register',
             publicKey: pk1,
             online: includes(online_users, user_id),
             fingerprint
@@ -229,7 +231,7 @@ export async function find_user_from_email({ myself, email }: { myself: string, 
         return null;
     } else {
         const { err, row } = await new Promise<{ err: any, row: UserWithEmail }>((resolve) => {
-            db.get('select users.timestamp,users.id,users.name,users.fullname,group_concat(distinct user_emails.email) as emails,profile_value from users join user_emails on users.id=user_emails.user_id join profiles on profiles.user_id=users.id group by users.id having emails like ?;', '%' + email + '%', (err, row: UserWithEmail) => {
+            db.get('select users.source,users.timestamp,users.id,users.name,users.fullname,group_concat(distinct user_emails.email) as emails,profile_value from users join user_emails on users.id=user_emails.user_id join profiles on profiles.user_id=users.id group by users.id having emails like ?;', '%' + email + '%', (err, row: UserWithEmail) => {
                 resolve({ err, row })
             });
         });
@@ -239,7 +241,8 @@ export async function find_user_from_email({ myself, email }: { myself: string, 
             const online_users = await list_online_users();
             const online: boolean = includes(online_users, user_id);
             const emails = (row.emails || '').split(',');
-            return { username: row.name, fullname: row.fullname, id: user_id, emails, avatar: row['profile_value'], online, publicKey, timestamp: row.timestamp };
+            const registered = row['source'] == 'self_register';
+            return { username: row.name, fullname: row.fullname, id: user_id, emails, avatar: row['profile_value'], online, publicKey, timestamp: row.timestamp, registered };
         } else {
             return null;
         }
@@ -247,14 +250,15 @@ export async function find_user_from_email({ myself, email }: { myself: string, 
 }
 
 export async function find_from_username(username: string): Promise<User> {
-    const row = await db_.get("select users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails, profile_value from users join user_emails on users.id=user_emails.user_id join profiles on profiles.user_id=users.id where users.name=? and profiles.profile_name='avatar' group by users.id;", username);
+    const row = await db_.get("select users.source,users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails, profile_value from users join user_emails on users.id=user_emails.user_id join profiles on profiles.user_id=users.id where users.name=? and profiles.profile_name='avatar' group by users.id;", username);
     if (row) {
         const user_id = row['id']
         const emails = row['emails'] ? row['emails'].split(',') : [];
         const { publicKey } = await get_public_key(user_id);
         const online_users = await list_online_users();
         const online: boolean = includes(online_users, user_id);
-        return { username: row['name'], id: user_id, emails, avatar: row['profile_value'], fullname: row['fullname'] || null, online, publicKey, timestamp: row['timestamp'] };
+        const registered = row['source'] == 'self_register';
+        return { username: row['name'], id: user_id, emails, avatar: row['profile_value'], fullname: row['fullname'] || null, online, publicKey, timestamp: row['timestamp'], registered };
     } else {
         return null;
     }
@@ -297,7 +301,7 @@ export async function set_user_config(user_id: string, key: string, value: strin
     }
 }
 
-export async function register({ username, password, email, fullname = null, source }: { username: string, password: string, email?: string, fullname?: string, source: string }): Promise<{ ok: boolean, user?: User, error?: string, error_code?: number }> {
+export async function register({ username, password, email, fullname = null, source }: { username: string, password: string, email?: string, fullname?: string, source: 'self_register' | 'email_thread' }): Promise<{ ok: boolean, user?: User, error?: string, error_code?: number }> {
     const user_id = shortid();
     if (!username || !password) {
         return { ok: false, error: 'Username and password are required' };
@@ -326,7 +330,7 @@ export async function register({ username, password, email, fullname = null, sou
                             const avatar = choose_avatar(username);
                             set_profile(user_id, 'avatar', avatar).then(() => {
                                 const emails = email ? [email] : [];
-                                const user: User = { id: user_id, fullname, username, emails, avatar, online: false, publicKey: null, timestamp }
+                                const user: User = { id: user_id, fullname, username, emails, avatar, online: false, publicKey: null, timestamp, registered: source == 'self_register' }
                                 resolve({ ok: true, user });
                             });
                         });

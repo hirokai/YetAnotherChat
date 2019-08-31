@@ -40,6 +40,7 @@ type alias User =
     , emails : List String
     , avatar : String
     , online : Bool
+    , registered : Bool
     , fingerprint : String
     , profile : List ( String, String )
     }

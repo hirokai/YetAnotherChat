@@ -370,6 +370,7 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
         if (u == null) {
             console.log('User=null');
         } else {
+            await model.users.add_to_contact(myself.id, u.id);
             results.push(u);
             const url = data.message_id + '::lines=' + data.lines.start + '-' + data.lines.end;
             const r1: JoinSessionResponse = await model.sessions.join({ session_id, user_id: u.id, timestamp, source: 'email_thread' });

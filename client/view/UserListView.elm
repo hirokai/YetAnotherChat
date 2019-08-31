@@ -14,9 +14,8 @@ import Types exposing (..)
 userListView : Model -> { title : String, body : List (Html Msg) }
 userListView model =
     let
-        filterWithEmailExists : User -> Bool
-        filterWithEmailExists u =
-            Just "" /= List.head u.emails
+        filterRegisteredUsers : User -> Bool
+        filterRegisteredUsers u = u.registered
 
         filterWithName : User -> Bool
         filterWithName u =
@@ -33,7 +32,7 @@ userListView model =
         userFilter : User -> Bool
         userFilter =
             if model.userListPageModel.userWithIdOnly then
-                \u -> filterWithEmailExists u && filterWithName u
+                \u -> filterRegisteredUsers u && filterWithName u
 
             else
                 filterWithName
@@ -54,7 +53,7 @@ userListView model =
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text "ユーザー一覧" ]
                     , div [ class "btn-group" ] [ input [ type_ "input", id "search-user", class "form-control", onInput SearchUser, value model.searchKeyword, placeholder "検索", autocomplete False ] [], i [ class "searchclear far fa-times-circle", onClick (SearchUser "") ] [], button [ class "btn btn-light", id "reset-user-cache", onClick ResetUserCache ] [ text "Reload" ] ]
-                    , div [] [ input [ type_ "checkbox", id "check-user-with-id-only", checked model.userListPageModel.userWithIdOnly, onCheck (CheckUserWithIdOnly >> UserListPageMsg) ] [], label [ for "check-user-with-id-only" ] [ text "メールアドレスの無いユーザーを隠す" ] ]
+                    , div [] [ input [ type_ "checkbox", id "check-user-with-id-only", checked model.userListPageModel.userWithIdOnly, onCheck (CheckUserWithIdOnly >> UserListPageMsg) ] [], label [ for "check-user-with-id-only" ] [ text "未登録ユーザーを隠す" ] ]
                     , div []
                         [ span [] [ text "表示" ]
                         , button [ class "btn btn-sm btn-light", onClick (UserListPageMsg <| ChangeShowMode Table) ] [ text "テーブル" ]

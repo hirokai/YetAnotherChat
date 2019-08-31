@@ -36,7 +36,7 @@ export class Model {
     token: string
     privateKeyJson: JsonWebKey
     onInit: () => void;
-    readonly DB_VERSION: number = 3;
+    readonly DB_VERSION: number = 4;
     constructor({ user_id, token, onInit }: { user_id: string, token: string, onInit?: () => void }) {
         this.user_id = user_id;
         this.token = token;
@@ -92,7 +92,7 @@ export class Model {
         const self = this;
         return new Promise((resolve, reject) => {
             const openReq = indexedDB.open(dbName, this.DB_VERSION);
-            openReq.onupgradeneeded = function (event: any) {
+            openReq.onupgradeneeded = function (event) {
                 var db = (<IDBRequest>event.target).result;
                 try {
                     db.createObjectStore(storeName);
@@ -127,7 +127,7 @@ export class Model {
         const self = this;
         return new Promise((resolve, reject) => {
             const openReq = indexedDB.open(dbName);
-            openReq.onupgradeneeded = function (event: any) {
+            openReq.onupgradeneeded = function (event) {
                 var db = (<IDBRequest>event.target).result;
                 try {
                     db.createObjectStore(storeName);
@@ -293,6 +293,7 @@ export class Model {
                 emails: u.emails || [],
                 avatar: u.avatar || '',
                 online: u.online || false,
+                registered: u.registered,
                 fingerprint
                 , profile: profile_list
                 // , profile: [["SDGs", map(range(1, 18), (i) => (Math.random() > 0.5 ? '' + i : '')).join(',')]]//profile_list.join(',')
