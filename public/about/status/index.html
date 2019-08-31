@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link rel="stylesheet" href="/public/css/bootstrap.min.css">
+    <title>Document</title>
+    <style>
+        .ok {
+            color: rgb(0, 140, 0);
+            font-weight: bold;
+            /* font-size: 21px; */
+        }
+
+        .ng {
+            color: #333;
+        }
+
+        .table td {
+            padding: 0.5rem;
+        }
+
+        .table tr.section {
+            font-weight: bold;
+        }
+
+        .table tr:not(.section) td:nth-child(1) {
+            padding-left: 1.5em;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12">
+                <h1>実装状況</h1>
+                <table class='table'>
+                    <thead>
+                        <tr>
+                            <th rowspan='2' style='vertical-align: top'>内容</th>
+                            <th rowspan='2' style='vertical-align: top'>実装</th>
+                            <th colspan='2'>暗号化</th>
+                        </tr>
+                        <tr>
+                            <th>サーバー上での暗号化</th>
+                            <th>エンドツーエンド暗号化</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class='section'>
+                            <td colspan='3'>ユーザー情報</td>
+                        </tr>
+                        <tr>
+                            <td>ユーザー名，フルネーム，Emailアドレス</td>
+                            <td class='ok'>✓</td>
+                            <td class='ng'>&#8212;</td>
+                            <td class='ng'>&#8212;</td>
+                        </tr>
+                        <tr>
+                            <td>プロフィール</td>
+                            <td class='ok'>✓</td>
+                            <td class='ng'>&#8212;</td>
+                            <td class='ng'>&#8212;</td>
+                        </tr>
+                    </tbody>
+                    <tbody>
+                        <tr class='section'>
+                            <td colspan='3'>チャット</td>
+                        </tr>
+                        <tr>
+                            <td>メッセージ</td>
+                            <td class='ok'>✓</td>
+                            <td class='ok'>✓</td>
+                            <td class='ok'>✓</td>
+                        </tr>
+                        <tr>
+                            <td>画像</td>
+                            <td class='ok'>✓</td>
+                            <td class='ok'>✓</td>
+                            <td class='ok'>✓</td>
+                        </tr>
+                    </tbody>
+                    <tbody>
+                        <tr class='section'>
+                            <td colspan='3'>ワークスペース</td>
+                        </tr>
+                        <tr>
+                            <td>ワークスペースのユーザー一覧</td>
+                            <td class='ok'>✓</td>
+                            <td class='ng'>&#8212;</td>
+                            <td class='ng'>&#8212;</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

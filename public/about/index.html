@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link rel="stylesheet" href="/public/css/bootstrap.min.css">
+    <style>
+        section {
+            margin-top: 15px;
+            margin-bottom: 25px;
+        }
+
+        p {
+            margin-bottom: 5px;
+        }
+    </style>
+    <title>Document</title>
+</head>
+
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12">
+                <h1>Yacht - Yet Another Chat</h1>
+                <section class='row'>
+                    <div class="col-md-12">
+                        <h2>特徴</h2>
+                        <p>開発中の機能を含む（<a href="./status/">実装状況</a>）</p>
+                        <ul>
+                            <li>エンドツーエンド暗号化のチャット（文章・画像）</li>
+                            <li>複数のワークスペースに簡単にアクセス可能 </li>
+                            <li>TypeScriptとElmで書かれたモダンなsingle-page applicationで，高速・軽快に動作</li>
+                        </ul>
+                    </div>
+                </section>
+                <section class='row'>
+                    <div class="col-md-12">
+                        <h2>暗号化について</h2>
+                        <div>
+                            <p>ユーザー間のメッセージ本文（文章・画像）は<a
+                                    href="https://ja.wikipedia.org/wiki/%E6%A5%95%E5%86%86%E6%9B%B2%E7%B7%9A%E3%83%87%E3%82%A3%E3%83%95%E3%82%A3%E3%83%BC%E3%83%BB%E3%83%98%E3%83%AB%E3%83%9E%E3%83%B3%E9%8D%B5%E5%85%B1%E6%9C%89">楕円曲線ディフィー・ヘルマン鍵共有（ECDH）</a>および128ビット<a
+                                    href="https://ja.wikipedia.org/wiki/Advanced_Encryption_Standard">AES-GCM</a>によってエンドツーエンド暗号化されています。秘密鍵は各ユーザーの端末のみに保存されるため，サーバー管理者でさえもエンドツーエンド暗号化された内容を読むことができません。
+                            </p>
+                            <p>ユーザー間の公開鍵の交換はサーバーを介して行われますが，公開鍵が改ざんされていないことがEthereumブロックチェーンで確認できます。<br><a
+                                    href="/public_keys">鍵一覧のページ</a></p>
+
+                            同じユーザーが他の端末で使用する場合は，下記より秘密鍵を書き出してから他の端末で読み込むか，あるいは一時的にサーバーに秘密鍵を預けてから他の端末でログインすることで利用が可能になります。なお，送信日時，送信ユーザーIDなどのメタデータ，プロフィール情報はサーバー上に保存され，サーバー管理者が読み取り可能です。
+                        </div>
+                    </div>
+                </section>
+                <section class='row'>
+                    <div class="col-md-12">
+                        <h2>開発</h2>
+                        <div>
+                            <a href="https://github.com/hirokai/YetAnotherChat">GitHub</a>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
