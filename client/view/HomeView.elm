@@ -46,10 +46,10 @@ mkWorkspacePanel  model ws =
         ]
         [ div [  ]
             [ div [ class "name" ]
-                [ a [ href <| "#/workspaces/" ++ ws.id ]
+                [ a [ class "clickable", href <| "#/workspaces/" ++ ws.id ]
                     [ text ws.name
                     ]
                 ]
-                , div [class "workspace-panel-member"] (List.intersperse (text ", ") <| List.map (\n -> span [] [text (getUserName model n)]) ws.members)
+                , div [class "workspace-panel-member"] (List.intersperse (text ", ") <| List.map (\n -> a [class "clickable", href <| "#/users/" ++ n] [text (getUserName model n)]) ws.members)
             ]
         ]
