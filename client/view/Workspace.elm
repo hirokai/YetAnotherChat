@@ -1,4 +1,4 @@
-port module Workspace exposing (workspaceView, workspaceListView)
+port module Workspace exposing (workspaceListView, workspaceView)
 
 import Components exposing (..)
 import Dict
@@ -13,14 +13,36 @@ import Types exposing (..)
 
 port saveSDGs : String -> Cmd msg
 
-workspaceListView : Model ->  { title : String, body : List (Html Msg) }
+
+workspaceListView : Model -> { title : String, body : List (Html Msg) }
 workspaceListView model =
     { title = "Workspaces: " ++ appName
-    , body = []
+    , body =
+        [ div [ class "container-fluid" ]
+            [ div [ class "row" ]
+                [ leftMenu model
+                , smallMenu
+                , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
+                    [ h1 []
+                        [ text "ワークスペース"
+                        ]
+                    ]
+                ]
+            ]
+        ]
     }
 
-workspaceView : Model -> Workspace ->  { title : String, body : List (Html Msg) }
+
+workspaceView : Model -> Workspace -> { title : String, body : List (Html Msg) }
 workspaceView model ws =
+    let
+        mkRow uid =
+            tr []
+                [ td []
+                    [ a [ class "clickable", href <| "#/users/" ++ uid ] [ text <| getUserNameDisplay model uid ]
+                    ]
+                ]
+    in
     { title = ws.name ++ "- workspace: " ++ appName
     , body =
         [ div [ class "container-fluid" ]
@@ -28,11 +50,22 @@ workspaceView model ws =
                 [ leftMenu model
                 , smallMenu
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
-                    [ h1 [] [ text <| ws.name ]
+                    [ h1 [] [ text <| "ワークスペース：" ++ ws.name ]
                     , div []
-                        [ ul [] (List.map (\n -> li [] [text n]) ws.members)]
-                    ]]]]
-                  
+                        [ table [ class "table" ]
+                            [ thead []
+                                [ tr [] [ th [] [ text "名前" ] ]
+                                ]
+                            , tbody [] <|
+                                List.map
+                                    mkRow
+                                    ws.members
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
     }
 
 

@@ -370,9 +370,20 @@ app.get('/api/workspaces', (req: GetAuthRequest, res: JsonResponse<GetWorkspaces
     (async () => {
         const user_id = req.decoded.user_id;
         const wss = await model.workspaces.list(user_id);
+        console.log('/api/workspaces', wss);
         res.json({ ok: true, data: wss });
     })().catch(next);
 });
+
+app.get('/api/workspaces/:id', (req: GetAuthRequest, res: JsonResponse<GetWorkspaceResponse>, next) => {
+    (async () => {
+        const user_id = req.decoded.user_id;
+        const workspace_id = req.params.id;
+        const wss = await model.workspaces.get(user_id, workspace_id);
+        res.json({ ok: true, data: wss });
+    })().catch(next);
+});
+
 
 app.get('/api/users', (req: GetAuthRequest, res: JsonResponse<GetUsersResponse>, next) => {
     (async () => {

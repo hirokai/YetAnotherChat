@@ -743,6 +743,7 @@ export class Model {
     workspaces = {
         list: async (): Promise<{ [key: string]: Workspace }> => {
             const { data: { ok, data } }: AxiosResponse<GetWorkspacesResponse> = await axios.get('/api/workspaces');
+            console.log('workspaces.list', data);
             return keyBy(data, (d) => d.id);
         }
     }

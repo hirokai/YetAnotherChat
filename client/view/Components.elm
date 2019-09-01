@@ -172,8 +172,8 @@ leftMenu model =
     div [ class "d-none d-md-block col-md-5 col-lg-2", id "menu-left-wrapper" ]
         [ div [ id "menu-left" ]
             ([ div [ id "username-top" ]
-                [  a [ href "#/"] [ text "[-]"],
-                    a [ id "lefttop-myself-name", href <| "#/profiles/" ++ model.myself ] [ text (getUserName model model.myself) ]
+                [ a [ href "#/" ] [ text "[-]" ]
+                , a [ id "lefttop-myself-name", href <| "#/profiles/" ++ model.myself ] [ text (getUserName model model.myself) ]
                 , a [ onClick Logout, class "clickable", id "logout-button" ] [ text "ログアウト" ]
                 , a [ id "config-button", href "#/settings" ] [ text "設定" ]
                 ]

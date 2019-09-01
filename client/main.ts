@@ -210,6 +210,7 @@ window['importKey'] = crypto.importKey;
         getUserImages();
         getAndfeedRoomInfo();
         model.workspaces.list().then((ws) => {
+            console.log(ws);
             app.ports.feedWorkspaces.send(values(ws));
         })
     });

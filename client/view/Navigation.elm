@@ -1,4 +1,4 @@
-port module Navigation exposing (enterHome, enterNewSession, enterProfileEdit, enterRoom, enterSessionList, enterUser, enterUserList, enterUserProfile, enterUserSetting, notFound, notFoundView, pageToPath, pathToPage, updatePageHash,enterWorkspace,enterWorkspaceList)
+port module Navigation exposing (enterHome, enterNewSession, enterProfileEdit, enterRoom, enterSessionList, enterUser, enterUserList, enterUserProfile, enterUserSetting, enterWorkspace, enterWorkspaceList, notFound, notFoundView, pageToPath, pathToPage, updatePageHash)
 
 import Dict
 import Html exposing (..)
@@ -63,12 +63,18 @@ pathToPage hash =
             else
                 RoomPage r
 
+        "sessions" :: _ ->
+            SessionListPage
+
         "users" :: u :: _ ->
             if u == "" then
                 UserListPage
 
             else
                 UserPage u
+
+        "users" :: _ ->
+            UserListPage
 
         "profiles" :: u :: _ ->
             if u == "" then
@@ -86,6 +92,9 @@ pathToPage hash =
 
             else
                 WorkspacePage id
+
+        "workspaces" :: _ ->
+            WorkspaceListPage
 
         [ "settings" ] ->
             UserSettingPage
@@ -125,17 +134,19 @@ enterWorkspaceList : Model -> ( Model, Cmd Msg )
 enterWorkspaceList model =
     let
         new_model =
-            { model | page = WorkspaceListPage}
+            { model | page = WorkspaceListPage }
     in
     ( new_model, updatePageHash new_model )
+
 
 enterWorkspace : Model -> String -> ( Model, Cmd Msg )
 enterWorkspace model wid =
     let
         new_model =
-            { model | page = WorkspacePage wid}
+            { model | page = WorkspacePage wid }
     in
     ( new_model, updatePageHash new_model )
+
 
 notFound : Model -> ( Model, Cmd Msg )
 notFound model =

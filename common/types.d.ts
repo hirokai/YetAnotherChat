@@ -360,6 +360,11 @@ type PrivateUserInfo = {
 
 type GetConfigResponse = { ok: boolean, data: string[][] }
 
+type GetWorkspaceResponse = {
+    ok: boolean,
+    data?: Workspace
+}
+
 type GetWorkspacesResponse = {
     ok: boolean,
     data?: Workspace[]
