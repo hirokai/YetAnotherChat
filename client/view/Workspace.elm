@@ -1,4 +1,4 @@
-port module Workspace exposing (workspaceListView, workspaceView)
+port module Workspace exposing (newWorkspaceView, updateNewWorkspaceModel, workspaceListView, workspaceView)
 
 import Components exposing (..)
 import Dict
@@ -11,7 +11,45 @@ import Set
 import Types exposing (..)
 
 
-port saveSDGs : String -> Cmd msg
+newWorkspaceView : Model -> { title : String, body : List (Html Msg) }
+newWorkspaceView model =
+    { title = appName
+    , body =
+        [ div [ class "container-fluid" ]
+            [ div [ class "row" ]
+                [ leftMenu model
+                , smallMenu
+                , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
+                    [ h1 [] [ text "ワークスペースの新規作成" ]
+                    , div [ id "people-wrapper" ] <|
+                        List.map (\u -> mkPeoplePanelWS model model.newWorkspaceModel.selected u.id)
+                            (List.map Tuple.second <| Dict.toList model.users)
+                    , div
+                        [ style "clear" "both" ]
+                        []
+                    , div [] [ button [ class "btn btn-primary btn-lg", onClick (CreateWorkspace model.newWorkspaceModel.selected) ] [ text "作成" ] ]
+                    ]
+                ]
+            ]
+        ]
+    }
+
+
+mkPeoplePanelWS : Model -> Set.Set String -> String -> Html Msg
+mkPeoplePanelWS model selected user =
+    let
+        email =
+            Maybe.withDefault "" <| Maybe.andThen (.emails >> List.head) (getUserInfo model user)
+    in
+    div
+        [ classList [ ( "person-panel", True ), ( "active", Set.member user selected || user == model.myself ) ]
+        , if user == model.myself then
+            attribute "_" "_"
+
+          else
+            onClick (NewWorkspaceMsg (TogglePersonInNewWS user))
+        ]
+        [ div [ class "name" ] [ text (getUserNameDisplay model user) ], div [ class "email" ] [ text email ] ]
 
 
 workspaceListView : Model -> { title : String, body : List (Html Msg) }
@@ -69,59 +107,12 @@ workspaceView model ws =
     }
 
 
-updateUserPageModel : UserPageMsg -> UserPageModel -> ( UserPageModel, Cmd msg )
-updateUserPageModel msg model =
+updateNewWorkspaceModel : NewWorkspaceMsg -> NewWorkspaceModel -> ( NewWorkspaceModel, Cmd msg )
+updateNewWorkspaceModel msg model =
     case msg of
-        FeedSessions ss ->
-            ( { model | sessions = ss }, Cmd.none )
-
-        FeedUserMessages ms ->
-            ( { model | messages = ms }, Cmd.none )
-
-        SetShownImageID id ->
-            ( { model | shownFileID = Just id }, Cmd.none )
-
-        AddNewFileBox ->
-            ( { model | newFileBox = True, shownFileID = Nothing }, Cmd.none )
-
-        DeletePosterImage file_id ->
-            ( model, deleteFile file_id )
-
-        SelectSDG i ->
-            ( { model | selectedSDGs = toggleSet i model.selectedSDGs }, Cmd.none )
-
-        SaveSDGs ->
+        TogglePersonInNewWS user ->
             let
-                s =
-                    String.join "," <| List.map String.fromInt <| Set.toList model.selectedSDGs
+                newSelected =
+                    toggleSet user model.selected
             in
-            ( model, saveSDGs s )
-
-
-getMessageCount : String -> Model -> String
-getMessageCount session_id model =
-    case Dict.get session_id model.roomInfo of
-        Just room ->
-            let
-                total =
-                    Maybe.withDefault 0 <| Dict.get "__total" room.numMessages
-
-                cs =
-                    Dict.toList room.numMessages
-            in
-            String.fromInt total
-                ++ " total. "
-                ++ (String.join "," <|
-                        List.filterMap
-                            (\( name, count ) ->
-                                if name == "__total" then
-                                    Nothing
-
-                                else
-                                    Just <| getUserName model name ++ "(" ++ String.fromInt count ++ ")"
-                            )
-                            cs
-                   )
-
-        Nothing ->
-            "N/A"
+            ( { model | selected = newSelected }, Cmd.none )

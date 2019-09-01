@@ -1,4 +1,4 @@
-port module Navigation exposing (enterHome, enterNewSession, enterProfileEdit, enterRoom, enterSessionList, enterUser, enterUserList, enterUserProfile, enterUserSetting, enterWorkspace, enterWorkspaceList, notFound, notFoundView, pageToPath, pathToPage, updatePageHash)
+port module Navigation exposing (enterHome, enterNewSession, enterNewWorkspace, enterProfileEdit, enterRoom, enterSessionList, enterUser, enterUserList, enterUserProfile, enterUserSetting, enterWorkspace, enterWorkspaceList, notFound, notFoundView, pageToPath, pathToPage, updatePageHash)
 
 import Dict
 import Html exposing (..)
@@ -30,6 +30,9 @@ pageToPath page =
 
         WorkspaceListPage ->
             "/workspaces"
+
+        NewWorkspacePage ->
+            "/workspaces/new"
 
         UserProfilePage u ->
             "/profiles/" ++ u
@@ -90,6 +93,9 @@ pathToPage hash =
             if id == "" then
                 WorkspaceListPage
 
+            else if id == "new" then
+                NewWorkspacePage
+
             else
                 WorkspacePage id
 
@@ -144,6 +150,15 @@ enterWorkspace model wid =
     let
         new_model =
             { model | page = WorkspacePage wid }
+    in
+    ( new_model, updatePageHash new_model )
+
+
+enterNewWorkspace : Model -> ( Model, Cmd Msg )
+enterNewWorkspace model =
+    let
+        new_model =
+            { model | page = NewWorkspacePage, newWorkspaceModel = { selected = Set.singleton model.myself } }
     in
     ( new_model, updatePageHash new_model )
 

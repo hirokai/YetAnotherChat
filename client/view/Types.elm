@@ -1,9 +1,9 @@
-module Types exposing (ChatEntry(..), ChatFileTyp, ChatPageModel, ChatPageMsg(..), CommentTyp, FilterMode(..), Member, Model, Msg(..), NewSessionMsg(..), NewSessionStatus, Page(..), RoomID, RoomInfo, SessionEventTyp, SettingsMsg(..), SettingsPageModel, User, UserListPageModel, UserListPageMsg(..), UserListShowMode(..), UserPageModel, UserPageMsg(..), appName, getId, getKind, getRoomID, getSDGs, getUser, getUserFullname, getUserInfo, getUserName, getUserNameDisplay, roomName, roomUsers, toggleSet, truncate,Workspace)
+module Types exposing (ChatEntry(..), ChatFileTyp, ChatPageModel, ChatPageMsg(..), CommentTyp, FilterMode(..), Member, Model, Msg(..), NewSessionMsg(..), NewSessionStatus, NewWorkspaceModel, NewWorkspaceMsg(..), Page(..), RoomID, RoomInfo, SessionEventTyp, SettingsMsg(..), SettingsPageModel, User, UserListPageModel, UserListPageMsg(..), UserListShowMode(..), UserPageModel, UserPageMsg(..), Workspace, appName, getId, getKind, getRoomID, getSDGs, getUser, getUserFullname, getUserInfo, getUserName, getUserNameDisplay, roomName, roomUsers, toggleSet, truncate)
 
 import Dict exposing (Dict)
 import Json.Decode as Json
 import List.Extra
-import Set
+import Set exposing (Set)
 import Time exposing (Zone)
 
 
@@ -11,11 +11,13 @@ appName : String
 appName =
     "COI SNS"
 
-type alias Workspace = {
-    id: String,
-    name: String,
-    members: List String
+
+type alias Workspace =
+    { id : String
+    , name : String
+    , members : List String
     }
+
 
 type alias CommentTyp =
     { id : String
@@ -92,14 +94,15 @@ type alias Model =
     , rooms : List RoomID
     , users : Dict String User
     , myself : Member
-    , selected : Set.Set String
+    , selected : Set String
     , roomInfo : Dict RoomID RoomInfo
     , newSessionStatus : NewSessionStatus
+    , newWorkspaceModel : NewWorkspaceModel
     , userPageModel : UserPageModel
     , chatPageStatus : ChatPageModel
     , userListPageModel : UserListPageModel
     , settingsPageModel : SettingsPageModel
-    , editing : Set.Set String
+    , editing : Set String
     , editingValue : Dict String String
     , files :
         Dict String
@@ -119,7 +122,7 @@ type alias Model =
 
 
 type alias NewSessionStatus =
-    { selected : Set.Set Member
+    { selected : Set Member
     , sessions_same_members : List RoomID
     }
 
@@ -129,12 +132,17 @@ type alias UserPageModel =
     , messages : List ChatEntry
     , shownFileID : Maybe String
     , newFileBox : Bool
-    , selectedSDGs : Set.Set Int
+    , selectedSDGs : Set Int
     }
 
 
 type alias SettingsPageModel =
     { configValues : Dict.Dict String String
+    }
+
+
+type alias NewWorkspaceModel =
+    { selected : Set Member
     }
 
 
@@ -155,7 +163,7 @@ type FilterMode
 
 type alias ChatPageModel =
     { filterMode : FilterMode
-    , filter : Set.Set String
+    , filter : Set String
     , users : List String
     , messages : Maybe (List ChatEntry)
     , topPaneExpanded : Bool
@@ -164,7 +172,7 @@ type alias ChatPageModel =
     , expandChatInput : Bool
     , chatInputActive : Bool
     , showVideoDiv : Bool
-    , videoMembers : Set.Set String
+    , videoMembers : Set String
     }
 
 
@@ -178,6 +186,7 @@ type Page
     | UserSettingPage
     | WorkspaceListPage
     | WorkspacePage String
+    | NewWorkspacePage
     | HomePage
     | NewSession
     | NotFound
@@ -188,15 +197,17 @@ type Msg
     | EnterRoom RoomID
     | EnterUser String
     | NewSessionMsg NewSessionMsg
+    | NewWorkspaceMsg NewWorkspaceMsg
     | UserPageMsg UserPageMsg
     | ChatPageMsg ChatPageMsg
     | UserListPageMsg UserListPageMsg
     | SettingsMsg SettingsMsg
-    | StartSession (Set.Set Member)
+    | StartSession (Set Member)
     | ReceiveNewSessionId { timestamp : Int, name : String, id : RoomID }
     | FeedRoomInfo Json.Value
     | FeedWorkspaces (List Workspace)
     | FeedUsers (List User)
+    | CreateWorkspace (Set Member)
     | ReloadSessions
     | EnterNewSessionScreen
     | StartEditing String String
@@ -222,6 +233,10 @@ type Msg
     | ResetUserCache
     | SetValue String String
     | NoOp
+
+
+type NewWorkspaceMsg
+    = TogglePersonInNewWS Member
 
 
 type NewSessionMsg
@@ -360,7 +375,7 @@ getRoomID model =
             Nothing
 
 
-toggleSet : comparable -> Set.Set comparable -> Set.Set comparable
+toggleSet : comparable -> Set comparable -> Set comparable
 toggleSet a xs =
     if Set.member a xs then
         Set.remove a xs
@@ -383,7 +398,7 @@ getUserNameDisplay model uid =
             "(N/A)"
 
 
-getSDGs : User -> Set.Set Int
+getSDGs : User -> Set Int
 getSDGs user =
     case Dict.get "SDGs" (Dict.fromList user.profile) of
         Just s ->

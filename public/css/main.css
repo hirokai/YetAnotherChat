@@ -404,7 +404,7 @@ a {
     color: inherit;
 }
 
-.workspace-list-item {
+.ws-list-item {
     float: left;
     margin: 10px;
     width: 200px;
@@ -668,11 +668,11 @@ span.config-name {
 }
 
 #video-div {
-    // border: 1px solid black;
+    /* border: 1px solid black; */
 }
 
 #video-div video {
-    // border: 1px solid black;
+    /* border: 1px solid black; */
     width: 300px;
     height: 200px;
     margin: 0px 5px;
@@ -690,6 +690,16 @@ span.config-name {
     margin: 0px;
 }
 
-.workspace-panel-member {
+.ws-panel-member {
     font-size: 12px;
+}
+
+.ws-list-center {
+    display: flex;
+    text-align:center;
+}
+
+.panel-center {
+    text-align: center;
+    font-size: 40px;
 }

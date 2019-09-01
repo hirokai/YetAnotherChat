@@ -183,6 +183,15 @@ window['importKey'] = crypto.importKey;
 
     app.ports.scrollTo.subscribe(scrollTo);
 
+    app.ports.createWorkspace.subscribe(async function (args: any[]) {
+        const name: string = args[0];
+        const members: string[] = args[1];
+        await model.workspaces.create(name, members);
+        model.workspaces.list().then((wss) => {
+            app.ports.feedWorkspaces.send(values(wss));
+        })
+    });
+
     app.ports.createNewSession.subscribe(async function (args: any[]) {
         var name: string = args[0];
         const members: string[] = args[1];
@@ -603,6 +612,7 @@ interface ElmAppPorts {
     onChangeData: ElmSend<{ resource: string, id: string, operation: string }>;
     scrollToBottom: ElmSub<void>;
     scrollTo: ElmSub<string>;
+    createWorkspace: ElmSub<any[]>;
     createNewSession: ElmSub<any[]>;
     enterSession: ElmSub<string>;
     feedRoomInfo: ElmSend<RoomInfoClient[]>;

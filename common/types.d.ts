@@ -364,6 +364,15 @@ type GetWorkspaceResponse = {
     ok: boolean,
     data?: Workspace
 }
+type PostWorkspaceData = {
+    name: string,
+    members: string[]
+}
+
+type PostWorkspaceResponse = {
+    ok: boolean,
+    data?: Workspace
+}
 
 type GetWorkspacesResponse = {
     ok: boolean,

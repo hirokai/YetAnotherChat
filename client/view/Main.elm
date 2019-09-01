@@ -35,6 +35,7 @@ init { user_id, show_toppane, expand_chatinput, show_users_with_email_only } =
       , page = NewSession
       , users = Dict.empty
       , selected = Set.empty
+      , newWorkspaceModel = { selected = Set.empty }
       , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
       , userPageModel = { sessions = [], messages = [], shownFileID = Nothing, newFileBox = False, selectedSDGs = Set.empty }
       , chatPageStatus = initialChatPageStatus show_toppane expand_chatinput
@@ -97,6 +98,13 @@ update msg model =
         EnterUser u ->
             enterUser u model
 
+        NewWorkspaceMsg msg1 ->
+            let
+                ( m, c ) =
+                    updateNewWorkspaceModel msg1 model.newWorkspaceModel
+            in
+            ( { model | newWorkspaceModel = m }, c )
+
         NewSessionMsg msg1 ->
             let
                 ( m, c ) =
@@ -144,6 +152,9 @@ update msg model =
 
         EnterNewSessionScreen ->
             enterNewSession model
+
+        CreateWorkspace members ->
+            ( model, createWorkspace ( "WS" ++ String.fromInt (Dict.size model.workspaces + 1), Set.toList members ) )
 
         StartEditing id initialValue ->
             ( { model | editing = Set.insert id model.editing, editingValue = Dict.insert id initialValue model.editingValue }, Cmd.none )
@@ -205,6 +216,9 @@ update msg model =
 
                     WorkspacePage id ->
                         enterWorkspace model id
+
+                    NewWorkspacePage ->
+                        enterNewWorkspace model
 
                     RoomPage r ->
                         enterRoom r model
@@ -382,12 +396,16 @@ view model =
         WorkspaceListPage ->
             workspaceListView model
 
-        WorkspacePage id->
+        WorkspacePage id ->
             case Dict.get id model.workspaces of
                 Just ws ->
                     workspaceView model ws
+
                 Nothing ->
                     notFoundView model
+
+        NewWorkspacePage ->
+            newWorkspaceView model
 
         ProfileEditPage ->
             profileEditView model

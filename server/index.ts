@@ -366,6 +366,13 @@ app.get('/api/matrix', (req, res, next) => {
     })().catch(next);
 });
 
+app.post('/api/workspaces', (req, res, next) => {
+    (async () => {
+        const r = await model.workspaces.create(req.body.name, req.body.members)
+        res.json(r);
+    })().catch(next);
+})
+
 app.get('/api/workspaces', (req: GetAuthRequest, res: JsonResponse<GetWorkspacesResponse>, next) => {
     (async () => {
         const user_id = req.decoded.user_id;
