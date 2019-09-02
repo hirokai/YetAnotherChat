@@ -80,8 +80,8 @@ interface MyResponse extends Response {
 interface MyPostRequest<T> {
     token: any;
     body: T;
-    params?: { [key: string]: string }
-    decoded?: { username: string, user_id: string, iap: number, exp: number }
+    params: { [key: string]: string }
+    decoded: { username: string, user_id: string, iap: number, exp: number }
 }
 
 interface GetAuthRequest {
@@ -94,7 +94,7 @@ interface GetAuthRequest {
 interface GetAuthRequest1<T> {
     token: any
     query: T
-    params?: { [key: string]: string }
+    params: { [key: string]: string }
     decoded: { username: string, user_id: string, iap: number, exp: number }
 }
 
@@ -260,7 +260,7 @@ app.post('/api/login', (req: MyPostRequest<LoginParams>, res, next) => {
     (async () => {
         const { username, password } = req.body;
         console.log({ username, password });
-        const matched = await model.users.match_password(null, username, password);
+        const matched = await model.users.match_password(username, password);
         if (matched) {
             console.log("login ok", username, password);
             const user = await model.users.find_from_username(username);
@@ -384,10 +384,14 @@ app.get('/api/workspaces', (req: GetAuthRequest, res: JsonResponse<GetWorkspaces
 
 app.get('/api/workspaces/:id', (req: GetAuthRequest, res: JsonResponse<GetWorkspaceResponse>, next) => {
     (async () => {
-        const user_id = req.decoded.user_id;
-        const workspace_id = req.params.id;
-        const wss = await model.workspaces.get(user_id, workspace_id);
-        res.json({ ok: true, data: wss });
+        if (req.params) {
+            const user_id = req.decoded.user_id;
+            const workspace_id = req.params.id;
+            const wss = await model.workspaces.get(user_id, workspace_id);
+            res.json({ ok: true, data: wss });
+        } else {
+            res.json({ ok: false });
+        }
     })().catch(next);
 });
 
@@ -402,13 +406,17 @@ app.get('/api/users', (req: GetAuthRequest, res: JsonResponse<GetUsersResponse>,
 app.get('/api/users/:id', (req, res: JsonResponse<GetUserResponse>, next) => {
     (async () => {
         const user = await model.users.get(req.params.id);
-        res.json({ ok: true, data: { user } });
+        if (user) {
+            res.json({ ok: true, data: user });
+        } else {
+            res.json({ ok: false });
+        }
     })().catch(next);
 });
 
 app.patch('/api/users/:id', (req: MyPostRequest<UpdateUserData>, res: JsonResponse<UpdateUserResponse>, next) => {
     (async () => {
-        if (req.decoded.user_id == req.params.id) {
+        if (req.decoded && req.params && req.decoded.user_id && req.decoded.user_id == req.params.id) {
             const user_id = req.decoded.user_id;
             const username = req.body.username;
             const fullname = req.body.fullname;
@@ -483,8 +491,12 @@ app.patch('/api/users/:id/profiles', (req: MyPostRequest<UpdateProfileData>, res
 app.get('/api/users/:id/comments', (req, res: JsonResponse<GetCommentsResponse>, next) => {
     (async () => {
         const user_id = req.decoded.user_id
-        const comments = await model.sessions.list_comments(user_id, null, user_id);
-        res.json({ ok: true, data: comments });
+        const comments = await model.sessions.list_comments(user_id, undefined, user_id);
+        if (comments) {
+            res.json({ ok: true, data: comments });
+        } else {
+            res.json({ ok: false });
+        }
     })().catch(next);
 });
 
@@ -501,16 +513,20 @@ app.get('/api/sessions/:id', (req, res: JsonResponse<GetSessionResponse>, next) 
 
 app.delete('/api/comments/:id', (req: GetAuthRequest, res: JsonResponse<DeleteCommentResponse>, next) => {
     (async () => {
-        const comment_id = req.params.id;
-        const r = await model.sessions.delete_comment(req.decoded.user_id, comment_id);
-        res.json(r);
-        if (r.data) {
-            const obj: CommentsDeleteSocket = {
-                __type: 'comments.delete',
-                id: comment_id,
-                session_id: r.data.session_id
-            };
-            io.emit("comments.delete", obj);
+        if (req.params) {
+            const comment_id = req.params.id;
+            const r = await model.sessions.delete_comment(req.decoded.user_id, comment_id);
+            res.json(r);
+            if (r.data) {
+                const obj: CommentsDeleteSocket = {
+                    __type: 'comments.delete',
+                    id: comment_id,
+                    session_id: r.data.session_id
+                };
+                io.emit("comments.delete", obj);
+            }
+        } else {
+            res.json({ ok: false });
         }
     })().catch(next);
 });
@@ -521,14 +537,18 @@ app.patch('/api/sessions/:id', (req, res: JsonResponse<PatchSessionResponse>, ne
         const { name, members } = req.body;
         console.log(name, members);
         const { ok, timestamp } = await model.sessions.update({ session_id, name });
-        const data: SessionsUpdateSocket = {
-            __type: 'sessions.update',
-            id: session_id,
-            name,
-            timestamp
-        };
-        io.emit('sessions.update', data);
-        res.json({ ok });
+        if (ok && timestamp) {
+            const data: SessionsUpdateSocket = {
+                __type: 'sessions.update',
+                id: session_id,
+                name,
+                timestamp
+            };
+            io.emit('sessions.update', data);
+            res.json({ ok });
+        } else {
+            req.json({ ok: false });
+        }
     })().catch(next);
 });
 
@@ -550,7 +570,7 @@ app.delete('/api/sessions/:id', (req, res: JsonResponse<CommentsDeleteResponse>,
 app.get('/api/sessions', (req: GetAuthRequest, res: JsonResponse<GetSessionsResponse>, next) => {
     (async () => {
         const ms: string = req.query.of_members;
-        const of_members: string[] = ms ? ms.split(",") : undefined;
+        const of_members: string[] | undefined = ms ? ms.split(",") : undefined;
         const is_all: boolean = !(typeof req.query.is_all === 'undefined');
         const user_id: string = req.decoded.user_id;
         const r = await model.sessions.get_session_list({ user_id, of_members, is_all });
@@ -619,8 +639,8 @@ app.get('/api/sessions/:session_id/comments', (req: GetAuthRequest1<GetCommentsP
         const session_id = req.params.session_id;
         const by_user = req.query.by_user;
         const after = req.query.after;
-        const comments: ChatEntry[] = await model.sessions.list_comments(req.decoded.user_id, session_id, by_user, after);
-        res.json({ ok: comments != null, data: comments });
+        const comments = await model.sessions.list_comments(req.decoded.user_id, session_id, by_user, after);
+        res.json({ ok: comments != null, data: comments ? comments : undefined });
     })().catch(next);
 });
 
@@ -632,7 +652,7 @@ app.post('/api/join_session', (req: PostRequest<JoinSessionParam>, res: JsonResp
         const timestamp = new Date().getTime();
         const r: JoinSessionResponse = await model.sessions.join({ session_id, user_id: req.decoded.user_id, source, timestamp });
         res.json(r);
-        if (r.ok) {
+        if (r.ok && r.data) {
             _.map(r.data.members.concat([myself]), async (m: string) => {
                 const socket_ids: string[] = await model.users.get_socket_ids(m);
                 const data1 = { session_id, user_id: myself };
@@ -643,10 +663,12 @@ app.post('/api/join_session', (req: PostRequest<JoinSessionParam>, res: JsonResp
             const socket_ids_newmember: string[] = await model.users.get_socket_ids(myself);
             console.log('emitting to new member', socket_ids_newmember);
 
-            const data2: RoomInfo = await model.sessions.get(session_id);
-            socket_ids_newmember.forEach(socket_id => {
-                io.to(socket_id).emit("message", _.extend({}, { __type: "new_session" }, data2));
-            });
+            const data2 = await model.sessions.get(session_id);
+            if (data2) {
+                socket_ids_newmember.forEach(socket_id => {
+                    io.to(socket_id).emit("message", _.extend({}, { __type: "new_session" }, data2));
+                });
+            }
         }
     })().catch(next);
 });
@@ -787,8 +809,13 @@ setInterval(async () => {
 app.get('/api/public_keys/me', (req: GetAuthRequest, res: JsonResponse<GetPublicKeysResponse>, next) => {
     (async () => {
         const user_id = req.decoded.user_id;
-        const { publicKey: pub, prv_fingerprint } = await model.keys.get_public_key(user_id);
-        res.json({ ok: pub != null, publicKey: pub, privateKeyFingerprint: prv_fingerprint });
+        const pub1 = await model.keys.get_public_key(user_id);
+        if (pub1) {
+            const { publicKey: pub, prv_fingerprint } = pub1;
+            res.json({ ok: pub != null, publicKey: pub, privateKeyFingerprint: prv_fingerprint });
+        } else {
+            res.json({ ok: false });
+        }
     })().catch(next);
 });
 
@@ -800,7 +827,7 @@ app.post('/api/public_keys', (req: MyPostRequest<PostPublicKeyParams>, res, next
         const privateKeyFingerprint = req.body.privateKeyFingerprint;
         const { ok, timestamp } = await model.keys.register_public_key({ user_id, for_user, jwk, privateKeyFingerprint });
         res.json({ ok, timestamp });
-        if (ok) {
+        if (ok && timestamp) {
             const obj: UsersUpdateSocket = { __type: "users.update", action: 'public_key', user_id, timestamp, public_key: jwk };
             io.emit('users.update', obj);
         }
@@ -810,7 +837,7 @@ app.post('/api/public_keys', (req: MyPostRequest<PostPublicKeyParams>, res, next
 app.get('/api/config', (req: GetAuthRequest, res: JsonResponse<GetConfigResponse>, next) => {
     (async () => {
         const configs = await model.users.get_user_config(req.decoded.user_id);
-        res.json({ ok: true, data: configs });
+        res.json({ ok: configs != null, data: configs || undefined });
     })().catch(next);
 });
 
@@ -852,7 +879,7 @@ io.on('connection', (socket: SocketIO.Socket) => {
             const r = await model.users.save_socket_id(user_id, socket.id);
             console.log('saveSocketId', r, 'socket id', user_id, socket.id)
             console.log('Online users:', previous, user_id)
-            if (!includes(previous, user_id)) {
+            if (!includes(previous, user_id) && r.ok && r.timestamp) {
                 const obj: UsersUpdateSocket = { __type: "users.update", action: 'online', user_id, online: true, timestamp: r.timestamp }
                 io.emit('users.update', obj);
             }
@@ -860,13 +887,16 @@ io.on('connection', (socket: SocketIO.Socket) => {
     });
     socket.on('disconnect', async () => {
         console.log('disconnected', socket.id);
-        const { user_id, online, timestamp } = await model.delete_connection(socket.id);
-        const obj: UsersUpdateSocket = {
-            __type: 'users.update',
-            action: 'online',
-            user_id, online, timestamp
+        const r = await model.delete_connection(socket.id);
+        if (r) {
+            const { user_id, online, timestamp } = r;
+            const obj: UsersUpdateSocket = {
+                __type: 'users.update',
+                action: 'online',
+                user_id, online, timestamp
+            }
+            io.emit('users.update', obj);
         }
-        io.emit('users.update', obj);
     })
 });
 

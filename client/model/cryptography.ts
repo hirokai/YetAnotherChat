@@ -1,39 +1,3 @@
-const Base64a = {
-    encode: (function (i, tbl) {
-        for (i = 0, tbl = { 64: 61, 63: 47, 62: 43 }; i < 62; i++) { tbl[i] = i < 26 ? i + 65 : (i < 52 ? i + 71 : i - 4); } //A-Za-z0-9+/=
-        return function (arr: Uint8Array): string {
-            var len, str, buf;
-            if (!arr || !arr.length) { return ""; }
-            for (i = 0, len = arr.length, buf = [], str = ""; i < len; i += 3) { //6+2,4+4,2+6
-                str += String.fromCharCode(
-                    tbl[arr[i] >>> 2],
-                    tbl[(arr[i] & 3) << 4 | arr[i + 1] >>> 4],
-                    tbl[i + 1 < len ? (arr[i + 1] & 15) << 2 | arr[i + 2] >>> 6 : 64],
-                    tbl[i + 2 < len ? (arr[i + 2] & 63) : 64]
-                );
-            }
-            return str;
-        };
-    }()),
-    decode: (function (i, tbl) {
-        for (i = 0, tbl = { 61: 64, 47: 63, 43: 62 }; i < 62; i++) { tbl[i < 26 ? i + 65 : (i < 52 ? i + 71 : i - 4)] = i; } //A-Za-z0-9+/=
-        return function (str: string): Uint8Array {
-            var j, len, arr, buf;
-            if (!str || !str.length) { return new Uint8Array([]); }
-            for (i = 0, len = str.length, arr = [], buf = []; i < len; i += 4) { //6,2+4,4+2,6
-                for (j = 0; j < 4; j++) { buf[j] = tbl[str.charCodeAt(i + j) || 0]; }
-                arr.push(
-                    buf[0] << 2 | (buf[1] & 63) >>> 4,
-                    (buf[1] & 15) << 4 | (buf[2] & 63) >>> 2,
-                    (buf[2] & 3) << 6 | buf[3] & 63
-                );
-            }
-            if (buf[3] === 64) { arr.pop(); if (buf[2] === 64) { arr.pop(); } }
-            return arr;
-        };
-    }())
-};
-
 function ab2str(buf: ArrayBuffer): string {
     var result = '';
     if (buf) {
@@ -66,15 +30,11 @@ export async function generateKeyPair(exportable = false): Promise<CryptoKeyPair
 type ExportedFormat = JsonWebKey;
 
 export async function exportKey(key: CryptoKey): Promise<ExportedFormat> {
-    if (key == null) {
-        return null
-    } else {
-        return crypto.subtle.exportKey('jwk', key);
-    }
+    return crypto.subtle.exportKey('jwk', key);
 }
 
 export async function importKey(data: ExportedFormat, is_publicKey: boolean, exportable = false): Promise<CryptoKey> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         crypto.subtle.importKey(
             'jwk',
             data,
@@ -88,7 +48,7 @@ export async function importKey(data: ExportedFormat, is_publicKey: boolean, exp
             resolve(key);
         }, (err) => {
             // console.error('importKey() error', err, data);
-            resolve(null);
+            reject(err);
         });
     });
 }
@@ -104,7 +64,7 @@ export async function exportKeySPKI(key: CryptoKey): Promise<ArrayBuffer> {
 }
 
 export async function importKeyPKCS8(data: ArrayBuffer, is_publicKey: boolean, exportable = false): Promise<CryptoKey> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         crypto.subtle.importKey(
             'pkcs8',
             data,
@@ -116,16 +76,12 @@ export async function importKeyPKCS8(data: ArrayBuffer, is_publicKey: boolean, e
             resolve(key);
         }, (err) => {
             console.error('importKey() error', err);
-            resolve(null);
+            reject(err);
         });
     });
 }
 
 function getEncryptionKey(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey): Promise<CryptoKey> {
-    // console.log('getEncryptionKey', { remotePublicKey, localPrivateKey })
-    if (remotePublicKey == null || localPrivateKey == null) {
-        return null;
-    }
     return new Promise((resolve) => {
         crypto.subtle.deriveBits(  // 鍵共有による共有鍵生成
             { name: 'ECDH', public: remotePublicKey },
@@ -335,27 +291,23 @@ export function encodeBase64URL2(data: Uint8Array): string {
 
 
 export async function fingerPrint1(key: CryptoKey): Promise<string> {
-    const jwk = await exportKey(key).catch(() => null);
+    const jwk = await exportKey(key);
     return fingerPrint(jwk);
 }
 
 // https://stackoverflow.com/a/42590106
 // Extended for private key
 export async function fingerPrint(jwk: JsonWebKey): Promise<string> {
-    if (jwk == null) {
-        return null;
+    let s;
+    if (jwk["d"]) {
+        s = '{"crv":"' + jwk.crv + '","d":"' + jwk.d + '","kty":"' + jwk.kty + '","x":"' + jwk.x + '","y":"' + jwk.y + '"}';
     } else {
-        let s;
-        if (jwk["d"]) {
-            s = '{"crv":"' + jwk.crv + '","d":"' + jwk.d + '","kty":"' + jwk.kty + '","x":"' + jwk.x + '","y":"' + jwk.y + '"}';
-        } else {
-            s = '{"crv":"' + jwk.crv + '","kty":"' + jwk.kty + '","x":"' + jwk.x + '","y":"' + jwk.y + '"}';
-        }
-        // console.log('fingerPrint(): json', s);
-        const arr = new TextEncoder().encode(s);
-        const hash_arr = await crypto.subtle.digest('SHA-256', arr);
-        return encodingFunc(new Uint8Array(hash_arr));
+        s = '{"crv":"' + jwk.crv + '","kty":"' + jwk.kty + '","x":"' + jwk.x + '","y":"' + jwk.y + '"}';
     }
+    // console.log('fingerPrint(): json', s);
+    const arr = new TextEncoder().encode(s);
+    const hash_arr = await crypto.subtle.digest('SHA-256', arr);
+    return encodingFunc(new Uint8Array(hash_arr));
 }
 
 // https://stackoverflow.com/questions/34946642/convert-string-to-uint8array-in-javascript

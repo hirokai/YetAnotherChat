@@ -166,12 +166,12 @@ interface UserSlack {
 type User = {
     id: string,
     timestamp: number,
-    fullname: string,
+    fullname?: string,
     username: string,
     emails: string[],
     avatar: string,
     online: boolean,
-    publicKey: JsonWebKey,
+    publicKey?: JsonWebKey,
     registered: boolean,
     fingerprint?: string,
     profile?: { [key: string]: string },
@@ -259,12 +259,12 @@ interface GetCommentsDeltaData {
 
 type MyKeyCacheData = {
     id: string,
-    publicKey: JsonWebKey,
-    privateKey: JsonWebKey,
-    fingerPrint: { publicKey: string, privateKey: string }
+    publicKey?: JsonWebKey,
+    privateKey?: JsonWebKey,
+    fingerPrint: { publicKey?: string, privateKey?: string }
 }
 
-type GetCommentsResponse = { ok: boolean, data: ChatEntry[] }
+type GetCommentsResponse = { ok: boolean, data?: ChatEntry[] }
 type DeleteCommentResponse = { ok: boolean, data?: DeleteCommentData, error?: string }
 type DeleteCommentData = { comment_id: string, encrypt_group: string, session_id: string }
 
@@ -288,9 +288,7 @@ type GetUsersResponse = {
 
 type GetUserResponse = {
     ok: boolean,
-    data: {
-        user: User
-    }
+    data?: User
 }
 
 type GetProfileResponse = {
@@ -358,7 +356,7 @@ type PrivateUserInfo = {
     allowed_passwords: string[]
 }
 
-type GetConfigResponse = { ok: boolean, data: string[][] }
+type GetConfigResponse = { ok: boolean, data?: string[][] }
 
 type GetWorkspaceResponse = {
     ok: boolean,

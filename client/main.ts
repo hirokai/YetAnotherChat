@@ -151,7 +151,9 @@ window['importKey'] = crypto.importKey;
 
     function scrollToBottom() {
         const el = document.getElementById('end-line');
-        el.scrollIntoView(true);
+        if (el) {
+            el.scrollIntoView(true);
+        }
     }
 
     app.ports.resetKeys.subscribe(async () => {
@@ -176,7 +178,9 @@ window['importKey'] = crypto.importKey;
 
     app.ports.reloadSession.subscribe(async (session_id) => {
         const comments = await model.sessions.reload(session_id);
-        app.ports.feedMessages.send(comments);
+        if (comments) {
+            app.ports.feedMessages.send(comments);
+        }
     });
 
     app.ports.scrollToBottom.subscribe(scrollToBottom);
@@ -201,7 +205,7 @@ window['importKey'] = crypto.importKey;
         const { sessions, messages } = await model.sessions.new({ name, members });
 
         app.ports.feedRoomInfo.send(map(sessions, model.sessions.toClient));
-        const processed = await processData(messages, null);
+        const processed = await processData(messages, model);
         app.ports.feedMessages.send(processed);
     });
 
@@ -358,13 +362,17 @@ window['importKey'] = crypto.importKey;
         const temporary_id: string = shortid();
         const post_data: PostSessionsParam = { name, members, temporary_id, file_id };
         const { data }: PostSessionsResponse = await axios.post('/api/sessions', post_data);
-        app.ports.receiveNewRoomInfo.send(data);
-        const p1: Promise<AxiosResponse<GetSessionsResponse>> = axios.get('/api/sessions');
-        const p2: Promise<AxiosResponse<GetCommentsResponse>> = axios.get('/api/sessions/' + data.id + '/comments', { params: { token } });
-        const [{ data: { data: data1 } }, { data: { data: data2 } }] = await Promise.all([p1, p2]);
-        app.ports.feedRoomInfo.send(map(data1, model.sessions.toClient));
-        const processed = await processData(data2, model);
-        app.ports.feedMessages.send(processed);
+        if (data) {
+            app.ports.receiveNewRoomInfo.send(data);
+            const p1: Promise<AxiosResponse<GetSessionsResponse>> = axios.get('/api/sessions');
+            const p2: Promise<AxiosResponse<GetCommentsResponse>> = axios.get('/api/sessions/' + data.id + '/comments', { params: { token } });
+            const [{ data: { data: data1 } }, { data: { data: data2 } }] = await Promise.all([p1, p2]);
+            if (data2) {
+                app.ports.feedRoomInfo.send(map(data1, model.sessions.toClient));
+                const processed = await processData(data2, model);
+                app.ports.feedMessages.send(processed);
+            }
+        }
     });
 
     app.ports.setConfigValue.subscribe(({ key, value }) => {
@@ -420,22 +428,26 @@ window['importKey'] = crypto.importKey;
             ev.preventDefault();
             $(ev.target).removeClass('dragover');
             const file_id = $(ev.target).attr('data-file_id');
-            const files = event.dataTransfer.files;
-            map(files, function (file) {
-                var reader = new FileReader();
-                reader.onloadend = () => {
-                    const formData = new FormData();
-                    const imgBlob = new Blob([reader.result], { type: file.type });
-                    formData.append('user_image', imgBlob, file.name);
-                    if (file_id && file_id != '') {
-                        updateData(file_id, formData);
-                    } else {
-                        postPosterData(formData);
-                    }
-                };
-                reader.readAsArrayBuffer(file);
-            });
-            console.log(files);
+            if (event.dataTransfer) {
+                const files = event.dataTransfer.files;
+                map(files, function (file) {
+                    var reader = new FileReader();
+                    reader.onloadend = () => {
+                        const formData = new FormData();
+                        if (reader.result) {
+                            const imgBlob = new Blob([reader.result], { type: file.type });
+                            formData.append('user_image', imgBlob, file.name);
+                            if (file_id && file_id != '') {
+                                updateData(file_id, formData);
+                            } else {
+                                postPosterData(formData);
+                            }
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
+                });
+                console.log(files);
+            }
         });
 
         $(document).on('dragover', '#chat-input', (ev) => {
@@ -451,15 +463,19 @@ window['importKey'] = crypto.importKey;
             ev.stopPropagation();
             ev.preventDefault();
             $(ev.target).removeClass('dragover');
-            const files = event.dataTransfer.files;
-            map(files, (file) => {
-                var reader = new FileReader();
-                reader.onloadend = () => {
-                    const session_id: string = $('#chat-body').attr('data-session_id');
-                    model.files.upload_and_post(session_id, reader.result, file.name, file.type);
-                };
-                reader.readAsArrayBuffer(file);
-            });
+            if (event.dataTransfer) {
+                const files = event.dataTransfer.files;
+                map(files, (file) => {
+                    var reader = new FileReader();
+                    reader.onloadend = () => {
+                        const session_id = $('#chat-body').attr('data-session_id');
+                        if (session_id && reader.result) {
+                            model.files.upload_and_post(session_id, reader.result, file.name, file.type);
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
+                });
+            }
         });
 
         // @ts-ignore
@@ -469,12 +485,14 @@ window['importKey'] = crypto.importKey;
         $(document).on('scroll', '#chat-outer', () => {
             const pos_threshold = 40;
             const pos = $('#chat-outer').scrollTop();
-            if (prev_pos < pos_threshold && pos >= pos_threshold) {
-                subject.removeClass('hidden');
-            } else if (prev_pos > pos_threshold && pos <= pos_threshold) {
-                subject.addClass('hidden');
+            if (pos) {
+                if (prev_pos < pos_threshold && pos >= pos_threshold) {
+                    subject.removeClass('hidden');
+                } else if (prev_pos > pos_threshold && pos <= pos_threshold) {
+                    subject.addClass('hidden');
+                }
+                prev_pos = pos;
             }
-            prev_pos = pos;
         });
         console.log('#upload-private-key', $('#upload-private-key'))
         $(document).on('change', '#upload-private-key', handleFileSelect);
@@ -572,17 +590,12 @@ window['importKey'] = crypto.importKey;
         reader.onload = () => {
             (async () => {
                 const prv_jwk: JsonWebKey = JSON.parse(<string>reader.result);
-                try {
-                    const { verified, fingerprint } = await model.keys.import_private_key(prv_jwk);
-                    if (fingerprint && verified) {
-                        app.ports.setValue.send(['my_private_key', fingerprint]);
-                        app.ports.setValue.send(['my_private_key_message', "鍵を取り込みました。"]);
-                    } else {
-                        app.ports.setValue.send(['my_private_key_message', "秘密鍵が正しくありません。"]);
-                    }
-                } catch (e) {
-                    console.log('Private key import error', e);
-                }
+                model.keys.import_private_key(prv_jwk).then(({ fingerprint }) => {
+                    app.ports.setValue.send(['my_private_key', fingerprint]);
+                    app.ports.setValue.send(['my_private_key_message', "鍵を取り込みました。"]);
+                }).catch(() => {
+                    app.ports.setValue.send(['my_private_key_message', "秘密鍵が正しくありません。"]);
+                });
             })();
         }
 
@@ -631,7 +644,7 @@ interface ElmAppPorts {
     getSessionsOf: ElmSub<string>;
     feedSessionsOf: ElmSend<string[]>;
     sendCommentToServer: ElmSub<{ comment: string, user: string, session: string }>;
-    sendCommentToServerDone: ElmSend<void>;
+    sendCommentToServerDone: ElmSend<null>;
     getRoomInfo: ElmSub<string>;
     removeItemRemote: ElmSub<string>;
     sendRoomName: ElmSub<{ id: string, new_name: string }>;

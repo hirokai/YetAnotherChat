@@ -47,19 +47,19 @@ export async function register_public_key({ user_id, for_user, jwk, privateKeyFi
     }
 }
 
-async function get_public_key_internal({ user_id, for_user }: { user_id: string, for_user: string }): Promise<{ publicKey: JsonWebKey, prv_fingerprint: string }> {
+async function get_public_key_internal({ user_id, for_user }: { user_id: string, for_user: string }): Promise<{ publicKey: JsonWebKey, prv_fingerprint: string } | null> {
     return new Promise((resolve) => {
         db.get('select * from public_keys where user_id=? and for_user=? order by timestamp desc limit 1', user_id, for_user, (err, row) => {
             if (!err && row) {
                 resolve({ publicKey: JSON.parse(row['public_key']), prv_fingerprint: row['private_fingerprint'] });
             } else {
-                resolve({ publicKey: null, prv_fingerprint: null });
+                resolve(null);
             }
         });
     });
 }
 
-export async function get_public_key(user_id: string): Promise<{ publicKey: JsonWebKey, prv_fingerprint: string }> {
+export async function get_public_key(user_id: string): Promise<{ publicKey: JsonWebKey, prv_fingerprint: string } | null> {
     return get_public_key_internal({ user_id, for_user: user_id });
 }
 

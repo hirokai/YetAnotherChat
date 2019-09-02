@@ -25,13 +25,13 @@ export function make_email_content(c: CommentTyp): string {
 }
 
 export async function list_comment_delta({ for_user, session_id, cached_ids, last_updated }: { for_user: string, session_id: string, cached_ids: string[], last_updated: number }): Promise<CommentChange[]> {
-    const comments = await sessions.list_comments(for_user, session_id, null);
-    console.log('Comments length:', comments.length);
-    return new Promise((resolve) => {
+    const comments = await sessions.list_comments(for_user, session_id);
+    if (comments) {
+        console.log('Comments length:', comments.length);
         const cached_id_dict = keyBy(cached_ids);
         var delta: CommentChange[] = [];
         if (comments.length == 0) {
-            resolve([]);
+            return [];
         } else {
             comments.forEach((comment) => {
                 const already = cached_id_dict[comment.id];
@@ -47,9 +47,11 @@ export async function list_comment_delta({ for_user, session_id, cached_ids, las
             removed_ids.forEach((id) => {
                 delta.push({ __type: 'delete', id });
             });
-            resolve(delta);
+            return delta;
         }
-    });
+    } else {
+        return [];
+    }
 }
 
 export function get_original_email_highlighted(mail_id: string): Promise<{ lines: { line: string, highlight: boolean }[], subject: string, range: { start: number, end: number } }> {
@@ -80,7 +82,7 @@ export function get_original_email_highlighted(mail_id: string): Promise<{ lines
     });
 }
 
-export async function delete_connection(socket_id: string): Promise<{ user_id: string, online: boolean, timestamp: number }> {
+export async function delete_connection(socket_id: string): Promise<{ user_id: string, online: boolean, timestamp: number } | null> {
     return new Promise((resolve) => {
         db.get('select user_id from user_connections where socket_id=?;', socket_id, (err, row) => {
             if (row) {
@@ -94,7 +96,7 @@ export async function delete_connection(socket_id: string): Promise<{ user_id: s
                     });
                 });
             } else {
-                resolve({ user_id: null, online: false, timestamp: null });
+                resolve(null);
             }
         });
     });
@@ -136,6 +138,8 @@ export function expandSpan(date: string, span: Timespan): string[] {
             m1.date(i);
             return m1.format("YYYYMMDD");
         });
+    } else {
+        return [];
     }
 }
 

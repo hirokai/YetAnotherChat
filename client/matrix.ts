@@ -67,10 +67,10 @@ $.fn['hScroll'] = function () {
         var direction = evt.detail ? evt.detail * (-120) : evt.wheelDelta;
 
         if (direction > 0) {
-            direction = $(obj).scrollLeft() - 120;
+            direction = ($(obj).scrollLeft() || 0) - 120;
         }
         else {
-            direction = $(obj).scrollLeft() + 120;
+            direction = ($(obj).scrollLeft() || 0) + 120;
         }
 
         $(obj).scrollLeft(direction);
@@ -78,7 +78,7 @@ $.fn['hScroll'] = function () {
         e.preventDefault();
     }
 
-    $(this).width($(this).find('div').width());
+    $(this).width($(this).find('div').width() || 100);
 
     $(this).bind('DOMMouseScroll mousewheel', function (e) {
         scroll(this, e);

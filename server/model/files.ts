@@ -31,13 +31,13 @@ export function save_user_file(user_id: string, path: string, kind: string, sess
 }
 
 export function update_user_file(user_id: string, file_id: string, new_path: string): Promise<{ file_id: string, path: string }> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         const timestamp: number = new Date().getTime();
         db.run('update files set path=?,timestamp=? where id=? and user_id=?;', new_path, timestamp, file_id, user_id, (err) => {
             if (!err) {
                 resolve({ file_id, path: new_path });
             } else {
-                resolve(null);
+                reject('DB error');
             }
         });
     });

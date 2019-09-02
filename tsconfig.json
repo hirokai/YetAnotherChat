@@ -4,6 +4,7 @@
     "esModuleInterop": true,
     "target": "es6",
     "noImplicitAny": false,
+    "strictNullChecks": true,
     "moduleResolution": "node",
     "sourceMap": false,
     "baseUrl": ".",
@@ -17,9 +18,10 @@
   "include": [
     "common/*.ts",
     "server/*.ts",
+    "client/**/*"
   ],
   "exclude": [
-    "client/**/*"
+    // "client/**/*"
   ],
   "files": [
     "./common/types.d.ts"

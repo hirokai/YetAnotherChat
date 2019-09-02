@@ -3,6 +3,7 @@
 import axios from 'axios';
 // import { map, sortBy, find, filter, keyBy, max, cloneDeep, values, zip, isEmpty, every } from 'lodash-es';
 import map from 'lodash/map'
+import compact from 'lodash/compact'
 import sortBy from 'lodash/sortBy'
 import filter from 'lodash/filter'
 import includes from 'lodash/includes'
@@ -19,6 +20,7 @@ import $ from 'jquery';
 import * as crypto from './cryptography';
 
 import * as CryptoJS from "crypto-js";
+import { reject } from 'lodash-es';
 
 window['CryptoJS'] = CryptoJS;
 
@@ -34,7 +36,7 @@ axios.defaults.headers.common['x-access-token'] = token;
 export class Model {
     user_id: string
     token: string
-    privateKeyJson: JsonWebKey
+    privateKeyJson: JsonWebKey | null
     onInit: () => void;
     readonly DB_VERSION: number = 4;
     constructor({ user_id, token, onInit }: { user_id: string, token: string, onInit?: () => void }) {
@@ -47,14 +49,14 @@ export class Model {
         }
         let keyPair = await this.keys.download_my_keys_from_server();
         console.log('Downloaded key pair', keyPair);
-        if (keyPair == null || keyPair.publicKey == null) {
+        if (keyPair == null || keyPair.pub == null) {
             await this.keys.reset();
         } else {
             await this.keys.save_my_keys(keyPair, true);
         }
-        if (keyPair && keyPair.privateKey) {
+        if (keyPair && keyPair.prv) {
             //For user export, it has to be prepared beforehand (no async operation)
-            this.privateKeyJson = await crypto.exportKey(keyPair.privateKey);;
+            this.privateKeyJson = await crypto.exportKey(keyPair.prv);;
         }
         return true;
     }
@@ -156,7 +158,7 @@ export class Model {
         });
     }
     users = {
-        list: async (): Promise<{ [key: string]: User }> => {
+        list: async (): Promise<{ [key: string]: User } | null> => {
             const snapshot: { [key: string]: User } = await this.users.loadDb();
             // console.log('users snapshot', snapshot);
             if (snapshot && Object.keys(snapshot).length > 0) {
@@ -168,18 +170,20 @@ export class Model {
                 const p2 = <Promise<AxiosResponse<GetProfilesResponse>>>axios.get('/api/users/all/profiles');
                 const [r1, r2] = await Promise.all([p1, p2]);
                 console.log('r1,r2', r1, r2)
-                const { data: { data: { users } } } = r1;
-                const { data: { data: profiles } } = r2;
-                const users_dict: { [key: string]: User } = keyBy(users, 'id');
-                // console.log(users_dict);
-                map(profiles, (profile, user_id) => {
-                    // console.log(profile, user_id, users_dict[user_id]);
-                    if (users_dict[user_id]) {
-                        users_dict[user_id].profile = profile;
-                    }
-                });
-                await this.users.saveDb(users_dict);
-                return users_dict;
+                const users = r1 && r1.data && r1.data.data ? r1.data.data.users : undefined;
+                const profiles = r2 && r2.data ? r2.data.data : undefined;
+                if (users && profiles) {
+                    const users_dict: { [key: string]: User } = keyBy(users, 'id');
+                    map(profiles, (profile, user_id) => {
+                        if (users_dict[user_id]) {
+                            users_dict[user_id].profile = profile;
+                        }
+                    });
+                    await this.users.saveDb(users_dict);
+                    return users_dict;
+                } else {
+                    return null;
+                }
             }
         },
         loadDb: async (): Promise<{ [key: string]: User }> => {
@@ -249,14 +253,16 @@ export class Model {
             }
             switch (msg.action) {
                 case 'online': {
-                    u.online = msg.online;
+                    u.online = msg.online || false;
                     await this.users.saveDb(users);
                     break;
                 }
                 case 'public_key': {
                     u.publicKey = msg.public_key;
-                    u.fingerprint = await crypto.fingerPrint(msg.public_key);
-                    await this.users.saveDb(users);
+                    if (msg.public_key) {
+                        u.fingerprint = await crypto.fingerPrint(msg.public_key);
+                        await this.users.saveDb(users);
+                    }
                     break;
                 }
                 case 'user': {
@@ -278,11 +284,8 @@ export class Model {
             }
         },
         toClient: async (u: User): Promise<UserClient> => {
-            if (u == null) {
-                return null;
-            }
-            const fingerprint: string = await crypto.fingerPrint(u.publicKey) || '';
-            const profile_list = [];
+            const fingerprint = u.publicKey ? await crypto.fingerPrint(u.publicKey) : "";
+            const profile_list: string[][] = [];
             map(u.profile, (v, k) => {
                 profile_list.push([k, v]);
             });
@@ -320,7 +323,7 @@ export class Model {
         fetch_since: async (session_id: string, snapshot: SessionCache): Promise<{ delta: CommentChange[], time_after: number }> => {
             if (snapshot.comments) {
                 const timestamps = map(snapshot.comments, (v) => v.timestamp);
-                const time_after = timestamps.length == 0 ? 0 : max(timestamps);
+                const time_after = timestamps.length == 0 ? 0 : max(timestamps) || 0;
                 console.log('Snapshot exists. up to ', time_after);
                 const cached_ids = map(snapshot.comments, (d) => d.id);
                 const body: GetCommentsDeltaData = { last_updated: time_after, cached_ids };
@@ -334,12 +337,12 @@ export class Model {
                 return { delta, time_after: -1 };
             }
         },
-        list_for_session: async (session: string): Promise<ChatEntryClient[]> => {
+        list_for_session: async (session: string): Promise<ChatEntryClient[] | null> => {
             console.log('list_for_session', session);
-            const snapshot: SessionCache = await this.sessions.load(session);
+            const snapshot: SessionCache | null = await this.sessions.load(session);
             if (snapshot) {
                 const { delta, time_after } = await this.comments.fetch_since(session, snapshot);
-                const updated_comments = await this.comments.apply_delta(snapshot.comments, delta);
+                const updated_comments = await this.comments.apply_delta(snapshot.comments || {}, delta);
                 const new_snapshot: SessionCache = { id: snapshot.id, comments: updated_comments };
                 const list = sortBy(values(updated_comments), 'timestamp');
                 await this.sessions.save(session, new_snapshot);
@@ -366,10 +369,16 @@ export class Model {
             });
         },
         new: async ({ comment, session }: { comment: string, session: string }): Promise<void> => {
-            const room: RoomInfo = await this.sessions.get(session);
+            const room: RoomInfo | null = await this.sessions.get(session);
+            if (!room) {
+                return;
+            }
             console.log('room members', room);
             const temporary_id = shortid();
             const my_keys = await this.keys.get_my_keys();
+            if (!my_keys) {
+                throw new Error('Private or public key of mine is missing.')
+            }
             const ds = await Promise.all(map(room.members, (id) => {
 
                 return this.keys.get(id);
@@ -379,12 +388,16 @@ export class Model {
                     (async () => {
                         const ts = new Date().getTime();
                         const pub = await crypto.fingerPrint1(remote_publicKey);
-                        const mypub = await crypto.fingerPrint1(my_keys.publicKey);
-                        const prv = await crypto.fingerPrint1(my_keys.privateKey);
+                        const mypub = my_keys.pub ? await crypto.fingerPrint1(my_keys.pub) : null;
+                        const prv = my_keys.prv ? await crypto.fingerPrint1(my_keys.prv) : null;
                         console.log('Encrypting', room.members[i], ts, pub, mypub, prv)
                         // console.log('Error decrypting', m.timestamp, mypub, pub, prv);    
                     })();
-                    return crypto.encrypt_str(remote_publicKey, my_keys.privateKey, comment);
+                    if (my_keys.prv) {
+                        return crypto.encrypt_str(remote_publicKey, my_keys.prv, comment);
+                    } else {
+                        throw new Error('My private key is missing.')
+                    }
                 }));
             });
             let encrypt = 'ecdh.v1';
@@ -393,6 +406,8 @@ export class Model {
                     return { for_user: room.members[i], content: encrypted };
                 } else if (encrypt == 'none') {
                     return { for_user: room.members[i], content: comment }
+                } else {
+                    throw new Error('Encryption mode invalid');
                 }
             })
             const obj: PostCommentData = { comments, temporary_id, encrypt };
@@ -412,13 +427,17 @@ export class Model {
                 // await this.sessions.reload(msg.entry.session_id);
                 return { comment_id: msg.entry.id, session_id: msg.entry.session_id };
             } else {
-                console.log('comments.on_new process error');
+                throw new Error('comments.on_new process error');
             }
         },
         on_delete: async (msg: CommentsDeleteSocket): Promise<{ id: string, session_id: string }> => {
             const snapshot = await this.sessions.load(msg.session_id);
-            delete snapshot.comments[msg.id];
-            this.sessions.save(msg.session_id, snapshot);
+            if (snapshot) {
+                if (snapshot.comments) {
+                    delete snapshot.comments[msg.id];
+                }
+                this.sessions.save(msg.session_id, snapshot);
+            }
             return { id: msg.id, session_id: msg.session_id };
         },
         delete_cache_of_session: async (session_id: string) => {
@@ -430,7 +449,7 @@ export class Model {
         list: async (): Promise<RoomInfoClient[]> => {
             const { data: { data: rooms } }: AxiosResponse<GetSessionsResponse> = await axios.get('/api/sessions');
             const timestamp = new Date().getTime();
-            const infos = [];
+            const infos: RoomInfoClient[] = [];
             for (let room of rooms) {
                 let room_cache = await this.sessions.load(room.id);
                 const info = this.sessions.toClient(room);
@@ -482,7 +501,7 @@ export class Model {
             };
             return r;
         },
-        load: async (session_id: string): Promise<SessionCache> => {
+        load: async (session_id: string): Promise<SessionCache | null> => {
             const sessions: { [key: string]: SessionCache } = await this.sessions.loadDb();
             return sessions ? sessions[session_id] : null;
         },
@@ -499,24 +518,27 @@ export class Model {
         reload: async (session_id: string) => {
             await this.comments.delete_cache_of_session(session_id);
             const comments = await this.comments.list_for_session(session_id);
-            console.log('after reset feeding ', comments.length);
             return comments;
         },
         deleteDb: async (session_id: string) => {
             await this.removeDb('yacht.sessions');
         },
-        get: async (id: string): Promise<RoomInfo> => {
+        get: async (id: string): Promise<RoomInfo | null> => {
             const { data: r }: { data: GetSessionResponse } = await axios.get('/api/sessions/' + id);
-            return r.data;
+            return r.data || null;
         },
         new: async ({ name, members }: { name: string, members: string[] }): Promise<{ newRoom: RoomInfo, sessions: RoomInfo[], messages: ChatEntry[] }> => {
             const temporary_id = shortid();
             const post_data: PostSessionsParam = { name, members, temporary_id };
             const { data: newRoom }: PostSessionsResponse = await axios.post('/api/sessions', post_data);
-            const p1 = axios.get('/api/sessions');
-            const p2 = axios.get('/api/sessions/' + newRoom.id + '/comments');
-            const [{ data: { data: sessions } }, { data: { data: messages } }] = await Promise.all([p1, p2]);
-            return { newRoom, sessions, messages };
+            if (newRoom) {
+                const p1 = axios.get('/api/sessions');
+                const p2 = axios.get('/api/sessions/' + newRoom.id + '/comments');
+                const [{ data: { data: sessions } }, { data: { data: messages } }] = await Promise.all([p1, p2]);
+                return { newRoom, sessions, messages };
+            } else {
+                throw new Error('New session failed.')
+            }
         },
         delete: async (id: string) => {
             const { data }: AxiosResponse<CommentsDeleteResponse> = await axios.delete('/api/sessions/' + id);
@@ -533,16 +555,20 @@ export class Model {
         },
         on_update: async (msg: SessionsUpdateSocket): Promise<void> => {
             console.log('sessions.on_update', msg);
-            const room: SessionCache = await this.sessions.load(msg.id);
-            room.info.name = msg.name;
-            await this.sessions.save(msg.id, room);
+            const room = await this.sessions.load(msg.id);
+            if (room && room.info) {
+                room.info.name = msg.name;
+                await this.sessions.save(msg.id, room);
+            } else {
+                throw new Error('on_update error');
+            }
         }
     }
     keys = {
-        get: async (user_id: string): Promise<CryptoKey> => {
+        get: async (user_id: string): Promise<CryptoKey | null> => {
             const users = await this.users.loadDb();
             const user = users ? users[user_id] : null;
-            if (user) {
+            if (user && user.publicKey) {
                 const key = await crypto.importKey(user.publicKey, true, true);
                 const fp = await crypto.fingerPrint1(key);
                 console.log('Public key fingerprint: ', user_id, fp);
@@ -558,13 +584,15 @@ export class Model {
                 await this.users.saveDb(users);
             }
         },
-        get_my_fingerprint: async (): Promise<{ prv: string, pub: string }> => {
+        get_my_fingerprint: async (): Promise<{ prv?: string, pub?: string } | null> => {
             const my_keys = await this.keys.get_my_keys();
-            const p1 = crypto.fingerPrint1(my_keys.privateKey);
-            const p2 = crypto.fingerPrint1(my_keys.publicKey);
-            return Promise.all([p1, p2]).then(([prv, pub]) => {
-                return { prv, pub }
-            });
+            if (my_keys) {
+                const prv = my_keys.prv ? await crypto.fingerPrint1(my_keys.prv) : undefined;
+                const pub = my_keys.pub ? await crypto.fingerPrint1(my_keys.pub) : undefined;
+                return { prv, pub };
+            } else {
+                return null;
+            }
         },
         loadDbMine: async (): Promise<MyKeyCacheData> => {
             return await this.loadDbWithName('yacht.keyPair');
@@ -592,74 +620,78 @@ export class Model {
                 await this.keys.saveDbMine(decryptedData);
             }
         },
-        get_my_keys: async (): Promise<CryptoKeyPair> => {
+        get_my_keys: async (): Promise<{ pub?: CryptoKey, prv?: CryptoKey } | null> => {
             const data: MyKeyCacheData = await this.keys.loadDbMine();
             if (data) {
-                const publicKey = await crypto.importKey(data.publicKey, true, true);
-                const privateKey = await crypto.importKey(data.privateKey, false, true);
-                return { publicKey, privateKey };
+                const pub = data.publicKey ? await crypto.importKey(data.publicKey, true, true) : undefined;
+                const prv = data.privateKey ? await crypto.importKey(data.privateKey, false, true) : undefined;
+                return { pub, prv };
             } else {
                 return null;
             }
         },
-        save_my_keys: async (keyPair: CryptoKeyPair, ignore_null: boolean = false): Promise<void> => {
-            const prv_e_p = crypto.exportKey(keyPair.privateKey);
-            const pub_e_p = crypto.exportKey(keyPair.publicKey);
-            const fps = await Promise.all([prv_e_p, pub_e_p]).then((ks) => {
-                console.log('[prv_e_p, pub_e_p]', ks, keyPair.privateKey, keyPair.publicKey)
-                return Promise.all([crypto.fingerPrint(ks[0]), crypto.fingerPrint(ks[1])]);
-            });
-            const fp = { privateKey: fps[0], publicKey: fps[1] };
-            const privateKey = await crypto.exportKey(keyPair.privateKey);
-            const publicKey = await crypto.exportKey(keyPair.publicKey);
+        save_my_keys: async (keyPair: { pub?: CryptoKey, prv?: CryptoKey }, ignore_null: boolean = false): Promise<void> => {
+            const prv_e_p = keyPair.prv ? await crypto.fingerPrint1(keyPair.prv) : undefined;
+            const pub_e_p = keyPair.pub ? await crypto.fingerPrint1(keyPair.pub) : undefined;
+            const fp = { privateKey: prv_e_p, publicKey: pub_e_p };
+            const privateKey = keyPair.prv ? await crypto.exportKey(keyPair.prv) : undefined;
+            const publicKey = keyPair.pub ? await crypto.exportKey(keyPair.pub) : undefined;
             const obj: MyKeyCacheData = { id: 'myself', privateKey, publicKey, fingerPrint: fp };
-            this.privateKeyJson = privateKey;
+            this.privateKeyJson = privateKey || null;
             if (ignore_null) {
-                const old: CryptoKeyPair = await this.keys.get_my_keys();
-                if (old && obj.privateKey == null) {
-                    obj.privateKey = await crypto.exportKey(old.privateKey);
+                const old = await this.keys.get_my_keys();
+                if (old && old.prv && obj.privateKey == null) {
+                    obj.privateKey = await crypto.exportKey(old.prv);
                 }
-                if (old && obj.publicKey == null) {
-                    obj.publicKey = await crypto.exportKey(old.publicKey);
+                if (old && old.pub && obj.publicKey == null) {
+                    obj.publicKey = await crypto.exportKey(old.pub);
                 }
             }
             await this.keys.saveDbMine(obj);
         },
-        import_private_key: async (jwk: JsonWebKey): Promise<{ fingerprint: string, verified: boolean }> => {
-            const keyPair: CryptoKeyPair = await this.keys.get_my_keys();
+        import_private_key: async (jwk: JsonWebKey): Promise<{ fingerprint: string }> => {
+            const keyPair = await this.keys.get_my_keys();
             console.log('import_private_key', keyPair);
             if (keyPair == null) {
                 throw new Error('Public key is not found.');
             } else {
                 const prv_imported = await crypto.importKey(jwk, false, true);
-                const newKeyPair = { privateKey: prv_imported, publicKey: keyPair.publicKey }
-                const fingerprint = await crypto.fingerPrint(jwk);
-                const verified = await this.keys.verify_my_private_fingerprint(fingerprint);
-                console.log('New key pair verified:', verified);
-                if (verified) {
-                    await this.keys.save_my_keys(newKeyPair);
-                    return { fingerprint, verified };
+                if (keyPair.pub) {
+                    const fingerprint = await crypto.fingerPrint(jwk);
+                    const verified = await this.keys.verify_my_private_fingerprint(fingerprint);
+                    console.log('New key pair verified:', verified);
+                    if (verified) {
+                        await this.keys.save_my_keys({ prv: prv_imported, pub: keyPair.pub });
+                        return { fingerprint };
+                    } else {
+                        throw new Error('Key wrong');
+                    }
                 } else {
-                    // const data: MyKeyCacheData = await this.loadDb('yacht.keyPair', 'id', 'myself');
-                    // data.privateKey = null;
-                    // await this.saveDb('yacht.keyPair', 'id', 'myself', data, true);
-                    return { fingerprint: null, verified };
+                    throw new Error('Public key missing');
                 }
             }
         },
         upload_my_private_key: async (): Promise<boolean> => {
             const private_key_1 = await this.keys.get_my_keys();
-            const private_key = await crypto.exportKey(private_key_1.privateKey);
-            const { data: { ok } } = <AxiosResponse<PostPrivateKeyResponse>>await axios.post('/api/private_key', { private_key });
-            return ok;
+            if (private_key_1 && private_key_1.prv) {
+                const private_key = await crypto.exportKey(private_key_1.prv);
+                const { data: { ok } } = <AxiosResponse<PostPrivateKeyResponse>>await axios.post('/api/private_key', { private_key });
+                return ok;
+            } else {
+                throw new Error('No private key stored.');
+            }
         },
-        download_my_keys_from_server: async (): Promise<CryptoKeyPair> => {
+        download_my_keys_from_server: async (): Promise<{ pub?: CryptoKey, prv?: CryptoKey }> => {
             const params: GetPublicKeysParams = { user_id: this.user_id };
             const { data: { publicKey: jwk_pub } } = <AxiosResponse<GetPublicKeysResponse>>await axios.get('/api/public_keys/me');
             const { data: { privateKey: jwk_prv } } = <AxiosResponse<GetPrivateKeyResponse>>await axios.get('/api/private_key');
-            const publicKey = await crypto.importKey(jwk_pub, true, true);
-            const privateKey = await crypto.importKey(jwk_prv, false, true);
-            return { publicKey, privateKey };
+            if (jwk_pub) {
+                const publicKey = await crypto.importKey(jwk_pub, true, true);
+                const privateKey = jwk_prv ? await crypto.importKey(jwk_prv, false, true) : undefined;
+                return { pub: publicKey, prv: privateKey };
+            } else {
+                throw new Error('Download error' + JSON.stringify({ pub: jwk_pub, prv: jwk_prv }));
+            }
         },
         verify_my_private_fingerprint: async (fp: string): Promise<boolean> => {
             const { data: { ok, publicKey: jwk_pub, privateKeyFingerprint } } = <AxiosResponse<GetPublicKeysResponse>>await axios.get('/api/public_keys/me');
@@ -676,14 +708,18 @@ export class Model {
             const timestamp = new Date().getTime();
             const keyPair = await crypto.generateKeyPair(true);
             this.privateKeyJson = await crypto.exportKey(keyPair.privateKey);
-            await this.keys.save_my_keys(keyPair);
+            await this.keys.save_my_keys({ pub: keyPair.publicKey, prv: keyPair.privateKey });
             await this.keys.upload_my_public_key(keyPair);
-            const fingerprint = await this.keys.get_my_fingerprint();
-            return { timestamp, fingerprint };
+            const fp = await this.keys.get_my_fingerprint();
+            if (fp && fp.pub && fp.prv) {
+                return { timestamp, fingerprint: { pub: fp.pub, prv: fp.prv } };
+            } else {
+                throw new Error('Fingerprint error');
+            }
         }
     }
     files = {
-        upload: async (session_id: string, data: string | ArrayBuffer, filename: string, filetype: string, encrypting: boolean): Promise<{ ok: boolean, files: { path: string, file_id: string }[], iv: string, secret: string }> => {
+        upload: async (session_id: string, data: string | ArrayBuffer, filename: string, filetype: string, encrypting: boolean): Promise<{ ok: boolean, files: { path: string, file_id: string }[], iv?: string, secret?: string }> => {
             const formData = new FormData();
             let secret: ArrayBuffer, iv: Uint8Array;
             if (encrypting) {
@@ -696,7 +732,7 @@ export class Model {
                 const blob = new Blob([data], { type: filetype });
                 formData.append('user_image', blob, filename);
             }
-            return new Promise((resolve) => {
+            return new Promise((resolve, reject) => {
                 $.ajax({
                     url: '/api/files?kind=file&session_id=' + session_id + (iv ? '&iv=' + iv : '') + '&token=' + this.token,
                     type: 'post',
@@ -709,10 +745,10 @@ export class Model {
                         if (encrypting) {
                             resolve({ ok: r.ok, files: r.files, iv: crypto.encode(iv), secret: crypto.encode(new Uint8Array(secret)) });
                         } else {
-                            resolve({ ok: r.ok, files: r.files, iv: null, secret: null });
+                            resolve({ ok: r.ok, files: r.files });
                         }
                     } else {
-                        resolve(null);
+                        reject('Upload error');
                     }
                 }, (err) => {
                     console.log('error', err);
@@ -730,7 +766,11 @@ export class Model {
     config = {
         get: async (): Promise<string[][]> => {
             const { data: { ok, data } }: AxiosResponse<GetConfigResponse> = await axios.get('/api/config');
-            return data;
+            if (data) {
+                return data;
+            } else {
+                throw new Error('Get config error');
+            }
         },
         save: async (key: string, value: string): Promise<boolean> => {
             // console.log('config.save', key, value);
@@ -756,27 +796,29 @@ export class Model {
 }
 
 async function decryptComment(comment: string, from_user: string, encrypt: EncryptionMode, model: Model): Promise<{ decrypted: string, encrypt: EncryptionMode }> {
-    let deciphered_comment: string;
+    let deciphered_comment: string | null = null;
     if (encrypt == 'ecdh.v1') {
         const my_keys = await model.keys.get_my_keys();
         const remote_publicKey = await model.keys.get(from_user);
-        deciphered_comment = await crypto.decrypt_str(remote_publicKey, my_keys.privateKey, comment).catch(() => {
-            (async () => {
-                const pub = await crypto.fingerPrint1(remote_publicKey);
-                const mypub = await crypto.fingerPrint1(my_keys.publicKey);
-                const prv = await crypto.fingerPrint1(my_keys.privateKey);
-                console.log('Error decrypting', mypub, pub, prv);
-                console.log('Comment by ', from_user, { remote_pub: pub, my_pub: mypub });
-            })();
-            return null
-        });
+        if (remote_publicKey && my_keys && my_keys.prv) {
+            deciphered_comment = await crypto.decrypt_str(remote_publicKey, my_keys.prv, comment).catch(() => {
+                (async () => {
+                    if (my_keys.pub && my_keys.prv) {
+                        const pub = await crypto.fingerPrint1(remote_publicKey);
+                        const mypub = await crypto.fingerPrint1(my_keys.pub);
+                        const prv = await crypto.fingerPrint1(my_keys.prv);
+                        console.log('Error decrypting', mypub, pub, prv);
+                        console.log('Comment by ', from_user, { remote_pub: pub, my_pub: mypub });
+                    }
+                })();
+                return null;
+            });
+        }
     } else if (encrypt == 'none') {
         deciphered_comment = comment;
-    } else {
-        deciphered_comment = 'N/A'
     }
     const encrypt_after = deciphered_comment ? 'none' : encrypt;
-    return { decrypted: deciphered_comment, encrypt: encrypt_after }
+    return { decrypted: deciphered_comment || 'N/A', encrypt: encrypt_after }
 }
 
 async function processComment(m: CommentTyp, model: Model): Promise<CommentTypClient> {
@@ -805,29 +847,31 @@ async function getThumbnail(url: string, iv_str?: string, encryption_key?: strin
     const arr: ArrayBuffer = response.data;
     let arr_decrypted: ArrayBuffer;
 
-    if (encryption_key == null) {
-        arr_decrypted = arr;
-    } else {
+    if (encryption_key != null && iv_str != null) {
         const secret = await crypto.importEncryptionKey(encryption_key, true);
         arr_decrypted = await crypto.decryptWithEncryptionKey(new Uint8Array(arr), iv_str, secret).catch(() => new Uint8Array([]));
+    } else {
+        arr_decrypted = arr;
     }
     const thumbnailBase64 = "data:image/jpeg;base64," + crypto.encode(new Uint8Array(arr_decrypted));
     return thumbnailBase64;
 }
 
-async function processFile(m: ChatFile): Promise<ChatFileClient> {
+async function processFile(m: ChatFile): Promise<ChatFileClient | null> {
     m.kind = 'file';
-    let v: ChatFileClient;
+    let v: ChatFileClient | null = null;
     const re = m.comment.match(/<__file::([^:]+)::([^:]+)::([^:]+)::([^:]+)>/);
     const encrypted = re != null;
     if (encrypted) {
         const re = m.comment.match(/<__file::([^:]+)::([^:]+)::([^:]+)::([^:]+)>/);
-        const file_id = re[1];
-        const url = re[2] || "";
-        const iv_str = re[3];
-        const encryption_key = re[4];
-        const thumbnailBase64 = await getThumbnail(url, iv_str, encryption_key);
-        v = Object.assign({}, m, { file_id, user: m.user_id, url, session: m.session_id, thumbnailBase64, formattedTime: formatTime(m.timestamp) });
+        if (re) {
+            const file_id = re[1];
+            const url = re[2] || "";
+            const iv_str = re[3];
+            const encryption_key = re[4];
+            const thumbnailBase64 = await getThumbnail(url, iv_str, encryption_key);
+            v = Object.assign({}, m, { file_id, user: m.user_id, url, session: m.session_id, thumbnailBase64, formattedTime: formatTime(m.timestamp) });
+        }
     } else {
         const re = m.comment.match(/<__file::([^:]+)::([^:]+)>/);
         if (!re) {
@@ -839,8 +883,12 @@ async function processFile(m: ChatFile): Promise<ChatFileClient> {
         const thumbnailBase64 = ""; // await getThumbnail(url);
         v = Object.assign({}, m, { file_id, url, user: m.user_id, thumbnailBase64, formattedTime: formatTime(m.timestamp), session: m.session_id });
     }
-    delete v['originalUrl'];
-    return v;
+    if (v) {
+        delete v['originalUrl'];
+        return v;
+    } else {
+        return null;
+    }
 }
 
 // Double check with Elm's data type.
@@ -882,8 +930,8 @@ function judgeKind(comment: string): ChatEntryKind {
 
 export async function processData(rawEntries: ChatEntry[], model: Model): Promise<ChatEntryClient[]> {
     // console.log('processData latest', rawEntries[rawEntries.length - 1], rawEntries[rawEntries.length - 1].comment);
-    const entries = await Promise.all(map(rawEntries || [], async (m: ChatEntry) => {
-        if ('comment' in m) {
+    const entries = compact(await Promise.all(map(rawEntries || [], async (m: ChatEntry) => {
+        if (m && m.comment) {
             const { decrypted, encrypt } = await decryptComment(m.comment, m.user_id, m.encrypt, model).catch((e) => { return { decrypted: m.comment, encrypt: m.encrypt } });
             m.comment = decrypted || m.comment;
             m.kind = judgeKind(decrypted);
@@ -895,8 +943,10 @@ export async function processData(rawEntries: ChatEntry[], model: Model): Promis
             return processFile(m);
         } else if (m.kind == 'event') {
             return processEvent(m);
+        } else {
+            return null;
         }
-    }));
+    })));
     const checked = await Promise.all(map(entries, checkChatEntryFormat));
     const invalidEntries = filter(zip(entries, checked), ([d, c]) => { return !c; });
     if (!isEmpty(invalidEntries)) {

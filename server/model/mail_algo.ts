@@ -18,26 +18,29 @@ import * as email from './email'
 // v is the source vertex
 // all_pairs is the input array, which contains length 2 arrays
 // visited is a dictionary for keeping track of whether a node is visited
-const bfs = function (v, all_pairs, visited) {
-    var q = [];
-    var current_group = [];
-    var i, nextVertex, pair;
+const bfs = function (v0: string, all_pairs: string[][], visited: { [key: string]: boolean }): string[] {
+    var q: string[] = [];
+    var current_group: string[] = [];
+    var i, nextVertex
+    var pair: string[];
     var length_all_pairs = all_pairs.length;
-    q.push(v);
+    q.push(v0);
     while (q.length > 0) {
-        v = q.shift();
-        if (!visited[v]) {
-            visited[v] = true;
-            current_group.push(v);
-            // go through the input array to find vertices that are
-            // directly adjacent to the current vertex, and put them
-            // onto the queue
-            for (i = 0; i < length_all_pairs; i += 1) {
-                pair = all_pairs[i];
-                if (pair[0] === v && !visited[pair[1]]) {
-                    q.push(pair[1]);
-                } else if (pair[1] === v && !visited[pair[0]]) {
-                    q.push(pair[0]);
+        const v = q.shift();
+        if (v) {
+            if (!visited[v]) {
+                visited[v] = true;
+                current_group.push(v);
+                // go through the input array to find vertices that are
+                // directly adjacent to the current vertex, and put them
+                // onto the queue
+                for (i = 0; i < length_all_pairs; i += 1) {
+                    pair = all_pairs[i];
+                    if (pair[0] === v && !visited[pair[1]]) {
+                        q.push(pair[1]);
+                    } else if (pair[1] === v && !visited[pair[0]]) {
+                        q.push(pair[0]);
+                    }
                 }
             }
         }
@@ -48,8 +51,12 @@ const bfs = function (v, all_pairs, visited) {
 
 
 export function find_groups(pairs: string[][]): string[][] {
-    var groups = [];
-    var i, k, length, u, v, src, current_pair;
+    var groups: string[][] = [];
+    var i, k, length;
+    var u: string;
+    var v: string;
+    var src: string | null;
+    var current_pair: string[];
     var visited = {};
 
     // main loop - find any unvisited vertex from the input array and
@@ -117,7 +124,7 @@ export function group_email_sessions(threads: MailgunParsed[][]): MailGroup[] {
 }
 
 export async function find_email_session(db: any, data: MailgunParsed): Promise<string> {
-    const results = await Promise.all(_.map(data.references, async (r) => {
+    const results = await Promise.all(_.map(data.references, async (r): Promise<string | null> => {
         const row = await new Promise<any>((resolve) => {
             db.get("select session_id from comments where url_original=?", r, (err, r) => {
                 resolve(r);
@@ -146,9 +153,6 @@ export function split_replies(txt: string): MailThreadItem[] {
     var start: number = 0;
     var end: number = 0;
     var header_reading: boolean = false;
-    if (!txt) {
-        return null;
-    }
     const lines = txt.split('\r\n');
     lines.forEach((line: string, ii: number) => {
         const i = ii + 1;
@@ -158,16 +162,19 @@ export function split_replies(txt: string): MailThreadItem[] {
             if (line.replace(/>/g, '').trim() == '') {
                 header_reading = false;
                 reply_depth += 1;
-                const { from, timestamp } = parseHead(reply_depth == 1 ? head_txt : head_txt_prev);
-                console.log('parseHead', { from, timestamp })
-                const comment = _.map(_.dropRight(content_lines), (l: string) => {
-                    return remove_quote_marks(l, reply_indent_prev);
-                }).join('\r\n');
-                content_lines = [];
-                replies.push({ from, timestamp, comment, heading: head_txt_prev, lines: { start, end } });
-                head_txt_prev = head_txt;
-                head_txt = '';
-                start = i + 1;
+                const p = parseHead(reply_depth == 1 ? head_txt : head_txt_prev);
+                if (p) {
+                    const { from, timestamp } = p;
+                    console.log('parseHead', { from, timestamp })
+                    const comment = _.map(_.dropRight(content_lines), (l: string) => {
+                        return remove_quote_marks(l, reply_indent_prev);
+                    }).join('\r\n');
+                    content_lines = [];
+                    replies.push({ from, timestamp, comment, heading: head_txt_prev, lines: { start, end } });
+                    head_txt_prev = head_txt;
+                    head_txt = '';
+                    start = i + 1;
+                }
             }
         } else {
             const m0 = line_prev.trim().match(/----------/);
@@ -183,15 +190,18 @@ export function split_replies(txt: string): MailThreadItem[] {
                 }
                 if (reply_indent > reply_indent_prev) {
                     reply_depth += 1;
-                    const { from, timestamp } = parseHead(head_txt_prev);
-                    const comment = _.map(_.dropRight(content_lines), (l: string) => {
-                        return remove_quote_marks(l, reply_indent_prev);
-                    }).join('\r\n');
-                    replies.push({ from, timestamp, comment, heading: head_txt_prev, lines: { start, end } });
-                    head_txt_prev = line_prev;
-                    content_lines = [];
-                    reply_indent_prev = reply_indent;
-                    start = i + 1;
+                    const p = parseHead(head_txt_prev);
+                    if (p) {
+                        const { from, timestamp } = p;
+                        const comment = _.map(_.dropRight(content_lines), (l: string) => {
+                            return remove_quote_marks(l, reply_indent_prev);
+                        }).join('\r\n');
+                        replies.push({ from, timestamp, comment, heading: head_txt_prev, lines: { start, end } });
+                        head_txt_prev = line_prev;
+                        content_lines = [];
+                        reply_indent_prev = reply_indent;
+                        start = i + 1;
+                    }
                 } else if (line.match(/--+ ?Forwarded message ?--+/i) || line.match(/--+ ?Original Message ?--+/i)) {
                     header_reading = true;
                     end = i - 1;
@@ -206,11 +216,15 @@ export function split_replies(txt: string): MailThreadItem[] {
         console.log(reply_depth, reply_indent, (header_reading ? '-' : ' '), line);
     });
     if (reply_depth > 0) {
-        const { from, timestamp } = parseHead(head_txt_prev);
-        const comment = _.map(content_lines, (l: string) => {
-            return remove_quote_marks(l, reply_indent_prev);
-        }).join('\r\n');
-        replies.push({ from, timestamp, comment, heading: head_txt_prev, lines: { start, end } });
+        const p = parseHead(head_txt_prev);
+        if (p) {
+            const { from, timestamp } = p;
+            const comment = _.map(content_lines, (l: string) => {
+                return remove_quote_marks(l, reply_indent_prev);
+            }).join('\r\n');
+            replies.push({ from, timestamp, comment, heading: head_txt_prev, lines: { start, end } });
+            return replies;
+        }
         return replies;
     } else {
         return [{ from: '', timestamp: -1, comment: txt, heading: "", lines: { start: 1, end: lines.length } }];
@@ -221,14 +235,14 @@ export function remove_quote_marks(s: string, indent: number) {
     return s.replace(new RegExp('^(> ?){' + indent + '}'), '')
 }
 
-export function parseHead(s: string): { from: string, timestamp: number } {
+export function parseHead(s: string): { from: string, timestamp: number } | null {
     if (s.indexOf('\r\n') != -1) {      //multi line.
         const m1 = s.match(/From: (.+?)\s*\r\n/);
         const m2 = s.match(/Date: (.+?)\s*\r\n/);
         const m3 = s.match(/Sent: (.+?)\s*\r\n/);
         console.log('parseHead multiline', ',', m1 ? m1[1] : null, ',', m2 ? m2[1] : null, ',', m3 ? m3[1] : null);
         if (m1 && (m2 || m3)) {
-            const timestamp = m2 ? moment(m2[1], 'YYYY年M月D日(dddd) HH:mm').valueOf() : moment(m3[1]).valueOf();
+            const timestamp = m2 ? moment(m2[1], 'YYYY年M月D日(dddd) HH:mm').valueOf() : (m3 ? moment(m3[1]).valueOf() : -1);
             return { from: m1[1], timestamp };
         }
     } else {
@@ -245,18 +259,15 @@ export function parseHead(s: string): { from: string, timestamp: number } {
             return { from, timestamp };
         }
     }
-    return { from: null, timestamp: null }
+    return null;
 }
 
-export function parse_email_address(s: string): { email: string, name: string } {
-    if (!s) {
-        return { email: null, name: null };
-    }
+export function parse_email_address(s: string): { email: string, name?: string } {
     const ts = s.split('<');
     if (ts.length > 1) {
         const name = ts[0].trim().replace(/^"/, '').replace(/"$/, '');
         const email = ts[1].replace(/>:?\s*$/, '');
-        return { name: name != '' ? name : null, email };
+        return { name: name != '' ? name : undefined, email };
     } else {
         const m = s.match(/(.+)\[mailto:(.+)\]/);
         if (m) {
@@ -287,7 +298,8 @@ export function make_user_table_from_emails(emails: MailgunParsed[]): UserTableF
         return parse_email_address(email.from);
     }), 'email');
     const s: UserTableFromEmail = _.mapValues(users, (us) => {
-        return { id: shortid(), name: us[0].name, names: _.uniq(_.map(us, 'name')), email: us[0].email };
+        const names = _.compact(_.uniq(_.map(us, 'name')));
+        return { id: shortid(), name: names[0], names, email: us[0].email };
     })
     console.log(s);
     return s;
@@ -295,20 +307,16 @@ export function make_user_table_from_emails(emails: MailgunParsed[]): UserTableF
 
 
 export function mk_user_name(fullname: string): string {
-    if (fullname == null) {
-        return null;
+    const ts: string[] = fullname.split(/\s+/g);
+    const re = /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/;
+    if (ts[0].match(re)) {  //Japanese -> first chunk is surname.
+        return ts[0];
     } else {
-        const ts: string[] = fullname.split(/\s+/g);
-        const re = /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/;
-        if (ts[0].match(re)) {  //Japanese -> first chunk is surname.
-            return ts[0];
-        } else {
-            var surname = _.find(ts, (t, i) => {
-                return t.toUpperCase() == t && t.length > 1 && (i == 0 || i == ts.length - 1);
-            });
-            surname = surname ? surname : ts[ts.length - 1];
-            return surname || fullname;
-        }
+        var surname = _.find(ts, (t, i) => {
+            return t.toUpperCase() == t && t.length > 1 && (i == 0 || i == ts.length - 1);
+        });
+        surname = surname ? surname : ts[ts.length - 1];
+        return surname || fullname;
     }
 }
 
@@ -321,7 +329,7 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
         });
     });
 
-    let myself: User;
+    let myself: User | null;
     if (!ignore_recipient) {
         const user_id = recipient;
         myself = await model.users.get(user_id);
@@ -331,7 +339,7 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
         }
         console.log('Adding to user: ', myself);
     } else {
-        myself = await model.users.find_user_from_email({ myself: null, email: user_info.test_myself.email })
+        myself = await model.users.find_user_from_email(user_info.test_myself.email)
         if (myself == null) {
             console.log('Cannot find test user.');
             return { added_users: [] };
@@ -343,9 +351,9 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
     console.log('Thread of ' + datas.length + ' emails.');
     console.log('From: ', _.map(datas, d => d.from));
     if (datas.length == 0) {
-        return;
+        return { added_users: [] };
     }
-    var session_id = await find_email_session(db, datas[0]);
+    var session_id: string | null = await find_email_session(db, datas[0]);
     if (session_id) {
         console.log('existing session', session_id);
     } else {
@@ -355,7 +363,7 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
     }
     if (session_id == null) {
         console.log('Session ID was not obtained.');
-        return;
+        return { added_users: [] };
     }
     var results: User[] = [];
     var results_comments: CommentTyp[] = [];
@@ -365,7 +373,7 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
         const timestamp = data.timestamp || -1;
         const { name: fullname, email } = parse_email_address(data.from);
         console.log('parsed email', { fullname, email });
-        const u: User = await find_or_make_user_for_email(db, fullname, email);
+        const u: User = await find_or_make_user_for_email(db, email, fullname);
         console.log('find_or_make_user result', timestamp, u);
         if (u == null) {
             console.log('User=null');
@@ -379,7 +387,7 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
             const params: PostCommentModelParams = { user_id: u.id, session_id, timestamp, comments, original_url: url, source: "email", encrypt: 'none' };
             const comments_posted = await model.sessions.post_comment(params);
             console.log('Heading and comment beginning', data.heading, data.comment.slice(0, 100));
-            if (comments_posted && comments_posted[0])
+            if (comments_posted && comments_posted[0] && comments_posted[0].data)
                 results_comments.push(comments_posted[0].data);
             if (comments_posted[0].ok) {
                 const obj = _.extend({ __type: "new_comment" }, comments_posted[0].data);
@@ -398,20 +406,20 @@ function mk_random_username() {
     return 'ユーザー';
 }
 
-async function find_or_make_user_for_email(db, fullname: string, email: string): Promise<User> {
+async function find_or_make_user_for_email(db, email: string, fullname?: string): Promise<User> {
     // const v = Math.random();
     // console.log(v);
-    const user: User = await model.users.find_user_from_email({ myself: null, email });
+    const user: User | null = await model.users.find_user_from_email(email);
     if (user != null) {
         return user;
     } else {
         email = email ? email : "";
-        var name_base = mk_user_name(fullname);
+        var name_base = fullname ? mk_user_name(fullname) : null;
         if (name_base == null || name_base == '') {
             name_base = mk_random_username();
         }
         var name = name_base;
-        var user1: User = await model.users.find_from_username(name);
+        var user1: User | null = await model.users.find_from_username(name);
         if (user1 != null) {
             for (var i = 2; i < 10000; i++) {
                 name = name_base + i;
@@ -425,6 +433,10 @@ async function find_or_make_user_for_email(db, fullname: string, email: string):
         const source = "email_thread";
         const { ok, user: user2, error } = await model.users.register({ username: name, password: "11111111", email, fullname, source });
         console.log('find_or_make_user', error);
-        return ok ? user2 : null;
+        if (user2) {
+            return user2;
+        } else {
+            throw new Error('find_or_make_user_for_email error.')
+        }
     }
 }

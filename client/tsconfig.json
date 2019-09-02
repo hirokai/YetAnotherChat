@@ -4,7 +4,8 @@
         "target": "es5",
         "module": "commonjs",
         "esModuleInterop": true,
-        "rootDir": ".."
+        "rootDir": "..",
+        "strictNullChecks": true
     },
     "moduleResolution": "node",
     "files": [
