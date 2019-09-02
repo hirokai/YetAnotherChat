@@ -266,7 +266,7 @@ export async function post_comment(p: PostCommentModelParams): Promise<{ ok: boo
     const encrypt_group = shortid();
     return Promise.all(map(p.comments, ({ for_user, content }) => {
         const comment_id = shortid();
-        return post_comment_for_each(p.user_id, p.session_id, p.timestamp, encrypt_group, for_user, content, p.encrypt, p.original_url, p.sent_to, p.source, p.comment_id);
+        return post_comment_for_each(p.user_id, p.session_id, p.timestamp, encrypt_group, for_user, content, p.encrypt, p.original_url, p.sent_to, p.source || "self", p.comment_id);
     }));
 }
 
