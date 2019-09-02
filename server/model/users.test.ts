@@ -26,20 +26,20 @@ test('Get by random ID should be null', async done => {
 });
 
 test('Add and get', async done => {
-    const { ok, error, user } = await register();
-    expect(error).toBeUndefined();
-    expect(ok).toBe(true);
+    const user = await register();
     const user2 = await model.users.get(user.id);
     expect(user2).toEqual(user);
     done();
 });
 
 test('Get by name multiple times', async done => {
-    const { ok, error, user } = await register();
+    const user = await register();
     const user2 = await model.users.find_from_username(user.username);
-    const user3 = await model.users.find_from_username(user2.username);
-    expect(user2).toEqual(user);
-    expect(user3).toEqual(user);
+    if (user2) {
+        const user3 = await model.users.find_from_username(user2.username);
+        expect(user2).toEqual(user);
+        expect(user3).toEqual(user);
+    }
     done();
 });
 
@@ -47,15 +47,13 @@ test('Email must be unique', async () => {
     const username = 'Sato' + Math.floor(Math.random() * 100000);
     const password = random_str(16);
     const email = random_str(8) + '@' + random_str(4) + '.com'
-    const { ok, error, user } = await register({ username: username, password: password, email });
-    expect(error).toBeUndefined();
-    expect(ok).toBe(true);
+    const user = await register({ username: username, password: password, email });
     expect(user).toEqual(expect.anything());
     const username2 = 'Tanaka' + Math.floor(Math.random() * 100000);
     const password2 = random_str(16);
-    const { ok: ok2, user: user2 } = await register({ username: username2, password: password2, email });
-    expect(ok2).toBe(false);
-    expect(user2).toBeUndefined();
+    expect(async () => {
+        const user2 = await register({ username: username2, password: password2, email });
+    }).toThrow();
 });
 
 test('Get by email multiple times', async done => {
@@ -64,8 +62,11 @@ test('Get by email multiple times', async done => {
     const source = 'self_register';
     const email = '' + Math.floor(Math.random() * 100000) + '@gmail.com';
     const { ok, user, error } = await model.users.register({ username, password, email, source });
-    const user2 = await model.users.find_user_from_email({ myself: user.id, email: user.emails[0] }).catch(() => null);
-    const user3 = await model.users.find_user_from_email({ myself: user.id, email: user.emails[0] }).catch(() => null);
+    if (!user) {
+        throw new Error('User error');
+    }
+    const user2 = await model.users.find_user_from_email(user.emails[0]).catch(() => null);
+    const user3 = await model.users.find_user_from_email(user.emails[0]).catch(() => null);
     expect(user2).toEqual(user);
     expect(user3).toEqual(user);
     done();
@@ -76,10 +77,10 @@ test('List', async done => {
     const password = 'Hoge';
     const source = 'self_register';
     const email = '' + Math.floor(Math.random() * 100000) + '@gmail.com';
-    const { ok, user, error } = await model.users.register({ username, password, email, source });
+    const user = await register({ username, password, email, source });
     const username2 = 'Tanaka' + Math.floor(Math.random() * 100000);
     const email2 = '' + Math.floor(Math.random() * 100000) + '@gmail.com';
-    const { user: user2 } = await model.users.register({ username: username2, password, email: email2, source });
+    const user2 = await register({ username: username2, password, email: email2, source });
     await model.users.add_to_contact(user.id, user.id);
     await model.users.add_to_contact(user.id, user2.id);
     const users = await model.users.list(user.id).catch(() => []);
@@ -92,12 +93,12 @@ test('User config', async () => {
     const password = random_str(16);
     const source = 'self_register';
     const email = '' + Math.floor(Math.random() * 100000) + '@gmail.com';
-    const { user, error } = await model.users.register({ username, password, email, source });
+    const user = await register({ username, password, email, source });
     const key = 'avatar';
     const value = '/public/img/test.png';
     const L = 10;
     const kvs = _.fromPairs(_.map(_.range(L), () => { return [random_str(100), random_str(100)]; }));
-    const oks = [];
+    const oks: boolean[] = [];
     for (let [k, v] of _.toPairs(kvs)) {
         const { ok } = await model.users.set_user_config(user.id, k, v);
         oks.push(ok);
@@ -124,19 +125,19 @@ describe('Password', () => {
     });
     test('Password can be changed and matched for a user', async () => {
         const password = random_str(16);
-        const { user, error } = await register({ password });
-        const m1 = await model.users.match_password(user.id, user.username, password);
+        const user = await register({ password });
+        const m1 = await model.users.match_password(user.username, password);
         expect(m1).toBe(true);
         const password2 = random_str(16);
         const ok = await model.users.save_password(user.id, password2);
         expect(ok).toBe(true);
-        const m2a = await model.users.match_password(user.id, user.username, password2);
+        const m2a = await model.users.match_password(user.username, password2);
         expect(m2a).toBe(true);
-        const m2b = await model.users.match_password(user.id, user.username, password);
+        const m2b = await model.users.match_password(user.username, password);
         expect(m2b).toBe(false);
     });
     test('Local DB password', async () => {
-        const { user } = await register();
+        const user = await register();
         const pass = await model.users.get_local_db_password(user.id);
         const pass2 = await model.users.get_local_db_password(user.id);
         expect(pass).toEqual(expect.anything());
@@ -146,7 +147,7 @@ describe('Password', () => {
 
 describe('Profiles', () => {
     test('Set and get profiles', async () => {
-        const { user } = await register();
+        const user = await register();
         const profile = await model.users.get_profile(user.id);
         expect(Object.keys(profile)).toHaveLength(1);   //Include avatar
         const L = 30;
@@ -160,8 +161,8 @@ describe('Profiles', () => {
         expect(Object.keys(profile2)).toHaveLength(L + 1);    //Avatar
     });
     test('Multiple users', async () => {
-        const { user: u1 } = await register();
-        const { user: u2 } = await register();
+        const u1 = await register();
+        const u2 = await register();
         const ks = _.map(_.range(30), () => { return random_str(30); });
         await Promise.all(ks.map((k) => {
             return model.users.set_profile(u1.id, k, random_str(16));
@@ -183,12 +184,12 @@ describe('Profiles', () => {
 
 describe('Socket', () => {
     test('Get socket IDs', async () => {
-        const { user } = await register();
+        const user = await register();
         const ids = await model.users.get_socket_ids(user.id);
         expect(ids).toHaveLength(0);
     });
     test('Set socket IDs', async () => {
-        const { user } = await register();
+        const user = await register();
         const ids = _.map(_.range(30), () => { return random_str(16); });
         const rs = await Promise.all(_.map(ids, (id) => {
             return model.users.save_socket_id(user.id, id);
@@ -201,15 +202,15 @@ describe('Socket', () => {
 
 describe('Contacts', () => {
     test('Invisible before contact addition', async done => {
-        const { user: me } = await register();
-        const { user: u2 } = await register();
+        const me = await register();
+        const u2 = await register();
         const users_from_me = _.map(await model.users.list(me.id), 'id');
         expect(users_from_me).not.toContainEqual(u2.id);
         done();
     });
     test('Visible after contact addition', async done => {
-        const { user: me } = await register();
-        const { user: u2 } = await register();
+        const me = await register();
+        const u2 = await register();
         model.users.add_to_contact(me.id, u2.id);
         const users_from_me = _.map(await model.users.list(me.id), 'id');
         expect(users_from_me).toContainEqual(u2.id);
@@ -221,7 +222,7 @@ describe('Contacts', () => {
 
 describe('Workspaces', () => {
     test('Add and remove', async done => {
-        const { user: me } = await register();
+        const me = await register();
         const ws = await model.users.create_workspace(me.id, { name: 'Test', public: false });
         await model.users.join_workspace(me.id, ws.id);
         await model.users.remove_workspace(ws.id);

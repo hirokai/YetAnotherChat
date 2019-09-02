@@ -5,6 +5,7 @@ import * as util from 'util'
 import * as _ from 'lodash';
 import * as sessions from './sessions'
 import { userInfo } from 'os';
+import { register } from './test_utils'
 
 const exec = util.promisify(exec_);
 
@@ -14,16 +15,6 @@ const random_str = (N) => {
     const S = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
     return Array.from(Array(N)).map(() => S[Math.floor(Math.random() * S.length)]).join('');
 };
-
-export async function register(opt?: { basename?: string, username?: string, fullname?: string, password?: string, email?: string, source?: string }) {
-    opt = opt || {};
-    const username = (opt.basename || random_str(4)) + Math.floor(Math.random() * 100000);
-    const fullname = opt.fullname;
-    const password = opt.password || random_str(16);
-    const source = opt.source || 'self_register';
-    const email = opt.email || ('' + Math.floor(Math.random() * 100000) + '@gmail.com');
-    return await model.users.register({ username, password, fullname, email, source });
-}
 
 beforeEach(done => {
     return new Promise(async (resolve, reject) => {
@@ -36,8 +27,8 @@ beforeEach(done => {
 describe('Sessions', () => {
 
     test('Create and list', async done => {
-        const { user: myself } = await register();
-        const { user: other } = await register();
+        const myself = await register();
+        const other = await register();
         var s = await sessions.create(random_str(30), [myself.id]);
         expect(s).not.toBeNull();
         var ss = await sessions.get_session_list({ user_id: myself.id, of_members: [], is_all: false });
@@ -56,8 +47,8 @@ describe('Sessions', () => {
     });
 
     test('Create and delete session', async done => {
-        const { user: myself } = await register();
-        const { user: other } = await register();
+        const myself = await register();
+        const other = await register();
         var s = await sessions.create(random_str(30), [myself.id, other.id]);
         let r = await db_.all('select * from sessions;');
         expect(r).toHaveLength(1);
@@ -87,8 +78,9 @@ describe('Sessions', () => {
     });
 
     test('Create and get members', async done => {
-        const { user: myself } = await register();
-        const { user: other } = await register();
+        const myself = await register();
+        const other = await register();
+
         var s = await sessions.create(random_str(30), [myself.id]);
         var timestamp = new Date().getTime();
         await sessions.join({ session_id: s.id, user_id: other.id, timestamp, source: 'manual_join' });
@@ -98,7 +90,7 @@ describe('Sessions', () => {
     });
 
     test('List comments', async done => {
-        const { user: myself } = await register();
+        const myself = await register();
         var s = await sessions.create(random_str(30), [myself.id]);
         var timestamp = new Date().getTime();
         const comments = _.map([myself.id], (uid) => { return { for_user: uid, content: 'Hoge' } });
@@ -116,7 +108,8 @@ describe('Sessions', () => {
     });
 
     test('Add and delete comments', async done => {
-        const { user: myself } = await register();
+        const myself = await register();
+
         var s = await sessions.create(random_str(30), [myself.id]);
         var timestamp = new Date().getTime();
         const comments = _.map([myself.id], (uid) => { return { for_user: uid, content: 'Hoge' } });
@@ -128,12 +121,16 @@ describe('Sessions', () => {
             comments
         }
         const cs = await sessions.post_comment(p);
-        const r = await sessions.delete_comment(myself.id, cs[0].data.id);
-        expect(r.ok).toBe(true);
-        const cs2 = await sessions.list_comments(myself.id, s.id);
-        expect(cs2).toHaveLength(0);
-        const cs3 = await db_.all('select * from comments;');
-        expect(cs3).toHaveLength(0);
+        if (cs[0].data && cs[0].data.id) {
+            const r = await sessions.delete_comment(myself.id, cs[0].data.id);
+            expect(r.ok).toBe(true);
+            const cs2 = await sessions.list_comments(myself.id, s.id);
+            expect(cs2).toHaveLength(0);
+            const cs3 = await db_.all('select * from comments;');
+            expect(cs3).toHaveLength(0);
+        } else {
+            throw new Error('Error')
+        }
         done();
     });
 

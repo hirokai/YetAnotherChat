@@ -18,10 +18,10 @@
   "include": [
     "common/*.ts",
     "server/*.ts",
-    "client/**/*"
+    // "client/**/*"
   ],
   "exclude": [
-    // "client/**/*"
+    "client/**/*"
   ],
   "files": [
     "./common/types.d.ts"

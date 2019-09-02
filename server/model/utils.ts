@@ -75,7 +75,7 @@ export const db_ = {
     }
 }
 
-export function cipher(plainText: string, password: string = credentials.cipher_secret) {
+export function cipher(plainText: string, password: string = credentials.cipher_secret): string | null {
     try {
         var cipher = createCipher('aes192', password);
         var cipheredText = cipher.update(plainText, 'utf8', 'hex');
@@ -89,7 +89,7 @@ export function cipher(plainText: string, password: string = credentials.cipher_
     }
 }
 
-export function decipher(cipheredText: string, password: string = credentials.cipher_secret) {
+export function decipher(cipheredText: string, password: string = credentials.cipher_secret): string | null {
     try {
         var decipher = createDecipher('aes192', password);
         var dec = decipher.update(cipheredText, 'hex', 'utf8');

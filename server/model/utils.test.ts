@@ -10,6 +10,9 @@ test('Cipher and decipher', async done => {
     await fc.assert(
         fc.property(fc.fullUnicodeString(100), fc.fullUnicodeString(100), (password, plain) => {
             const ciphered = utils.cipher(plain, password);
+            if (!ciphered) {
+                throw new Error("Cipher error");
+            }
             const deciphered = utils.decipher(ciphered, password);
             return plain == deciphered;
         }),
@@ -22,6 +25,9 @@ test('Cipher and decipher: 2', async done => {
     await fc.assert(
         fc.property(fc.fullUnicodeString(100), fc.fullUnicodeString(100), (password, plain) => {
             const ciphered = utils.cipher2(plain, password);
+            if (!ciphered) {
+                throw new Error("Cipher error");
+            }
             const deciphered = utils.decipher2(ciphered, password);
             return plain == deciphered;
         }),
