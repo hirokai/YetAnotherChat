@@ -25,13 +25,12 @@ beforeEach(done => {
 });
 
 describe('Sessions', () => {
-
     test('Create and list', async done => {
         const myself = await register();
         const other = await register();
         var s = await sessions.create(random_str(30), [myself.id]);
         expect(s).not.toBeNull();
-        var ss = await sessions.get_session_list({ user_id: myself.id, of_members: [], is_all: false });
+        var ss = await sessions.get_session_list({ user_id: myself.id, is_all: false });
         expect(ss).toHaveLength(1)
         s = await sessions.create(random_str(30), [myself.id]);
         const ms = await sessions.get_member_ids({ myself: myself.id, session_id: s.id });

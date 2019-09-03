@@ -35,9 +35,9 @@ test('Add and get', async done => {
 test('Get by name multiple times', async done => {
     const user = await register();
     const user2 = await model.users.find_from_username(user.username);
+    expect(user2).toEqual(user);
     if (user2) {
         const user3 = await model.users.find_from_username(user2.username);
-        expect(user2).toEqual(user);
         expect(user3).toEqual(user);
     }
     done();
@@ -49,11 +49,10 @@ test('Email must be unique', async () => {
     const email = random_str(8) + '@' + random_str(4) + '.com'
     const user = await register({ username: username, password: password, email });
     expect(user).toEqual(expect.anything());
+    console.log(user);
     const username2 = 'Tanaka' + Math.floor(Math.random() * 100000);
     const password2 = random_str(16);
-    expect(async () => {
-        const user2 = await register({ username: username2, password: password2, email });
-    }).toThrow();
+    await expect(register({ username: username2, password: password2, email })).rejects.toThrow();
 });
 
 test('Get by email multiple times', async done => {

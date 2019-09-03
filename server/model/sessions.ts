@@ -7,6 +7,7 @@ import { fingerPrint } from '../../common/common_model'
 import { map, includes, orderBy, keyBy, min, max, chain, compact, zip, sum, values, sortedUniq, sortBy } from 'lodash';
 const emojis = require("./emojis.json").emojis;
 const emoji_dict = keyBy(emojis, 'shortname');
+import * as _ from 'lodash';
 
 
 export async function delete_session(id: string) {
@@ -174,55 +175,47 @@ export async function delete_comment(user_id: string, comment_id: string): Promi
     }
 }
 
-export function get_session_list(params: { user_id: string, of_members: string[] | undefined, is_all: boolean }): Promise<RoomInfo[]> {
+export async function get_session_list(params: { user_id: string, of_members?: string[] | undefined, is_all: boolean }): Promise<RoomInfo[]> {
     const { user_id, of_members, is_all } = params;
     if (of_members) {
         return get_session_of_members(user_id, of_members, is_all);
     }
-    return new Promise((resolve) => {
-        db.serialize(() => {
-            db.all(`
-            select s.id,s.name,s.timestamp,group_concat(distinct m.user_id) as members from sessions as s
-                join session_current_members as m on s.id=m.session_id
-                group by s.id having members like ?
-                order by s.timestamp desc;`, '%' + user_id + '%', (err, sessions) => {
-                    Promise.all(map(sessions, (s) => {
-                        return new Promise((resolve1) => {
-                            db.all("select count(*),user_id,max(timestamp),min(timestamp) from comments where session_id=? and for_user=? group by user_id;", s.id, user_id, (err, users) => {
-                                const first = min(map(users, 'min(timestamp)')) || -1;
-                                const last = max(map(users, 'max(timestamp)')) || -1;
-                                var count: { [key: string]: number } = chain(users).keyBy('user_id').mapValues((u) => {
-                                    return u['count(*)'];
-                                }).value();
-                                const members: string[] = s.members.split(',')
-                                map(members, (m) => {
-                                    count[m] = count[m] || 0;
-                                });
-                                count['__total'] = sum(values(count)) || 0;
-                                resolve1({ count, first, last });
-                            });
-                        });
-                    })).then((infos: { count: { [key: string]: number }, first: number, last: number }[]) => {
-                        const ss: RoomInfo[] = compact(map(zip(sessions, infos), ([s, info]) => {
-                            if (!info) {
-                                return null;
-                            }
-                            const members = s['members'].split(",");
-                            if (!includes(members, user_id)) {   //Double check if user_id is included.
-                                return null;
-                            }
-                            const obj: RoomInfo = {
-                                id: s['id'], name: decipher(s['name']) || '', timestamp: s['timestamp'], members,
-                                numMessages: info.count, firstMsgTime: info.first, lastMsgTime: info.last
-                            };
-                            return obj;
-                        }));
-                        const ss_sorted = orderBy(ss, 'lastMsgTime', 'desc');
-                        resolve(ss_sorted);
-                    })
-                });
-        });
+    const rows = await db_.all<{ id: string, user_id: string, name: string, timestamp: number }>(`
+            select s.*,m2.user_id from sessions as s join session_current_members as m on s.id=m.session_id join session_current_members as m2 on m.session_id=m2.session_id where m.user_id=? order by s.timestamp desc;`, user_id);
+    const sessions = _.map(_.groupBy(rows, 'id'), (g) => {
+        return { id: g[0].id, members: _.map(g, 'user_id'), name: g[0].name, timestamp: g[0].timestamp };
     });
+    const infos: { count: { [key: string]: number }, first: number, last: number }[] = [];
+    for (let s of sessions) {
+        const users = await db_.all("select count(*),user_id,max(timestamp),min(timestamp) from comments where session_id=? and for_user=? group by user_id;", s.id, user_id);
+        const first = min(map(users, 'min(timestamp)')) || -1;
+        const last = max(map(users, 'max(timestamp)')) || -1;
+        var count: { [key: string]: number } = chain(users).keyBy('user_id').mapValues((u) => {
+            return u['count(*)'];
+        }).value();
+        map(s.members, (m) => {
+            count[m] = count[m] || 0;
+        });
+        count['__total'] = sum(values(count)) || 0;
+        const info = { count, first, last };
+        // console.log(info);
+        infos.push(info);
+    }
+    const ss: RoomInfo[] = compact(map(zip(sessions, infos), ([s, info]) => {
+        // console.log(s, info);
+        if (!s || !info) {
+            return null;
+        }
+        if (!includes(s.members, user_id)) {   //Double check if user_id is included.
+            return null;
+        }
+        const obj: RoomInfo = {
+            id: s.id, name: decipher(s.name) || '', timestamp: s.timestamp, members: s.members, numMessages: info.count, firstMsgTime: info.first, lastMsgTime: info.last
+        };
+        return obj;
+    }));
+    const ss_sorted = orderBy(ss, 'lastMsgTime', 'desc');
+    return ss_sorted;
 }
 
 export function join({ session_id, user_id, timestamp = -1, source }: { session_id: string, user_id: string, timestamp: number, source: string }): Promise<JoinSessionResponse> {

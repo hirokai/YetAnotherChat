@@ -31,19 +31,17 @@ export function save_socket_id(user_id: string, socket_id: string): Promise<{ ok
 
 export async function get(user_id: string): Promise<User | null> {
     const row = await db_.get<UserWithEmail>("select users.source,users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profile_value from users join user_emails on users.id=user_emails.user_id join profiles as p on p.user_id=users.id where users.id=? and p.profile_name='avatar' group by users.id;", user_id);
+    console.log('users.get', row);
     if (row && row.id) {
         const emails = row.emails ? row.emails.split(',') : [];
         const pub = await keys.get_public_key(user_id);
-        if (pub) {
-            const { publicKey } = pub;
-            const online_users = await list_online_users();
-            const id = row['id']
-            const online: boolean = includes(online_users, id);
-            const registered = row['source'] == 'self_register';
-            return ({ username: row.name, id, emails, avatar: row['profile_value'], fullname: row.fullname, online, publicKey, timestamp: row.timestamp, registered });
-        } else {
-            return null;
-        }
+        const publicKey = pub ? pub.publicKey : undefined;
+        const online_users = await list_online_users();
+        const id = row['id']
+        const online: boolean = includes(online_users, id);
+        const registered = row['source'] == 'self_register';
+        return ({ username: row.name, id, emails, avatar: row['profile_value'], fullname: row.fullname || undefined, online, publicKey, timestamp: row.timestamp, registered });
+
     } else {
         return (null);
     }
@@ -101,29 +99,23 @@ export async function list(myself: string): Promise<User[]> {
     const users = compact(await Promise.all(map(rows_all, async (row): Promise<User | null> => {
         const user_id = row['id'];
         const pub = await get_public_key(user_id)
-        if (pub) {
-            const { publicKey: pk1 } = pub;
-            let fingerprint: string | undefined = undefined;
-            if (pk1) {
-                fingerprint = await fingerPrint(pk1);
-            }
-            // console.log('model.list_users() publicKey', user_id, myself, pk1);
-            const obj: User = {
-                emails: row['emails'].split(','),
-                timestamp: row['timestamp'],
-                username: row['name'] || row['id'],
-                fullname: row['fullname'] || "",
-                id: user_id,
-                avatar: row['avatar'],
-                registered: row['source'] == 'self_register',
-                publicKey: pk1,
-                online: includes(online_users, user_id),
-                fingerprint
-            };
-            return obj;
-        } else {
-            return null;
-        }
+        const pk1 = pub ? pub.publicKey : undefined;
+        const fingerprint = pk1 ? await fingerPrint(pk1) : undefined;
+        // console.log('model.list_users() publicKey', user_id, myself, pk1);
+        const obj: User = {
+            emails: row['emails'].split(','),
+            timestamp: row['timestamp'],
+            username: row['name'] || row['id'],
+            fullname: row['fullname'] || "",
+            id: user_id,
+            avatar: row['avatar'],
+            registered: row['source'] == 'self_register',
+            publicKey: pk1,
+            online: includes(online_users, user_id),
+            fingerprint
+        };
+        return obj;
+
     })));
     return users;
 }
@@ -252,16 +244,13 @@ export async function find_user_from_email(email: string): Promise<User | null> 
         if (!err && row) {
             const user_id = row.id;
             const pub = await get_public_key(user_id);
-            if (pub) {
-                const { publicKey } = pub;
-                const online_users = await list_online_users();
-                const online: boolean = includes(online_users, user_id);
-                const emails = (row.emails || '').split(',');
-                const registered = row['source'] == 'self_register';
-                return { username: row.name, fullname: row.fullname, id: user_id, emails, avatar: row['profile_value'], online, publicKey, timestamp: row.timestamp, registered };
-            } else {
-                return null;
-            }
+            const publicKey = pub ? pub.publicKey : undefined;
+            const online_users = await list_online_users();
+            const online: boolean = includes(online_users, user_id);
+            const emails = (row.emails || '').split(',');
+            const registered = row['source'] == 'self_register';
+            return { username: row.name, fullname: row.fullname || undefined, id: user_id, emails, avatar: row['profile_value'], online, publicKey, timestamp: row.timestamp, registered };
+
         } else {
             return null;
         }
@@ -274,15 +263,12 @@ export async function find_from_username(username: string): Promise<User | null>
         const user_id = row['id']
         const emails = row['emails'] ? row['emails'].split(',') : [];
         const pub = await get_public_key(user_id);
-        if (pub) {
-            const { publicKey } = pub;
-            const online_users = await list_online_users();
-            const online: boolean = includes(online_users, user_id);
-            const registered = row['source'] == 'self_register';
-            return { username: row['name'], id: user_id, emails, avatar: row['profile_value'], fullname: row['fullname'] || null, online, publicKey, timestamp: row['timestamp'], registered };
-        } else {
-            return null;
-        }
+        const publicKey = pub ? pub.publicKey : undefined;
+        const online_users = await list_online_users();
+        const online: boolean = includes(online_users, user_id);
+        const registered = row['source'] == 'self_register';
+        return { username: row['name'], id: user_id, emails, avatar: row['profile_value'], fullname: row['fullname'] || undefined, online, publicKey, timestamp: row['timestamp'], registered };
+
     } else {
         return null;
     }
@@ -357,7 +343,9 @@ export async function register({ username, password, email, fullname, source }: 
                             const avatar = choose_avatar(username);
                             set_profile(user_id, 'avatar', avatar).then(() => {
                                 const emails = email ? [email] : [];
-                                const user: User = { id: user_id, fullname, username, emails, avatar, online: false, timestamp, registered: source == 'self_register' }
+                                const user: User = {
+                                    id: user_id, fullname: fullname || undefined, username, emails, avatar, online: false, timestamp, registered: source == 'self_register', publicKey: undefined
+                                }
                                 resolve({ ok: true, user });
                             });
                         });
