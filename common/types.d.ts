@@ -65,7 +65,7 @@ interface ChatEntryCommon {
     timestamp: number,
     comment: string,
     encrypt: EncryptionMode,
-    fingerprint: { from: string, to: string }
+    fingerprint: { from?: string, to?: string }
 }
 
 interface CommentTyp extends ChatEntryCommon {

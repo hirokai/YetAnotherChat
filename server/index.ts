@@ -573,7 +573,7 @@ app.get('/api/sessions', (req: GetAuthRequest, res: JsonResponse<GetSessionsResp
         const of_members: string[] | undefined = ms ? ms.split(",") : undefined;
         const is_all: boolean = !(typeof req.query.is_all === 'undefined');
         const user_id: string = req.decoded.user_id;
-        const r = await model.sessions.get_session_list({ user_id, of_members, is_all });
+        const r = await model.sessions.list({ user_id, of_members, is_all });
         res.json({ ok: true, data: r });
     })().catch(next);
 });
@@ -596,7 +596,7 @@ app.post('/api/sessions', (req: PostRequest<PostSessionsParam>, res: JsonRespons
     const temporary_id = body.temporary_id;
     (async () => {
         if (name && members) {
-            const data = await model.sessions.create(name, members);
+            const data = await model.sessions.create(req.decoded.user_id, name, members);
             const obj: SessionsNewSocket = {
                 __type: 'sessions.new',
                 temporary_id,

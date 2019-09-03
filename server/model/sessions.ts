@@ -175,13 +175,14 @@ export async function delete_comment(user_id: string, comment_id: string): Promi
     }
 }
 
-export async function get_session_list(params: { user_id: string, of_members?: string[] | undefined, is_all: boolean }): Promise<RoomInfo[]> {
+export async function list(params: { user_id: string, of_members?: string[] | undefined, is_all: boolean }): Promise<RoomInfo[]> {
     const { user_id, of_members, is_all } = params;
     if (of_members) {
         return get_session_of_members(user_id, of_members, is_all);
     }
     const rows = await db_.all<{ id: string, user_id: string, name: string, timestamp: number }>(`
             select s.*,m2.user_id from sessions as s join session_current_members as m on s.id=m.session_id join session_current_members as m2 on m.session_id=m2.session_id where m.user_id=? order by s.timestamp desc;`, user_id);
+    // console.log('sessions.list', params, rows);
     const sessions = _.map(_.groupBy(rows, 'id'), (g) => {
         return { id: g[0].id, members: _.map(g, 'user_id'), name: g[0].name, timestamp: g[0].timestamp };
     });
@@ -217,6 +218,10 @@ export async function get_session_list(params: { user_id: string, of_members?: s
     const ss_sorted = orderBy(ss, 'lastMsgTime', 'desc');
     return ss_sorted;
 }
+async function add_member_internal({ session_id, user_id, source }: { session_id: string, user_id: string, source: string }): Promise<boolean> {
+    const err = await db_.run('insert into session_current_members (session_id,user_id,source) values (?,?,?);', session_id, user_id, source);
+    return err == null;
+}
 
 export function join({ session_id, user_id, timestamp = -1, source }: { session_id: string, user_id: string, timestamp: number, source: string }): Promise<JoinSessionResponse> {
     console.log('join_session source', source, user_id);
@@ -228,11 +233,7 @@ export function join({ session_id, user_id, timestamp = -1, source }: { session_
         const id: string = shortid();
         db.serialize(async () => {
             const is_registered_user = (await users.get(user_id)) != null;
-            const members: string[] | null = await get_member_ids({ myself: user_id, session_id });
-            if (!members) {
-                resolve({ ok: false, error: 'Not a member' });
-                return;
-            }
+            const members: string[] = await get_member_ids({ myself: user_id, session_id }) || [];
             const is_member: boolean = includes(members, user_id);
             if (!is_registered_user) {
                 resolve({ ok: false, error: 'User ID invalid' })
@@ -287,11 +288,9 @@ async function post_comment_for_each(
     // Currently key is same for all recipients.
     const from = await get_public_key(user_id);
     const to = await get_public_key(for_user);
-    if (from && to) {
-        const pub_from = from.publicKey;
-        const pub_to = to.publicKey;
-        const fp_from = await fingerPrint(pub_from);
-        const fp_to = await fingerPrint(pub_to);
+    if (encrypt == 'none' || (from && to)) {
+        const fp_from = from ? await fingerPrint(from.publicKey) : undefined;
+        const fp_to = to ? await fingerPrint(to.publicKey) : undefined;
         // console.log('Posting with key: ' + fingerprint, publicKey, user_id, for_user);
         const err1 = await db_.run(`insert into comments (
                                     id,user_id,comment,for_user,encrypt,timestamp,session_id,original_url,sent_to,source,encrypt_group,fingerprint_from,fingerprint_to
@@ -312,25 +311,24 @@ async function post_comment_for_each(
     }
 }
 
-export async function create(name: string, members: string[]): Promise<RoomInfo> {
+export async function create(user_id: string, name: string, members: string[]): Promise<RoomInfo> {
     const session_id = shortid();
-    return create_session_with_id(session_id, name, members);
+    return create_session_with_id(user_id, session_id, name, members);
 }
 
-export async function create_session_with_id(session_id: string, name: string, members: string[]): Promise<RoomInfo> {
-    return new Promise((resolve, reject) => {
-        const timestamp = new Date().getTime();
-        db.run('insert or ignore into sessions (id, name, timestamp) values (?,?,?);', session_id, cipher(name), timestamp);
-        Promise.all(map(members, (m) => join({ session_id, user_id: m, timestamp, source: 'owner' }))).then(() => {
-            get(session_id).then((roomInfo) => {
-                if (roomInfo) {
-                    resolve(roomInfo);
-                } else {
-                    reject('Session ID not found');
-                }
-            });
-        });
-    });
+export async function create_session_with_id(user_id, session_id: string, name: string, members: string[]): Promise<RoomInfo> {
+    const timestamp = new Date().getTime();
+    db.run('insert or ignore into sessions (id, name, timestamp) values (?,?,?);', session_id, cipher(name), timestamp);
+    await add_member_internal({ session_id, user_id, source: 'owner' });
+    for (let m of members) {
+        const r = await add_member_internal({ session_id, user_id: m, source: 'added_by_member' });
+    }
+    const roomInfo = await get(session_id);
+    if (roomInfo) {
+        return roomInfo;
+    } else {
+        throw new Error('Session ID not found');
+    }
 }
 
 export function get(session_id: string): Promise<RoomInfo | null> {
