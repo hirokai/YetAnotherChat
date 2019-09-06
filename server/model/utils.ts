@@ -24,20 +24,16 @@ export const db_ = {
         db.run(query, rest);
     },
     run: (query: string, ...args: any[]): void | Promise<any> => {
-        const last = args[args.length - 1];
-        if (isFunction(last)) {
-            const params = args.slice(0, args.length - 1)
-            db.run(query, params, (err) => {
-                last(err);
+        return new Promise((resolve, reject) => {
+            db.run(query, args, (err) => {
+                if (err) {
+                    reject(err)
+                } else {
+                    resolve();
+                }
             });
-            return;
-        } else {
-            return new Promise((resolve) => {
-                db.run(query, args, (err) => {
-                    resolve(err);
-                });
-            });
-        }
+
+        });
     },
     get_: (query: string, ...rest) => {
         db.get(query, rest);

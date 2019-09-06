@@ -295,21 +295,23 @@ export async function set_user_config(user_id: string, key: string, value: strin
     const row = await db_.get('select * from user_configs where user_id=? and config_name=?;', user_id, key);
     if (row) {
         const timestamp = new Date().getTime();
-        const err = await db_.run('update user_configs set timestamp=?,config_value=? where user_id=? and config_name=?;', timestamp, value, user_id, key);
-        if (err) {
+        try {
+            await db_.run('update user_configs set timestamp=?,config_value=? where user_id=? and config_name=?;', timestamp, value, user_id, key);
+            return { ok: true };
+        } catch (err) {
             console.error('set_user_config', err);
             return { ok: false };
-        } else {
-            return { ok: true };
+
         }
     } else {
         const timestamp = new Date().getTime();
-        const err = await db_.run('insert into user_configs (timestamp,user_id,config_name,config_value) values (?,?,?,?);', timestamp, user_id, key, value);
-        if (err) {
+        try {
+            await db_.run('insert into user_configs (timestamp,user_id,config_name,config_value) values (?,?,?,?);', timestamp, user_id, key, value);
+            return { ok: true };
+        } catch (err) {
             console.error('set_user_config', err);
             return { ok: false };
-        } else {
-            return { ok: true };
+
         }
     }
 }

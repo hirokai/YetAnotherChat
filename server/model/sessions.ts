@@ -10,12 +10,16 @@ const emoji_dict = keyBy(emojis, 'shortname');
 import * as _ from 'lodash';
 
 
-export async function delete_session(id: string) {
-    const err = await db_.run('delete from sessions where id=?;', id);
-    const err2 = await db_.run('delete from comments where session_id=?;', id);
-    const err3 = await db_.run('delete from session_current_members where session_id=?;', id);
-    const err4 = await db_.run('delete from session_events where session_id=?;', id);
-    return !err && !err2 && !err3 && !err4;
+export async function delete_session(id: string): Promise<boolean> {
+    try {
+        await db_.run('delete from sessions where id=?;', id);
+        await db_.run('delete from comments where session_id=?;', id);
+        await db_.run('delete from session_current_members where session_id=?;', id);
+        await db_.run('delete from session_events where session_id=?;', id);
+        return true;
+    } catch (e) {
+        return false;
+    }
 }
 
 export async function get_members({ myself, session_id, only_registered = true }: { myself: string, session_id: string, only_registered?: boolean }): Promise<User[]> {
@@ -163,12 +167,12 @@ export async function delete_comment(user_id: string, comment_id: string): Promi
         if (!row2) {
             return { ok: false, error: 'Encrypted data was not correctly saved.' }
         }
-        const err = await db_.run('delete from comments where encrypt_group=?;', encrypt_group);
-        if (err) {
-            return { ok: false, error: err };
-        } else {
+        try {
+            await db_.run('delete from comments where encrypt_group=?;', encrypt_group);
             const data: DeleteCommentData = { comment_id, encrypt_group, session_id };
             return { ok: true, data };
+        } catch (err) {
+            return { ok: false, error: err };
         }
     } else {
         return { ok: false, error: 'Comment ' + comment_id + ' does not belong to any session.' };
@@ -219,8 +223,12 @@ export async function list(params: { user_id: string, of_members?: string[] | un
     return ss_sorted;
 }
 async function add_member_internal({ session_id, user_id, source }: { session_id: string, user_id: string, source: string }): Promise<boolean> {
-    const err = await db_.run('insert into session_current_members (session_id,user_id,source) values (?,?,?);', session_id, user_id, source);
-    return err == null;
+    try {
+        await db_.run('insert into session_current_members (session_id,user_id,source) values (?,?,?);', session_id, user_id, source);
+        return true;
+    } catch{
+        return false;
+    }
 }
 
 export function join({ session_id, user_id, timestamp = -1, source }: { session_id: string, user_id: string, timestamp: number, source: string }): Promise<JoinSessionResponse> {
@@ -292,19 +300,19 @@ async function post_comment_for_each(
         const fp_from = from ? await fingerPrint(from.publicKey) : undefined;
         const fp_to = to ? await fingerPrint(to.publicKey) : undefined;
         // console.log('Posting with key: ' + fingerprint, publicKey, user_id, for_user);
-        const err1 = await db_.run(`insert into comments (
+        try {
+            await db_.run(`insert into comments (
                                     id,user_id,comment,for_user,encrypt,timestamp,session_id,original_url,sent_to,source,encrypt_group,fingerprint_from,fingerprint_to
                                     ) values (?,?,?,?,?,?,?,?,?,?,?,?,?);`, comment_id, user_id, comment, for_user, encrypt, timestamp, session_id, original_url, sent_to, source, encrypt_group, fp_from, fp_to);
-        const err2 = await db_.run('insert or ignore into session_current_members (session_id,user_id) values (?,?)', session_id, user_id);
-        if (!err1 && !err2) {
+            await db_.run('insert or ignore into session_current_members (session_id,user_id) values (?,?)', session_id, user_id);
             const data: CommentTyp = {
                 id: comment_id, timestamp: timestamp, user_id, comment: comment, session_id, original_url, sent_to, source: source, kind: "comment", encrypt,
                 fingerprint: { from: fp_from, to: fp_to }
             };
             return { ok: true, for_user, data };
-        } else {
-            console.log('post_comment error', err1, err2)
-            throw [err1, err2];
+        } catch (err) {
+            console.log('post_comment error', err)
+            throw err;
         }
     } else {
         return { ok: false, for_user, error: 'Public key is missing' };
