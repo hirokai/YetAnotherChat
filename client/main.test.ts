@@ -24,8 +24,8 @@ describe('Login page', () => {
         } else {
             const t = await (await el.getProperty('textContent')).jsonValue()
             expect(t).toEqual('新規登録');
-            await page.type('#username', '__Sato', { delay: 10 });
-            await page.type('#password', '1234', { delay: 10 });
+            await page.type('#username', '__Sato', { delay: 1 });
+            await page.type('#password', '1234', { delay: 1 });
             await page.click('#agree');
             await page.click('#submit');
             el = await page.$('#info-username');
