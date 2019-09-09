@@ -44,21 +44,25 @@ export class Model {
         this.token = token;
     }
     async init(): Promise<boolean> {
-        if (!this.token) {
+        try {
+            if (!this.token) {
+                return false;
+            }
+            let keyPair = await this.keys.download_my_keys_from_server();
+            console.log('Downloaded key pair', keyPair);
+            if (keyPair == null || keyPair.pub == null) {
+                await this.keys.reset();
+            } else {
+                await this.keys.save_my_keys(keyPair, true);
+            }
+            if (keyPair && keyPair.prv) {
+                //For user export, it has to be prepared beforehand (no async operation)
+                this.privateKeyJson = await crypto.exportKey(keyPair.prv);;
+            }
+            return true;
+        } catch{
             return false;
         }
-        let keyPair = await this.keys.download_my_keys_from_server();
-        console.log('Downloaded key pair', keyPair);
-        if (keyPair == null || keyPair.pub == null) {
-            await this.keys.reset();
-        } else {
-            await this.keys.save_my_keys(keyPair, true);
-        }
-        if (keyPair && keyPair.prv) {
-            //For user export, it has to be prepared beforehand (no async operation)
-            this.privateKeyJson = await crypto.exportKey(keyPair.prv);;
-        }
-        return true;
     }
     saveDbWithName(dbName: string, data: any): Promise<void> {
         const storeName = 'default';
