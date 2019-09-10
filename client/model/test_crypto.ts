@@ -3,12 +3,13 @@ import { importKey, decrypt_str, encrypt_str, generateKeyPair, exportKey, export
 type ExportedFormat = JsonWebKey
 
 //Encrypt at A side with A's secret and B's public key.
-async function test_encrypt(lk_a: CryptoKey, pk_b: ExportedFormat, input: string): Promise<string> {
+async function test_encrypt(lk_a: CryptoKey, pk_b: ExportedFormat, input: string): Promise<string | null> {
     try {
         const imported_b = await importKey(pk_b, true);
         return encrypt_str(imported_b, lk_a, input);
     } catch (e) {
         console.log(e);
+        return null;
     }
 }
 
@@ -19,11 +20,12 @@ async function test_decrypt(lk_b: CryptoKey, pk_a: ExportedFormat, input: string
 }
 
 //Encrypt at A side with A's secret and B's public key.
-async function test_encrypt2(lk_a: CryptoKey, lk_b: CryptoKey, input: string): Promise<string> {
+async function test_encrypt2(lk_a: CryptoKey, lk_b: CryptoKey, input: string): Promise<string | null> {
     try {
         return encrypt_str(lk_b, lk_a, input);
     } catch (e) {
         console.log(e);
+        return null;
     }
 }
 
@@ -130,9 +132,11 @@ async function text_export(keyPair: CryptoKeyPair) {
     const prv_exported = await exportKey(keyPair.privateKey);
     const pub_exported = await exportKeySPKI(keyPair.publicKey);
     const pub_exported_b64 = encodeBase64URL(new Uint8Array(pub_exported));
-    const pub_exported_b64_2 = pub_exported_b64.match(/.{1,32}/g).join('\n');
-    const pub_exported2 = decodeBase64URL(pub_exported_b64);
-    const fp = await fingerPrint(prv_exported);
-    console.log('Private key exported', prv_exported);
-    console.log('Public key exported', pub_exported, pub_exported2, pub_exported_b64_2);
+    if (pub_exported_b64 != null) {
+        const pub_exported_b64_2 = pub_exported_b64.match(/.{1,32}/g).join('\n');
+        const pub_exported2 = decodeBase64URL(pub_exported_b64);
+        const fp = await fingerPrint(prv_exported);
+        console.log('Private key exported', prv_exported);
+        console.log('Public key exported', pub_exported, pub_exported2, pub_exported_b64_2);
+    }
 }

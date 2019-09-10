@@ -32,6 +32,7 @@ function send_email({ subject, to: tos, from, content }: { subject: string, to: 
         console.log('Mail sending to: ', to);
         console.log('Subject: ', subject);
         return;
+        console.log('')
         const data = {
             from: (from.fullname || from.username) + ' (COI SNS) <' + from.id + '@mail.coi-sns.com>',
             to,
@@ -53,8 +54,8 @@ export async function send_emails_to_session_members({ session_id, user_id, comm
     const session = await model.sessions.get(session_id);
     const online_users = await model.users.list_online_users();
     const members = await model.sessions.get_members({ myself: user_id, session_id });
-    const from: User = find(members, (m => m.id == user_id));
-    if (from != null) {
+    const from = find(members, (m => m.id == user_id));
+    if (from != null && session != null) {
         send_email({ subject: 'Re: ' + session.name, to: members, from, content: comment });
     }
 }
