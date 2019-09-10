@@ -292,7 +292,7 @@ async function post_comment_for_each(
     comment_id?: string,
 ): Promise<{ ok: boolean, for_user: string, data?: CommentTyp, error?: string }> {
     console.log('post_comment start');
-    comment_id = comment_id || shortid();
+    const _comment_id = comment_id || shortid();
     // Currently key is same for all recipients.
     const from = await get_public_key(user_id);
     const to = await get_public_key(for_user);
@@ -303,10 +303,10 @@ async function post_comment_for_each(
         try {
             await db_.run(`insert into comments (
                                     id,user_id,comment,for_user,encrypt,timestamp,session_id,original_url,sent_to,source,encrypt_group,fingerprint_from,fingerprint_to
-                                    ) values (?,?,?,?,?,?,?,?,?,?,?,?,?);`, comment_id, user_id, comment, for_user, encrypt, timestamp, session_id, original_url, sent_to, source, encrypt_group, fp_from, fp_to);
+                                    ) values (?,?,?,?,?,?,?,?,?,?,?,?,?);`, _comment_id, user_id, comment, for_user, encrypt, timestamp, session_id, original_url, sent_to, source, encrypt_group, fp_from, fp_to);
             await db_.run('insert or ignore into session_current_members (session_id,user_id) values (?,?)', session_id, user_id);
             const data: CommentTyp = {
-                id: comment_id, timestamp: timestamp, user_id, comment: comment, session_id, original_url, sent_to, source: source, kind: "comment", encrypt,
+                id: _comment_id, timestamp: timestamp, user_id, comment: comment, session_id, original_url, sent_to, source: source, kind: "comment", encrypt,
                 fingerprint: { from: fp_from, to: fp_to }
             };
             return { ok: true, for_user, data };
