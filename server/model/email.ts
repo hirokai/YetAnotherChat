@@ -36,7 +36,6 @@ export function parse_mailgun_webhook_thread(body): MailgunParsed[] {
     const items: MailThreadItem[] = mail_algo.split_replies(comment);
     items[0].timestamp = timestamp;
     items[0].from = body['From'];
-    log.info('parse_mailgun_webhook_thread', items);
 
     if (items.length == 0) {
         return [];

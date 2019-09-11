@@ -98,7 +98,6 @@ export function update({ session_id, name }: { session_id: string, name: string 
 
 export function list_comments(for_user: string, session_id?: string, user_id?: string, time_after?: number): Promise<ChatEntry[] | null> {
     const processRow = (row): ChatEntry => {
-        log.info(row.comment);
         const comment = row.comment.replace(/(:.+?:)/g, function (m, $1) {
             const r = emoji_dict[$1];
             return r ? r.emoji : $1;

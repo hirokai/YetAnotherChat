@@ -175,6 +175,8 @@ export function split_replies(txt: string): MailThreadItem[] {
                     head_txt_prev = head_txt;
                     head_txt = '';
                     start = i + 1;
+                } else {
+                    log.error('parseHead failed: ', head_txt_prev)
                 }
             }
         } else {
@@ -197,8 +199,8 @@ export function split_replies(txt: string): MailThreadItem[] {
                         }).join('\r\n');
                         replies.push({ comment, heading: head_txt_prev, lines: { start, end } });
                     } else {
-                        log.info('Parsing head for depth ' + reply_depth, head_txt_prev, content_lines);
-                        const p = reply_depth == 1 ? null : parseHead(head_txt_prev);
+                        log.info('Parsing head for depth ' + (reply_depth - 1), head_txt_prev, line, content_lines);
+                        const p = parseHead(head_txt_prev, line);
                         if (p) {
                             const { from, timestamp } = p;
                             log.info('Parse head done', from, timestamp);
@@ -207,7 +209,7 @@ export function split_replies(txt: string): MailThreadItem[] {
                             }).join('\r\n');
                             replies.push({ from, timestamp, comment, heading: head_txt_prev, lines: { start, end } });
                         } else {
-                            log.error('Parse head failed');
+                            log.error('Parse head failed:', head_txt_prev, line);
                         }
                     }
                     head_txt_prev = line_prev;
@@ -246,7 +248,7 @@ export function remove_quote_marks(s: string, indent: number) {
     return s.replace(new RegExp('^(> ?){' + indent + '}'), '')
 }
 
-export function parseHead(s: string): { from: string, timestamp: number } | null {
+export function parseHead(s: string, prev_s?: string): { from: string, timestamp: number } | null {
     if (s.indexOf('\r\n') != -1) {      //multi line.
         const m1 = s.match(/From: (.+?)\s*\r\n/);
         const m2 = s.match(/Date: (.+?)\s*\r\n/);
@@ -258,19 +260,26 @@ export function parseHead(s: string): { from: string, timestamp: number } | null
         }
     } else {
         const m1 = s.match(/.+年.+月.+日\(.+\) \d+:\d+/);
-        const m2 = s.match(/On (\d{4}\/\d{1,2}\/\d{1,2} \d{1,2}:\d{1,2}), (.+) wrote:/);
+        const m2 = s.match(/On (\d{4}\/\d{1,2}\/\d{1,2}(?:\s*\(.+\))? \d{1,2}:\d{1,2}), (.+) wrote:/);
+        const m3 = s.match(/(\d{4}\/\d{1,2}\/\d{1,2}(?:\s*\(.+\))? \d{1,2}:\d{1,2})、(.+)のメール:/);
         if (m1) {
+            log.info('parseHead m1 matched', m1[1]);
             const timestamp = moment(m1[0], 'YYYY年M月D日(dddd) HH:mm').valueOf();
             const from = s.replace(m1[0], '');
             return { from, timestamp };
         } else if (m2) {
-            log.info('parseHead m2', m2[1]);
+            log.info('parseHead m2 matched', m2[1]);
             const timestamp = new Date(m2[1]).getTime();
             const from = m2[2];
             return { from, timestamp };
+        } else if (m3) {
+            log.info('parseHead m3 matched', m3[1]);
+            const timestamp = new Date(m3[1]).getTime();
+            const from = m3[2];
+            return { from, timestamp };
         }
     }
-    return null;
+    return prev_s ? parseHead(prev_s) : null;
 }
 
 export function parse_email_address(s: string): { email?: string, name?: string } {

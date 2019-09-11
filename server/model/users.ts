@@ -31,7 +31,6 @@ export function save_socket_id(user_id: string, socket_id: string): Promise<{ ok
 
 export async function get(user_id: string): Promise<User | null> {
     const row = await db_.get<UserWithEmail>("select users.source,users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profile_value from users join user_emails on users.id=user_emails.user_id join profiles as p on p.user_id=users.id where users.id=? and p.profile_name='avatar' group by users.id;", user_id);
-    console.log('users.get', row);
     if (row && row.id) {
         const emails = row.emails ? row.emails.split(',') : [];
         const pub = await keys.get_public_key(user_id);
