@@ -23,6 +23,8 @@ import * as mail_algo from './model/mail_algo'
 import * as utils from './model/utils'
 import { db } from './model/utils'
 const credential = require('./private/credential');
+import * as bunyan from 'bunyan';
+const log = bunyan.createLogger({ name: "index", src: true });
 
 utils.connectToDB();
 
@@ -30,7 +32,7 @@ const http = require('http').createServer(app);
 
 var https;
 if (production) {
-    console.log('Production (HTTPS)')
+    log.info('Production (HTTPS)');
 
     // https://itnext.io/node-express-letsencrypt-generate-a-free-ssl-certificate-and-run-an-https-server-in-5-minutes-a730fbe528ca
     const privateKey = fs.readFileSync('/etc/letsencrypt/live/coi-sns.com/privkey.pem', 'utf8');
@@ -98,7 +100,7 @@ interface GetAuthRequest1<T> {
     decoded: { username: string, user_id: string, iap: number, exp: number }
 }
 
-console.log('Starting...');
+log.info('Starting...');
 const port = process.env.PORT || 3000;
 
 const pretty = require('express-prettify');
@@ -168,7 +170,7 @@ app.get('/main', (req, res, next) => {
 app.get('/public_keys', (req, res, next) => {
     try {
         const net = credential.ethereum;
-        console.log(net);
+        log.info(net);
         res.render(path.join(__dirname, './public_keys.ejs'), {
             contract: net.contract,
             owner: net.account,
@@ -208,7 +210,7 @@ type RegisterResponse = {
 app.post('/api/register', (req, res: JsonResponse<RegisterResponse>, next) => {
     (async () => {
         const { username, password, fullname, email } = req.body;
-        console.log({ username, password, fullname, email });
+        log.info({ username, password, fullname, email });
         if (!username || !password) {
             res.json({ ok: false, error: 'User name and password are required.' });
             return;
@@ -250,22 +252,22 @@ app.post('/api/register', (req, res: JsonResponse<RegisterResponse>, next) => {
 app.post('/webhook/mailgun', multer().none(), (req, res, next) => {
     (async () => {
         res.json({ status: "ok" });
-        console.log('Received email from: ', req.body['From']);
+        log.info('Received email from: ', req.body['From']);
         await mail_algo.update_db_on_mailgun_webhook({ body: req.body, db, myio: io });
-        console.log('Parsing done.');
+        log.info('Parsing done.');
     })().catch(next);
 });
 
 app.post('/api/login', (req: MyPostRequest<LoginParams>, res, next) => {
     (async () => {
         const { username, password } = req.body;
-        console.log({ username, password });
+        log.info({ username, password });
         const matched = await model.users.match_password(username, password);
         if (matched) {
-            console.log("login ok", username, password);
+            log.info("login ok", username, password);
             const user = await model.users.find_from_username(username);
             if (user != null) {
-                console.log('find_user_from_username', user);
+                log.info('find_user_from_username', user);
                 const token = jwt.sign({ username, user_id: user.id }, credential.jwt_secret, { expiresIn: 604800 });
                 const decoded = await new Promise((resolve) => {
                     jwt.verify(token, credential.jwt_secret, (err, decoded) => {
@@ -326,7 +328,7 @@ app.use(function (req, res, next) {
             if ('debug' in req.query) {
                 token = token || credential.test_token;
                 req.query['pretty'] = "";
-                console.log(req.query);
+                log.info(req.query);
             }
         }
         if (!token) {
@@ -377,7 +379,7 @@ app.get('/api/workspaces', (req: GetAuthRequest, res: JsonResponse<GetWorkspaces
     (async () => {
         const user_id = req.decoded.user_id;
         const wss = await model.workspaces.list(user_id);
-        console.log('/api/workspaces', wss);
+        log.info('/api/workspaces', wss);
         res.json({ ok: true, data: wss });
     })().catch(next);
 });
@@ -442,7 +444,7 @@ app.patch('/api/users/:id', (req: MyPostRequest<UpdateUserData>, res: JsonRespon
 app.get('/api/users/all/profiles', (req, res: JsonResponse<GetProfilesResponse>, next) => {
     (async () => {
         const user_id = req.decoded.user_id;
-        console.log('get_profiles');
+        log.info('get_profiles');
         const data = await model.users.get_profiles();
         const obj: GetProfilesResponse = {
             ok: data != null,
@@ -535,7 +537,7 @@ app.patch('/api/sessions/:id', (req, res: JsonResponse<PatchSessionResponse>, ne
     (async () => {
         const session_id = req.params.id;
         const { name, members } = req.body;
-        console.log(name, members);
+        log.info(name, members);
         const { ok, timestamp } = await model.sessions.update({ session_id, name });
         if (ok && timestamp) {
             const data: SessionsUpdateSocket = {
@@ -605,10 +607,10 @@ app.post('/api/sessions', (req: PostRequest<PostSessionsParam>, res: JsonRespons
             io.emit("sessions.new", obj);
             _.map(members, async (m: string) => {
                 const socket_ids: string[] = await model.users.get_socket_ids(m);
-                console.log('emitting to', socket_ids);
+                log.info('emitting to', socket_ids);
                 socket_ids.forEach(socket_id => {
 
-                    console.log('sessions.new socket', obj);
+                    log.info('sessions.new socket', obj);
                     // io.to(socket_id).emit("sessions.new", obj);
                 })
             });
@@ -628,7 +630,7 @@ app.post('/api/sessions/:session_id/comments/delta', (req: MyPostRequest<GetComm
         const session_id = req.params.session_id;
         const last_updated = req.body.last_updated;
         const cached_ids = req.body.cached_ids;
-        // console.log(session_id, last_updated, cached_ids);
+        // log.info(session_id, last_updated, cached_ids);
         const deltas: CommentChange[] = await model.list_comment_delta({ session_id, cached_ids, for_user: req.decoded.user_id, last_updated });
         res.json(deltas);
     })().catch(next);
@@ -661,7 +663,7 @@ app.post('/api/join_session', (req: PostRequest<JoinSessionParam>, res: JsonResp
                 })
             });
             const socket_ids_newmember: string[] = await model.users.get_socket_ids(myself);
-            console.log('emitting to new member', socket_ids_newmember);
+            log.info('emitting to new member', socket_ids_newmember);
 
             const data2 = await model.sessions.get(session_id);
             if (data2) {
@@ -681,7 +683,7 @@ app.post('/api/sessions/:session_id/comments', (req: MyPostRequest<PostCommentDa
         const session_id = req.params.session_id;
         const temporary_id = req.body.temporary_id;
         const encrypt = req.body.encrypt;
-        console.log('/api/comments');
+        log.info('/api/comments');
 
         if (encrypt == 'ecdh.v1' || encrypt == 'none') {
             const p: PostCommentModelParams = {
@@ -699,7 +701,7 @@ app.post('/api/sessions/:session_id/comments', (req: MyPostRequest<PostCommentDa
                         entry: d
                     };
                     const socket_ids = await model.users.get_socket_ids(for_user);
-                    console.log('Emitting comments.new', obj);
+                    log.info('Emitting comments.new', obj);
                     for (let sid of socket_ids) {
                         io.to(sid).emit("comments.new", obj);
                     }
@@ -726,10 +728,10 @@ app.post('/api/files', (req, res, next) => {
                 resolve(e);
             });
         });
-        console.log('/api/files', err, req.file);
+        log.info('/api/files', err, req.file);
         if (!err) {
             const { file_id } = await model.files.save_user_file(req.decoded.user_id, req.file.path, kind, session_id);
-            console.log('save_user_file done', file_id)
+            log.info('save_user_file done', file_id)
             const file = {
                 path: '/' + req.file.path,
                 file_id,
@@ -748,7 +750,7 @@ app.patch('/api/files/:id', (req, res: JsonResponse<PostFileResponse>, next) => 
                 resolve(e);
             });
         });
-        console.log('/api/files', err, req.file);
+        log.info('/api/files', err, req.file);
         if (!err) {
             const r = await model.files.update_user_file(req.decoded.user_id, req.params.id, req.file.path);
             if (r != null) {
@@ -759,7 +761,7 @@ app.patch('/api/files/:id', (req, res: JsonResponse<PostFileResponse>, next) => 
                 };
                 res.json({ ok: true, data });
                 const obj = _.extend({}, { __type: "new_file" }, data);
-                console.log('/api/files/:id emitting', obj);
+                log.info('/api/files/:id emitting', obj);
                 io.emit("message", obj);
             }
         } else {
@@ -770,7 +772,7 @@ app.patch('/api/files/:id', (req, res: JsonResponse<PostFileResponse>, next) => 
 
 app.delete('/api/files/:id', (req: DeleteRequest<DeleteFileRequestParam, DeleteFileRequestData>, res: JsonResponse<DeleteFileResponse>, next) => {
     (async () => {
-        console.log('delete comment');
+        log.info('delete comment');
         const file_id = req.params.id;
         const user_id = req.body.user_id;
         const r = await model.files.delete_file({ user_id, file_id });
@@ -861,10 +863,10 @@ if (!production) {
             const user_id: string = req.params.user_id;
             try {
                 const body = JSON.parse(fs.readFileSync('./imported_data/mailgun/' + user_id + '/' + mail_id + '.json', 'utf8'));
-                console.log('Import email from: ', body['From']);
-                const { added_users } = await mail_algo.update_db_on_mailgun_webhook({ body: body, db, myio: io, ignore_recipient: true });
-                console.log('Parsing done.', added_users);
-                res.json({ status: "ok" });
+                log.info('Import email from: ', body['From']);
+                const { added_users, comments } = await mail_algo.update_db_on_mailgun_webhook({ body: body, db, myio: io, ignore_recipient: true });
+                log.info('Parsing done.', added_users);
+                res.json({ ok: true, comments, added_users });
             } catch (e) {
                 next(e);
             }
@@ -874,26 +876,26 @@ if (!production) {
 
 model.delete_all_connections().then(() => {
     http.listen(port, () => {
-        console.log("server is running at port " + port);
+        log.info("server is running at port " + port);
     })
 });
 
 if (production) {
     https.listen(443, () => {
-        console.log("HTTPS server is running at port " + 443);
+        log.info("HTTPS server is running at port " + 443);
     })
 }
 
 io.on('connection', (socket: SocketIO.Socket) => {
-    console.log('A user connected', socket.id);
+    log.info('A user connected', socket.id);
     socket.on('subscribe', async ({ token }) => {
         const decoded = await jwt_verify(token, credential.jwt_secret);
         if (decoded) {
             const user_id = decoded.user_id;
             const previous = await model.users.list_online_users();
             const r = await model.users.save_socket_id(user_id, socket.id);
-            console.log('saveSocketId', r, 'socket id', user_id, socket.id)
-            console.log('Online users:', previous, user_id)
+            log.info('saveSocketId', r, 'socket id', user_id, socket.id)
+            log.info('Online users:', previous, user_id)
             if (!includes(previous, user_id) && r.ok && r.timestamp) {
                 const obj: UsersUpdateSocket = { __type: "users.update", action: 'online', user_id, online: true, timestamp: r.timestamp }
                 io.emit('users.update', obj);
@@ -901,7 +903,7 @@ io.on('connection', (socket: SocketIO.Socket) => {
         }
     });
     socket.on('disconnect', async () => {
-        console.log('disconnected', socket.id);
+        log.info('disconnected', socket.id);
         const r = await model.delete_connection(socket.id);
         if (r) {
             const { user_id, online, timestamp } = r;
@@ -917,5 +919,5 @@ io.on('connection', (socket: SocketIO.Socket) => {
 
 // setInterval(() => {
 //     var clients = Object.keys(io.sockets.clients().connected);
-//     console.log(clients);
+//     log.info(clients);
 // }, 3000);

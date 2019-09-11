@@ -2,7 +2,7 @@ import { shortid } from './utils'
 import * as mail_algo from './mail_algo'
 import { map } from 'lodash';
 import * as bunyan from 'bunyan';
-const log = bunyan.createLogger({ name: "email", src: true });
+const log = bunyan.createLogger({ name: "model.email", src: true });
 
 export function parse_mailgun_webhook(body): MailgunParsed {
     const timestamp = new Date(body['Date']).getTime();
@@ -34,9 +34,11 @@ export function parse_mailgun_webhook_thread(body): MailgunParsed[] {
     const timestamp = new Date(body['Date']).getTime();
     const comment = body['body-plain'];
     const items: MailThreadItem[] = mail_algo.split_replies(comment);
-    log.info('parse_mailgun_webhook_thread');
+    items[0].timestamp = timestamp;
+    items[0].from = body['From'];
+    log.info('parse_mailgun_webhook_thread', items);
 
-    if (!items) {
+    if (items.length == 0) {
         return [];
     }
     // console.log('parseMailgunWebhookThread: split', items.length);
@@ -50,19 +52,19 @@ export function parse_mailgun_webhook_thread(body): MailgunParsed[] {
     const references = s ? s.split(/\s+/) : [];
     items[0].from = from;
     items[0].timestamp = timestamp;
-    return map(items, (item: MailThreadItem) => {
-        const data = {
+    return map(items, (item: MailThreadItem, i: number) => {
+        const data: MailgunParsed = {
             id: shortid(),
-            from: item.from,
-            message_id,
-            lines: item.lines,
-            timestamp: item.timestamp,
+            from: item.from || 'N/A',
+            message_id: i == 0 ? message_id : undefined,
+            lines: item.lines || { start: 0, end: 0 },
+            timestamp: item.timestamp || 0,
             comment: item.comment,
             sent_to,
             body,
             references,
             subject,
-            heading: item.heading
+            heading: item.heading || ''
         };
         return data;
     });

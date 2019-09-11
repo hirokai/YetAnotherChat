@@ -8,7 +8,8 @@ import { map, includes, orderBy, keyBy, min, max, chain, compact, zip, sum, valu
 const emojis = require("./emojis.json").emojis;
 const emoji_dict = keyBy(emojis, 'shortname');
 import * as _ from 'lodash';
-
+import * as bunyan from 'bunyan';
+const log = bunyan.createLogger({ name: "model.sessions", src: true });
 
 export async function delete_session(id: string): Promise<boolean> {
     try {
@@ -32,7 +33,7 @@ export async function get_members({ myself, session_id, only_registered = true }
 export function is_member(session_id: string, user_id: string): Promise<boolean> {
     return new Promise((resolve) => {
         db.get('select * from session_current_members where session_id=? and user_id=?', session_id, user_id, (err, row) => {
-            console.log('model.is_member', err, row)
+            log.info('model.is_member', err, row)
             resolve(!!row);
         });
     });
@@ -60,7 +61,7 @@ export async function get_member_ids({ myself, session_id, only_registered = tru
 
 
 export function get_session_of_members(user_id: string, members: string[], is_all: boolean): Promise<RoomInfo[]> {
-    console.log('get_session_of_members');
+    log.info('get_session_of_members');
     var s: string = sortedUniq(sortBy([user_id].concat(members))).join(",");
     if (!is_all) {
         s = '%' + s + '%';
@@ -97,7 +98,7 @@ export function update({ session_id, name }: { session_id: string, name: string 
 
 export function list_comments(for_user: string, session_id?: string, user_id?: string, time_after?: number): Promise<ChatEntry[] | null> {
     const processRow = (row): ChatEntry => {
-        console.log(row.comment);
+        log.info(row.comment);
         const comment = row.comment.replace(/(:.+?:)/g, function (m, $1) {
             const r = emoji_dict[$1];
             return r ? r.emoji : $1;
@@ -186,7 +187,7 @@ export async function list(params: { user_id: string, of_members?: string[] | un
     }
     const rows = await db_.all<{ id: string, user_id: string, name: string, timestamp: number }>(`
             select s.*,m2.user_id from sessions as s join session_current_members as m on s.id=m.session_id join session_current_members as m2 on m.session_id=m2.session_id where m.user_id=? order by s.timestamp desc;`, user_id);
-    // console.log('sessions.list', params, rows);
+    // log.info('sessions.list', params, rows);
     const sessions = _.map(_.groupBy(rows, 'id'), (g) => {
         return { id: g[0].id, members: _.map(g, 'user_id'), name: g[0].name, timestamp: g[0].timestamp };
     });
@@ -203,11 +204,11 @@ export async function list(params: { user_id: string, of_members?: string[] | un
         });
         count['__total'] = sum(values(count)) || 0;
         const info = { count, first, last };
-        // console.log(info);
+        // log.info(info);
         infos.push(info);
     }
     const ss: RoomInfo[] = compact(map(zip(sessions, infos), ([s, info]) => {
-        // console.log(s, info);
+        // log.info(s, info);
         if (!s || !info) {
             return null;
         }
@@ -232,7 +233,7 @@ async function add_member_internal({ session_id, user_id, source }: { session_id
 }
 
 export function join({ session_id, user_id, timestamp = -1, source }: { session_id: string, user_id: string, timestamp: number, source: string }): Promise<JoinSessionResponse> {
-    console.log('join_session source', source, user_id);
+    log.info('join_session source', source, user_id);
     return new Promise((resolve, reject) => {
         if (!session_id || !user_id) {
             reject();
@@ -249,7 +250,7 @@ export function join({ session_id, user_id, timestamp = -1, source }: { session_
                 resolve({ ok: false, error: 'Already member' })
             } else {
                 db.run('insert into session_events (id,session_id,user_id,timestamp,action) values (?,?,?,?,?);', id, session_id, user_id, ts, 'join', (err) => {
-                    // console.log('model.join_session', err);
+                    // log.info('model.join_session', err);
                     const data = { id, members };
                     if (!err) {
                         db.run('insert into session_current_members (session_id,user_id,source) values (?,?,?);',
@@ -261,7 +262,7 @@ export function join({ session_id, user_id, timestamp = -1, source }: { session_
                                 }
                             });
                     } else {
-                        console.log('error')
+                        log.info('error')
                         resolve({ ok: false })
                     }
                 });
@@ -291,7 +292,7 @@ async function post_comment_for_each(
     sent_to?: string,
     comment_id?: string,
 ): Promise<{ ok: boolean, for_user: string, data?: CommentTyp, error?: string }> {
-    console.log('post_comment start');
+    log.info('post_comment start');
     const _comment_id = comment_id || shortid();
     // Currently key is same for all recipients.
     const from = await get_public_key(user_id);
@@ -299,7 +300,7 @@ async function post_comment_for_each(
     if (encrypt == 'none' || (from && to)) {
         const fp_from = from ? await fingerPrint(from.publicKey) : undefined;
         const fp_to = to ? await fingerPrint(to.publicKey) : undefined;
-        // console.log('Posting with key: ' + fingerprint, publicKey, user_id, for_user);
+        // log.info('Posting with key: ' + fingerprint, publicKey, user_id, for_user);
         try {
             await db_.run(`insert into comments (
                                     id,user_id,comment,for_user,encrypt,timestamp,session_id,original_url,sent_to,source,encrypt_group,fingerprint_from,fingerprint_to
@@ -311,7 +312,7 @@ async function post_comment_for_each(
             };
             return { ok: true, for_user, data };
         } catch (err) {
-            console.log('post_comment error', err)
+            log.info('post_comment error', err)
             throw err;
         }
     } else {
@@ -340,7 +341,7 @@ export async function create_session_with_id(user_id, session_id: string, name: 
 }
 
 export function get(session_id: string): Promise<RoomInfo | null> {
-    console.log('get_session_info', session_id);
+    log.info('get_session_info', session_id);
     return new Promise((resolve) => {
         // const ts = new Date().getTime();
         db.serialize(() => {

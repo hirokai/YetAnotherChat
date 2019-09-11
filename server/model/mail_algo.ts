@@ -11,7 +11,8 @@ moment.locale('ja');
 import * as model from './index';
 import * as user_info from '../private/user_info';
 import * as email from './email'
-
+import * as bunyan from 'bunyan';
+const log = bunyan.createLogger({ name: "model.mail_algo", src: true });
 // https://stackoverflow.com/questions/21900713/finding-all-connected-components-of-an-undirected-graph
 
 // Breadth First Search function
@@ -91,7 +92,7 @@ export function group_email_sessions(threads: MailgunParsed[][]): MailGroup[] {
     //Mapping from message-id to array of (possibly split) emails
     const data_dict: { [index: string]: MailgunParsed[]; } = _.groupBy(_.flatten(threads), (d: MailgunParsed) => { return d.message_id });
 
-    // console.log('emails', emails);
+    // log.info('emails', emails);
 
     const pairs = _.flatten(_.map(emails, (d: MailgunParsed) => {
         const id = d.body['Message-Id'];
@@ -109,7 +110,7 @@ export function group_email_sessions(threads: MailgunParsed[][]): MailGroup[] {
 
     return _.map(groups_of_emails, (group: string[]) => {
         const session_id = shortid.generate();
-        // console.log(data_dict[g[0]], g[0])
+        // log.info(data_dict[g[0]], g[0])
         name_mapping[session_id] = (data_dict[group[0]] || [{}])[0]['subject'] || "Email thread";
         _.map(group, (message_id) => {
             id_mapping[message_id] = session_id;
@@ -157,15 +158,15 @@ export function split_replies(txt: string): MailThreadItem[] {
     lines.forEach((line: string, ii: number) => {
         const i = ii + 1;
         if (header_reading) {
-            // console.log('header');
+            // log.info('header');
             head_txt += line + '\r\n';
             if (line.replace(/>/g, '').trim() == '') {
                 header_reading = false;
                 reply_depth += 1;
-                const p = parseHead(reply_depth == 1 ? head_txt : head_txt_prev);
+                const p = reply_depth == 1 ? { from: undefined, timestamp: undefined } : parseHead(head_txt_prev);
                 if (p) {
                     const { from, timestamp } = p;
-                    console.log('parseHead', { from, timestamp })
+                    log.info('parseHead', { from, timestamp })
                     const comment = _.map(_.dropRight(content_lines), (l: string) => {
                         return remove_quote_marks(l, reply_indent_prev);
                     }).join('\r\n');
@@ -190,18 +191,29 @@ export function split_replies(txt: string): MailThreadItem[] {
                 }
                 if (reply_indent > reply_indent_prev) {
                     reply_depth += 1;
-                    const p = parseHead(head_txt_prev);
-                    if (p) {
-                        const { from, timestamp } = p;
+                    if (reply_depth == 1) {
                         const comment = _.map(_.dropRight(content_lines), (l: string) => {
                             return remove_quote_marks(l, reply_indent_prev);
                         }).join('\r\n');
-                        replies.push({ from, timestamp, comment, heading: head_txt_prev, lines: { start, end } });
-                        head_txt_prev = line_prev;
-                        content_lines = [];
-                        reply_indent_prev = reply_indent;
-                        start = i + 1;
+                        replies.push({ comment, heading: head_txt_prev, lines: { start, end } });
+                    } else {
+                        log.info('Parsing head for depth ' + reply_depth, head_txt_prev, content_lines);
+                        const p = reply_depth == 1 ? null : parseHead(head_txt_prev);
+                        if (p) {
+                            const { from, timestamp } = p;
+                            log.info('Parse head done', from, timestamp);
+                            const comment = _.map(_.dropRight(content_lines), (l: string) => {
+                                return remove_quote_marks(l, reply_indent_prev);
+                            }).join('\r\n');
+                            replies.push({ from, timestamp, comment, heading: head_txt_prev, lines: { start, end } });
+                        } else {
+                            log.error('Parse head failed');
+                        }
                     }
+                    head_txt_prev = line_prev;
+                    content_lines = [];
+                    start = i + 1;
+                    reply_indent_prev = reply_indent;
                 } else if (line.match(/--+ ?Forwarded message ?--+/i) || line.match(/--+ ?Original Message ?--+/i)) {
                     header_reading = true;
                     end = i - 1;
@@ -223,7 +235,6 @@ export function split_replies(txt: string): MailThreadItem[] {
                 return remove_quote_marks(l, reply_indent_prev);
             }).join('\r\n');
             replies.push({ from, timestamp, comment, heading: head_txt_prev, lines: { start, end } });
-            return replies;
         }
         return replies;
     } else {
@@ -240,7 +251,7 @@ export function parseHead(s: string): { from: string, timestamp: number } | null
         const m1 = s.match(/From: (.+?)\s*\r\n/);
         const m2 = s.match(/Date: (.+?)\s*\r\n/);
         const m3 = s.match(/Sent: (.+?)\s*\r\n/);
-        console.log('parseHead multiline', ',', m1 ? m1[1] : null, ',', m2 ? m2[1] : null, ',', m3 ? m3[1] : null);
+        log.info('parseHead multiline', ',', m1 ? m1[1] : null, ',', m2 ? m2[1] : null, ',', m3 ? m3[1] : null);
         if (m1 && (m2 || m3)) {
             const timestamp = m2 ? moment(m2[1], 'YYYY年M月D日(dddd) HH:mm').valueOf() : (m3 ? moment(m3[1]).valueOf() : -1);
             return { from: m1[1], timestamp };
@@ -253,7 +264,7 @@ export function parseHead(s: string): { from: string, timestamp: number } | null
             const from = s.replace(m1[0], '');
             return { from, timestamp };
         } else if (m2) {
-            console.log('parseHead m2', m2[1]);
+            log.info('parseHead m2', m2[1]);
             const timestamp = new Date(m2[1]).getTime();
             const from = m2[2];
             return { from, timestamp };
@@ -293,7 +304,7 @@ export function make_user_table_from_emails(emails: MailgunParsed[]): UserTableF
         const names = _.compact(_.uniq(_.map(us, 'name')));
         return { id: shortid(), name: names[0], names, email: us[0].email || '' };
     })
-    console.log(s);
+    log.info(s);
     return s;
 }
 
@@ -312,7 +323,7 @@ export function mk_user_name(fullname: string): string {
     }
 }
 
-export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_recipient = false }: { body: object, db, myio?: SocketIO.Server, ignore_recipient?: boolean }): Promise<{ added_users: User[] }> {
+export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_recipient = false }: { body: object, db, myio?: SocketIO.Server, ignore_recipient?: boolean }): Promise<{ added_users: User[], comments: CommentTyp[] }> {
     const recipient: string = body['recipient'].split('@')[0].replace('.', '');
     fs.mkdir('imported_data/mailgun/' + recipient, { recursive: true }, () => {
         fs.writeFile('imported_data/mailgun/' + recipient + '/' + body['Message-Id'] + '.json', JSON.stringify(body, null, 2), () => {
@@ -325,32 +336,32 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
         const user_id = recipient;
         myself = await model.users.get(user_id);
         if (myself == null) {
-            console.log('Recipent ID invalid:', recipient);
+            log.info('Recipent ID invalid:', recipient);
             throw new Error('Recipent ID invalid: ' + recipient);
         }
-        console.log('Adding to user: ', myself);
+        log.info('Adding to user: ', myself);
     } else {
         myself = await model.users.find_user_from_email(user_info.test_myself.email)
         if (myself == null) {
-            console.log('Cannot find test user.');
+            log.info('Cannot find test user.');
             throw new Error('Cannot find test user');
         }
     }
 
-    const datas: MailgunParsed[] = email.parse_mailgun_webhook_thread(body);
-    console.log('-------')
-    console.log('Thread of ' + datas.length + ' emails.');
-    console.log('From: ', _.map(datas, d => d.from));
-    if (datas.length == 0) {
-        return { added_users: [] };
+    const replies: MailgunParsed[] = email.parse_mailgun_webhook_thread(body);
+    log.info('-------')
+    log.info('Thread of ' + replies.length + ' emails.');
+    log.info('From: ', _.map(replies, d => d.from));
+    if (replies.length == 0) {
+        throw new Error('Email thread length is zero')
     }
-    var session_id: string | null = await find_email_session(db, datas[0]);
+    var session_id: string | null = await find_email_session(db, replies[0]);
     if (session_id) {
-        console.log('existing session', session_id);
+        log.info('existing session', session_id);
     } else {
-        const r = await model.sessions.create(myself.id, datas[0].subject, []);
+        const r = await model.sessions.create(myself.id, replies[0].subject, []);
         session_id = r ? r.id : null;
-        console.log('new session', session_id);
+        log.info('new session', session_id);
         if (myio) {
             const obj: SessionsNewSocket = {
                 __type: 'sessions.new',
@@ -361,34 +372,35 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
         }
     }
     if (session_id == null) {
-        console.log('Session ID was not obtained.');
+        log.info('Session ID was not obtained.');
         throw new Error('Session ID was not obtained');
     }
-    const added_users: User[] = [];
+    let added_users: User[] = [];
     var results_comments: CommentTyp[] = [];
-    await model.sessions.join({ session_id, user_id: myself.id, timestamp: datas[datas.length - 1].timestamp, source: 'owner' });
-    for (var i = 0; i < datas.length; i++) {
-        const data: MailgunParsed = datas[i];
-        const timestamp = data.timestamp || -1;
-        const { name: fullname, email } = parse_email_address(data.from);
-        console.log('parsed email', { fullname, email });
+    await model.sessions.join({ session_id, user_id: myself.id, timestamp: replies[replies.length - 1].timestamp, source: 'owner' });
+    for (const [i, reply] of replies.entries()) {
+        const timestamp = reply.timestamp || -1;
+        const { name: fullname, email } = parse_email_address(reply.from);
+        log.info('Parsed email', { i, from: reply.from, fullname, email, reply: reply.comment.slice(0, 30) });
         let u: User | undefined = undefined;
         if (email) {
-            u = await find_or_make_user_for_email(db, email, fullname);
-            console.log('find_or_make_user result', timestamp, u);
+            u = await find_or_make_user_for_email(email, fullname);
+            log.info('find_or_make_user result', timestamp, u);
+        } else if (fullname) {
+            u = await make_user_for_fullname(fullname);
         }
         if (u == undefined) {
-            console.log('User=null');
+            log.info('User=null');
         } else {
             await model.users.add_to_contact(myself.id, u.id);
             added_users.push(u);
-            const url = data.message_id + '::lines=' + data.lines.start + '-' + data.lines.end;
+            const url = (reply.message_id || replies[0].message_id) + '::lines=' + reply.lines.start + '-' + reply.lines.end;
             const r1: JoinSessionResponse = await model.sessions.join({ session_id, user_id: u.id, timestamp, source: 'email_thread' });
-            console.log('update_db_on_mailgun_webhook', { session_id, user_id: u.id, fullname, email, 'data.from': data.from, r1 });
-            const comments = [{ for_user: myself.id, content: data.comment }];
+            log.info('update_db_on_mailgun_webhook', { session_id, user_id: u.id, fullname, email, 'data.from': reply.from, r1 });
+            const comments = [{ for_user: myself.id, content: reply.comment }];
             const params: PostCommentModelParams = { user_id: u.id, session_id, timestamp, comments, original_url: url, source: "email", encrypt: 'none' };
             const comments_posted = await model.sessions.post_comment(params);
-            console.log('Heading and comment beginning', data.heading, data.comment.slice(0, 100));
+            log.info('Heading and comment beginning', reply.heading, reply.comment.slice(0, 100));
             if (comments_posted && comments_posted[0] && comments_posted[0].data)
                 results_comments.push(comments_posted[0].data);
             if (comments_posted[0].ok) {
@@ -399,8 +411,8 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
             }
         }
     }
-    console.log('results_comments', datas.length, results_comments);
-    console.log('results', added_users);
+    log.info('results_comments', replies.length, results_comments);
+    added_users = _.uniqBy(added_users, 'id');
     if (myio) {
         for (let user of added_users) {
             const obj: UsersNewSocket = {
@@ -411,16 +423,16 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
             myio.emit('users.new', obj);
         }
     }
-    return { added_users };
+    return { added_users, comments: results_comments };
 }
 
 function mk_random_username() {
     return 'ユーザー';
 }
 
-async function find_or_make_user_for_email(db, email: string, fullname?: string): Promise<User> {
+async function find_or_make_user_for_email(email: string, fullname?: string): Promise<User> {
     // const v = Math.random();
-    // console.log(v);
+    // log.info(v);
     const user: User | null = await model.users.find_user_from_email(email);
     if (user != null) {
         return user;
@@ -441,14 +453,42 @@ async function find_or_make_user_for_email(db, email: string, fullname?: string)
                 }
             }
         }
-        console.log('find_or_make_user making', fullname, email, name);
+        log.info('find_or_make_user making', fullname, email, name);
         const source = "email_thread";
         const { ok, user: user2, error } = await model.users.register({ username: name, password: "11111111", email, fullname, source });
-        console.log('find_or_make_user', error);
+        log.info('find_or_make_user', error);
         if (user2) {
             return user2;
         } else {
             throw new Error('find_or_make_user_for_email error.')
         }
+    }
+}
+
+async function make_user_for_fullname(fullname?: string): Promise<User> {
+    // const v = Math.random();
+    // log.info(v);
+    var name_base = fullname ? mk_user_name(fullname) : null;
+    if (name_base == null || name_base == '') {
+        name_base = mk_random_username();
+    }
+    var name = name_base;
+    var user1: User | null = await model.users.find_from_username(name);
+    if (user1 != null) {
+        for (var i = 2; i < 10000; i++) {
+            name = name_base + i;
+            user1 = await model.users.find_from_username(name);
+            if (user1 == null) {
+                break;
+            }
+        }
+    }
+    log.info('find_or_make_user making', fullname, email, name);
+    const source = "email_thread";
+    const { ok, user: user2, error } = await model.users.register({ username: name, password: "11111111", fullname, source });
+    if (user2) {
+        return user2;
+    } else {
+        throw new Error('make_user_for_fullname error.')
     }
 }

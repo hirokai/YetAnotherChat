@@ -11,16 +11,18 @@ const apiKey = credentials.mailgun;
 const domain = 'mail.coi-sns.com'
 
 const mailgun = require('mailgun-js')({ apiKey, domain })
+import * as bunyan from 'bunyan';
+const log = bunyan.createLogger({ name: "email", src: true });
 
 function make_to(tos: User[]): string {
-    console.log('make_to', tos);
+    log.info('make_to', tos);
     return compact(map(tos, (to) => {
         if (true) {
             // if (includes(mail_recipients_allowed, to.emails[0])) {
-            console.log('Email allowed:', to.emails[0], mail_recipients_allowed);
+            log.info('Email allowed:', to.emails[0], mail_recipients_allowed);
             return (to.fullname || to.username) + " (on COI SNS) <" + to.emails[0] + ">";
         } else {
-            console.log('Email NOT allowed:', to.emails[0], mail_recipients_allowed);
+            log.info('Email NOT allowed:', to.emails[0], mail_recipients_allowed);
             return null;
         }
     })).join(', ');
@@ -29,10 +31,10 @@ function make_to(tos: User[]): string {
 function send_email({ subject, to: tos, from, content }: { subject: string, to: User[], from: User, content: string }) {
     if (from != null && tos != null && tos.length > 0 && content != null && content.trim() != '') {
         const to = make_to(tos);
-        console.log('Mail sending to: ', to);
-        console.log('Subject: ', subject);
+        log.info('Mail sending to: ', to);
+        log.info('Subject: ', subject);
         return;
-        console.log('')
+        log.info('')
         const data = {
             from: (from.fullname || from.username) + ' (COI SNS) <' + from.id + '@mail.coi-sns.com>',
             to,
@@ -41,14 +43,14 @@ function send_email({ subject, to: tos, from, content }: { subject: string, to: 
         }
 
         mailgun.messages().send(data)
-            .then(body => console.log(body))
+            .then(body => log.info(body))
             .catch(err => console.error(err));
     }
 }
 
 // mailgun.messages.list()
-//     .then(domains => console.log(domains)) // logs array of domains
-//     .catch(err => console.log(err)); // logs any error
+//     .then(domains => log.info(domains)) // logs array of domains
+//     .catch(err => log.info(err)); // logs any error
 
 export async function send_emails_to_session_members({ session_id, user_id, comment }: { session_id: string, user_id: string, comment: string }): Promise<void> {
     const session = await model.sessions.get(session_id);
