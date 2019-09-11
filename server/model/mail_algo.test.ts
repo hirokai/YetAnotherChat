@@ -27,6 +27,19 @@ describe('Mail algo', () => {
     })
 })
 
+describe('Find sessions', () => {
+    test('find_groups', () => {
+        const pairs = [
+            ["a2", "a5"],
+            ["a3", "a6"],
+            ["a4", "a5"],
+            ["a7", "a9"]
+        ];
+        const groups = mail_algo.find_groups(pairs);
+        expect(groups).toHaveLength(3);
+    })
+})
+
 describe('Email address parser', () => {
     test('Name and email', () => {
         const { email, name } = mail_algo.parse_email_address('John <john@test.com>');

@@ -1,6 +1,8 @@
 import { shortid } from './utils'
 import * as mail_algo from './mail_algo'
 import { map } from 'lodash';
+import * as bunyan from 'bunyan';
+const log = bunyan.createLogger({ name: "email", src: true });
 
 export function parse_mailgun_webhook(body): MailgunParsed {
     const timestamp = new Date(body['Date']).getTime();
@@ -32,6 +34,8 @@ export function parse_mailgun_webhook_thread(body): MailgunParsed[] {
     const timestamp = new Date(body['Date']).getTime();
     const comment = body['body-plain'];
     const items: MailThreadItem[] = mail_algo.split_replies(comment);
+    log.info('parse_mailgun_webhook_thread');
+
     if (!items) {
         return [];
     }

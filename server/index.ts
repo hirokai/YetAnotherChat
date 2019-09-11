@@ -861,10 +861,10 @@ if (!production) {
             const user_id: string = req.params.user_id;
             try {
                 const body = JSON.parse(fs.readFileSync('./imported_data/mailgun/' + user_id + '/' + mail_id + '.json', 'utf8'));
-                res.json({ status: "ok" });
                 console.log('Import email from: ', body['From']);
                 const { added_users } = await mail_algo.update_db_on_mailgun_webhook({ body: body, db, myio: io, ignore_recipient: true });
                 console.log('Parsing done.', added_users);
+                res.json({ status: "ok" });
             } catch (e) {
                 next(e);
             }

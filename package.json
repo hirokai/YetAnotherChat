@@ -8,6 +8,7 @@
     "bcrypt": "^3.0.6",
     "body-parser": "^1.19.0",
     "bootstrap": "^4.3.1",
+    "bunyan": "^1.8.12",
     "compression": "^1.7.4",
     "crypto-js": "^3.1.9-1",
     "ejs": "^2.6.2",
@@ -40,7 +41,7 @@
     "web3": "^1.2.1"
   },
   "scripts": {
-    "server:watch": "nodemon",
+    "server:watch": "nodemon | ./node_modules/.bin/bunyan",
     "db": "sqlite3 server/private/db.sqlite3",
     "db:reset": "node migration/initialize_table.js",
     "client:watch": "npx webpack -w --env.development",
@@ -54,6 +55,7 @@
   "devDependencies": {
     "@types/axios": "^0.14.0",
     "@types/bcrypt": "^3.0.0",
+    "@types/bunyan": "^1.8.6",
     "@types/expect-puppeteer": "^3.3.1",
     "@types/express": "^4.17.0",
     "@types/glob": "^7.1.1",

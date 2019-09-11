@@ -284,19 +284,6 @@ export function parse_email_address(s: string): { email?: string, name?: string 
         }
     }
 }
-
-function test() {
-    const pairs = [
-        ["a2", "a5"],
-        ["a3", "a6"],
-        ["a4", "a5"],
-        ["a7", "a9"]
-    ];
-
-    const groups = find_groups(pairs);
-    console.log(groups);
-}
-
 // Make a mapping from parsed email to {id,name,email}.
 export function make_user_table_from_emails(emails: MailgunParsed[]): UserTableFromEmail {
     const users = _.groupBy(_.map(emails, (email: MailgunParsed) => {
@@ -324,7 +311,6 @@ export function mk_user_name(fullname: string): string {
         return surname || fullname;
     }
 }
-
 
 export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_recipient = false }: { body: object, db, myio?: SocketIO.Server, ignore_recipient?: boolean }): Promise<{ added_users: User[] }> {
     const recipient: string = body['recipient'].split('@')[0].replace('.', '');
@@ -365,12 +351,20 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
         const r = await model.sessions.create(myself.id, datas[0].subject, []);
         session_id = r ? r.id : null;
         console.log('new session', session_id);
+        if (myio) {
+            const obj: SessionsNewSocket = {
+                __type: 'sessions.new',
+                temporary_id: '',
+                id: r.id
+            };
+            myio.emit("sessions.new", obj);
+        }
     }
     if (session_id == null) {
         console.log('Session ID was not obtained.');
         throw new Error('Session ID was not obtained');
     }
-    var results: User[] = [];
+    const added_users: User[] = [];
     var results_comments: CommentTyp[] = [];
     await model.sessions.join({ session_id, user_id: myself.id, timestamp: datas[datas.length - 1].timestamp, source: 'owner' });
     for (var i = 0; i < datas.length; i++) {
@@ -387,7 +381,7 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
             console.log('User=null');
         } else {
             await model.users.add_to_contact(myself.id, u.id);
-            results.push(u);
+            added_users.push(u);
             const url = data.message_id + '::lines=' + data.lines.start + '-' + data.lines.end;
             const r1: JoinSessionResponse = await model.sessions.join({ session_id, user_id: u.id, timestamp, source: 'email_thread' });
             console.log('update_db_on_mailgun_webhook', { session_id, user_id: u.id, fullname, email, 'data.from': data.from, r1 });
@@ -406,8 +400,18 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
         }
     }
     console.log('results_comments', datas.length, results_comments);
-    console.log('results', results);
-    return { added_users: results };
+    console.log('results', added_users);
+    if (myio) {
+        for (let user of added_users) {
+            const obj: UsersNewSocket = {
+                __type: 'users.new',
+                timestamp: user.timestamp,
+                user
+            };
+            myio.emit('users.new', obj);
+        }
+    }
+    return { added_users };
 }
 
 function mk_random_username() {
