@@ -262,7 +262,7 @@ export function parseHead(s: string): { from: string, timestamp: number } | null
     return null;
 }
 
-export function parse_email_address(s: string): { email: string, name?: string } {
+export function parse_email_address(s: string): { email?: string, name?: string } {
     const ts = s.split('<');
     if (ts.length > 1) {
         const name = ts[0].trim().replace(/^"/, '').replace(/"$/, '');
@@ -278,7 +278,7 @@ export function parse_email_address(s: string): { email: string, name?: string }
                 return { email: s };
             } else {
                 const name = s.trim().replace(/^["'<>\s]/g, '').replace(/["'<>\s]$/g, '');;
-                const email = '';
+                const email = undefined;
                 return { name, email };
             }
         }
@@ -304,7 +304,7 @@ export function make_user_table_from_emails(emails: MailgunParsed[]): UserTableF
     }), 'email');
     const s: UserTableFromEmail = _.mapValues(users, (us) => {
         const names = _.compact(_.uniq(_.map(us, 'name')));
-        return { id: shortid(), name: names[0], names, email: us[0].email };
+        return { id: shortid(), name: names[0], names, email: us[0].email || '' };
     })
     console.log(s);
     return s;
@@ -378,9 +378,12 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
         const timestamp = data.timestamp || -1;
         const { name: fullname, email } = parse_email_address(data.from);
         console.log('parsed email', { fullname, email });
-        const u: User = await find_or_make_user_for_email(db, email, fullname);
-        console.log('find_or_make_user result', timestamp, u);
-        if (u == null) {
+        let u: User | undefined = undefined;
+        if (email) {
+            u = await find_or_make_user_for_email(db, email, fullname);
+            console.log('find_or_make_user result', timestamp, u);
+        }
+        if (u == undefined) {
             console.log('User=null');
         } else {
             await model.users.add_to_contact(myself.id, u.id);

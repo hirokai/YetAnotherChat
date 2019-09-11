@@ -26,3 +26,36 @@ describe('Mail algo', () => {
         expect(output).toEqual('');
     })
 })
+
+describe('Email address parser', () => {
+    test('Name and email', () => {
+        const { email, name } = mail_algo.parse_email_address('John <john@test.com>');
+        expect(name).toEqual('John');
+        expect(email).toEqual('john@test.com');
+    });
+    test('Name and email 2', () => {
+        const { email, name } = mail_algo.parse_email_address('山田 太郎<yamada@test.com>');
+        expect(name).toEqual('山田 太郎');
+        expect(email).toEqual('yamada@test.com');
+    });
+    test('Name and email 3', () => {
+        const { email, name } = mail_algo.parse_email_address('山田 太郎[mailto:yamada@test.com]');
+        expect(name).toEqual('山田 太郎');
+        expect(email).toEqual('yamada@test.com');
+    });
+    test('Name only', () => {
+        const { email, name } = mail_algo.parse_email_address('John');
+        expect(name).toEqual('John');
+        expect(email).toBeUndefined();
+    });
+    test('Email only', () => {
+        const { email, name } = mail_algo.parse_email_address('john@test.com');
+        expect(name).toBeUndefined();
+        expect(email).toEqual('john@test.com');
+    });
+    test('Email only 2', () => {
+        const { email, name } = mail_algo.parse_email_address('<john@test.com>');
+        expect(name).toBeUndefined();
+        expect(email).toEqual('john@test.com');
+    });
+});
