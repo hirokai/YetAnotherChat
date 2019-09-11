@@ -15,7 +15,8 @@ userListView : Model -> { title : String, body : List (Html Msg) }
 userListView model =
     let
         filterRegisteredUsers : User -> Bool
-        filterRegisteredUsers u = u.registered
+        filterRegisteredUsers u =
+            u.registered
 
         filterWithName : User -> Bool
         filterWithName u =
@@ -91,7 +92,7 @@ showTable model users =
             in
             tr []
                 [ td [] [ img [ class "table-user-icon", src user.avatar ] [] ]
-                , td [] [ text user.username ]
+                , td [] [ a [ href <| "#/users/" ++ user.id ] [ text user.username ] ]
                 , td [] [ text user.fullname ]
                 , td [] [ text <| Maybe.withDefault "" <| List.head user.emails ]
                 , td [ class "fingerprint" ] [ div [] [ text user.fingerprint ] ]

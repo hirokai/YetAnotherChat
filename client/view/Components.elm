@@ -115,7 +115,7 @@ topPane model =
                 case model.chatPageStatus.filterMode of
                     Thread ->
                         div [ id "top-pane-list-container" ]
-                            [ ul [] <| List.map (\r -> li [] [ input [ type_ "checkbox" ] [], span [ class "clickable", onClick (EnterRoom r) ] [ text (roomName r model) ] ]) model.rooms
+                            [ ul [] <| List.map (\r -> li [] [ input [ type_ "checkbox" ] [], span [] [ text (roomName r model) ] ]) model.rooms
                             ]
 
                     Date ->
@@ -123,7 +123,7 @@ topPane model =
 
                     Person ->
                         div [ id "top-pane-list-container" ]
-                            [ ul [] <| List.map (\u -> li [] [ input [ type_ "checkbox", checked (Set.member u model.chatPageStatus.filter), onCheck (\b -> ChatPageMsg <| SetFilter u b) ] [], span [ class "clickable", onClick (EnterUser u) ] [ text (getUserName model u) ] ]) model.chatPageStatus.users
+                            [ ul [] <| List.map (\u -> li [] [ input [ type_ "checkbox", checked (Set.member u model.chatPageStatus.filter), onCheck (\b -> ChatPageMsg <| SetFilter u b) ] [], span [] [ text (getUserName model u) ] ]) model.chatPageStatus.users
                             ]
 
               else
