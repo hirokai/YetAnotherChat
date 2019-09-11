@@ -237,7 +237,7 @@ ul.menu-list li {
 
 
 h1 {
-    font-size: 24px;
+    font-size: 21px;
 }
 
 h2 {
@@ -523,12 +523,19 @@ textarea[disabled] {
 #chat-participants ul {
     list-style-type: disc;
     padding: 0px;
+    margin-bottom: 2px;
 }
 
 #chat-participants li {
-    display: inline;
-    margin-left: 20px;
-    padding-right: 10px;
+    display: inline-block;
+    margin-left: 5px;
+    padding: 0px 10px 0px 0px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+}
+
+#chat-participants li:hover {
+    background: #eef;
 }
 
 .online-mark {
@@ -703,4 +710,8 @@ span.config-name {
 .panel-center {
     text-align: center;
     font-size: 40px;
+}
+
+#room-title {
+    margin-bottom: -4px;
 }

@@ -31,18 +31,19 @@ chatRoomView room model =
                             [ div [ class "col-md-12 col-lg-12", id "chat-outer" ]
                                 [ roomTitle room model
                                 , div [ id "chat-participants" ]
-                                    [ text <| "参加者："
-                                    , ul [] <|
+                                    [ ul [] <|
                                         List.map
                                             (\u ->
                                                 case getUserInfo model u of
                                                     Just user ->
-                                                        li []
-                                                            [ span [ classList [ ( "online-mark", True ), ( "hidden-animate", not user.online ) ] ] [ text "●" ]
-                                                            , a [ onClick (EnterUser u), class "clickable" ] [ text user.username ]
-                                                            , text "("
-                                                            , a [] [ text <| String.join "," <| List.intersperse "," user.emails ]
-                                                            , text ")"
+                                                        a [ href <| "#/users/" ++ u ]
+                                                            [ li []
+                                                                [ span [ classList [ ( "online-mark", True ), ( "hidden-animate", not user.online ) ] ] [ text "●" ]
+                                                                , span [] [ text user.username ]
+                                                                , text "("
+                                                                , a [] [ text <| String.join "," <| List.intersperse "," user.emails ]
+                                                                , text ")"
+                                                                ]
                                                             ]
 
                                                     Nothing ->
@@ -65,7 +66,7 @@ chatRoomView room model =
 
 roomTitle : String -> Model -> Html Msg
 roomTitle room model =
-    h1 []
+    h1 [ id "room-title" ]
         [ if Set.member "room-title" model.editing then
             input
                 [ value (Maybe.withDefault "(N/A)" <| Dict.get "room-title" model.editingValue)
