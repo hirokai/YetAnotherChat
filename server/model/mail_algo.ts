@@ -273,9 +273,14 @@ export function parse_email_address(s: string): { email: string, name?: string }
         if (m) {
             return { name: m[1].trim(), email: m[2].trim() };
         } else {
-            const name = s.trim().replace(/^["'<>\s]/g, '').replace(/["'<>\s]$/g, '');;
-            const email = '';
-            return { name, email };
+            const re = /^(([^<>()\[\]\.,;:\s@\"]+(\.[^<>()\[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i;
+            if (re.test(s)) {
+                return { email: s };
+            } else {
+                const name = s.trim().replace(/^["'<>\s]/g, '').replace(/["'<>\s]$/g, '');;
+                const email = '';
+                return { name, email };
+            }
         }
     }
 }
