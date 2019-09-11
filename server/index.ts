@@ -855,6 +855,21 @@ if (!production) {
         io.emit("message", req.body);
         res.json({ ok: true });
     });
+    app.get('/debug/import/:user_id/:mail_id', (req, res, next) => {
+        (async () => {
+            const mail_id: string = req.params.mail_id;
+            const user_id: string = req.params.user_id;
+            try {
+                const body = JSON.parse(fs.readFileSync('./imported_data/mailgun/' + user_id + '/' + mail_id + '.json', 'utf8'));
+                res.json({ status: "ok" });
+                console.log('Import email from: ', body['From']);
+                await mail_algo.update_db_on_mailgun_webhook({ body: body, db, myio: io, ignore_recipient: true });
+                console.log('Parsing done.');
+            } catch (e) {
+                next(e);
+            }
+        })().catch(next);
+    })
 }
 
 model.delete_all_connections().then(() => {

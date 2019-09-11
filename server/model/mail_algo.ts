@@ -335,14 +335,14 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
         myself = await model.users.get(user_id);
         if (myself == null) {
             console.log('Recipent ID invalid:', recipient);
-            return { added_users: [] };
+            throw new Error('Recipent ID invalid: ' + recipient);
         }
         console.log('Adding to user: ', myself);
     } else {
         myself = await model.users.find_user_from_email(user_info.test_myself.email)
         if (myself == null) {
             console.log('Cannot find test user.');
-            return { added_users: [] };
+            throw new Error('Cannot find test user');
         }
     }
 
@@ -363,7 +363,7 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
     }
     if (session_id == null) {
         console.log('Session ID was not obtained.');
-        return { added_users: [] };
+        throw new Error('Session ID was not obtained');
     }
     var results: User[] = [];
     var results_comments: CommentTyp[] = [];
