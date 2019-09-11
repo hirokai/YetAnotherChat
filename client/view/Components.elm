@@ -183,7 +183,16 @@ leftMenu model =
                 ]
              , div [] [ a [ id "btn-userlist", class "btn btn-light btn-sm", href "#/users/" ] [ text "ユーザー" ], a [ id "btn-sessionlist", class "btn btn-light btn-sm", href "#/sessions/" ] [ text "セッション" ] ]
              ]
-                ++ showChannels model
+                ++ (case model.page of
+                        UserPage _ ->
+                            showUsers model
+
+                        UserListPage ->
+                            showUsers model
+
+                        _ ->
+                            showChannels model
+                   )
             )
         ]
 
@@ -219,6 +228,25 @@ showChannels model =
                             ]
             )
             model.rooms
+    ]
+
+
+showUsers : Model -> List (Html Msg)
+showUsers model =
+    [ div [] [ text "ユーザー一覧" ]
+    , ul [ class "menu-list" ] <|
+        List.indexedMap
+            (\i u ->
+                li []
+                    [ hr [] []
+                    , div
+                        [ classList [ ( "chatlist-name", True ), ( "clickable", True ), ( "current", UserPage u.id == model.page ) ]
+                        ]
+                        [ a [ href <| "#/users/" ++ u.id ] [ text <| String.fromInt (i + 1) ++ ": " ++ getUserNameDisplay model u.id ]
+                        ]
+                    ]
+            )
+            (Dict.values model.users)
     ]
 
 
