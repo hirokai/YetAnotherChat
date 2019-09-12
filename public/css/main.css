@@ -14,8 +14,12 @@ div#footer_wrapper {
     background: white;
     position: fixed;
     bottom: 0px;
-    margin: 0px;
+    margin: 0px 0px 0px -10px;
     z-index: 1030;
+}
+
+div#footer_wrapper.expanded {
+    height: 152px;
 }
 
 div#footer {
@@ -32,7 +36,7 @@ div#footer {
     margin-left: 0px;
     margin-right: auto;
     margin-bottom: -10px;
-    width: calc(100% - 150px) ! important;
+    width: calc(100% - 125px) ! important;
     resize: none;
 }
 
@@ -47,7 +51,9 @@ div#footer {
     }
 }
 
-
+#submit-btn {
+    margin-top: -3px;
+}
 
 div#footer button {
     margin-left: 10px;
@@ -61,6 +67,7 @@ div#footer button {
     top: 0px;
     overflow: scroll;
     -webkit-overflow-scrolling: touch;
+    z-index: 2000;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -261,9 +268,8 @@ hr {
 
 #top-pane {
     z-index: 100;
-    // position: fixed;
-    height: 200px;
-    max-height: 20%;
+    position: fixed;
+    height: 150px;
     padding: 5px 0px 0px 0px;
     background: #756683;
     box-shadow: #656867 3px 3px 6px;
@@ -841,11 +847,29 @@ div.chat_comment_content.font-5 {
 }
 
 #chat-body {
+    margin-top: 50px;
     margin-bottom: 60px;
+}
+
+#chat-body.input_expanded {
+    margin-bottom: 160px;
+}
+
+#chat-body.toppane_expanded {
+    margin-top: 160px;
 }
 
 div.chat_comment {
     // margin-left: 50px;
+}
+
+#chatroom_body {
+    // padding: 0px;
+}
+
+body {
+    height: auto !important;
+    width: auto !important;
 }
 
 @media screen and (max-width:767px) {

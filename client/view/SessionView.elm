@@ -24,9 +24,9 @@ chatRoomView room model =
         [ div [ class "container-fluid" ]
             [ div [ class "row" ]
                 [ leftMenu model
-                , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
+                , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10", id "chatroom_body" ]
                     [ topPane model
-                    , div [ id "chat-body", class "row", attribute "data-session_id" room ]
+                    , div [ id "chat-body", classList [ ( "row", True ), ( "input_expanded", model.chatPageStatus.expandChatInput ), ( "toppane_expanded", model.chatPageStatus.topPaneExpanded ) ], attribute "data-session_id" room ]
                         [ div [ class "col-md-12 col-lg-12", id "chat-outer" ]
                             [ roomTitle room model
                             , div [ id "chat-participants" ]
@@ -182,7 +182,7 @@ videoDiv room model =
 
 footer : String -> Model -> Html Msg
 footer room model =
-    div [ class "col-md-7 col-lg-10", id "footer_wrapper" ]
+    div [ classList [ ( "col-lg-10", True ), ( "col-md-7", True ), ( "expanded", model.chatPageStatus.expandChatInput ) ], id "footer_wrapper" ]
         [ div [ class "col-md-12 col-lg-12", id "footer" ]
             [ button [ class "btn btn-light", id "chat-input-expand", onClick (ChatPageMsg <| ClickExpandInput) ]
                 [ i [ class "material-icons" ] [ text "unfold_more" ] ]
@@ -202,7 +202,7 @@ footer room model =
                     (Maybe.withDefault "" <| Dict.get "chat" model.editingValue)
                 ]
                 []
-            , button [ class "btn btn-primary", onClick SubmitComment ] [ text "送信" ]
+            , button [ class "btn btn-primary btn-sm", id "submit-btn", onClick SubmitComment ] [ text "送信" ]
             ]
         ]
 
