@@ -27,10 +27,11 @@ import Workspace exposing (..)
 
 
 init : Flags -> ( Model, Cmd Msg )
-init { user_id, show_toppane, expand_chatinput, show_users_with_email_only } =
+init { user_id, config } =
     ( { myself = user_id
       , roomInfo = Dict.empty
       , workspaces = Dict.empty
+      , localConfig = config
       , rooms = [ "Home", "COI" ]
       , page = NewSession
       , users = Dict.empty
@@ -38,8 +39,8 @@ init { user_id, show_toppane, expand_chatinput, show_users_with_email_only } =
       , newWorkspaceModel = { selected = Set.empty }
       , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
       , userPageModel = { sessions = [], messages = [], shownFileID = Nothing, newFileBox = False, selectedSDGs = Set.empty }
-      , chatPageStatus = initialChatPageStatus show_toppane expand_chatinput
-      , userListPageModel = initialUserListPageModel show_users_with_email_only
+      , chatPageStatus = initialChatPageStatus config.expand_toppane config.expand_chatinput
+      , userListPageModel = initialUserListPageModel config.show_users_with_email_only
       , settingsPageModel = initialSettingsPageModel
       , editing = Set.empty
       , editingValue = Dict.empty
@@ -364,6 +365,29 @@ update msg model =
         SearchUser q ->
             ( { model | searchKeyword = q }, Cmd.none )
 
+        SaveConfigLocalBool k v ->
+            let
+                s =
+                    if v then
+                        "true"
+
+                    else
+                        "false"
+
+                new_config =
+                    case k of
+                        "show_toppane" ->
+                            let
+                                config =
+                                    model.localConfig
+                            in
+                            { config | show_toppane = v }
+
+                        _ ->
+                            model.localConfig
+            in
+            ( { model | localConfig = new_config }, setConfigLocal { key = k, value = s } )
+
 
 finishEditing : String -> (Model -> Model) -> Cmd Msg -> Model -> ( Model, Cmd Msg )
 finishEditing id updateFunc updatePort model =
@@ -451,7 +475,5 @@ subscriptions _ =
 
 type alias Flags =
     { user_id : String
-    , show_toppane : Bool
-    , expand_chatinput : Bool
-    , show_users_with_email_only : Bool
+    , config : LocalConfig
     }

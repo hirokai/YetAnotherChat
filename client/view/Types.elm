@@ -1,4 +1,4 @@
-module Types exposing (ChatEntry(..), ChatFileTyp, ChatPageModel, ChatPageMsg(..), CommentTyp, FilterMode(..), Member, Model, Msg(..), NewSessionMsg(..), NewSessionStatus, NewWorkspaceModel, NewWorkspaceMsg(..), Page(..), RoomID, RoomInfo, SessionEventTyp, SettingsMsg(..), SettingsPageModel, User, UserListPageModel, UserListPageMsg(..), UserListShowMode(..), UserPageModel, UserPageMsg(..), Workspace, appName, getId, getKind, getRoomID, getSDGs, getUser, getUserFullname, getUserInfo, getUserName, getUserNameDisplay, roomName, roomUsers, toggleSet, truncate)
+module Types exposing (ChatEntry(..), ChatFileTyp, ChatPageModel, ChatPageMsg(..), CommentTyp, FilterMode(..), LocalConfig, Member, Model, Msg(..), NewSessionMsg(..), NewSessionStatus, NewWorkspaceModel, NewWorkspaceMsg(..), Page(..), RoomID, RoomInfo, SessionEventTyp, SettingsMsg(..), SettingsPageModel, User, UserListPageModel, UserListPageMsg(..), UserListShowMode(..), UserPageModel, UserPageMsg(..), Workspace, appName, getId, getKind, getRoomID, getSDGs, getUser, getUserFullname, getUserInfo, getUserName, getUserNameDisplay, roomName, roomUsers, toggleSet, truncate)
 
 import Dict exposing (Dict)
 import Json.Decode as Json
@@ -113,11 +113,20 @@ type alias Model =
             )
     , timezone : Zone
     , searchKeyword : String
+    , localConfig : LocalConfig
     , profile :
         { publicKey : String
         , privateKey : String
         , privateKeyMsg : String
         }
+    }
+
+
+type alias LocalConfig =
+    { show_toppane : Bool
+    , expand_toppane : Bool
+    , expand_chatinput : Bool
+    , show_users_with_email_only : Bool
     }
 
 
@@ -232,6 +241,7 @@ type Msg
     | ResetKeys
     | ResetUserCache
     | SetValue String String
+    | SaveConfigLocalBool String Bool
     | NoOp
 
 

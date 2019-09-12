@@ -43,6 +43,12 @@ export class Model {
         this.user_id = user_id;
         this.token = token;
     }
+    readonly defaultConfig: LocalConfig = {
+        expand_chatinput: false,
+        show_toppane: true,
+        expand_toppane: false,
+        show_users_with_email_only: false
+    };
     async init(): Promise<boolean> {
         try {
             if (!this.token) {
@@ -778,10 +784,24 @@ export class Model {
         },
         save: async (key: string, value: string): Promise<boolean> => {
             // console.log('config.save', key, value);
-            const data: PostConfigData = { key, value };
+            const data: PostConfigData = { key, value: value };
             console.log('PostConfigData', data);
             const { data: { ok } }: AxiosResponse<PostConfigResponse> = await axios.post('/api/config', data);
             return ok;
+        },
+        getLocal: (): { [key: string]: any } => {
+            return JSON.parse(localStorage['yacht.config'] || "{}") || {};
+        },
+        saveLocal: (key: string, value: string) => {
+            // console.log('config.save', key, value);
+            const config: { [key: string]: any } = JSON.parse(localStorage['yacht.config'] || "{}") || {};
+            config[key] = JSON.parse(value);
+            localStorage['yacht.config'] = JSON.stringify(config);
+        },
+        defaultConfig: this.defaultConfig,
+        updateLocal: (f: (_: LocalConfig) => LocalConfig) => {
+            const config: LocalConfig = JSON.parse(localStorage['yacht.config'] || "{}") || this.config.defaultConfig;
+            localStorage['yacht.config'] = JSON.stringify(f(config));
         }
     }
     workspaces = {

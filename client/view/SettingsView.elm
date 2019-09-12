@@ -121,6 +121,19 @@ userSettingView user model =
                                 ]
                             ]
                         ]
+                    , div [ class "setting-group" ]
+                        [ h2 [] [ text "画面設定（端末固有）" ]
+                        , div []
+                            [ input
+                                [ id "config-show-toppane"
+                                , type_ "checkbox"
+                                , checked model.localConfig.show_toppane
+                                , onCheck (SaveConfigLocalBool "show_toppane")
+                                ]
+                                []
+                            , label [ for "config-show-toppane" ] [ text "画面上部のツールバーを表示する" ]
+                            ]
+                        ]
                     , div [ id "key-settings", class "setting-group" ]
                         [ h2 [] [ text "暗号化の設定" ]
                         , div []

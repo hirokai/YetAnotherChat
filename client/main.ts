@@ -25,12 +25,6 @@ axios.defaults.headers.common['x-access-token'] = token;
 
 window['importKey'] = crypto.importKey;
 
-// crypto.test_crypto();
-// crypto.test_crypto1();
-// crypto.test_crypto2();
-// crypto.test_crypto3();
-// throw new Error('Abort');
-
 (async () => {
     const model = new Model({
         user_id, token
@@ -43,9 +37,11 @@ window['importKey'] = crypto.importKey;
 
     window['model'] = model;
 
-    var show_toppane = JSON.parse(localStorage['yacht.show_toppane'] || "false") || false;
-    var expand_chatinput = JSON.parse(localStorage['yacht.expand_chatinput'] || "false") || false;
-    var show_users_with_email_only = JSON.parse(localStorage['yacht.show_users_with_email_only'] || "false") || false;
+    const config: LocalConfig = Object.assign({}, model.config.defaultConfig, JSON.parse(localStorage['yacht.config'] || "null"));
+
+    var expand_toppane: boolean = config.expand_toppane || false;
+    var expand_chatinput = config.expand_chatinput || false;
+    var show_users_with_email_only = config.show_users_with_email_only || false;
 
     await Promise.all([
         // model.keys.unlockDbMine(password),
@@ -53,13 +49,13 @@ window['importKey'] = crypto.importKey;
         model.sessions.unlockDb(password)]);
     // return;
 
-    const app: ElmApp = Elm.Main.init({ flags: { user_id, show_toppane, expand_chatinput, show_users_with_email_only } });
+    const app: ElmApp = Elm.Main.init({ flags: { user_id, config } });
     if (fp && app) {
         app.ports.setValue.send(['my_public_key', fp.pub || ""]);
         app.ports.setValue.send(['my_private_key', fp.prv || ""]);
     }
     window.setTimeout(() => {
-        recalcPositions(show_toppane, expand_chatinput);
+        recalcPositions();
     }, 100);
 
     const socket: SocketIOClient.Socket = io('');
@@ -76,7 +72,7 @@ window['importKey'] = crypto.importKey;
     app.ports.saveConfig.subscribe(({ userWithEmailOnly }) => {
         console.log('saveConfig', { userWithEmailOnly });
         show_users_with_email_only = userWithEmailOnly;
-        localStorage['yacht.show_users_with_email_only'] = JSON.stringify(show_users_with_email_only);
+        model.config.updateLocal((c) => { c.show_users_with_email_only = show_users_with_email_only; return c; })
     });
 
     app.ports.saveSDGs.subscribe(async (s) => {
@@ -311,9 +307,9 @@ window['importKey'] = crypto.importKey;
         // recalcPositions(show_toppane);
     });
 
-    function recalcPositions(show_toppane: boolean, expand_chatinput: boolean) {
-        // console.log('recalcPositions', show_toppane, expand_chatinput);
-        const height = 100 + (show_toppane ? 160 : 0) + (expand_chatinput ? 90 : 0);
+    function recalcPositions() {
+        const { show_toppane, expand_toppane, expand_chatinput } = model.config.getLocal();
+        const height = 0 + (show_toppane ? 100 : 0) + (show_toppane && expand_toppane ? 160 : 0) + (expand_chatinput ? 90 : 0);
         $(() => {
             $('#chat-outer').height(window.innerHeight - height);
         });
@@ -327,19 +323,22 @@ window['importKey'] = crypto.importKey;
     window.addEventListener('hashchange', () => {
         console.log('hashChange', location.hash, app.ports.hashChanged);
         app.ports.hashChanged.send(location.hash);
-        recalcPositions(show_toppane, expand_chatinput);
+        recalcPositions();
         return null;
     });
 
     app.ports.hashChanged.send(location.hash);
 
-    app.ports.recalcElementPositions.subscribe(({ show_toppane: _show_toppane, expand_chatinput: _expand_chatinput }: { show_toppane: boolean, expand_chatinput: boolean }) => {
-        console.log("recalcElementPositions", { _show_toppane, _expand_chatinput });
-        show_toppane = _show_toppane;
+    app.ports.recalcElementPositions.subscribe(({ show_toppane: _expand_toppane, expand_chatinput: _expand_chatinput }: { show_toppane: boolean, expand_chatinput: boolean }) => {
+        console.log("recalcElementPositions", { _show_toppane: _expand_toppane, _expand_chatinput });
+        expand_toppane = _expand_toppane;
         expand_chatinput = _expand_chatinput;
-        localStorage['yacht.show_toppane'] = JSON.stringify(show_toppane);
-        localStorage['yacht.expand_chatinput'] = JSON.stringify(_expand_chatinput);
-        recalcPositions(_show_toppane, expand_chatinput);
+        model.config.updateLocal((c) => {
+            c.expand_toppane = expand_toppane;
+            c.expand_chatinput = _expand_chatinput;
+            return c;
+        });
+        recalcPositions();
     });
 
     app.ports.joinRoom.subscribe(({ session_id }) => {
@@ -352,7 +351,7 @@ window['importKey'] = crypto.importKey;
                 socket.emit('enter_session');
             }
         });
-        recalcPositions(show_toppane, expand_chatinput);
+        recalcPositions();
     });
 
     app.ports.startPosterSession.subscribe(async (file_id: string) => {
@@ -377,6 +376,10 @@ window['importKey'] = crypto.importKey;
 
     app.ports.setConfigValue.subscribe(({ key, value }) => {
         model.config.save(key, value);
+    });
+
+    app.ports.setConfigLocal.subscribe(({ key, value }) => {
+        model.config.saveLocal(key, value);
     });
 
     app.ports.setProfileValue.subscribe(({ key, value }) => {
@@ -633,6 +636,7 @@ interface ElmAppPorts {
     getConfig: ElmSub<void>
     feedConfigValues: ElmSend<string[][]>;
     setConfigValue: ElmSub<{ key: string, value: string }>;
+    setConfigLocal: ElmSub<{ key: string, value: string }>;
     setProfileValue: ElmSub<{ key: string, value: string }>;
     feedWorkspaces: ElmSend<Workspace[]>;
     getUsers: ElmSub<void>;

@@ -462,3 +462,10 @@ type EncryptedData = {
     iv: string,
     data: string
 }
+
+type LocalConfig = {
+    show_toppane: boolean
+    expand_toppane: boolean
+    expand_chatinput: boolean
+    show_users_with_email_only: boolean
+}
