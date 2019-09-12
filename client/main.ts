@@ -308,6 +308,7 @@ window['importKey'] = crypto.importKey;
     });
 
     function recalcPositions() {
+        return;
         const { show_toppane, expand_toppane, expand_chatinput } = model.config.getLocal();
         const height = 0 + (show_toppane ? 100 : 0) + (show_toppane && expand_toppane ? 160 : 0) + (expand_chatinput ? 90 : 0);
         $(() => {

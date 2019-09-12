@@ -184,7 +184,7 @@ videoDiv room model =
 
 footer : String -> Model -> Html Msg
 footer room model =
-    div [ class "row", id "footer_wrapper" ]
+    div [ class "col-md-7 col-lg-10", id "footer_wrapper" ]
         [ div [ class "col-md-12 col-lg-12", id "footer" ]
             [ button [ class "btn btn-light", id "chat-input-expand", onClick (ChatPageMsg <| ClickExpandInput) ]
                 [ i [ class "material-icons" ] [ text "unfold_more" ] ]
