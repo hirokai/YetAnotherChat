@@ -27,33 +27,31 @@ chatRoomView room model =
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ topPane model
                     , div [ id "chat-body", class "row", attribute "data-session_id" room ]
-                        [ div [ class "col-md-12 col-lg-12" ]
-                            [ div [ class "col-md-12 col-lg-12", id "chat-outer" ]
-                                [ roomTitle room model
-                                , div [ id "chat-participants" ]
-                                    [ ul [] <|
-                                        List.map
-                                            (\u ->
-                                                case getUserInfo model u of
-                                                    Just user ->
-                                                        a [ href <| "#/users/" ++ u ]
-                                                            [ li []
-                                                                [ span [ classList [ ( "online-mark", True ), ( "hidden-animate", not user.online ) ] ] [ text "●" ]
-                                                                , span [] [ text user.username ]
-                                                                , text "("
-                                                                , a [] [ text <| String.join "," <| List.intersperse "," user.emails ]
-                                                                , text ")"
-                                                                ]
+                        [ div [ class "col-md-12 col-lg-12", id "chat-outer" ]
+                            [ roomTitle room model
+                            , div [ id "chat-participants" ]
+                                [ ul [] <|
+                                    List.map
+                                        (\u ->
+                                            case getUserInfo model u of
+                                                Just user ->
+                                                    a [ href <| "#/users/" ++ u ]
+                                                        [ li []
+                                                            [ span [ classList [ ( "online-mark", True ), ( "hidden-animate", not user.online ) ] ] [ text "●" ]
+                                                            , span [] [ text user.username ]
+                                                            , text "("
+                                                            , a [] [ text <| String.join "," <| List.intersperse "," user.emails ]
+                                                            , text ")"
                                                             ]
+                                                        ]
 
-                                                    Nothing ->
-                                                        li [] []
-                                            )
-                                            (roomUsers room model)
-                                    ]
-                                , hr [] []
-                                , div [] (chatBody room model)
+                                                Nothing ->
+                                                    li [] []
+                                        )
+                                        (roomUsers room model)
                                 ]
+                            , hr [] []
+                            , div [] (chatBody room model)
                             ]
                         ]
                     , footer room model
@@ -226,9 +224,9 @@ showItem model entry =
                                    )
                         , id m.id
                         ]
-                        [ div [ style "float" "left" ] [ img [ class "chat_user_icon", src (iconOfUser userInfo) ] [] ]
-                        , div [ class "chat_comment" ]
-                            [ div [ class "chat_user_name", attribute "data-toggle" "tooltip", title <| getUserFullname model m.user ]
+                        [ div []
+                            [ div [ class "chat_user_icon" ] [ img [ class "chat_user_icon", src (iconOfUser userInfo) ] [] ]
+                            , div [ class "chat_user_name", attribute "data-toggle" "tooltip", title <| getUserFullname model m.user ]
                                 [ text
                                     (getUserName model m.user
                                         ++ (if m.sentTo /= "" then
@@ -251,7 +249,10 @@ showItem model entry =
                                   else
                                     text ""
                                 ]
-                            , div [ classList [ ( "chat_comment_content", True ), ( "font-" ++ String.fromInt model.chatPageStatus.fontSize, True ) ] ] <| mkComment m.comment
+                            , div [ class "clear" ] []
+                            ]
+                        , div [ class "chat_comment" ]
+                            [ div [ classList [ ( "chat_comment_content", True ), ( "font-" ++ String.fromInt model.chatPageStatus.fontSize, True ) ] ] <| mkComment m.comment
                             ]
                         , div [ style "clear" "both" ] [ text "" ]
                         ]
