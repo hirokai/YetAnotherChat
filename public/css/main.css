@@ -63,16 +63,13 @@ div#footer button {
     bottom: 5px;
     top: 0px;
     overflow: scroll;
+    -webkit-overflow-scrolling: touch;
 }
 
 @media (prefers-color-scheme: dark) {
     #menu-left-wrapper {
         background: #191714;
         box-shadow: #181613 3px 3px 7px;
-        position: fixed;
-        bottom: 5px;
-        top: 5px;
-        overflow: scroll;
     }
 
     .btn-light {
@@ -93,6 +90,7 @@ div#footer button {
     bottom: 10px;
     height: 100%;
     overflow: scroll;
+    -webkit-overflow-scrolling: touch;
 }
 
 #chat-container {
@@ -102,6 +100,7 @@ div#footer button {
 
 #chat-wrapper {
     overflow: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 #toppane-subject {
@@ -291,6 +290,7 @@ hr {
 #top-pane-list-container {
     height: calc(100% - 30px);
     overflow: scroll;
+    -webkit-overflow-scrolling: touch;
 }
 
 .top-page-menu-label {
@@ -427,8 +427,6 @@ a {
     padding: 5px;
     box-shadow: rgba(0, 0, 0, 0.5) 3px 3px 5px;
 }
-
-.userlist-person.online {}
 
 .userlist-info {
     float: left;
