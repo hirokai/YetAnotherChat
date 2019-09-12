@@ -54,9 +54,6 @@ window['importKey'] = crypto.importKey;
         app.ports.setValue.send(['my_public_key', fp.pub || ""]);
         app.ports.setValue.send(['my_private_key', fp.prv || ""]);
     }
-    window.setTimeout(() => {
-        recalcPositions();
-    }, 100);
 
     const socket: SocketIOClient.Socket = io('');
 
@@ -304,27 +301,11 @@ window['importKey'] = crypto.importKey;
     app.ports.setPageHash.subscribe(function (hash: string) {
         console.log(hash);
         location.hash = hash;
-        // recalcPositions(show_toppane);
     });
-
-    function recalcPositions() {
-        return;
-        const { show_toppane, expand_toppane, expand_chatinput } = model.config.getLocal();
-        const height = 0 + (show_toppane ? 100 : 0) + (show_toppane && expand_toppane ? 160 : 0) + (expand_chatinput ? 90 : 0);
-        $(() => {
-            $('#chat-outer').height(window.innerHeight - height);
-        });
-
-        window.addEventListener('resize', () => {
-            $('#chat-outer').height(window.innerHeight - height);
-            // console.log(window.innerHeight);
-        });
-    }
 
     window.addEventListener('hashchange', () => {
         console.log('hashChange', location.hash, app.ports.hashChanged);
         app.ports.hashChanged.send(location.hash);
-        recalcPositions();
         return null;
     });
 
@@ -339,7 +320,6 @@ window['importKey'] = crypto.importKey;
             c.expand_chatinput = _expand_chatinput;
             return c;
         });
-        recalcPositions();
     });
 
     app.ports.joinRoom.subscribe(({ session_id }) => {
@@ -352,7 +332,6 @@ window['importKey'] = crypto.importKey;
                 socket.emit('enter_session');
             }
         });
-        recalcPositions();
     });
 
     app.ports.startPosterSession.subscribe(async (file_id: string) => {
