@@ -50,6 +50,13 @@
             text-align: center;
         }
 
+        #terms {
+            display: none;
+            max-width: 500px;
+            margin: auto;
+            text-align: left;
+        }
+
         @media (prefers-color-scheme: dark) {
             body {
                 background: black;
@@ -92,8 +99,12 @@
         </div>
         <div id='agreebox'>
             <input id='agree' type="checkbox" name="agree" required />
-            <label for='agree'><a>利用規約（「このソフトウェアを使うことによるユーザーの損害について，作者は一切の責任を負いません」）</a>に同意</label>
-
+            <label for='agree'>利用規約に同意</label>
+            <a id='show_terms' href='#'>利用規約を表示</a>
+        </div>
+        <div id='terms'>
+            1. このソフトウェアを使うことによるユーザーの損害について，作者は一切の責任を負いません。<br>
+            2. 日本国内の居住者のみを対象にしたソフトウェアであり、EU圏内からの利用はできません（GDPR未対応）。
         </div>
         <div>
             <input id='submit' type="submit" value="登録" class='largebutton' />
@@ -140,6 +151,9 @@
                     });
                 }
             });
+            $('#show_terms').click(() => {
+                $('#terms').toggle();
+            })
         });
     </script>
 
