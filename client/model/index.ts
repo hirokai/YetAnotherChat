@@ -54,7 +54,7 @@ export class Model {
             if (!this.token) {
                 return false;
             }
-            let keyPair = await this.keys.download_my_keys_from_server();
+            let keyPair = await this.keys.download_my_keys_from_server().catch(() => null);
             console.log('Downloaded key pair', keyPair);
             if (keyPair == null || keyPair.pub == null) {
                 await this.keys.reset();
@@ -66,7 +66,8 @@ export class Model {
                 this.privateKeyJson = await crypto.exportKey(keyPair.prv);;
             }
             return true;
-        } catch{
+        } catch (e) {
+            console.error('Model init error', e)
             return false;
         }
     }

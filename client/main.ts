@@ -30,6 +30,7 @@ window['importKey'] = crypto.importKey;
         user_id, token
     });
     const init_ok = await model.init();
+    console.log('Model init ok =', init_ok);
     if (!init_ok) {
         location.href = '/login?redirect=' + location.hash;
     }
