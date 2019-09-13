@@ -136,7 +136,7 @@
                     const password = $('#password').val();
                     const fullname = $('#fullname').val();
                     const email = $('#email').val();
-                    console.log({ username, password, fullname, email });
+                    $('#info-username').html('登録中です...');
                     $.post('/api/register', { username, password, fullname, email }).then((res) => {
                         console.log(res);
                         if (res.ok && res.token && res.decoded) {
@@ -148,6 +148,10 @@
                         } else {
                             if (res.error == "User already exists") {
                                 $('#info-username').html('ユーザー名がすでに使われています。')
+                            } else if (res.error == 'Breached password') {
+                                $('#info-username').html('漏洩したことのあるパスワードは利用できません。<br><a href="https://haveibeenpwned.com/Passwords">Pwned Passwords</a> <a href="https://ascii.jp/elem/000/001/867/1867166/">説明</a>')
+                            } else {
+                                $('#info-username').html('登録時にエラーが発生しました。しばらくしてからやり直してください。')
                             }
                         }
                     });

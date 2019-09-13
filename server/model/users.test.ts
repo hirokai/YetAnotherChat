@@ -6,8 +6,13 @@ import * as util from 'util'
 import * as _ from 'lodash';
 import { random_str, register } from './test_utils'
 const exec = util.promisify(exec_);
-
-jest.setTimeout(1000);
+import crypto from 'crypto'
+const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+import baseX from 'base-x';
+const bs58 = baseX(BASE58);
+jest.setTimeout(3000);
+import * as bunyan from 'bunyan';
+const log = bunyan.createLogger({ name: "model.users.test", level: 1 });
 
 beforeEach(done => {
     return new Promise(async (resolve, reject) => {
@@ -231,6 +236,51 @@ describe('Workspaces', () => {
     });
 
 });
+
+async function get_random_string(length: number = 32) {
+    return await new Promise<string>((resolve) => {
+        crypto.randomBytes(length, (err, buf) => {
+            if (err) throw err;
+            const token = bs58.encode(buf);
+            resolve(token);
+        });
+    });
+}
+
+describe.only('Pwned password', () => {
+    test('Bad passwords', async done => {
+        let hrstart = process.hrtime()
+        let r = await model.users.check_password_not_pwned('1234');
+        let hrend = process.hrtime(hrstart);
+        let msec = hrend[0] * 1e3 + hrend[1] / 1e6
+        log.info(`${msec} msec for API`)
+        expect(r).toBe(false);
+        hrstart = process.hrtime()
+        r = await model.users.check_password_not_pwned('password');
+        hrend = process.hrtime(hrstart);
+        msec = hrend[0] * 1e3 + hrend[1] / 1e6
+        log.info(`${msec} msec for API`)
+        expect(r).toBe(false);
+        done();
+    });
+    test('Safe passwords', async done => {
+        let password = await get_random_string();
+        let hrstart = process.hrtime()
+        let r = await model.users.check_password_not_pwned(password);
+        let hrend = process.hrtime(hrstart);
+        let msec = hrend[0] * 1e3 + hrend[1] / 1e6
+        expect(r).toBe(true);
+        log.info(`${msec} msec for API`)
+        password = await get_random_string();
+        hrstart = process.hrtime()
+        r = await model.users.check_password_not_pwned(password);
+        hrend = process.hrtime(hrstart);
+        msec = hrend[0] * 1e3 + hrend[1] / 1e6
+        log.info(`${msec} msec for API`)
+        expect(r).toBe(true);
+        done();
+    });
+})
 
 /*
 test('Merge', async () => {

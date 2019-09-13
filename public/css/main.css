@@ -65,7 +65,7 @@ div#footer button {
     position: fixed;
     bottom: 5px;
     top: 0px;
-    overflow: scroll;
+    overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     z-index: 2000;
 }
@@ -91,7 +91,7 @@ div#footer button {
     top: 0px;
     bottom: 10px;
     height: 100%;
-    overflow: scroll;
+    overflow-y: auto;
     -webkit-overflow-scrolling: touch;
 }
 

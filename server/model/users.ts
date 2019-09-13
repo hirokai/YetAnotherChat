@@ -1,4 +1,5 @@
 import { map, filter, includes, orderBy, compact } from 'lodash';
+import * as _ from 'lodash';
 import { db, db_, shortid } from './utils'
 import bcrypt from 'bcrypt';
 
@@ -8,11 +9,12 @@ import * as users from './users'
 import * as error_code from '../error_codes'
 import * as user_info from '../private/user_info'
 import crypto from 'crypto'
-import uuid from 'uuid/v4'
 const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 import baseX from 'base-x';
 const bs58 = baseX(BASE58);
-
+import axios from 'axios'
+import * as bunyan from 'bunyan';
+const log = bunyan.createLogger({ name: "model.users", src: true, level: 1 });
 import { fingerPrint } from '../../common/common_model'
 
 
@@ -512,3 +514,26 @@ export async function reset_password_from_link(token: string, password: string):
     }
 }
 
+export async function check_password_not_pwned(password: string): Promise<boolean> {
+    const sha1 = crypto.createHash('sha1');
+    sha1.update(password);
+    const hash = sha1.digest('hex').toUpperCase();
+    const prefix = hash.substring(0, 5)
+    const suffix = hash.substring(5, 40);
+    try {
+        const res = await axios.get("https://api.pwnedpasswords.com/range/" + prefix);
+        const suffixes: { [key: string]: number } = _.fromPairs(map(res.data.split('\n'), (l: string) => {
+            const [a, b] = l.split(':');
+            return [a, parseInt(b)];
+        }));
+        log.debug(prefix, suffix)
+        if (suffixes[suffix]) {
+            return false;
+        } else {
+            return true;
+        }
+    } catch (e) {
+        log.error(e);
+        return false;
+    }
+}

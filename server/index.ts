@@ -262,6 +262,11 @@ app.post('/api/register', (req, res: JsonResponse<RegisterResponse>, next) => {
             res.json({ ok: false, error: 'User name and password are required.' });
             return;
         }
+        const not_pwned = await model.users.check_password_not_pwned(password);
+        if (!not_pwned) {
+            res.json({ ok: false, error: 'Breached password' });
+            return;
+        }
         const r1 = await model.users.register({ username, password, email, fullname, source: 'self_register' });
         if (r1 == null) {
             res.json({ ok: false });
