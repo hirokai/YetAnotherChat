@@ -194,14 +194,20 @@ sdgsDiv user model editable =
         ]
             ++ (List.map
                     (\i ->
-                        a
-                            [ classList [ ( "SDGs-icon", True ), ( "selected", Set.member i selected ) ]
-                            , if editable then
-                                onClick (UserPageMsg <| SelectSDG i)
+                        (if editable then
+                            div
 
-                              else
-                                href (Maybe.withDefault ("#/profiles/" ++ user.id) <| Dict.get i sdgsLinkUrl)
-                            ]
+                         else
+                            a
+                        )
+                            ([ classList [ ( "SDGs-icon", True ), ( "selected", Set.member i selected ) ] ]
+                                ++ (if editable then
+                                        [ onClick (UserPageMsg <| SelectSDG i), href "#" ]
+
+                                    else
+                                        [ href (Maybe.withDefault ("#/profiles/" ++ user.id) <| Dict.get i sdgsLinkUrl) ]
+                                   )
+                            )
                             [ img
                                 [ src (sdgIcon i)
                                 ]

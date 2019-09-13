@@ -184,10 +184,13 @@ window['importKey'] = crypto.importKey;
     app.ports.createWorkspace.subscribe(async function (args: any[]) {
         const name: string = args[0];
         const members: string[] = args[1];
-        await model.workspaces.create(name, members);
-        model.workspaces.list().then((wss) => {
-            app.ports.feedWorkspaces.send(values(wss));
-        })
+        const ws = await model.workspaces.create(name, members);
+        if (ws != null) {
+            model.workspaces.list().then((wss) => {
+                app.ports.feedWorkspaces.send(values(wss));
+                location.href = '#/workspaces/' + ws.id;
+            });
+        }
     });
 
     app.ports.createNewSession.subscribe(async function (args: any[]) {

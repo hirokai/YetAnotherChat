@@ -464,8 +464,13 @@ a {
     width: 100%;
 }
 
+#list-btns a {
+    margin-right: 5px;
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
 #btn-sessionlist {
-    margin-left: 5px;
 }
 
 #topright-buttons {

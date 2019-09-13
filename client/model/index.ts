@@ -806,11 +806,11 @@ export class Model {
         }
     }
     workspaces = {
-        create: async (name: string, members: string[]) => {
+        create: async (name: string, members: string[]): Promise<Workspace | null> => {
             const data: PostWorkspaceData = { name, members };
             console.log('workspaces.create', data);
             const { data: { ok, data: res } }: AxiosResponse<PostWorkspaceResponse> = await axios.post('/api/workspaces', data);
-            return res;
+            return res || null;
         },
         list: async (): Promise<{ [key: string]: Workspace }> => {
             const { data: { ok, data } }: AxiosResponse<GetWorkspacesResponse> = await axios.get('/api/workspaces');

@@ -50,19 +50,3 @@ homeView model =
             ]
         ]
     }
-
-
-mkWorkspacePanel : Model -> Workspace -> Html Msg
-mkWorkspacePanel model ws =
-    div
-        [ classList [ ( "ws-list-item", True ) ]
-        ]
-        [ div []
-            [ div [ class "name" ]
-                [ a [ class "clickable", href <| "#/workspaces/" ++ ws.id ]
-                    [ text ws.name
-                    ]
-                ]
-            , div [ class "ws-panel-member" ] (List.intersperse (text ", ") <| List.map (\n -> a [ class "clickable", href <| "#/users/" ++ n ] [ text (getUserName model n) ]) ws.members)
-            ]
-        ]

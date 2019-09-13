@@ -61,9 +61,19 @@ workspaceListView model =
                 [ leftMenu model
                 , smallMenu
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
-                    [ h1 []
-                        [ text "ワークスペース"
-                        ]
+                    [ h1 [] [ text "ワークスペース一覧" ]
+                    , div [] <|
+                        List.map (mkWorkspacePanel model) (Dict.values model.workspaces)
+                            ++ [ div
+                                    [ classList [ ( "ws-list-item ws-list-center", True ) ]
+                                    ]
+                                    [ div [ class "panel-center" ]
+                                        [ a [ href "#/workspaces/new" ]
+                                            [ text "+"
+                                            ]
+                                        ]
+                                    ]
+                               ]
                     ]
                 ]
             ]

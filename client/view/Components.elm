@@ -1,4 +1,4 @@
-module Components exposing (iconOfUser, leftMenu, makeLinkToOriginal, mkPeoplePanel, onKeyDown, ourFormatter, sdgIcon, showChannels, showSource, smallMenu, topPane, updateRoomName)
+module Components exposing (iconOfUser, leftMenu, makeLinkToOriginal, mkPeoplePanel, mkWorkspacePanel, onKeyDown, ourFormatter, sdgIcon, showChannels, showSource, smallMenu, topPane, updateRoomName)
 
 import DateFormat
 import Dict exposing (Dict)
@@ -182,10 +182,11 @@ leftMenu model =
                 , a [ id "config-button", href "#/settings" ] [ text "⚙" ]
                 ]
              , div [ id "path" ] [ text (pageToPath model.page) ]
-             , div []
-                [ a [ class "btn btn-light", id "newroom-button", onClick EnterNewSessionScreen ] [ text "新しい会話" ]
+             , div [ id "list-btns" ]
+                [ a [ id "btn-workspacelist", class "btn btn-light btn-sm", href "#/workspaces/" ] [ text "ワークスペース" ]
+                , a [ id "btn-sessionlist", class "btn btn-light btn-sm", href "#/sessions/" ] [ text "セッション" ]
+                , a [ id "btn-userlist", class "btn btn-light btn-sm", href "#/users/" ] [ text "ユーザー" ]
                 ]
-             , div [] [ a [ id "btn-userlist", class "btn btn-light btn-sm", href "#/users/" ] [ text "ユーザー" ], a [ id "btn-sessionlist", class "btn btn-light btn-sm", href "#/sessions/" ] [ text "セッション" ] ]
              ]
                 ++ (case model.page of
                         UserPage _ ->
@@ -194,11 +195,36 @@ leftMenu model =
                         UserListPage ->
                             showUsers model
 
+                        WorkspacePage _ ->
+                            showWorkspaces model
+
+                        WorkspaceListPage ->
+                            showWorkspaces model
+
                         _ ->
                             showChannels model
                    )
             )
         ]
+
+
+showWorkspaces : Model -> List (Html Msg)
+showWorkspaces model =
+    [ div [] [ text "ワークスペース一覧" ]
+    , ul [ class "menu-list" ] <|
+        List.indexedMap
+            (\i w ->
+                li []
+                    [ hr [] []
+                    , div
+                        [ classList [ ( "chatlist-name", True ), ( "clickable", True ), ( "current", WorkspacePage w.id == model.page ) ]
+                        ]
+                        [ a [ href <| "#/workspaces/" ++ w.id ] [ text <| String.fromInt (i + 1) ++ ": " ++ w.name ++ " (" ++ (String.fromInt <| List.length w.members) ++ ")" ]
+                        ]
+                    ]
+            )
+            (List.sortBy (\w -> 0 - List.length w.members) (Dict.values model.workspaces))
+    ]
 
 
 showChannels : Model -> List (Html Msg)
@@ -252,6 +278,22 @@ showUsers model =
             )
             (Dict.values model.users)
     ]
+
+
+mkWorkspacePanel : Model -> Workspace -> Html Msg
+mkWorkspacePanel model ws =
+    div
+        [ classList [ ( "ws-list-item", True ) ]
+        ]
+        [ div []
+            [ div [ class "name" ]
+                [ a [ class "clickable", href <| "#/workspaces/" ++ ws.id ]
+                    [ text ws.name
+                    ]
+                ]
+            , div [ class "ws-panel-member" ] (List.intersperse (text ", ") <| List.map (\n -> a [ class "clickable", href <| "#/users/" ++ n ] [ text (getUserName model n) ]) ws.members)
+            ]
+        ]
 
 
 mkPeoplePanel : Model -> Set.Set String -> String -> Html Msg
