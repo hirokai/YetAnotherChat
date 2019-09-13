@@ -76,32 +76,8 @@
     <div id='info'></div>
 
     <script>
-        function loadOrDownloadKeyPair() {
-            return new Promise((resolve) => {
-                const storeName = 'yacht.keyPair'
-                const openReq = indexedDB.open(storeName);
-
-                openReq.onupgradeneeded = function (event) {
-                    var db = event.target.result;
-                    db.createObjectStore(storeName, { keyPath: 'id' });
-                }
-                openReq.onsuccess = function (event) {
-                    // console.log('openReq.onsuccess');
-                    var db = event.target.result;
-                    var trans = db.transaction(storeName, 'readonly');
-                    var store = trans.objectStore(storeName);
-                    var req = store.get('myself');
-                    req.onsuccess = function () {
-                        resolve(req.result ? req.result.keyPair : null);
-                    }
-                    req.onerror = function () {
-                        resolve(null);
-                    }
-                    trans.oncomplete = function () {
-                    }
-                }
-            });
-
+        function reset_password() {
+            console.log("reset");
         }
         function submit(a) {
         }
@@ -114,17 +90,17 @@
                     const password = $('#password').val();
                     console.log(username, password);
                     $.post('/api/login', { username, password }).then((res) => {
-                        // console.log(res);
+                        console.log(res);
                         if (res.ok && res.token) {
                             localStorage.setItem("yacht.token", res.token);
                             localStorage.setItem("yacht.user_id", res.decoded.user_id);
                             localStorage.setItem("yacht.username", res.decoded.username);
                             localStorage.setItem("yacht.db_password", res.local_db_password);
-                            location.href = '/main' + location.hash;
+                            location.href = '/main' + (location.hash || '');
                         } else {
                             $('#password').val('');
                             $('#password').focus();
-                            $('#info').html('ユーザー名あるいはパスワードが間違っています。')
+                            $('#info').html('ユーザー名あるいはパスワードが間違っています。<br><a href="/reset_password">パスワードをリセットするメールを送る</a>')
                         }
                     });
                 }

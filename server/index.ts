@@ -21,10 +21,11 @@ import * as ec from './error_codes';
 import multer from 'multer';
 import * as mail_algo from './model/mail_algo'
 import * as utils from './model/utils'
+import * as email from './email'
 import { db } from './model/utils'
 const credential = require('./private/credential');
 import * as bunyan from 'bunyan';
-const log = bunyan.createLogger({ name: "index", src: true });
+const log = bunyan.createLogger({ name: "index", src: true, level: 1 });
 
 utils.connectToDB();
 
@@ -62,8 +63,23 @@ app.use(morgan(':date[iso] :user_id :method :url :status - :res[content-length] 
 app.set("view engine", "ejs");
 var compression = require('compression');
 app.use(compression());
+
 const helmet = require('helmet')
 app.use(helmet());
+const rateLimit = require('express-rate-limit');
+const resetPasswordLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000, // 10 min window
+    max: 100,
+    message:
+        "Too many password reset from this IP, please try again after 10 minutes"
+});
+
+const loginLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 min window
+    max: 100,
+    message:
+        "Too many login attempts from this IP, please try again after one minute"
+});
 
 const upload = multer({
     dest: './uploads/',
@@ -167,11 +183,42 @@ app.get('/main', (req, res, next) => {
     }
 });
 
+app.post('/api/reset_password', (req, res, next) => {
+    (async () => {
+        const ok = await model.users.reset_password_from_link(req.body.token, req.body.password);
+        res.send({ ok });
+    })().catch(next);
+});
+
+
+app.get('/reset_password/:reset_password_token', resetPasswordLimiter, (req, res, next) => {
+    (async () => {
+        const token = req.params.reset_password_token;
+        const user: User | null = await model.users.get_user_for_reset_password_token(token);
+        if (user) {
+            res.render(path.join(__dirname, 'view', './reset_password_from_link.ejs'), {
+                token,
+                user
+            });
+        } else {
+            res.send('リンクが無効あるいは期限切れです。');
+        }
+    })().catch(next);
+});
+
+app.get('/reset_password', resetPasswordLimiter, (req, res, next) => {
+    try {
+        res.sendFile(path.join(__dirname, '../public/html/reset_password.html'));
+    } catch (e) {
+        next(e);
+    }
+});
+
 app.get('/public_keys', (req, res, next) => {
     try {
         const net = credential.ethereum;
         log.info(net);
-        res.render(path.join(__dirname, './public_keys.ejs'), {
+        res.render(path.join(__dirname, 'view', './public_keys.ejs'), {
             contract: net.contract,
             owner: net.account,
             name: net.name,
@@ -186,7 +233,7 @@ app.get('/public_keys', (req, res, next) => {
 app.get('/email/:id', (req, res, next) => {
     (async () => {
         const { lines, subject, range } = await model.get_original_email_highlighted(req.params.id);
-        res.render(path.join(__dirname, './email.ejs'), { lines, subject, range });
+        res.render(path.join(__dirname, 'view', './email.ejs'), { lines, subject, range });
     })().catch(next);
 });
 
@@ -258,7 +305,7 @@ app.post('/webhook/mailgun', multer().none(), (req, res, next) => {
     })().catch(next);
 });
 
-app.post('/api/login', (req: MyPostRequest<LoginParams>, res, next) => {
+app.post('/api/login', loginLimiter, (req: MyPostRequest<LoginParams>, res, next) => {
     (async () => {
         const { username, password } = req.body;
         log.info({ username, password });
@@ -315,6 +362,35 @@ app.get('/api/verify_token', (req, res, next) => {
     })().catch(next);
 });
 
+app.post('/api_public/reset_password', (req, res, next) => {
+    (async () => {
+        const q: string = req.body.q;
+        const u = await model.users.find_user_from_email(q);
+        if (u != null) {
+            const email_ = u.emails[0];
+            if (email_) {
+                await email.send_reset_password_link(u);
+                res.json({ ok: true });
+            } else {
+                res.json({ ok: false, error: 'No email registered' });
+            }
+        } else {
+            const u2 = await model.users.find_from_username(q);
+            if (u2 != null) {
+                const email_ = u2.emails[0];
+                if (email_) {
+                    await email.send_reset_password_link(u2);
+                    res.json({ ok: true });
+                } else {
+                    res.json({ ok: false, error: 'No email registered' });
+                }
+            } else {
+                res.json({ ok: false, error: 'Not found' });
+            }
+        }
+    })().catch(next);
+});
+
 // http://dotnsf.blog.jp/archives/1067083257.html
 
 app.use(function (req, res, next) {
@@ -359,6 +435,7 @@ app.post('/api/logout/', (req, res, next) => {
         res.json({ ok: true, user_id });
     })().catch(next);
 })
+
 
 app.get('/api/matrix', (req, res, next) => {
     (async () => {

@@ -8,6 +8,10 @@ import * as users from './users'
 import * as error_code from '../error_codes'
 import * as user_info from '../private/user_info'
 import crypto from 'crypto'
+import uuid from 'uuid/v4'
+const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+import baseX from 'base-x';
+const bs58 = baseX(BASE58);
 
 import { fingerPrint } from '../../common/common_model'
 
@@ -127,16 +131,13 @@ export async function list_online_users(): Promise<string[]> {
     });
 }
 
-export function get_user_password_hash(user_id: string): Promise<string | null> {
-    return new Promise((resolve) => {
-        if (!user_id) {
-            resolve(null);
-        } else {
-            db.get('select password from users where id=?', user_id, (err, row) => {
-                resolve(row ? row['password'] : null);
-            });
-        }
-    });
+export async function get_user_password_hash(user_id: string): Promise<string | null> {
+    if (!user_id) {
+        return null;
+    } else {
+        const row = await db_.get<{ password: string }>('select password from users where id=?', user_id).catch(() => null);
+        return row ? row.password : null;
+    }
 }
 
 export function merge(db, users: UserSubset[]) {
@@ -464,5 +465,50 @@ export async function set_profile(user_id: string, key: string, value: string): 
             }
         });
     });
+}
+
+
+const PasswordResetLinkExpirationPeriod = 1000 * 60 * 60 * 24;
+
+export async function make_password_reset_token(user: User): Promise<{ token: string, expiresAt: number }> {
+    const token = await new Promise<string>((resolve) => {
+        crypto.randomBytes(32, (err, buf) => {
+            if (err) throw err;
+            const token = bs58.encode(buf);
+            resolve(token);
+        });
+    });
+    const timestamp = new Date().getTime();
+    const expiresAt = timestamp + PasswordResetLinkExpirationPeriod;
+    await db_.run('insert into temporary_tokens (user_id,timestamp,kind,token) values (?,?,?,?);', user.id, timestamp, 'password_reset', token);
+    return { token, expiresAt };
+}
+
+export async function remove_password_reset_token(token: string) {
+    await db_.run('delete from temporary_tokens where kind=? and token=?;', 'password_reset', token);
+}
+
+export async function get_user_for_reset_password_token(token: string): Promise<User | null> {
+    const timestamp_since = new Date().getTime() - PasswordResetLinkExpirationPeriod;
+    const row = await db_.get<{ user_id: string }>('select * from temporary_tokens where kind=? and token=? and timestamp>?;', 'password_reset', token, timestamp_since).catch(() => null);
+    if (row == null) {
+        return null;
+    } else {
+        const user = await get(row.user_id);
+        return user;
+    }
+}
+
+export async function reset_password_from_link(token: string, password: string): Promise<boolean> {
+    const user = await get_user_for_reset_password_token(token);
+    if (user == null) {
+        return false;
+    } else {
+        const ok = await save_password(user.id, password);
+        if (ok) {
+            await remove_password_reset_token(token);
+        }
+        return ok;
+    }
 }
 

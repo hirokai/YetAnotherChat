@@ -81,7 +81,7 @@
             <input id='password' type="password" name="password" minlength='2' required />
         </div>
         <div id='info-username'></div>
-        <div style='margin-top: 20px;'>以下は任意ですが，入れると便利です</div>
+        <div style='margin-top: 20px;'>以下は任意ですが，入れると便利です（パスワード紛失時のリセットにはEmailが必要です）</div>
         <div class='input'>
             <label class='input'>フルネーム：</label>
             <input id='fullname' type="text" name="fullname" />
@@ -114,6 +114,10 @@
                     const username = $('#username').val();
                     if (username.slice(0, 2) == '__') {
                         $('#info-username').html('無効なユーザー名です（"__"から始まることはできません）')
+                        return;
+                    }
+                    if (username.indexOf('@') != -1) {
+                        $('#info-username').html('無効なユーザー名です（"@"を含めることはできません）')
                         return;
                     }
                     const password = $('#password').val();
