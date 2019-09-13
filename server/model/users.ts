@@ -96,11 +96,29 @@ export async function add_to_contact(myself: string, contact: string) {
 }
 
 export async function list(myself: string): Promise<User[]> {
-    const rows: { [key: string]: any } = await
-        db_.all("select users.source,users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profiles.profile_value as avatar from users join user_emails on users.id=user_emails.user_id join profiles on users.id=profiles.user_id join contacts on contacts.contact_id=users.id where profiles.profile_name='avatar' and contacts.user_id=? group by users.id;", myself);
-    const rows_from_ws = await db_.all('select users.source,users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profiles.profile_value as avatar from users join user_emails on users.id=user_emails.user_id join profiles on users.id=profiles.user_id join users_in_workspaces as w1 on users.id=w1.user_id join users_in_workspaces as w2 on w1.workspace_id=w2.workspace_id where w2.user_id=? group by w1.user_id;', myself);
+    const rows: { [key: string]: any } = await db_.all(`
+    select users.source,users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profiles.profile_value as avatar from users
+    join user_emails on users.id=user_emails.user_id
+    join profiles on users.id=profiles.user_id
+    join contacts on contacts.contact_id=users.id
+    where profiles.profile_name='avatar' and contacts.user_id=?
+    group by users.id;`, myself);
+    const rows_from_ws = await db_.all(`
+    select users.source,users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profiles.profile_value as avatar from users
+    join user_emails on users.id=user_emails.user_id
+    join profiles on users.id=profiles.user_id
+    join users_in_workspaces as w1 on users.id=w1.user_id
+    join users_in_workspaces as w2 on w1.workspace_id=w2.workspace_id
+    where w2.user_id=?
+    group by w1.user_id;`, myself);
+    const rows_myself: { [key: string]: any } = await db_.all(`
+    select users.source,users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profiles.profile_value as avatar from users
+    join user_emails on users.id=user_emails.user_id
+    join profiles on users.id=profiles.user_id
+    where profiles.profile_name='avatar' and users.id=?
+    group by users.id;`, myself);
     const online_users = await list_online_users();
-    const rows_all = rows.concat(rows_from_ws);
+    const rows_all = rows.concat(rows_from_ws).concat(rows_myself);
     const users = compact(await Promise.all(map(rows_all, async (row): Promise<User | null> => {
         const user_id = row['id'];
         const pub = await get_public_key(user_id)
