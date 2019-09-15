@@ -363,9 +363,14 @@ type GetWorkspaceResponse = {
     ok: boolean,
     data?: Workspace
 }
+
 type PostWorkspaceData = {
     name: string,
     members: string[]
+}
+
+type DeleteWorkspaceResponse = {
+    ok: boolean
 }
 
 type PostWorkspaceResponse = {

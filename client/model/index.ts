@@ -816,6 +816,10 @@ export class Model {
             const { data: { ok, data } }: AxiosResponse<GetWorkspacesResponse> = await axios.get('/api/workspaces');
             console.log('workspaces.list', data);
             return keyBy(data, (d) => d.id);
+        },
+        delete: async (id: string): Promise<boolean> => {
+            const { data: { ok } }: AxiosResponse<DeleteWorkspaceResponse> = await axios.delete('/api/workspaces/' + id);
+            return ok
         }
     }
 }

@@ -20,7 +20,7 @@ export async function list(user_id: string): Promise<Workspace[]> {
     return wss;
 }
 
-export async function get(user_id: string, workspace_id: string): Promise<Workspace> {
+export async function get(user_id: string, workspace_id: string): Promise<Workspace | null> {
     const rows = await db_.all<{ id: string, user_id: string, name: string, metadata: string }>('select w.id,u2.user_id,w.name,u2.metadata from workspaces as w join users_in_workspaces as u on w.id=u.workspace_id join users_in_workspaces as u2 on w.id=u2.workspace_id where u.user_id=? and w.id=?;', user_id, workspace_id);
     const metadata: { [key: string]: UserInWorkspaceMetadata } = _.fromPairs(_.compact(_.map(rows, (v): [string, UserInWorkspaceMetadata] | null => {
         try {
@@ -53,4 +53,17 @@ export async function create(user_id: string, name: string, members: string[]): 
     }
     const data: Workspace = { id, name, members, owner: user_id };
     return { ok: true, data }
+}
+
+
+export async function remove(user_id: string, workspace_id: string): Promise<{ ok: boolean }> {
+    const ws = await get(user_id, workspace_id);
+    if (ws) {
+        if (ws.owner == user_id) {
+            db_.run('delete from users_in_workspaces where workspace_id=?;', workspace_id);
+            db_.run('delete from workspaces where id=?;', workspace_id);
+            return { ok: true };
+        }
+    }
+    return { ok: false };
 }

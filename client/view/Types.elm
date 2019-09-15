@@ -243,6 +243,7 @@ type Msg
     | ResetUserCache
     | SetValue String String
     | SaveConfigLocalBool String Bool
+    | DeleteWorkspace String
     | NoOp
 
 

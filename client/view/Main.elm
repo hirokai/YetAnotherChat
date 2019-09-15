@@ -369,6 +369,13 @@ update msg model =
         SearchUser q ->
             ( { model | searchKeyword = q }, Cmd.none )
 
+        DeleteWorkspace ws ->
+            let
+                ( m, c ) =
+                    enterWorkspaceList model
+            in
+            ( m, Cmd.batch [ c, deleteWorkspace ws ] )
+
         SaveConfigLocalBool k v ->
             let
                 s =

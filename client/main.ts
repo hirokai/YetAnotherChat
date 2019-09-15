@@ -177,6 +177,14 @@ window['importKey'] = crypto.importKey;
         }
     });
 
+    app.ports.deleteWorkspace.subscribe(async (workspace_id) => {
+        const ok = await model.workspaces.delete(workspace_id);
+        if (ok) {
+            const wss = await model.workspaces.list();
+            app.ports.feedWorkspaces.send(values(wss));
+        }
+    });
+
     app.ports.scrollToBottom.subscribe(scrollToBottom);
 
     app.ports.scrollTo.subscribe(scrollTo);
@@ -647,6 +655,7 @@ interface ElmAppPorts {
     feedUserImages: ElmSend<UserImages>;
     deleteFile: ElmSub<string>;
     deleteSession: ElmSub<{ id: string }>;
+    deleteWorkspace: ElmSub<string>;
     reloadSession: ElmSub<string>;
     reloadSessions: ElmSub<void>;
     saveConfig: ElmSub<{ userWithEmailOnly: boolean }>;

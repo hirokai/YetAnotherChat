@@ -99,6 +99,7 @@ workspaceView model ws =
                 , smallMenu
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text <| "ワークスペース：" ++ ws.name ]
+                    , if ws.owner == model.myself then div [] [button [class "btn btn-danger", onClick (DeleteWorkspace ws.id)] [text "削除"]] else text ""
                     , div [] [span [] [text "オーナー: "], span [] [text <| getUserNameDisplay model ws.owner]]
                     , div []
                         [ table [ class "table" ]

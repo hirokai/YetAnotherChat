@@ -470,14 +470,26 @@ app.get('/api/workspaces/:id', (req: GetAuthRequest, res: JsonResponse<GetWorksp
         if (req.params) {
             const user_id = req.decoded.user_id;
             const workspace_id = req.params.id;
-            const wss = await model.workspaces.get(user_id, workspace_id);
-            res.json({ ok: true, data: wss });
+            const ws = await model.workspaces.get(user_id, workspace_id);
+            res.json({ ok: ws != null, data: ws || undefined });
         } else {
             res.json({ ok: false });
         }
     })().catch(next);
 });
 
+app.delete('/api/workspaces/:id', (req: GetAuthRequest, res: JsonResponse<DeleteWorkspaceResponse>, next) => {
+    (async () => {
+        if (req.params) {
+            const user_id = req.decoded.user_id;
+            const workspace_id = req.params.id;
+            const { ok } = await model.workspaces.remove(user_id, workspace_id);
+            res.json({ ok });
+        } else {
+            res.json({ ok: false });
+        }
+    })().catch(next);
+});
 
 app.get('/api/users', (req: GetAuthRequest, res: JsonResponse<GetUsersResponse>, next) => {
     (async () => {
