@@ -8,7 +8,7 @@ export const random_str = (N) => {
 
 export async function register(opt?: { basename?: string, username?: string, fullname?: string, password?: string, email?: string, source?: 'self_register' | 'email_thread' | undefined }): Promise<User> {
     opt = opt || {};
-    const username = (opt.basename || random_str(4)) + Math.floor(Math.random() * 100000);
+    const username = opt.username || (opt.basename || random_str(4)) + Math.floor(Math.random() * 100000);
     const fullname = opt.fullname;
     const password = opt.password || random_str(16);
     const source = opt.source || 'self_register';

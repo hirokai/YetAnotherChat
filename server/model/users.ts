@@ -257,7 +257,12 @@ export async function find_user_from_email(email: string): Promise<User | null> 
         return null;
     } else {
         const { err, row } = await new Promise<{ err: any, row: UserWithEmail }>((resolve) => {
-            db.get('select users.source,users.timestamp,users.id,users.name,users.fullname,group_concat(distinct user_emails.email) as emails,profile_value from users join user_emails on users.id=user_emails.user_id join profiles on profiles.user_id=users.id group by users.id having emails like ?;', '%' + email + '%', (err, row: UserWithEmail) => {
+            db.get(`
+            select users.*,group_concat(distinct user_emails.email) as emails,profile_value from users
+            join user_emails on users.id=user_emails.user_id
+            join profiles on profiles.user_id=users.id
+            where user_emails.email=?
+            group by users.id;`, email, (err, row: UserWithEmail) => {
                 resolve({ err, row })
             });
         });
@@ -278,7 +283,12 @@ export async function find_user_from_email(email: string): Promise<User | null> 
 }
 
 export async function find_from_username(username: string): Promise<User | null> {
-    const row = await db_.get("select users.source,users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails, profile_value from users join user_emails on users.id=user_emails.user_id join profiles on profiles.user_id=users.id where users.name=? and profiles.profile_name='avatar' group by users.id;", username);
+    const row = await db_.get(`
+    select users.*,group_concat(distinct user_emails.email) as emails,profiles.profile_value from users
+    join user_emails on users.id=user_emails.user_id 
+    join profiles on profiles.user_id=users.id 
+    where users.name=? and profiles.profile_name='avatar'
+    group by users.id;`, username);
     if (row) {
         const user_id = row['id']
         const emails = row['emails'] ? row['emails'].split(',') : [];

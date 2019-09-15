@@ -247,7 +247,7 @@ async function get_random_string(length: number = 32) {
     });
 }
 
-describe.only('Pwned password', () => {
+describe('Pwned password', () => {
     test('Bad passwords', async done => {
         let hrstart = process.hrtime()
         let r = await model.users.check_password_not_pwned('1234');
@@ -281,6 +281,12 @@ describe.only('Pwned password', () => {
         done();
     });
 })
+
+// describe.only('Email', () => {
+//     test('stub', () => {
+
+//     });
+// });
 
 /*
 test('Merge', async () => {

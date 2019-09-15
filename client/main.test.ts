@@ -15,7 +15,7 @@ describe('Login', () => {
 
     beforeAll(async done => {
         browser = await puppeteer.launch({
-            headless: false,  // 動作確認するためheadlessモードにしない
+            headless: true,
             slowMo: 100  // 動作確認しやすいようにpuppeteerの操作を遅延させる
         });
         page = await browser.newPage();
@@ -47,7 +47,7 @@ describe('Register page', () => {
     let browser: puppeteer.Browser;
     beforeAll(async done => {
         browser = await puppeteer.launch({
-            headless: false,  // 動作確認するためheadlessモードにしない
+            headless: true,
             slowMo: 100  // 動作確認しやすいようにpuppeteerの操作を遅延させる
         });
         page = await browser.newPage();
