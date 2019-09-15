@@ -187,6 +187,7 @@ window['importKey'] = crypto.importKey;
         const ws = await model.workspaces.create(name, members);
         if (ws != null) {
             model.workspaces.list().then((wss) => {
+                console.log('feedWorkspaces 2', values(wss));
                 app.ports.feedWorkspaces.send(values(wss));
                 location.href = '#/workspaces/' + ws.id;
             });
@@ -220,7 +221,7 @@ window['importKey'] = crypto.importKey;
         getUserImages();
         getAndfeedRoomInfo();
         model.workspaces.list().then((ws) => {
-            console.log(ws);
+            console.log('initializeData workspace', values(ws));
             app.ports.feedWorkspaces.send(values(ws));
         })
     });

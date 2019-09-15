@@ -76,6 +76,10 @@ update msg model =
             ( model, reloadSessions () )
 
         FeedWorkspaces ws ->
+            let
+                _ =
+                    Debug.log "FeedWorkspaces" ws
+            in
             ( { model | workspaces = Dict.fromList <| List.map (\u -> ( u.id, u )) ws }, Cmd.none )
 
         FeedUsers users ->

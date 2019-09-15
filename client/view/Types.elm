@@ -15,6 +15,7 @@ appName =
 type alias Workspace =
     { id : String
     , name : String
+    , owner : String
     , members : List String
     }
 

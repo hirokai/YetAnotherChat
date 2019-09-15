@@ -358,7 +358,7 @@ export async function register({ username, password, email, fullname, source }: 
         }
         const existing_user = await find_from_username(username);
         const existing_user2 = email ? await find_user_from_email(email) : null;
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             if (existing_user) {
                 resolve({ ok: false, error_code: error_code.USER_EXISTS, error: 'User name already exists' });
             } else if (existing_user2) {
@@ -377,6 +377,9 @@ export async function register({ username, password, email, fullname, source }: 
                                 const emails = email ? [email] : [];
                                 const user: User = {
                                     id: user_id, fullname: fullname || undefined, username, emails, avatar, online: false, timestamp, registered: source == 'self_register', publicKey: undefined
+                                }
+                                if (!_.includes(user.emails, email)) {
+                                    reject('Unknown error');
                                 }
                                 resolve({ ok: true, user });
                             });

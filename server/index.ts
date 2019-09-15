@@ -449,9 +449,9 @@ app.get('/api/matrix', (req, res, next) => {
     })().catch(next);
 });
 
-app.post('/api/workspaces', (req, res, next) => {
+app.post('/api/workspaces', (req: PostRequest<any>, res, next) => {
     (async () => {
-        const r = await model.workspaces.create(req.body.name, req.body.members)
+        const r = await model.workspaces.create(req.decoded.user_id, req.body.name, req.body.members)
         res.json(r);
     })().catch(next);
 })

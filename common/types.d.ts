@@ -151,6 +151,7 @@ interface SessionEventClient extends ChatEntryClientCommon {
 interface Workspace {
     id: string
     name: string
+    owner: string,
     members: string[]
 }
 
@@ -468,4 +469,8 @@ type LocalConfig = {
     expand_toppane: boolean
     expand_chatinput: boolean
     show_users_with_email_only: boolean
+}
+
+type UserInWorkspaceMetadata = {
+    role?: 'owner' | 'member'
 }
