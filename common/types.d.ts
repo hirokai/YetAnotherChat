@@ -18,7 +18,7 @@ type RoomInfoClient = {
     timestamp: number,
     formattedTime: string,
     members: Array<string>
-    workspace?: string
+    workspace: string
 }
 
 interface PostCommentResponse {

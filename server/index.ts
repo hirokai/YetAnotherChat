@@ -505,7 +505,6 @@ app.get('/api/workspaces/:id/sessions', (req: GetAuthRequest, res: JsonResponse<
     })().catch(next);
 });
 
-
 app.get('/api/users', (req: GetAuthRequest, res: JsonResponse<GetUsersResponse>, next) => {
     (async () => {
         const users = await model.users.list(req.decoded.user_id);
@@ -691,6 +690,7 @@ app.get('/api/sessions', (req: GetAuthRequest, res: JsonResponse<GetSessionsResp
 interface PostRequest<T> {
     decoded: { user_id: string, username: string },
     body: T
+    params?: any
 }
 
 interface DeleteRequest<T, U> {
@@ -699,14 +699,10 @@ interface DeleteRequest<T, U> {
     params: T
 }
 
-app.post('/api/sessions', (req: PostRequest<PostSessionsParam>, res: JsonResponse<PostSessionsResponse>) => {
-    const body = req.body;
-    const members = uniq(body.members.concat([req.decoded.user_id]));
-    const name = body.name;
-    const temporary_id = body.temporary_id;
-    (async () => {
+async function post_session(user_id: string, temporary_id: string, name: string, members: string[], workspace?: string) {
+    try {
         if (name && members) {
-            const data = await model.sessions.create(req.decoded.user_id, name, members);
+            const data = await model.sessions.create(user_id, name, members, workspace);
             const obj: SessionsNewSocket = {
                 __type: 'sessions.new',
                 temporary_id,
@@ -717,20 +713,41 @@ app.post('/api/sessions', (req: PostRequest<PostSessionsParam>, res: JsonRespons
                 const socket_ids: string[] = await model.users.get_socket_ids(m);
                 log.info('emitting to', socket_ids);
                 socket_ids.forEach(socket_id => {
-
                     log.info('sessions.new socket', obj);
-                    // io.to(socket_id).emit("sessions.new", obj);
+                    io.to(socket_id).emit("sessions.new", obj);
                 })
             });
-            res.json({ ok: true, data });
+            return ({ ok: true, data });
         } else {
-            res.json({ ok: false, error: 'Name and members are necessary' });
+            return ({ ok: false, error: 'Name and members are necessary' });
         }
-    })().catch((error) => {
-        res.json({ ok: false, error });
-    });
+    } catch (error) {
+        return ({ ok: false, error });
+    }
+}
+
+app.post('/api/sessions', (req: PostRequest<PostSessionsParam>, res: JsonResponse<PostSessionsResponse>, next) => {
+    (async () => {
+        const body = req.body;
+        const members = uniq(body.members.concat([req.decoded.user_id]));
+        const name = body.name;
+        const temporary_id = body.temporary_id;
+        const r = await post_session(req.decoded.user_id, temporary_id, name, members);
+        res.json(r);
+    })().catch(next);
 });
 
+app.post('/api/workspaces/:wid/sessions', (req: PostRequest<PostSessionsParam>, res: JsonResponse<PostSessionsResponse>, next) => {
+    (async () => {
+        const body = req.body;
+        const members = uniq(body.members.concat([req.decoded.user_id]));
+        const name = body.name;
+        const temporary_id = body.temporary_id;
+        const r = await post_session(req.decoded.user_id, temporary_id, name, members, req.params.wid);
+        log.debug(r);
+        res.json(r);
+    })().catch(next);
+});
 
 app.post('/api/sessions/:session_id/comments/delta', (req: MyPostRequest<GetCommentsDeltaData>, res, next) => {
     // https://qiita.com/yukin01/items/1a36606439123525dc6d

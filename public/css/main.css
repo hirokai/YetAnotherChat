@@ -470,8 +470,7 @@ a {
     font-size: 12px;
 }
 
-#btn-sessionlist {
-}
+#btn-sessionlist {}
 
 #topright-buttons {
     float: right;
@@ -532,6 +531,7 @@ textarea[disabled] {
 }
 
 #chat-participants ul {
+    display: inline-block;
     list-style-type: disc;
     padding: 0px;
     margin-bottom: 2px;

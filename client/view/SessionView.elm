@@ -17,7 +17,7 @@ initialChatPageStatus show_top_pane expand_chatinput =
     { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing, topPaneExpanded = show_top_pane, shrunkEntries = False, fontSize = 3, expandChatInput = expand_chatinput, chatInputActive = True, showVideoDiv = False, videoMembers = Set.empty }
 
 
-chatRoomView : RoomID -> Model -> { title : String, body : List (Html Msg) }
+chatRoomView : RoomInfo -> Model -> { title : String, body : List (Html Msg) }
 chatRoomView room model =
     { title = appName
     , body =
@@ -26,30 +26,10 @@ chatRoomView room model =
                 [ leftMenu model
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10", id "chatroom_body" ]
                     [ topPane model
-                    , div [ id "chat-body", classList [ ( "row", True ), ( "input_expanded", model.chatPageStatus.expandChatInput ), ( "toppane_expanded", model.chatPageStatus.topPaneExpanded ) ], attribute "data-session_id" room ]
+                    , div [ id "chat-body", classList [ ( "row", True ), ( "input_expanded", model.chatPageStatus.expandChatInput ), ( "toppane_expanded", model.chatPageStatus.topPaneExpanded ) ], attribute "data-session_id" room.id ]
                         [ div [ class "col-md-12 col-lg-12", id "chat-outer" ]
                             [ roomTitle room model
-                            , div [ id "chat-participants" ]
-                                [ ul [] <|
-                                    List.map
-                                        (\u ->
-                                            case getUserInfo model u of
-                                                Just user ->
-                                                    a [ href <| "#/users/" ++ u ]
-                                                        [ li []
-                                                            [ span [ classList [ ( "online-mark", True ), ( "hidden-animate", not user.online ) ] ] [ text "●" ]
-                                                            , span [] [ text user.username ]
-                                                            , text "("
-                                                            , a [] [ text <| String.join "," <| List.intersperse "," user.emails ]
-                                                            , text ")"
-                                                            ]
-                                                        ]
-
-                                                Nothing ->
-                                                    li [] []
-                                        )
-                                        (roomUsers room model)
-                                ]
+                            , chatParticipants room model
                             , hr [] []
                             , div [] (chatBody room model)
                             ]
@@ -62,7 +42,37 @@ chatRoomView room model =
     }
 
 
-roomTitle : String -> Model -> Html Msg
+chatParticipants : RoomInfo -> Model -> Html msg
+chatParticipants room model =
+    let
+        ws_name =
+            Maybe.withDefault "" <| Maybe.map .name <| Dict.get room.workspace model.workspaces
+    in
+    div [ id "chat-participants" ]
+        [ span [ title <| "ワークスペース名: " ++ ws_name ] [ text ws_name ]
+        , ul [ id "chat-participants-list" ] <|
+            List.map
+                (\u ->
+                    case getUserInfo model u of
+                        Just user ->
+                            a [ href <| "#/users/" ++ u ]
+                                [ li []
+                                    [ span [ classList [ ( "online-mark", True ), ( "hidden-animate", not user.online ) ] ] [ text "●" ]
+                                    , span [] [ text user.username ]
+                                    , text "("
+                                    , a [] [ text <| String.join "," <| List.intersperse "," user.emails ]
+                                    , text ")"
+                                    ]
+                                ]
+
+                        Nothing ->
+                            li [] [ span [] [ text "(N/A)" ] ]
+                )
+                room.members
+        ]
+
+
+roomTitle : RoomInfo -> Model -> Html Msg
 roomTitle room model =
     h1 [ id "room-title" ]
         [ if Set.member "room-title" model.editing then
@@ -73,26 +83,26 @@ roomTitle room model =
                         nv =
                             Maybe.withDefault "" <| Dict.get "room-title" model.editingValue
                      in
-                     EditingKeyDown "room-title" (updateRoomName room nv) (sendRoomName { id = room, new_name = nv })
+                     EditingKeyDown "room-title" (updateRoomName room.id nv) (sendRoomName { id = room.id, new_name = nv })
                     )
                 , onInput (UpdateEditingValue "room-title")
                 ]
                 []
 
           else
-            text <| Maybe.withDefault "(N/A)" (Maybe.map (\a -> a.name) (Dict.get room model.roomInfo))
-        , a [ id "edit-roomname", class "clickable", onClick (StartEditing "room-title" (roomName room model)) ] [ text "Edit" ]
-        , a [ id "delete-room", class "clickable", onClick (DeleteRoom room) ] [ text "Delete" ]
-        , a [ id "reload-room", class "btn btn-light", onClick (ReloadRoom room) ] [ text "Reload" ]
+            text room.name
+        , a [ id "edit-roomname", class "clickable", onClick (StartEditing "room-title" room.id) ] [ text "Edit" ]
+        , a [ id "delete-room", class "clickable", onClick (DeleteRoom room.id) ] [ text "Delete" ]
+        , a [ id "reload-room", class "btn btn-light", onClick (ReloadRoom room.id) ] [ text "Reload" ]
         , if Set.isEmpty model.chatPageStatus.videoMembers then
-            a [ id "start-video", class "btn btn-sm btn-light", onClick (ChatPageMsg <| StartVideo room) ] [ text "ビデオ通話を開始" ]
+            a [ id "start-video", class "btn btn-sm btn-light", onClick (ChatPageMsg <| StartVideo room.id) ] [ text "ビデオ通話を開始" ]
 
           else
-            a [ id "start-video", class "btn btn-sm btn-primary", onClick (ChatPageMsg <| StartVideo room) ] [ text "ビデオ通話に参加" ]
+            a [ id "start-video", class "btn btn-sm btn-primary", onClick (ChatPageMsg <| StartVideo room.id) ] [ text "ビデオ通話に参加" ]
         ]
 
 
-chatBody : String -> Model -> List (Html Msg)
+chatBody : RoomInfo -> Model -> List (Html Msg)
 chatBody room model =
     case model.chatPageStatus.messages of
         Just messages ->
@@ -157,6 +167,7 @@ chatBody room model =
             []
 
 
+videoDiv : RoomInfo -> Model -> Html Msg
 videoDiv room model =
     let
         remoteVideoCell uid n =
@@ -167,7 +178,7 @@ videoDiv room model =
                 ]
 
         users =
-            List.filter (\u -> u /= model.myself) <| roomUsers room model
+            List.filter (\u -> u /= model.myself) <| roomUsers room.id model
     in
     div [ id "video-div" ] <|
         [ div [ class "video-div-cell" ]
@@ -177,10 +188,10 @@ videoDiv room model =
             ]
         ]
             ++ List.indexedMap (\i u -> remoteVideoCell u i) users
-            ++ [ button [ class "btn btn-primary", id "stop-video", onClick (ChatPageMsg <| StopVideo room) ] [ text "終了" ] ]
+            ++ [ button [ class "btn btn-primary", id "stop-video", onClick (ChatPageMsg <| StopVideo room.id) ] [ text "終了" ] ]
 
 
-footer : String -> Model -> Html Msg
+footer : RoomInfo -> Model -> Html Msg
 footer room model =
     div [ classList [ ( "col-lg-10", True ), ( "col-md-7", True ), ( "expanded", model.chatPageStatus.expandChatInput ) ], id "footer_wrapper" ]
         [ div [ class "col-md-12 col-lg-12", id "footer" ]
@@ -196,7 +207,7 @@ footer room model =
                         1
                     )
                 , onInput (UpdateEditingValue "chat")
-                , onKeyDown (onKeyDownTextArea model room)
+                , onKeyDown (onKeyDownTextArea model room.id)
                 , disabled (not model.chatPageStatus.chatInputActive)
                 , value
                     (Maybe.withDefault "" <| Dict.get "chat" model.editingValue)

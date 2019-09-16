@@ -25,7 +25,8 @@ sessionListView model =
                     , table [ id "list-sessions-wrapper", class "table" ]
                         [ thead []
                             [ tr []
-                                [ th [] [ text "名前" ]
+                                [ th [] [ text "ワークスペース" ]
+                                , th [] [ text "名前" ]
                                 , th [] [ text "メンバー" ]
                                 , th [] [ text "最終更新" ]
                                 ]
@@ -46,15 +47,18 @@ sessionListView model =
 
 mkSessionRowInList : Model -> RoomID -> Html Msg
 mkSessionRowInList model room_id =
-    let
-        room_ : Maybe RoomInfo
-        room_ =
-            Dict.get room_id model.roomInfo
-    in
-    case room_ of
+    case Dict.get room_id model.roomInfo of
         Just room ->
+            let
+                ws_m =
+                    Dict.get room.workspace model.workspaces
+
+                ws_name =
+                    Maybe.withDefault "" <| Maybe.map .name ws_m
+            in
             tr []
-                [ td [] [ a [ href <| "#/sessions/" ++ room.id ] [ text room.name ] ]
+                [ td [] [ a [ href <| "#/workspaces/" ++ room.workspace ] [ text ws_name ] ]
+                , td [] [ a [ href <| "#/sessions/" ++ room.id ] [ text room.name ] ]
                 , td [] <| List.intersperse (text ", ") (List.map (\u -> a [ href <| "/main#" ++ pageToPath (UserPage u), class "clickable" ] [ text (getUserName model u) ]) (roomUsers room.id model))
                 , td [] [ text <| ourFormatter model.timezone room.lastMsgTime ]
                 ]

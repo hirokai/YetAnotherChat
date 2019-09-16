@@ -37,7 +37,7 @@ init { user_id, config } =
       , users = Dict.empty
       , selected = Set.empty
       , newWorkspaceModel = { selected = Set.empty }
-      , workspaceModel = { sessions = [] }
+      , workspaceModel = { sessions = [], selectedMembers = Set.empty }
       , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
       , userPageModel = { sessions = [], messages = [], shownFileID = Nothing, newFileBox = False, selectedSDGs = Set.empty }
       , chatPageStatus = initialChatPageStatus config.expand_toppane config.expand_chatinput
@@ -94,6 +94,18 @@ update msg model =
                 Err _ ->
                     ( model, Cmd.none )
 
+        FeedNewRoomInfo v ->
+            case Json.decodeValue roomInfoDecoder v of
+                Ok rs ->
+                    let
+                        new_model =
+                            { model | roomInfo = Dict.insert rs.id rs model.roomInfo, rooms = rs.id :: model.rooms }
+                    in
+                    enterRoom rs.id new_model
+
+                Err _ ->
+                    ( model, Cmd.none )
+
         EnterRoom r ->
             enterRoom r model
 
@@ -108,11 +120,16 @@ update msg model =
             ( { model | newWorkspaceModel = m }, c )
 
         WorkspaceMsg msg1 ->
-            let
-                ( m, c ) =
-                    updateWorkspaceModel msg1 model.workspaceModel
-            in
-            ( { model | workspaceModel = m }, c )
+            case model.page of
+                WorkspacePage ws ->
+                    let
+                        ( m, c ) =
+                            updateWorkspaceModel ws msg1 model.workspaceModel
+                    in
+                    ( { model | workspaceModel = m }, c )
+
+                _ ->
+                    ( model, Cmd.none )
 
         NewSessionMsg msg1 ->
             let
@@ -154,7 +171,7 @@ update msg model =
                 user_list =
                     Set.toList users
             in
-            ( { model | page = RoomPage "" }, Cmd.batch [ createNewSession ( "", user_list ), updatePageHash model ] )
+            ( { model | page = RoomPage "" }, Cmd.batch [ createSession { name = "", members = user_list, workspace = "" }, updatePageHash model ] )
 
         ReceiveNewSessionId { id } ->
             enterRoom id model
@@ -290,6 +307,9 @@ update msg model =
 
         OnChangeData { resource, id, operation } ->
             let
+                _ =
+                    Debug.log "OnChangeData" { resource = resource, id = id, operation = operation }
+
                 cmd =
                     if resource == "comments" && getRoomID model == Just id then
                         Cmd.none
@@ -415,8 +435,13 @@ view model =
         NewSession ->
             newSessionView model
 
-        RoomPage room ->
-            chatRoomView room model
+        RoomPage r ->
+            case Dict.get r model.roomInfo of
+                Just room ->
+                    chatRoomView room model
+
+                Nothing ->
+                    notFoundView model
 
         SessionListPage ->
             sessionListView model
@@ -477,6 +502,7 @@ subscriptions _ =
         , receiveNewRoomInfo ReceiveNewSessionId
         , hashChanged HashChanged
         , feedRoomInfo FeedRoomInfo
+        , feedNewRoomInfo FeedNewRoomInfo
         , feedSessionsWithSameMembers (\s -> NewSessionMsg (FeedSessionsWithSameMembers s))
         , feedSessionsOf (\s -> UserPageMsg (FeedSessions s))
         , feedUserImages FeedUserImages

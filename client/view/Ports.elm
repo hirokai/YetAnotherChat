@@ -1,4 +1,4 @@
-port module Ports exposing (createNewSession, createWorkspace, deleteFile, deleteSession, deleteWorkspace, downloadPrivateKey, enterSession, feedMessages, feedRoomInfo, feedSessionsInWorkspace, feedSessionsOf, feedSessionsWithSameMembers, feedUserImages, feedUserMessages, feedUsers, feedWorkspaces, getConfig, getMessages, getRoomInfo, getSessionsInWorkspace, getSessionsOf, getSessionsWithSameMembers, getUserMessages, getUsers, hashChanged, initializeData, joinRoom, logout, onChangeData, recalcElementPositions, receiveNewRoomInfo, reloadSession, reloadSessions, removeItemRemote, resetKeys, resetUserCache, saveConfig, scrollTo, scrollToBottom, sendRoomName, setConfigLocal, setPageHash, setValue, startPosterSession, startVideo, stopVideo, uploadPrivateKey, videoJoin, videoLeft)
+port module Ports exposing (createSession, createWorkspace, deleteFile, deleteSession, deleteWorkspace, downloadPrivateKey, enterSession, feedMessages, feedNewRoomInfo, feedRoomInfo, feedSessionsInWorkspace, feedSessionsOf, feedSessionsWithSameMembers, feedUserImages, feedUserMessages, feedUsers, feedWorkspaces, getConfig, getMessages, getRoomInfo, getSessionsInWorkspace, getSessionsOf, getSessionsWithSameMembers, getUserMessages, getUsers, hashChanged, initializeData, joinRoom, logout, onChangeData, recalcElementPositions, receiveNewRoomInfo, reloadSession, reloadSessions, removeItemRemote, resetKeys, resetUserCache, saveConfig, scrollTo, scrollToBottom, sendRoomName, setConfigLocal, setPageHash, setValue, startPosterSession, startVideo, stopVideo, uploadPrivateKey, videoJoin, videoLeft)
 
 import Json.Decode as Json
 import Types exposing (..)
@@ -73,7 +73,7 @@ port scrollToBottom : () -> Cmd msg
 port createWorkspace : ( String, List Member ) -> Cmd msg
 
 
-port createNewSession : ( String, List Member ) -> Cmd msg
+port createSession : { workspace : String, name : String, members : List String } -> Cmd msg
 
 
 port feedMessages : (Json.Value -> msg) -> Sub msg
@@ -83,6 +83,9 @@ port feedUserMessages : (Json.Value -> msg) -> Sub msg
 
 
 port feedRoomInfo : (Json.Value -> msg) -> Sub msg
+
+
+port feedNewRoomInfo : (Json.Value -> msg) -> Sub msg
 
 
 port receiveNewRoomInfo : ({ name : String, id : RoomID, timestamp : Int } -> msg) -> Sub msg

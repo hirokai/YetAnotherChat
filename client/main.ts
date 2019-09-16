@@ -105,12 +105,12 @@ window['importKey'] = crypto.importKey;
 
     socket.on("sessions.new", async (msg: SessionsNewSocket) => {
         await model.sessions.on_new(msg);
-        app.ports.onChangeData.send({ resource: "sessions", id: "", operation: "new" });
+        app.ports.onChangeData.send({ resource: "sessions", id: msg.id, operation: "new" });
     });
 
     socket.on("sessions.delete", async (msg: SessionsDeleteSocket) => {
         await model.sessions.on_delete(msg);
-        app.ports.onChangeData.send({ resource: "sessions", id: "", operation: "delete" });
+        app.ports.onChangeData.send({ resource: "sessions", id: msg.id, operation: "delete" });
     });
 
     socket.on("sessions.update", async (msg: SessionsUpdateSocket) => {
@@ -188,7 +188,7 @@ window['importKey'] = crypto.importKey;
 
     app.ports.getSessionsInWorkspace.subscribe(async (workspace_id) => {
         const data = await model.sessions.list_in_workspace(workspace_id);
-        app.ports.feedSessionsInWorkspace.send(compact(map(data, 'workspace')))
+        app.ports.feedSessionsInWorkspace.send(compact(map(data, 'id')))
     });
 
     app.ports.scrollToBottom.subscribe(scrollToBottom);
@@ -207,17 +207,13 @@ window['importKey'] = crypto.importKey;
         }
     });
 
-    app.ports.createNewSession.subscribe(async function (args: any[]) {
-        var name: string = args[0];
-        const members: string[] = args[1];
+    app.ports.createSession.subscribe(async function ({ workspace, name, members }: { workspace: string, name: string, members: string[] }) {
+        console.log('createSession', { workspace, name, members })
         if (name == "") {
             name = formatTime2(new Date().getTime()) + " 会話"
         }
-        const { sessions, messages } = await model.sessions.new({ name, members });
-
-        app.ports.feedRoomInfo.send(map(sessions, model.sessions.toClient));
-        const processed = await processData(messages, model);
-        app.ports.feedMessages.send(processed);
+        const session = await model.sessions.new({ name, members, workspace: workspace == "" ? undefined : workspace });
+        app.ports.feedNewRoomInfo.send(model.sessions.toClient(session));
     });
 
     app.ports.enterSession.subscribe((session_id: string) => {
@@ -255,14 +251,18 @@ window['importKey'] = crypto.importKey;
         });
     });
 
-    app.ports.getMessages.subscribe((session: string) => {
+    app.ports.getMessages.subscribe(async (session: string) => {
         console.log('getMessages ', session);
-        model.comments.list_for_session(session).then((comments) => {
+        if (!model.sessions.validID(session)) {
+            console.error('getMessages: empty ID');
+        } else {
+            const comments = await model.comments.list_for_session(session);
             if (comments != null) {
                 console.log('feedMessages to send', comments);
                 app.ports.feedMessages.send(comments);
             }
-        });
+        }
+
     });
 
     app.ports.getUserMessages.subscribe(async function (user: string) {
@@ -626,8 +626,9 @@ interface ElmAppPorts {
     scrollToBottom: ElmSub<void>;
     scrollTo: ElmSub<string>;
     createWorkspace: ElmSub<any[]>;
-    createNewSession: ElmSub<any[]>;
+    createSession: ElmSub<{ workspace: string, members: string[], name: string }>;
     enterSession: ElmSub<string>;
+    feedNewRoomInfo: ElmSend<RoomInfoClient>
     feedRoomInfo: ElmSend<RoomInfoClient[]>;
     feedMessages: ElmSend<ChatEntryClient[]>;
     getConfig: ElmSub<void>

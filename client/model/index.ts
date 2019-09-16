@@ -521,7 +521,8 @@ export class Model {
                 id: d.id,
                 formattedTime: formatTime(d.timestamp),
                 timestamp: d.timestamp,
-                members: d.members
+                members: d.members,
+                workspace: d.workspace || ""
             };
             return r;
         },
@@ -551,15 +552,13 @@ export class Model {
             const { data: r }: { data: GetSessionResponse } = await axios.get('/api/sessions/' + id);
             return r.data || null;
         },
-        new: async ({ name, members }: { name: string, members: string[] }): Promise<{ newRoom: RoomInfo, sessions: RoomInfo[], messages: ChatEntry[] }> => {
+        new: async ({ name, members, workspace }: { name: string, members: string[], workspace?: string }): Promise<RoomInfo> => {
             const temporary_id = shortid();
             const post_data: PostSessionsParam = { name, members, temporary_id };
-            const { data: newRoom }: PostSessionsResponse = await axios.post('/api/sessions', post_data);
-            if (newRoom) {
-                const p1 = axios.get('/api/sessions');
-                const p2 = axios.get('/api/sessions/' + newRoom.id + '/comments');
-                const [{ data: { data: sessions } }, { data: { data: messages } }] = await Promise.all([p1, p2]);
-                return { newRoom, sessions, messages };
+            const { data: { ok, data: session } }: AxiosResponse<PostSessionsResponse> = await (workspace ? axios.post('/api/workspaces/' + workspace + '/sessions', post_data) : axios.post('/api/sessions', post_data));
+            if (session) {
+                console.log('sessions.new result', session);
+                return session;
             } else {
                 throw new Error('New session failed.')
             }
@@ -586,6 +585,9 @@ export class Model {
             } else {
                 throw new Error('on_update error');
             }
+        },
+        validID: (id: string): boolean => {
+            return id != '';
         }
     }
     keys = {

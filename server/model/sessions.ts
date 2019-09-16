@@ -196,7 +196,7 @@ export async function list(params: { user_id: string, of_members?: string[] | un
             where m.user_id=? order by s.timestamp desc;`, user_id);
     // log.info('sessions.list', params, rows);
     const sessions = _.map(_.groupBy(rows, 'id'), (g) => {
-        return { id: g[0].id, members: _.map(g, 'user_id'), name: g[0].name, timestamp: g[0].timestamp };
+        return { id: g[0].id, members: _.map(g, 'user_id'), name: g[0].name, timestamp: g[0].timestamp, workspace: g[0].workspace };
     });
     const infos: { count: { [key: string]: number }, first: number, last: number }[] = [];
     for (let s of sessions) {
@@ -223,7 +223,7 @@ export async function list(params: { user_id: string, of_members?: string[] | un
             return null;
         }
         const obj: RoomInfo = {
-            id: s.id, name: decipher(s.name) || '', timestamp: s.timestamp, members: s.members, numMessages: info.count, firstMsgTime: info.first, lastMsgTime: info.last
+            id: s.id, name: decipher(s.name) || '', timestamp: s.timestamp, members: s.members, numMessages: info.count, firstMsgTime: info.first, lastMsgTime: info.last, workspace: s.workspace
         };
         return obj;
     }));
@@ -327,14 +327,18 @@ async function post_comment_for_each(
     }
 }
 
-export async function create(user_id: string, name: string, members: string[]): Promise<RoomInfo> {
+export async function create(user_id: string, name: string, members: string[], workspace?: string): Promise<RoomInfo> {
     const session_id = shortid();
-    return create_session_with_id(user_id, session_id, name, members);
+    return create_session_with_id(user_id, session_id, name, members, workspace);
 }
 
-export async function create_session_with_id(user_id, session_id: string, name: string, members: string[]): Promise<RoomInfo> {
+export async function create_session_with_id(user_id, session_id: string, name: string, members: string[], workspace?: string): Promise<RoomInfo> {
     const timestamp = new Date().getTime();
-    db.run('insert or ignore into sessions (id, name, timestamp) values (?,?,?);', session_id, cipher(name), timestamp);
+    if (workspace) {
+        db.run('insert or ignore into sessions (id, name, timestamp,workspace) values (?,?,?,?);', session_id, cipher(name), timestamp, workspace);
+    } else {
+        db.run('insert or ignore into sessions (id, name, timestamp) values (?,?,?);', session_id, cipher(name), timestamp);
+    }
     await add_member_internal({ session_id, user_id, source: 'owner' });
     for (let m of members) {
         const r = await add_member_internal({ session_id, user_id: m, source: 'added_by_member' });

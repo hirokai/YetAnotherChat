@@ -10,6 +10,8 @@ import Regex exposing (..)
 import Set
 import Types exposing (..)
 
+port createSessionWS : {workspace: String, members: List String} -> Cmd msg
+
 
 newWorkspaceView : Model -> { title : String, body : List (Html Msg) }
 newWorkspaceView model =
@@ -85,16 +87,20 @@ workspaceView : Model -> Workspace -> { title : String, body : List (Html Msg) }
 workspaceView model ws =
     let
         mkSessionRow sid =
-            tr []
-                [ td [] [input [type_ "checkbox"][]]
-                , td []
-                    [ a [ class "clickable", href <| "#/sessions/" ++ sid ] [ text <| sid ]
-                    ]
-                    
-                ]
+            case Dict.get sid model.roomInfo of
+                Just session ->
+                    tr []
+                        [ 
+                        td []
+                            [ a [ class "clickable", href <| "#/sessions/" ++ sid ] [ text <| session.name ]
+                            ]
+                        ]
+                Nothing ->
+                    tr [] [ td [] [text "N/A"]]
         mkMemberRow uid =
             tr []
-                [ td []
+                [ td [] [input [type_ "checkbox", onCheck (WorkspaceMsg << SelectMember uid)][]],
+                td []
                     [ a [ class "clickable", href <| "#/users/" ++ uid ] [ text <| getUserNameDisplay model uid ]
                     ]
                     , td [] [span [] [text <| Maybe.withDefault "" <| Maybe.andThen (\u -> List.head u.emails) <| getUserInfo model uid ]]
@@ -111,7 +117,7 @@ workspaceView model ws =
                     , if ws.owner == model.myself then div [] [button [class "btn btn-danger", onClick (DeleteWorkspace ws.id)] [text "削除"]] else text ""
                     , div [] [span [] [text "オーナー: "], span [] [text <| getUserNameDisplay model ws.owner]]
                     , section [] [
-                        h2 [] [text "メンバー"] 
+                        h2 [] [text "ワークスペースのメンバー"] 
                         , table [ class "table" ]
                             [ thead []
                                 [ tr [] [ th [] [], th [] [ text "名前" ], th [] [text "Email"] ]
@@ -121,13 +127,14 @@ workspaceView model ws =
                                     mkMemberRow
                                     ws.members
                             ]
+                        , div [] [button [class "btn btn-primary", onClick (WorkspaceMsg <| StartNewSessionWS)] [text "選択メンバーで新しいセッション"]]
                         
                     ]
                     , section [] [
-                        h2 [] [text "セッション"]
+                        h2 [] [text "セッション一覧"]
                          , table [ class "table" ]
                             [ thead []
-                                [ tr [] [ th [] [ text "名前" ], th [] [text "Email"] ]
+                                [ tr [] [ th [] [ text "名前" ], th [] [text "メンバー"] ]
                                 ]
                             , tbody [] <|
                                 List.map
@@ -142,11 +149,16 @@ workspaceView model ws =
     }
 
 
-updateWorkspaceModel : WorkspaceMsg -> WorkspaceModel -> (WorkspaceModel, Cmd msg)
-updateWorkspaceModel msg model =
+updateWorkspaceModel : String -> WorkspaceMsg -> WorkspaceModel -> (WorkspaceModel, Cmd msg)
+updateWorkspaceModel wid msg model =
     case msg of
         FeedSessionsInWorkspace ws ->
             ({model | sessions = ws}, Cmd.none)
+        StartNewSessionWS ->
+            (model, createSession {workspace = wid, name = "", members = (Set.toList model.selectedMembers)})
+        SelectMember uid selected ->
+            ({model | selectedMembers = (if selected then Set.insert else Set.remove) uid model.selectedMembers }, Cmd.none)        
+
 
 updateNewWorkspaceModel : NewWorkspaceMsg -> NewWorkspaceModel -> ( NewWorkspaceModel, Cmd msg )
 updateNewWorkspaceModel msg model =

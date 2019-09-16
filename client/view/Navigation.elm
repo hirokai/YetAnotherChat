@@ -148,8 +148,11 @@ enterWorkspaceList model =
 enterWorkspace : Model -> String -> ( Model, Cmd Msg )
 enterWorkspace model wid =
     let
+        workspaceModel =
+            model.workspaceModel
+
         new_model =
-            { model | page = WorkspacePage wid }
+            { model | page = WorkspacePage wid, workspaceModel = { workspaceModel | selectedMembers = Set.empty } }
     in
     ( new_model, Cmd.batch [ updatePageHash new_model, getSessionsInWorkspace wid ] )
 

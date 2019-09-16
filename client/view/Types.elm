@@ -67,6 +67,7 @@ type alias RoomInfo =
     , name : String
     , formattedTime : String
     , members : List Member
+    , workspace : String
     , firstMsgTime : Int
     , lastMsgTime : Int
     , numMessages : Dict String Int
@@ -159,6 +160,7 @@ type alias NewWorkspaceModel =
 
 type alias WorkspaceModel =
     { sessions : List String
+    , selectedMembers : Set String
     }
 
 
@@ -222,6 +224,7 @@ type Msg
     | StartSession (Set Member)
     | ReceiveNewSessionId { timestamp : Int, name : String, id : RoomID }
     | FeedRoomInfo Json.Value
+    | FeedNewRoomInfo Json.Value
     | FeedWorkspaces (List Workspace)
     | FeedUsers (List User)
     | CreateWorkspace (Set Member)
@@ -297,6 +300,8 @@ type ChatPageMsg
 
 type WorkspaceMsg
     = FeedSessionsInWorkspace (List String)
+    | StartNewSessionWS
+    | SelectMember String Bool
 
 
 type SettingsMsg

@@ -71,11 +71,12 @@ roomInfoListDecoder =
 
 roomInfoDecoder : Json.Decoder RoomInfo
 roomInfoDecoder =
-    Json.map7 RoomInfo
+    Json.map8 RoomInfo
         (Json.field "id" Json.string)
         (Json.field "name" Json.string)
         (Json.field "formattedTime" Json.string)
         (Json.field "members" (Json.list Json.string))
+        (Json.field "workspace" Json.string)
         (Json.field "firstMsgTime" Json.int)
         (Json.field "lastMsgTime" Json.int)
         (Json.field "numMessages" (Json.dict Json.int))
