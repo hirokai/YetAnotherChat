@@ -29,16 +29,14 @@ import Workspace exposing (..)
 init : Flags -> ( Model, Cmd Msg )
 init { user_id, config } =
     ( { myself = user_id
-      , roomInfo = Dict.empty
+      , sessions = Dict.empty
       , workspaces = Dict.empty
       , localConfig = config
-      , rooms = [ "Home", "COI" ]
       , page = NewSession
       , users = Dict.empty
-      , selected = Set.empty
       , newWorkspaceModel = { selected = Set.empty }
       , workspaceModel = { sessions = [], selectedMembers = Set.empty }
-      , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
+      , newSessionModel = { selected = Set.empty, sessions_same_members = [] }
       , userPageModel = { sessions = [], messages = [], shownFileID = Nothing, newFileBox = False, selectedSDGs = Set.empty }
       , chatPageStatus = initialChatPageStatus config.expand_toppane config.expand_chatinput
       , userListPageModel = initialUserListPageModel config.show_users_with_email_only
@@ -70,9 +68,6 @@ update msg model =
         NoOp ->
             ( model, Cmd.none )
 
-        ToggleMember m ->
-            ( { model | selected = toggleSet m model.selected }, Cmd.none )
-
         ReloadSessions ->
             ( model, reloadSessions () )
 
@@ -85,21 +80,22 @@ update msg model =
         FeedRoomInfo v ->
             let
                 rs1 =
-                    Json.decodeValue roomInfoListDecoder v
+                    Json.decodeValue sessionInfoListDecoder v
             in
             case rs1 of
                 Ok rs ->
-                    ( { model | roomInfo = Dict.fromList (List.map (\r -> ( r.id, r )) rs), rooms = List.map (\r -> r.id) rs }, Cmd.none )
+                    ( { model | sessions = Dict.fromList (List.map (\r -> ( r.id, r )) rs) }, Cmd.none )
 
                 Err _ ->
                     ( model, Cmd.none )
 
         FeedNewRoomInfo v ->
-            case Json.decodeValue roomInfoDecoder v of
+            case Json.decodeValue sessionInfoDecoder v of
                 Ok rs ->
                     let
+                        new_model : Model
                         new_model =
-                            { model | roomInfo = Dict.insert rs.id rs model.roomInfo, rooms = rs.id :: model.rooms }
+                            { model | sessions = Dict.insert rs.id rs model.sessions }
                     in
                     enterRoom rs.id new_model
 
@@ -116,8 +112,12 @@ update msg model =
             let
                 ( m, c ) =
                     updateNewWorkspaceModel msg1 model.newWorkspaceModel
+
+                new_model : Model
+                new_model =
+                    { model | newWorkspaceModel = m }
             in
-            ( { model | newWorkspaceModel = m }, c )
+            ( new_model, c )
 
         WorkspaceMsg msg1 ->
             case model.page of
@@ -134,9 +134,9 @@ update msg model =
         NewSessionMsg msg1 ->
             let
                 ( m, c ) =
-                    updateNewSessionStatus msg1 model.newSessionStatus
+                    updateNewSessionStatus msg1 model.newSessionModel
             in
-            ( { model | newSessionStatus = m }, c )
+            ( { model | newSessionModel = m }, c )
 
         UserPageMsg msg1 ->
             let
@@ -294,7 +294,7 @@ update msg model =
             )
 
         DeleteRoom room ->
-            ( { model | rooms = List.filter (\r -> r /= room) model.rooms, page = SessionListPage }, deleteSession { id = room } )
+            ( { model | page = SessionListPage }, deleteSession { id = room } )
 
         ReloadRoom room ->
             ( model, reloadSession room )
@@ -307,9 +307,6 @@ update msg model =
 
         OnChangeData { resource, id, operation } ->
             let
-                _ =
-                    Debug.log "OnChangeData" { resource = resource, id = id, operation = operation }
-
                 cmd =
                     if resource == "comments" && getRoomID model == Just id then
                         Cmd.none
@@ -436,7 +433,7 @@ view model =
             newSessionView model
 
         RoomPage r ->
-            case Dict.get r model.roomInfo of
+            case Dict.get r model.sessions of
                 Just room ->
                     chatRoomView room model
 

@@ -1,4 +1,4 @@
-module Types exposing (ChatEntry(..), ChatFileTyp, ChatPageModel, ChatPageMsg(..), CommentTyp, FilterMode(..), LocalConfig, Member, Model, Msg(..), NewSessionMsg(..), NewSessionStatus, NewWorkspaceModel, NewWorkspaceMsg(..), Page(..), RoomID, RoomInfo, SessionEventTyp, SettingsMsg(..), SettingsPageModel, User, UserListPageModel, UserListPageMsg(..), UserListShowMode(..), UserPageModel, UserPageMsg(..), Workspace, WorkspaceModel, WorkspaceMsg(..), appName, getId, getKind, getRoomID, getSDGs, getUser, getUserFullname, getUserInfo, getUserName, getUserNameDisplay, roomName, roomUsers, toggleSet, truncate)
+module Types exposing (ChatEntry(..), ChatFileTyp, ChatPageModel, ChatPageMsg(..), CommentTyp, FilterMode(..), LocalConfig, Member, Model, Msg(..), NewSessionModel, NewSessionMsg(..), NewWorkspaceModel, NewWorkspaceMsg(..), Page(..), SessionEventTyp, SessionID, SessionInfo, SettingsMsg(..), SettingsPageModel, User, UserListPageModel, UserListPageMsg(..), UserListShowMode(..), UserPageModel, UserPageMsg(..), Workspace, WorkspaceModel, WorkspaceMsg(..), appName, getId, getKind, getRoomID, getSDGs, getUser, getUserFullname, getUserInfo, getUserName, getUserNameDisplay, roomName, roomUsers, toggleSet, truncate)
 
 import Dict exposing (Dict)
 import Json.Decode as Json
@@ -58,11 +58,11 @@ type alias Member =
     String
 
 
-type alias RoomID =
+type alias SessionID =
     String
 
 
-type alias RoomInfo =
+type alias SessionInfo =
     { id : String
     , name : String
     , formattedTime : String
@@ -92,13 +92,23 @@ type ChatEntry
 
 type alias Model =
     { page : Page
-    , workspaces : Dict String Workspace
-    , rooms : List RoomID
-    , users : Dict String User
     , myself : Member
-    , selected : Set String
-    , roomInfo : Dict RoomID RoomInfo
-    , newSessionStatus : NewSessionStatus
+    , workspaces : Dict String Workspace
+    , sessions : Dict SessionID SessionInfo
+    , users : Dict String User
+    , files :
+        Dict String
+            (List
+                { file_id : String
+                , url : String
+                }
+            )
+    , profile :
+        { publicKey : String
+        , privateKey : String
+        , privateKeyMsg : String
+        }
+    , newSessionModel : NewSessionModel
     , newWorkspaceModel : NewWorkspaceModel
     , workspaceModel : WorkspaceModel
     , userPageModel : UserPageModel
@@ -107,21 +117,9 @@ type alias Model =
     , settingsPageModel : SettingsPageModel
     , editing : Set String
     , editingValue : Dict String String
-    , files :
-        Dict String
-            (List
-                { file_id : String
-                , url : String
-                }
-            )
     , timezone : Zone
     , searchKeyword : String
     , localConfig : LocalConfig
-    , profile :
-        { publicKey : String
-        , privateKey : String
-        , privateKeyMsg : String
-        }
     }
 
 
@@ -133,14 +131,14 @@ type alias LocalConfig =
     }
 
 
-type alias NewSessionStatus =
+type alias NewSessionModel =
     { selected : Set Member
-    , sessions_same_members : List RoomID
+    , sessions_same_members : List SessionID
     }
 
 
 type alias UserPageModel =
-    { sessions : List RoomID
+    { sessions : List SessionID
     , messages : List ChatEntry
     , shownFileID : Maybe String
     , newFileBox : Bool
@@ -195,7 +193,7 @@ type alias ChatPageModel =
 
 
 type Page
-    = RoomPage RoomID
+    = RoomPage SessionID
     | SessionListPage
     | UserPage String
     | UserListPage
@@ -211,8 +209,7 @@ type Page
 
 
 type Msg
-    = ToggleMember Member
-    | EnterRoom RoomID
+    = EnterRoom SessionID
     | EnterUser String
     | NewSessionMsg NewSessionMsg
     | NewWorkspaceMsg NewWorkspaceMsg
@@ -222,7 +219,7 @@ type Msg
     | UserListPageMsg UserListPageMsg
     | SettingsMsg SettingsMsg
     | StartSession (Set Member)
-    | ReceiveNewSessionId { timestamp : Int, name : String, id : RoomID }
+    | ReceiveNewSessionId { timestamp : Int, name : String, id : SessionID }
     | FeedRoomInfo Json.Value
     | FeedNewRoomInfo Json.Value
     | FeedWorkspaces (List Workspace)
@@ -292,8 +289,8 @@ type ChatPageMsg
     | SmallerFont
     | LargerFont
     | ClickExpandInput
-    | StartVideo RoomID
-    | StopVideo RoomID
+    | StartVideo SessionID
+    | StopVideo SessionID
     | VideoJoin String
     | VideoLeft String
 
@@ -312,7 +309,7 @@ type SettingsMsg
 
 roomUsers : String -> Model -> List String
 roomUsers room model =
-    Maybe.withDefault [] <| Maybe.map .members <| Dict.get room model.roomInfo
+    Maybe.withDefault [] <| Maybe.map .members <| Dict.get room model.sessions
 
 
 truncate : Int -> String -> String
@@ -351,7 +348,7 @@ getUserFullname model uid =
 
 roomName : String -> Model -> String
 roomName id model =
-    Maybe.withDefault "" <| Maybe.map .name (Dict.get id model.roomInfo)
+    Maybe.withDefault "" <| Maybe.map .name (Dict.get id model.sessions)
 
 
 getId : ChatEntry -> String
@@ -393,7 +390,7 @@ getKind c =
             "event"
 
 
-getRoomID : Model -> Maybe RoomID
+getRoomID : Model -> Maybe SessionID
 getRoomID model =
     case model.page of
         RoomPage r ->

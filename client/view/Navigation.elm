@@ -131,7 +131,7 @@ enterNewSession : Model -> ( Model, Cmd Msg )
 enterNewSession model =
     let
         new_model =
-            { model | page = NewSession, newSessionStatus = { selected = Set.singleton model.myself, sessions_same_members = [] } }
+            { model | page = NewSession, newSessionModel = { selected = Set.singleton model.myself, sessions_same_members = [] } }
     in
     ( new_model, updatePageHash new_model )
 

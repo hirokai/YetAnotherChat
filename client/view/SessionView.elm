@@ -17,7 +17,7 @@ initialChatPageStatus show_top_pane expand_chatinput =
     { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing, topPaneExpanded = show_top_pane, shrunkEntries = False, fontSize = 3, expandChatInput = expand_chatinput, chatInputActive = True, showVideoDiv = False, videoMembers = Set.empty }
 
 
-chatRoomView : RoomInfo -> Model -> { title : String, body : List (Html Msg) }
+chatRoomView : SessionInfo -> Model -> { title : String, body : List (Html Msg) }
 chatRoomView room model =
     { title = appName
     , body =
@@ -42,7 +42,7 @@ chatRoomView room model =
     }
 
 
-chatParticipants : RoomInfo -> Model -> Html msg
+chatParticipants : SessionInfo -> Model -> Html msg
 chatParticipants room model =
     let
         ws_name =
@@ -72,7 +72,7 @@ chatParticipants room model =
         ]
 
 
-roomTitle : RoomInfo -> Model -> Html Msg
+roomTitle : SessionInfo -> Model -> Html Msg
 roomTitle room model =
     h1 [ id "room-title" ]
         [ if Set.member "room-title" model.editing then
@@ -102,7 +102,7 @@ roomTitle room model =
         ]
 
 
-chatBody : RoomInfo -> Model -> List (Html Msg)
+chatBody : SessionInfo -> Model -> List (Html Msg)
 chatBody room model =
     case model.chatPageStatus.messages of
         Just messages ->
@@ -167,7 +167,7 @@ chatBody room model =
             []
 
 
-videoDiv : RoomInfo -> Model -> Html Msg
+videoDiv : SessionInfo -> Model -> Html Msg
 videoDiv room model =
     let
         remoteVideoCell uid n =
@@ -191,7 +191,7 @@ videoDiv room model =
             ++ [ button [ class "btn btn-primary", id "stop-video", onClick (ChatPageMsg <| StopVideo room.id) ] [ text "終了" ] ]
 
 
-footer : RoomInfo -> Model -> Html Msg
+footer : SessionInfo -> Model -> Html Msg
 footer room model =
     div [ classList [ ( "col-lg-10", True ), ( "col-md-7", True ), ( "expanded", model.chatPageStatus.expandChatInput ) ], id "footer_wrapper" ]
         [ div [ class "col-md-12 col-lg-12", id "footer" ]

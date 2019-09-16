@@ -87,7 +87,7 @@ workspaceView : Model -> Workspace -> { title : String, body : List (Html Msg) }
 workspaceView model ws =
     let
         mkSessionRow sid =
-            case Dict.get sid model.roomInfo of
+            case Dict.get sid model.sessions of
                 Just session ->
                     tr []
                         [ 

@@ -31,7 +31,7 @@ port onChangeData : ({ resource : String, id : String, operation : String } -> m
 port initializeData : () -> Cmd msg
 
 
-port getMessages : RoomID -> Cmd msg
+port getMessages : SessionID -> Cmd msg
 
 
 port getUserMessages : String -> Cmd msg
@@ -88,7 +88,7 @@ port feedRoomInfo : (Json.Value -> msg) -> Sub msg
 port feedNewRoomInfo : (Json.Value -> msg) -> Sub msg
 
 
-port receiveNewRoomInfo : ({ name : String, id : RoomID, timestamp : Int } -> msg) -> Sub msg
+port receiveNewRoomInfo : ({ name : String, id : SessionID, timestamp : Int } -> msg) -> Sub msg
 
 
 port hashChanged : (String -> msg) -> Sub msg

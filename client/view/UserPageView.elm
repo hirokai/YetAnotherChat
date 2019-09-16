@@ -84,7 +84,7 @@ updateUserPageModel msg model =
 
 getMessageCount : String -> Model -> String
 getMessageCount session_id model =
-    case Dict.get session_id model.roomInfo of
+    case Dict.get session_id model.sessions of
         Just room ->
             let
                 total =

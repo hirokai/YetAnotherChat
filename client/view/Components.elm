@@ -119,7 +119,7 @@ topPane model =
                     case model.chatPageStatus.filterMode of
                         Thread ->
                             div [ id "top-pane-list-container" ]
-                                [ ul [] <| List.map (\r -> li [] [ input [ type_ "checkbox" ] [], span [] [ text (roomName r model) ] ]) model.rooms
+                                [ ul [] <| List.map (\r -> li [] [ input [ type_ "checkbox" ] [], span [] [ text (roomName r model) ] ]) (Dict.keys model.sessions)
                                 ]
 
                         Date ->
@@ -147,7 +147,7 @@ smallMenu =
         ]
 
 
-updateRoomName : RoomID -> String -> Model -> Model
+updateRoomName : SessionID -> String -> Model -> Model
 updateRoomName room newName model =
     let
         f _ v =
@@ -157,7 +157,7 @@ updateRoomName room newName model =
             else
                 v
     in
-    { model | roomInfo = Dict.map f model.roomInfo }
+    { model | sessions = Dict.map f model.sessions }
 
 
 onKeyDown : ({ code : Int, shiftKey : Bool } -> msg) -> Attribute msg
@@ -233,14 +233,14 @@ showChannels model =
     , ul [ class "menu-list" ] <|
         List.indexedMap
             (\i r ->
-                case Dict.get r model.roomInfo of
-                    Just roomInfo ->
+                case Dict.get r model.sessions of
+                    Just rooms ->
                         li []
                             [ hr [] []
                             , div
                                 [ classList [ ( "chatlist-name", True ), ( "clickable", True ), ( "current", RoomPage r == model.page ) ]
                                 ]
-                                [ a [ href <| "#/sessions/" ++ r ] [ text <| String.fromInt (i + 1) ++ ": " ++ roomName r model ++ " (" ++ (String.fromInt <| Maybe.withDefault 0 <| Dict.get "__total" <| roomInfo.numMessages) ++ ")" ]
+                                [ a [ href <| "#/sessions/" ++ r ] [ text <| String.fromInt (i + 1) ++ ": " ++ roomName r model ++ " (" ++ (String.fromInt <| Maybe.withDefault 0 <| Dict.get "__total" <| rooms.numMessages) ++ ")" ]
                                 , div [ class "chatlist-members" ]
                                     (List.intersperse (text ",") <|
                                         List.map (\u -> a [ class "chatlist-member clickable", href <| "#/users/" ++ u ] [ text (getUserName model u) ]) <|
@@ -257,7 +257,7 @@ showChannels model =
                                 [ text "N/A" ]
                             ]
             )
-            model.rooms
+            (Dict.keys model.sessions)
     ]
 
 

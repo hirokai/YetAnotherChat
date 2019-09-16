@@ -67,7 +67,7 @@ type alias Member =
     String
 
 
-type alias RoomID =
+type alias SessionID =
     String
 
 
@@ -87,8 +87,8 @@ type alias Model =
     , chatInput : String
     , chatTimestamp : String
     , selected : Dict Member Bool
-    , room : RoomID
-    , rooms : List RoomID
+    , room : SessionID
+    , rooms : List SessionID
     , users : List String
     , userInfo : Dict String User
     , matrix : List (List Int)
@@ -165,7 +165,7 @@ addComment model =
     { model | messages = List.append model.messages [ Comment { user = "myself", comment = model.chatInput, timestamp = model.chatTimestamp, originalUrl = "", sentTo = "all", source = "self" } ], chatInput = "" }
 
 
-messageFilter : RoomID -> List ChatEntry -> List ChatEntry
+messageFilter : SessionID -> List ChatEntry -> List ChatEntry
 messageFilter room msgs =
     let
         f m =

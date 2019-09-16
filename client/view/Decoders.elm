@@ -1,4 +1,4 @@
-module Decoders exposing (chatEntriesDecoder, chatEntryDecoder, chatFileDecoder, commentTypDecoder, roomInfoDecoder, roomInfoListDecoder, sessionEventTypDecoder)
+module Decoders exposing (chatEntriesDecoder, chatEntryDecoder, chatFileDecoder, commentTypDecoder, sessionEventTypDecoder, sessionInfoDecoder, sessionInfoListDecoder)
 
 import Json.Decode as Json
 import Json.Decode.Extra as JE
@@ -64,14 +64,14 @@ chatEntryDecoder =
             )
 
 
-roomInfoListDecoder : Json.Decoder (List RoomInfo)
-roomInfoListDecoder =
-    Json.list roomInfoDecoder
+sessionInfoListDecoder : Json.Decoder (List SessionInfo)
+sessionInfoListDecoder =
+    Json.list sessionInfoDecoder
 
 
-roomInfoDecoder : Json.Decoder RoomInfo
-roomInfoDecoder =
-    Json.map8 RoomInfo
+sessionInfoDecoder : Json.Decoder SessionInfo
+sessionInfoDecoder =
+    Json.map8 SessionInfo
         (Json.field "id" Json.string)
         (Json.field "name" Json.string)
         (Json.field "formattedTime" Json.string)

@@ -33,7 +33,7 @@ sessionListView model =
                             ]
                         , tbody [] <|
                             List.map (\r -> mkSessionRowInList model r)
-                                model.rooms
+                                (Dict.keys model.sessions)
                         ]
                     , div
                         [ style "clear" "both" ]
@@ -45,9 +45,9 @@ sessionListView model =
     }
 
 
-mkSessionRowInList : Model -> RoomID -> Html Msg
+mkSessionRowInList : Model -> SessionID -> Html Msg
 mkSessionRowInList model room_id =
-    case Dict.get room_id model.roomInfo of
+    case Dict.get room_id model.sessions of
         Just room ->
             let
                 ws_m =

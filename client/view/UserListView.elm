@@ -113,7 +113,7 @@ showTable model users =
 showPanels model filteredUsers =
     div []
         [ div [ id "list-people-wrapper" ] <|
-            List.map (\u -> mkPeopleDivInList model model.newSessionStatus.selected u.id)
+            List.map (\u -> mkPeopleDivInList model model.newSessionModel.selected u.id)
                 filteredUsers
         , div
             [ style "clear" "both" ]
