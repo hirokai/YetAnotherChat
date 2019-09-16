@@ -70,7 +70,7 @@ chatParticipants room model =
             Maybe.withDefault "" <| Maybe.map .name <| Dict.get room.workspace model.workspaces
     in
     div [ id "chat-participants" ]
-        [ span [ title <| "ワークスペース名: " ++ ws_name ] [ text ws_name ]
+        [ a [ title <| "ワークスペース名: " ++ ws_name, class "clickable", href <| "#/workspaces/" ++ room.workspace ] [ text ws_name ]
         , ul [ id "chat-participants-list" ] <|
             List.map
                 (\u ->

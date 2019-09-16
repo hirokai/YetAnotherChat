@@ -95,6 +95,7 @@ workspaceView model ws =
                         td []
                             [ a [ class "clickable", href <| "#/sessions/" ++ sid ] [ text <| session.name ]
                             ]
+                            ,td [] <| List.intersperse (text ", ") (List.map (\u -> a [ href <| "/main#" ++ pageToPath (UserPage u), class "clickable" ] [ text (getUserName model u) ]) (roomUsers sid model))
                         ]
                 Nothing ->
                     tr [] [ td [] [text "N/A"]]
@@ -104,7 +105,8 @@ workspaceView model ws =
                 td []
                     [ a [ class "clickable", href <| "#/users/" ++ uid ] [ text <| getUserNameDisplay model uid ]
                     ]
-                    , td [] [span [] [text <| Maybe.withDefault "" <| Maybe.andThen (\u -> List.head u.emails) <| getUserInfo model uid ]]
+                , td [] [span [] [text <| Maybe.withDefault "" <| Maybe.andThen (\u -> List.head u.emails) <| getUserInfo model uid ]
+                ]
                 ]
     in
     { title = ws.name ++ "- workspace: " ++ appName
