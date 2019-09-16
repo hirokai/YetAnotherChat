@@ -89,6 +89,7 @@ workspaceView model ws =
                 [ td []
                     [ a [ class "clickable", href <| "#/users/" ++ uid ] [ text <| getUserNameDisplay model uid ]
                     ]
+                    , td [] [span [] [text <| Maybe.withDefault "" <| Maybe.andThen (\u -> List.head u.emails) <| getUserInfo model uid ]]
                 ]
     in
     { title = ws.name ++ "- workspace: " ++ appName
@@ -101,20 +102,34 @@ workspaceView model ws =
                     [ h1 [] [ text <| "ワークスペース：" ++ ws.name ]
                     , if ws.owner == model.myself then div [] [button [class "btn btn-danger", onClick (DeleteWorkspace ws.id)] [text "削除"]] else text ""
                     , div [] [span [] [text "オーナー: "], span [] [text <| getUserNameDisplay model ws.owner]]
-                    , div []
-                        [ table [ class "table" ]
+                    , section [] [
+                        h2 [] [text "メンバー"] 
+                        , table [ class "table" ]
                             [ thead []
-                                [ tr [] [ th [] [ text "名前" ] ]
+                                [ tr [] [ th [] [ text "名前" ], th [] [text "Email"] ]
                                 ]
                             , tbody [] <|
                                 List.map
                                     mkRow
                                     ws.members
                             ]
-                        ]
+                        
+                    ]
+                    , section [] [
+                        h2 [] [text "セッション"]
+                         , table [ class "table" ]
+                            [ thead []
+                                [ tr [] [ th [] [ text "名前" ], th [] [text "Email"] ]
+                                ]
+                            , tbody [] <|
+                                List.map
+                                    mkRow
+                                    ws.members
+                            ]
                     ]
                 ]
             ]
+        ]
         ]
     }
 

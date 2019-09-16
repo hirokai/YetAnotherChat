@@ -5,7 +5,8 @@ type RoomInfo = {
     lastMsgTime: number,
     id: string,
     timestamp: number,
-    members: string[]
+    members: string[],
+    workspace?: string,
 }
 
 type RoomInfoClient = {
@@ -17,6 +18,7 @@ type RoomInfoClient = {
     timestamp: number,
     formattedTime: string,
     members: Array<string>
+    workspace?: string
 }
 
 interface PostCommentResponse {
