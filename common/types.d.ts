@@ -240,7 +240,7 @@ interface GetSessionsOfParams extends AuthedParams {
     of_members: string,
 }
 
-type GetSessionsResponse = { ok: boolean, data: RoomInfo[] }
+type GetSessionsResponse = { ok: boolean, data?: RoomInfo[] }
 type GetSessionResponse = { ok: boolean, data?: RoomInfo }
 type PatchSessionResponse = { ok: boolean }
 

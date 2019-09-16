@@ -5,6 +5,7 @@ import { Elm } from './view/Main.elm';
 import map from 'lodash/map';
 import values from 'lodash/values';
 import includes from 'lodash/includes';
+import compact from 'lodash/compact'
 import axios from 'axios';
 import $ from 'jquery';
 import 'bootstrap';
@@ -185,6 +186,11 @@ window['importKey'] = crypto.importKey;
         }
     });
 
+    app.ports.getSessionsInWorkspace.subscribe(async (workspace_id) => {
+        const data = await model.sessions.list_in_workspace(workspace_id);
+        app.ports.feedSessionsInWorkspace.send(compact(map(data, 'workspace')))
+    });
+
     app.ports.scrollToBottom.subscribe(scrollToBottom);
 
     app.ports.scrollTo.subscribe(scrollTo);
@@ -195,7 +201,6 @@ window['importKey'] = crypto.importKey;
         const ws = await model.workspaces.create(name, members);
         if (ws != null) {
             model.workspaces.list().then((wss) => {
-                console.log('feedWorkspaces 2', values(wss));
                 app.ports.feedWorkspaces.send(values(wss));
                 location.href = '#/workspaces/' + ws.id;
             });
@@ -229,7 +234,6 @@ window['importKey'] = crypto.importKey;
         getUserImages();
         getAndfeedRoomInfo();
         model.workspaces.list().then((ws) => {
-            console.log('initializeData workspace', values(ws));
             app.ports.feedWorkspaces.send(values(ws));
         })
     });
@@ -632,6 +636,8 @@ interface ElmAppPorts {
     setConfigLocal: ElmSub<{ key: string, value: string }>;
     setProfileValue: ElmSub<{ key: string, value: string }>;
     feedWorkspaces: ElmSend<Workspace[]>;
+    feedSessionsInWorkspace: ElmSend<string[]>;
+    getSessionsInWorkspace: ElmSub<string>;
     getUsers: ElmSub<void>;
     feedUsers: ElmSend<UserClient[]>;
     getUserMessages: ElmSub<string>;

@@ -459,9 +459,8 @@ export class Model {
     sessions = {
         list: async (): Promise<RoomInfoClient[]> => {
             const { data: { data: rooms } }: AxiosResponse<GetSessionsResponse> = await axios.get('/api/sessions');
-            const timestamp = new Date().getTime();
             const infos: RoomInfoClient[] = [];
-            for (let room of rooms) {
+            for (let room of rooms || []) {
                 let room_cache = await this.sessions.load(room.id);
                 const info = this.sessions.toClient(room);
                 if (!room_cache) {
@@ -469,7 +468,21 @@ export class Model {
                 }
                 room_cache.info = info;
                 infos.push(info);
-                console.log('Session saving', room.id, room_cache);
+                await this.sessions.save(room.id, room_cache);
+            }
+            return infos;
+        },
+        list_in_workspace: async (workspace_id: string) => {
+            const { data: { data: rooms } }: AxiosResponse<GetSessionsResponse> = await axios.get('/api/workspaces/' + workspace_id + '/sessions');
+            const infos: RoomInfoClient[] = [];
+            for (let room of rooms || []) {
+                let room_cache = await this.sessions.load(room.id);
+                const info = this.sessions.toClient(room);
+                if (!room_cache) {
+                    room_cache = { id: room.id };
+                }
+                room_cache.info = info;
+                infos.push(info);
                 await this.sessions.save(room.id, room_cache);
             }
             return infos;

@@ -1,4 +1,4 @@
-port module Ports exposing (createNewSession, createWorkspace, deleteFile, deleteSession, deleteWorkspace, downloadPrivateKey, enterSession, feedMessages, feedRoomInfo, feedSessionsOf, feedSessionsWithSameMembers, feedUserImages, feedUserMessages, feedUsers, feedWorkspaces, getConfig, getMessages, getRoomInfo, getSessionsOf, getSessionsWithSameMembers, getUserMessages, getUsers, hashChanged, initializeData, joinRoom, logout, onChangeData, recalcElementPositions, receiveNewRoomInfo, reloadSession, reloadSessions, removeItemRemote, resetKeys, resetUserCache, saveConfig, scrollTo, scrollToBottom, sendRoomName, setConfigLocal, setPageHash, setValue, startPosterSession, startVideo, stopVideo, uploadPrivateKey, videoJoin, videoLeft)
+port module Ports exposing (createNewSession, createWorkspace, deleteFile, deleteSession, deleteWorkspace, downloadPrivateKey, enterSession, feedMessages, feedRoomInfo, feedSessionsInWorkspace, feedSessionsOf, feedSessionsWithSameMembers, feedUserImages, feedUserMessages, feedUsers, feedWorkspaces, getConfig, getMessages, getRoomInfo, getSessionsInWorkspace, getSessionsOf, getSessionsWithSameMembers, getUserMessages, getUsers, hashChanged, initializeData, joinRoom, logout, onChangeData, recalcElementPositions, receiveNewRoomInfo, reloadSession, reloadSessions, removeItemRemote, resetKeys, resetUserCache, saveConfig, scrollTo, scrollToBottom, sendRoomName, setConfigLocal, setPageHash, setValue, startPosterSession, startVideo, stopVideo, uploadPrivateKey, videoJoin, videoLeft)
 
 import Json.Decode as Json
 import Types exposing (..)
@@ -53,6 +53,12 @@ port feedSessionsWithSameMembers : (List String -> msg) -> Sub msg
 
 
 port feedSessionsOf : (List String -> msg) -> Sub msg
+
+
+port feedSessionsInWorkspace : (List String -> msg) -> Sub msg
+
+
+port getSessionsInWorkspace : String -> Cmd msg
 
 
 port getConfig : () -> Cmd msg

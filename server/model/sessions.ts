@@ -179,13 +179,21 @@ export async function delete_comment(user_id: string, comment_id: string): Promi
     }
 }
 
-export async function list(params: { user_id: string, of_members?: string[] | undefined, is_all: boolean }): Promise<RoomInfo[]> {
-    const { user_id, of_members, is_all } = params;
+export async function list(params: { user_id: string, of_members?: string[] | undefined, is_all: boolean, workspace_id?: string }): Promise<RoomInfo[]> {
+    const { user_id, of_members, is_all, workspace_id } = params;
     if (of_members) {
         return get_session_of_members(user_id, of_members, is_all);
     }
-    const rows = await db_.all<{ id: string, user_id: string, name: string, timestamp: number }>(`
-            select s.*,m2.user_id from sessions as s join session_current_members as m on s.id=m.session_id join session_current_members as m2 on m.session_id=m2.session_id where m.user_id=? order by s.timestamp desc;`, user_id);
+    const rows = workspace_id ? await db_.all<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string }>(`
+            select s.*,m2.user_id from sessions as s
+            join session_current_members as m on s.id=m.session_id
+            join session_current_members as m2 on m.session_id=m2.session_id
+            where m.user_id=? and s.workspace=? order by s.timestamp desc;`, user_id, workspace_id) :
+        await db_.all<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string }>(`
+            select s.*,m2.user_id from sessions as s
+            join session_current_members as m on s.id=m.session_id
+            join session_current_members as m2 on m.session_id=m2.session_id
+            where m.user_id=? order by s.timestamp desc;`, user_id);
     // log.info('sessions.list', params, rows);
     const sessions = _.map(_.groupBy(rows, 'id'), (g) => {
         return { id: g[0].id, members: _.map(g, 'user_id'), name: g[0].name, timestamp: g[0].timestamp };

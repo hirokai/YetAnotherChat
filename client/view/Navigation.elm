@@ -151,7 +151,7 @@ enterWorkspace model wid =
         new_model =
             { model | page = WorkspacePage wid }
     in
-    ( new_model, updatePageHash new_model )
+    ( new_model, Cmd.batch [ updatePageHash new_model, getSessionsInWorkspace wid ] )
 
 
 enterNewWorkspace : Model -> ( Model, Cmd Msg )

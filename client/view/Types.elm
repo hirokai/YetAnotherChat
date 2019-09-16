@@ -1,4 +1,4 @@
-module Types exposing (ChatEntry(..), ChatFileTyp, ChatPageModel, ChatPageMsg(..), CommentTyp, FilterMode(..), LocalConfig, Member, Model, Msg(..), NewSessionMsg(..), NewSessionStatus, NewWorkspaceModel, NewWorkspaceMsg(..), Page(..), RoomID, RoomInfo, SessionEventTyp, SettingsMsg(..), SettingsPageModel, User, UserListPageModel, UserListPageMsg(..), UserListShowMode(..), UserPageModel, UserPageMsg(..), Workspace, appName, getId, getKind, getRoomID, getSDGs, getUser, getUserFullname, getUserInfo, getUserName, getUserNameDisplay, roomName, roomUsers, toggleSet, truncate)
+module Types exposing (ChatEntry(..), ChatFileTyp, ChatPageModel, ChatPageMsg(..), CommentTyp, FilterMode(..), LocalConfig, Member, Model, Msg(..), NewSessionMsg(..), NewSessionStatus, NewWorkspaceModel, NewWorkspaceMsg(..), Page(..), RoomID, RoomInfo, SessionEventTyp, SettingsMsg(..), SettingsPageModel, User, UserListPageModel, UserListPageMsg(..), UserListShowMode(..), UserPageModel, UserPageMsg(..), Workspace, WorkspaceModel, WorkspaceMsg(..), appName, getId, getKind, getRoomID, getSDGs, getUser, getUserFullname, getUserInfo, getUserName, getUserNameDisplay, roomName, roomUsers, toggleSet, truncate)
 
 import Dict exposing (Dict)
 import Json.Decode as Json
@@ -99,6 +99,7 @@ type alias Model =
     , roomInfo : Dict RoomID RoomInfo
     , newSessionStatus : NewSessionStatus
     , newWorkspaceModel : NewWorkspaceModel
+    , workspaceModel : WorkspaceModel
     , userPageModel : UserPageModel
     , chatPageStatus : ChatPageModel
     , userListPageModel : UserListPageModel
@@ -156,6 +157,11 @@ type alias NewWorkspaceModel =
     }
 
 
+type alias WorkspaceModel =
+    { sessions : List String
+    }
+
+
 type UserListShowMode
     = Table
     | Panel
@@ -208,6 +214,7 @@ type Msg
     | EnterUser String
     | NewSessionMsg NewSessionMsg
     | NewWorkspaceMsg NewWorkspaceMsg
+    | WorkspaceMsg WorkspaceMsg
     | UserPageMsg UserPageMsg
     | ChatPageMsg ChatPageMsg
     | UserListPageMsg UserListPageMsg
@@ -286,6 +293,10 @@ type ChatPageMsg
     | StopVideo RoomID
     | VideoJoin String
     | VideoLeft String
+
+
+type WorkspaceMsg
+    = FeedSessionsInWorkspace (List String)
 
 
 type SettingsMsg

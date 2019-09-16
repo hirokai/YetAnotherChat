@@ -37,6 +37,7 @@ init { user_id, config } =
       , users = Dict.empty
       , selected = Set.empty
       , newWorkspaceModel = { selected = Set.empty }
+      , workspaceModel = { sessions = [] }
       , newSessionStatus = { selected = Set.empty, sessions_same_members = [] }
       , userPageModel = { sessions = [], messages = [], shownFileID = Nothing, newFileBox = False, selectedSDGs = Set.empty }
       , chatPageStatus = initialChatPageStatus config.expand_toppane config.expand_chatinput
@@ -76,10 +77,6 @@ update msg model =
             ( model, reloadSessions () )
 
         FeedWorkspaces ws ->
-            let
-                _ =
-                    Debug.log "FeedWorkspaces" ws
-            in
             ( { model | workspaces = Dict.fromList <| List.map (\u -> ( u.id, u )) ws }, Cmd.none )
 
         FeedUsers users ->
@@ -109,6 +106,13 @@ update msg model =
                     updateNewWorkspaceModel msg1 model.newWorkspaceModel
             in
             ( { model | newWorkspaceModel = m }, c )
+
+        WorkspaceMsg msg1 ->
+            let
+                ( m, c ) =
+                    updateWorkspaceModel msg1 model.workspaceModel
+            in
+            ( { model | workspaceModel = m }, c )
 
         NewSessionMsg msg1 ->
             let
@@ -479,6 +483,7 @@ subscriptions _ =
         , sendCommentToServerDone SendCommentDone
         , onChangeData OnChangeData
         , setValue (\( k, v ) -> SetValue k v)
+        , feedSessionsInWorkspace (\s -> WorkspaceMsg (FeedSessionsInWorkspace s))
         ]
             ++ configSubscriptions
             ++ sessionSubscriptions

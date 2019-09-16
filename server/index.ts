@@ -491,6 +491,21 @@ app.delete('/api/workspaces/:id', (req: GetAuthRequest, res: JsonResponse<Delete
     })().catch(next);
 });
 
+app.get('/api/workspaces/:id/sessions', (req: GetAuthRequest, res: JsonResponse<GetSessionsResponse>, next) => {
+    (async () => {
+        if (req.params) {
+
+            const user_id = req.decoded.user_id;
+            const workspace_id = req.params.id;
+            const data = await model.sessions.list({ user_id, workspace_id, is_all: false });
+            res.json({ ok: data != null, data });
+        } else {
+            res.json({ ok: false });
+        }
+    })().catch(next);
+});
+
+
 app.get('/api/users', (req: GetAuthRequest, res: JsonResponse<GetUsersResponse>, next) => {
     (async () => {
         const users = await model.users.list(req.decoded.user_id);

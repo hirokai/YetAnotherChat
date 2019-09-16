@@ -1,4 +1,4 @@
-port module Workspace exposing (newWorkspaceView, updateNewWorkspaceModel, workspaceListView, workspaceView)
+port module Workspace exposing (newWorkspaceView, updateNewWorkspaceModel, workspaceListView, workspaceView,updateWorkspaceModel)
 
 import Components exposing (..)
 import Dict
@@ -84,7 +84,15 @@ workspaceListView model =
 workspaceView : Model -> Workspace -> { title : String, body : List (Html Msg) }
 workspaceView model ws =
     let
-        mkRow uid =
+        mkMemberRow sid =
+            tr []
+                [ td [] [input [type_ "checkbox"][]]
+                , td []
+                    [ a [ class "clickable", href <| "#/sessions/" ++ sid ] [ text <| sid ]
+                    ]
+                    
+                ]
+        mkSessionRow uid =
             tr []
                 [ td []
                     [ a [ class "clickable", href <| "#/users/" ++ uid ] [ text <| getUserNameDisplay model uid ]
@@ -106,11 +114,11 @@ workspaceView model ws =
                         h2 [] [text "メンバー"] 
                         , table [ class "table" ]
                             [ thead []
-                                [ tr [] [ th [] [ text "名前" ], th [] [text "Email"] ]
+                                [ tr [] [ th [] [], th [] [ text "名前" ], th [] [text "Email"] ]
                                 ]
                             , tbody [] <|
                                 List.map
-                                    mkRow
+                                    mkMemberRow
                                     ws.members
                             ]
                         
@@ -123,8 +131,8 @@ workspaceView model ws =
                                 ]
                             , tbody [] <|
                                 List.map
-                                    mkRow
-                                    ws.members
+                                    mkSessionRow
+                                    model.workspaceModel.sessions
                             ]
                     ]
                 ]
@@ -133,6 +141,12 @@ workspaceView model ws =
         ]
     }
 
+
+updateWorkspaceModel : WorkspaceMsg -> WorkspaceModel -> (WorkspaceModel, Cmd msg)
+updateWorkspaceModel msg model =
+    case msg of
+        FeedSessionsInWorkspace ws ->
+            ({model | sessions = ws}, Cmd.none)
 
 updateNewWorkspaceModel : NewWorkspaceMsg -> NewWorkspaceModel -> ( NewWorkspaceModel, Cmd msg )
 updateNewWorkspaceModel msg model =
