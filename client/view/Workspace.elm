@@ -9,6 +9,7 @@ import Ports exposing (..)
 import Regex exposing (..)
 import Set
 import Types exposing (..)
+import Navigation exposing (..)
 
 port createSessionWS : {workspace: String, members: List String} -> Cmd msg
 
@@ -155,7 +156,7 @@ updateWorkspaceModel wid msg model =
         FeedSessionsInWorkspace ws ->
             ({model | sessions = ws}, Cmd.none)
         StartNewSessionWS ->
-            (model, createSession {workspace = wid, name = "", members = (Set.toList model.selectedMembers)})
+            (model, createSession {redirect = True, workspace = wid, name = "", members = (Set.toList model.selectedMembers)})
         SelectMember uid selected ->
             ({model | selectedMembers = (if selected then Set.insert else Set.remove) uid model.selectedMembers }, Cmd.none)        
 

@@ -1,4 +1,4 @@
-port module Navigation exposing (enterHome, enterNewSession, enterNewWorkspace, enterProfileEdit, enterRoom, enterSessionList, enterUser, enterUserList, enterUserProfile, enterUserSetting, enterWorkspace, enterWorkspaceList, notFound, notFoundView, pageToPath, pathToPage, updatePageHash)
+port module Navigation exposing (enterHome, enterNewSession, enterNewWorkspace, enterProfileEdit, enterSession, enterSessionList, enterUser, enterUserList, enterUserProfile, enterUserSetting, enterWorkspace, enterWorkspaceList, notFound, notFoundView, pageToPath, pathToPage, updatePageHash)
 
 import Dict
 import Html exposing (..)
@@ -207,8 +207,8 @@ enterUserSetting model =
     ( new_model, getConfig () )
 
 
-enterRoom : String -> Model -> ( Model, Cmd Msg )
-enterRoom r model =
+enterSession : String -> Model -> ( Model, Cmd Msg )
+enterSession r model =
     let
         users =
             []
@@ -219,7 +219,7 @@ enterRoom r model =
         new_model =
             { model | page = RoomPage r, chatPageStatus = { chatPageStatus | filterMode = Person, filter = Set.fromList users, users = users, messages = Nothing } }
     in
-    ( new_model, Cmd.batch [ updatePageHash new_model, getMessages r, joinRoom { session_id = r, user_id = model.myself }, enterSession r ] )
+    ( new_model, Cmd.batch [ updatePageHash new_model, getMessages r, joinRoom { session_id = r, user_id = model.myself }, getCurrentSessionInfo r ] )
 
 
 enterUser : String -> Model -> ( Model, Cmd Msg )

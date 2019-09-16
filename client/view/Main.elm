@@ -41,6 +41,14 @@ init { user_id, config } =
       , chatPageStatus = initialChatPageStatus config.expand_toppane config.expand_chatinput
       , userListPageModel = initialUserListPageModel config.show_users_with_email_only
       , settingsPageModel = initialSettingsPageModel
+      , loaded =
+            { workspaces = False
+            , workspace = False
+            , sessions = False
+            , session = False
+            , users = False
+            , user = False
+            }
       , editing = Set.empty
       , editingValue = Dict.empty
       , files = Dict.empty
@@ -72,19 +80,30 @@ update msg model =
             ( model, reloadSessions () )
 
         FeedWorkspaces ws ->
-            ( { model | workspaces = Dict.fromList <| List.map (\u -> ( u.id, u )) ws }, Cmd.none )
+            let
+                loaded =
+                    model.loaded
+            in
+            ( { model | workspaces = Dict.fromList <| List.map (\u -> ( u.id, u )) ws, loaded = { loaded | workspaces = True } }, Cmd.none )
 
         FeedUsers users ->
-            ( { model | users = Dict.fromList <| List.map (\u -> ( u.id, u )) users }, Cmd.none )
+            let
+                loaded =
+                    model.loaded
+            in
+            ( { model | users = Dict.fromList <| List.map (\u -> ( u.id, u )) users, loaded = { loaded | users = True } }, Cmd.none )
 
         FeedRoomInfo v ->
             let
                 rs1 =
                     Json.decodeValue sessionInfoListDecoder v
+
+                loaded =
+                    model.loaded
             in
             case rs1 of
                 Ok rs ->
-                    ( { model | sessions = Dict.fromList (List.map (\r -> ( r.id, r )) rs) }, Cmd.none )
+                    ( { model | sessions = Dict.fromList (List.map (\r -> ( r.id, r )) rs), loaded = { loaded | sessions = True } }, Cmd.none )
 
                 Err _ ->
                     ( model, Cmd.none )
@@ -93,17 +112,24 @@ update msg model =
             case Json.decodeValue sessionInfoDecoder v of
                 Ok rs ->
                     let
+                        loaded =
+                            model.loaded
+
                         new_model : Model
                         new_model =
-                            { model | sessions = Dict.insert rs.id rs model.sessions }
+                            { model | sessions = Dict.insert rs.id rs model.sessions, loaded = { loaded | session = True } }
                     in
-                    enterRoom rs.id new_model
+                    ( new_model, Cmd.none )
 
                 Err _ ->
                     ( model, Cmd.none )
 
         EnterRoom r ->
-            enterRoom r model
+            if model.page /= RoomPage r then
+                enterSession r model
+
+            else
+                ( model, Cmd.none )
 
         EnterUser u ->
             enterUser u model
@@ -171,10 +197,10 @@ update msg model =
                 user_list =
                     Set.toList users
             in
-            ( { model | page = RoomPage "" }, Cmd.batch [ createSession { name = "", members = user_list, workspace = "" }, updatePageHash model ] )
+            ( { model | page = RoomPage "" }, Cmd.batch [ createSession { name = "", members = user_list, workspace = "", redirect = True }, updatePageHash model ] )
 
         ReceiveNewSessionId { id } ->
-            enterRoom id model
+            enterSession id model
 
         EnterNewSessionScreen ->
             enterNewSession model
@@ -247,7 +273,7 @@ update msg model =
                         enterNewWorkspace model
 
                     RoomPage r ->
-                        enterRoom r model
+                        enterSession r model
 
                     SessionListPage ->
                         enterSessionList model
@@ -438,7 +464,11 @@ view model =
                     chatRoomView room model
 
                 Nothing ->
-                    notFoundView model
+                    if not model.loaded.session then
+                        sessionViewLoading r model
+
+                    else
+                        notFoundView model
 
         SessionListPage ->
             sessionListView model

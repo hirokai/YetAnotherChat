@@ -207,17 +207,23 @@ window['importKey'] = crypto.importKey;
         }
     });
 
-    app.ports.createSession.subscribe(async function ({ workspace, name, members }: { workspace: string, name: string, members: string[] }) {
+    app.ports.createSession.subscribe(async function ({ workspace, name, members, redirect }: { workspace: string, name: string, members: string[], redirect: boolean }) {
         console.log('createSession', { workspace, name, members })
         if (name == "") {
             name = formatTime2(new Date().getTime()) + " 会話"
         }
         const session = await model.sessions.new({ name, members, workspace: workspace == "" ? undefined : workspace });
         app.ports.feedNewRoomInfo.send(model.sessions.toClient(session));
+        if (redirect) {
+            location.hash = '/sessions/' + session.id;
+        }
     });
 
-    app.ports.enterSession.subscribe((session_id: string) => {
-        model.sessions.get(session_id);
+    app.ports.getCurrentSessionInfo.subscribe(async (id: string) => {
+        const session = await model.sessions.get(id);
+        if (session) {
+            app.ports.feedNewRoomInfo.send(model.sessions.toClient(session));
+        }
     });
 
     app.ports.initializeData.subscribe(async () => {
@@ -316,8 +322,9 @@ window['importKey'] = crypto.importKey;
     });
 
     app.ports.setPageHash.subscribe(function (hash: string) {
-        console.log(hash);
-        location.hash = hash;
+        if (location.hash != hash) {
+            location.hash = hash;
+        }
     });
 
     window.addEventListener('hashchange', () => {
@@ -626,9 +633,9 @@ interface ElmAppPorts {
     scrollToBottom: ElmSub<void>;
     scrollTo: ElmSub<string>;
     createWorkspace: ElmSub<any[]>;
-    createSession: ElmSub<{ workspace: string, members: string[], name: string }>;
-    enterSession: ElmSub<string>;
-    feedNewRoomInfo: ElmSend<RoomInfoClient>
+    createSession: ElmSub<{ workspace: string, members: string[], name: string, redirect: boolean }>;
+    getCurrentSessionInfo: ElmSub<string>;
+    feedNewRoomInfo: ElmSend<RoomInfoClient>;
     feedRoomInfo: ElmSend<RoomInfoClient[]>;
     feedMessages: ElmSend<ChatEntryClient[]>;
     getConfig: ElmSub<void>

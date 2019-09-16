@@ -1,4 +1,4 @@
-port module SessionView exposing (addComment, chatRoomView, getMembers, initialChatPageStatus, mkComment, onKeyDownTextArea, removeItem, sendCommentToServer, sendCommentToServerDone, sessionSubscriptions, showAll, showItem, submitComment, updateChatPageStatus)
+port module SessionView exposing (addComment, chatRoomView, getMembers, initialChatPageStatus, mkComment, onKeyDownTextArea, removeItem, sendCommentToServer, sendCommentToServerDone, sessionSubscriptions, sessionViewLoading, showAll, showItem, submitComment, updateChatPageStatus)
 
 import Components exposing (..)
 import Dict exposing (Dict)
@@ -15,6 +15,27 @@ import Types exposing (..)
 initialChatPageStatus : Bool -> Bool -> ChatPageModel
 initialChatPageStatus show_top_pane expand_chatinput =
     { filterMode = Thread, filter = Set.empty, users = [], messages = Nothing, topPaneExpanded = show_top_pane, shrunkEntries = False, fontSize = 3, expandChatInput = expand_chatinput, chatInputActive = True, showVideoDiv = False, videoMembers = Set.empty }
+
+
+sessionViewLoading : SessionID -> Model -> { title : String, body : List (Html Msg) }
+sessionViewLoading sid model =
+    { title = appName
+    , body =
+        [ div [ class "container-fluid" ]
+            [ div [ class "row" ]
+                [ leftMenu model
+                , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10", id "chatroom_body" ]
+                    [ topPane model
+                    , div [ id "chat-body", classList [ ( "row", True ), ( "input_expanded", model.chatPageStatus.expandChatInput ), ( "toppane_expanded", model.chatPageStatus.topPaneExpanded ) ], attribute "data-session_id" sid ]
+                        [ div [ class "col-md-12 col-lg-12", id "chat-outer" ]
+                            [ text "Loading..."
+                            ]
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    }
 
 
 chatRoomView : SessionInfo -> Model -> { title : String, body : List (Html Msg) }

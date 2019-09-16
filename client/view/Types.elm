@@ -115,6 +115,14 @@ type alias Model =
     , chatPageStatus : ChatPageModel
     , userListPageModel : UserListPageModel
     , settingsPageModel : SettingsPageModel
+    , loaded :
+        { workspaces : Bool
+        , workspace : Bool
+        , sessions : Bool
+        , session : Bool
+        , users : Bool
+        , user : Bool
+        }
     , editing : Set String
     , editingValue : Dict String String
     , timezone : Zone

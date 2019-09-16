@@ -1,4 +1,4 @@
-port module Ports exposing (createSession, createWorkspace, deleteFile, deleteSession, deleteWorkspace, downloadPrivateKey, enterSession, feedMessages, feedNewRoomInfo, feedRoomInfo, feedSessionsInWorkspace, feedSessionsOf, feedSessionsWithSameMembers, feedUserImages, feedUserMessages, feedUsers, feedWorkspaces, getConfig, getMessages, getRoomInfo, getSessionsInWorkspace, getSessionsOf, getSessionsWithSameMembers, getUserMessages, getUsers, hashChanged, initializeData, joinRoom, logout, onChangeData, recalcElementPositions, receiveNewRoomInfo, reloadSession, reloadSessions, removeItemRemote, resetKeys, resetUserCache, saveConfig, scrollTo, scrollToBottom, sendRoomName, setConfigLocal, setPageHash, setValue, startPosterSession, startVideo, stopVideo, uploadPrivateKey, videoJoin, videoLeft)
+port module Ports exposing (createSession, createWorkspace, deleteFile, deleteSession, deleteWorkspace, downloadPrivateKey, feedMessages, feedNewRoomInfo, feedRoomInfo, feedSessionsInWorkspace, feedSessionsOf, feedSessionsWithSameMembers, feedUserImages, feedUserMessages, feedUsers, feedWorkspaces, getConfig, getCurrentSessionInfo, getMessages, getRoomInfo, getSessionsInWorkspace, getSessionsOf, getSessionsWithSameMembers, getUserMessages, getUsers, hashChanged, initializeData, joinRoom, logout, onChangeData, recalcElementPositions, receiveNewRoomInfo, reloadSession, reloadSessions, removeItemRemote, resetKeys, resetUserCache, saveConfig, scrollTo, scrollToBottom, sendRoomName, setConfigLocal, setPageHash, setValue, startPosterSession, startVideo, stopVideo, uploadPrivateKey, videoJoin, videoLeft)
 
 import Json.Decode as Json
 import Types exposing (..)
@@ -37,10 +37,10 @@ port getMessages : SessionID -> Cmd msg
 port getUserMessages : String -> Cmd msg
 
 
+port getCurrentSessionInfo : String -> Cmd msg
+
+
 port getRoomInfo : () -> Cmd msg
-
-
-port enterSession : String -> Cmd msg
 
 
 port getSessionsWithSameMembers : { members : List String, is_all : Bool } -> Cmd msg
@@ -73,7 +73,7 @@ port scrollToBottom : () -> Cmd msg
 port createWorkspace : ( String, List Member ) -> Cmd msg
 
 
-port createSession : { workspace : String, name : String, members : List String } -> Cmd msg
+port createSession : { workspace : String, name : String, members : List String, redirect : Bool } -> Cmd msg
 
 
 port feedMessages : (Json.Value -> msg) -> Sub msg
