@@ -84,7 +84,7 @@ workspaceListView model =
 workspaceView : Model -> Workspace -> { title : String, body : List (Html Msg) }
 workspaceView model ws =
     let
-        mkMemberRow sid =
+        mkSessionRow sid =
             tr []
                 [ td [] [input [type_ "checkbox"][]]
                 , td []
@@ -92,7 +92,7 @@ workspaceView model ws =
                     ]
                     
                 ]
-        mkSessionRow uid =
+        mkMemberRow uid =
             tr []
                 [ td []
                     [ a [ class "clickable", href <| "#/users/" ++ uid ] [ text <| getUserNameDisplay model uid ]
