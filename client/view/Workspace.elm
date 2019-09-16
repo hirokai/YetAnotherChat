@@ -1,4 +1,4 @@
-port module Workspace exposing (newWorkspaceView, updateNewWorkspaceModel, workspaceListView, workspaceView,updateWorkspaceModel)
+port module Workspace exposing (newWorkspaceView, updateNewWorkspaceModel, workspaceListView, workspaceView,updateWorkspaceModel,updateWorkspaceListModel)
 
 import Components exposing (..)
 import Dict
@@ -12,6 +12,7 @@ import Types exposing (..)
 import Navigation exposing (..)
 
 port createSessionWS : {workspace: String, members: List String} -> Cmd msg
+
 
 
 newWorkspaceView : Model -> { title : String, body : List (Html Msg) }
@@ -65,8 +66,26 @@ workspaceListView model =
                 , smallMenu
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text "ワークスペース一覧" ]
-                    , div [] <|
-                        List.map (mkWorkspacePanel model) (Dict.values model.workspaces)
+                     , div [] 
+                        [ span [] [ text "表示" ]
+                        , button [ class "btn btn-sm btn-light", onClick (WorkspaceListMsg <| ChangeShowModeWS Table) ] [ text "テーブル" ]
+                        , button [ class "btn btn-sm btn-light", onClick (WorkspaceListMsg <| ChangeShowModeWS Panel) ] [ text "パネル" ]
+                        ]
+                    , a [ href "#/workspaces/new", class "btn btn-primary"] [text "新しいワークスペース"]
+                    , if model.workspaceListModel.showMode == Table then
+                        showTable model <| Dict.values model.workspaces
+
+                      else
+                        showPanels model <| Dict.values model.workspaces
+                    ]
+                ]
+            ]
+        ]
+    }
+
+showPanels model workspaces = 
+                    div [] <|
+                        List.map (mkWorkspacePanel model) workspaces
                             ++ [ div
                                     [ classList [ ( "ws-list-item ws-list-center", True ) ]
                                     ]
@@ -77,12 +96,29 @@ workspaceListView model =
                                         ]
                                     ]
                                ]
-                    ]
+                    
+
+showTable : Model -> List Workspace -> Html Msg
+showTable model workspaces =
+    let
+        showItem : Workspace -> Html Msg
+        showItem ws =
+            tr []
+                [ td [] [], td [] [ a [ href <| "#/workspaces/" ++ ws.id ] [ text ws.name ] ]
+                , td [] [ if ws.owner == "" then text "(N/A)" else a [href <| "#/users/" ++ ws.owner] [text <| getUserNameDisplay model ws.owner]]
+                , td [] (List.intersperse (text ", ") <| List.map (\n -> a [ class "clickable", href <| "#/users/" ++ n ] [ text (getUserName model n) ]) ws.members)
                 ]
+
+    in
+    div []
+        [ table [ class "table", id "userlist-table" ]
+            [ thead []
+                [ tr [] [ th [] [], th [] [ text "名前" ], th [] [text "管理者"], th [] [ text "メンバー" ]]
+                ]
+            , tbody [] <|
+                List.map showItem workspaces
             ]
         ]
-    }
-
 
 workspaceView : Model -> Workspace -> { title : String, body : List (Html Msg) }
 workspaceView model ws =
@@ -160,8 +196,13 @@ updateWorkspaceModel wid msg model =
         StartNewSessionWS ->
             (model, createSession {redirect = True, workspace = wid, name = "", members = (Set.toList model.selectedMembers)})
         SelectMember uid selected ->
-            ({model | selectedMembers = (if selected then Set.insert else Set.remove) uid model.selectedMembers }, Cmd.none)        
+            ({model | selectedMembers = (if selected then Set.insert else Set.remove) uid model.selectedMembers }, Cmd.none)
 
+updateWorkspaceListModel : WorkspaceListMsg -> WorkspaceListModel -> (WorkspaceListModel, Cmd msg)
+updateWorkspaceListModel msg model =
+    case msg of
+        ChangeShowModeWS s ->
+            ( { model | showMode = s }, Cmd.none )
 
 updateNewWorkspaceModel : NewWorkspaceMsg -> NewWorkspaceModel -> ( NewWorkspaceModel, Cmd msg )
 updateNewWorkspaceModel msg model =

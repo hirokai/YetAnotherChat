@@ -112,7 +112,7 @@ roomTitle room model =
 
           else
             text room.name
-        , a [ id "edit-roomname", class "clickable", onClick (StartEditing "room-title" room.id) ] [ text "Edit" ]
+        , a [ id "edit-roomname", class "clickable", onClick (StartEditing "room-title" room.name) ] [ text "Edit" ]
         , a [ id "delete-room", class "clickable", onClick (DeleteRoom room.id) ] [ text "Delete" ]
         , a [ id "reload-room", class "btn btn-light", onClick (ReloadRoom room.id) ] [ text "Reload" ]
         , if Set.isEmpty model.chatPageStatus.videoMembers then

@@ -36,6 +36,7 @@ init { user_id, config } =
       , users = Dict.empty
       , newWorkspaceModel = { selected = Set.empty }
       , workspaceModel = { sessions = [], selectedMembers = Set.empty }
+      , workspaceListModel = { showMode = Table }
       , newSessionModel = { selected = Set.empty, sessions_same_members = [] }
       , userPageModel = { sessions = [], messages = [], shownFileID = Nothing, newFileBox = False, selectedSDGs = Set.empty }
       , chatPageStatus = initialChatPageStatus config.expand_toppane config.expand_chatinput
@@ -153,6 +154,18 @@ update msg model =
                             updateWorkspaceModel ws msg1 model.workspaceModel
                     in
                     ( { model | workspaceModel = m }, c )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        WorkspaceListMsg msg1 ->
+            case model.page of
+                WorkspaceListPage ->
+                    let
+                        ( m, c ) =
+                            updateWorkspaceListModel msg1 model.workspaceListModel
+                    in
+                    ( { model | workspaceListModel = m }, c )
 
                 _ ->
                     ( model, Cmd.none )

@@ -1,4 +1,4 @@
-module Types exposing (ChatEntry(..), ChatFileTyp, ChatPageModel, ChatPageMsg(..), CommentTyp, FilterMode(..), LocalConfig, Member, Model, Msg(..), NewSessionModel, NewSessionMsg(..), NewWorkspaceModel, NewWorkspaceMsg(..), Page(..), SessionEventTyp, SessionID, SessionInfo, SettingsMsg(..), SettingsPageModel, User, UserListPageModel, UserListPageMsg(..), UserListShowMode(..), UserPageModel, UserPageMsg(..), Workspace, WorkspaceModel, WorkspaceMsg(..), appName, getId, getKind, getRoomID, getSDGs, getUser, getUserFullname, getUserInfo, getUserName, getUserNameDisplay, roomName, roomUsers, toggleSet, truncate)
+module Types exposing (ChatEntry(..), ChatFileTyp, ChatPageModel, ChatPageMsg(..), CommentTyp, FilterMode(..), ListShowMode(..), LocalConfig, Member, Model, Msg(..), NewSessionModel, NewSessionMsg(..), NewWorkspaceModel, NewWorkspaceMsg(..), Page(..), SessionEventTyp, SessionID, SessionInfo, SettingsMsg(..), SettingsPageModel, User, UserListPageModel, UserListPageMsg(..), UserPageModel, UserPageMsg(..), Workspace, WorkspaceListModel, WorkspaceListMsg(..), WorkspaceModel, WorkspaceMsg(..), appName, getId, getKind, getRoomID, getSDGs, getUser, getUserFullname, getUserInfo, getUserName, getUserNameDisplay, roomName, roomUsers, toggleSet, truncate)
 
 import Dict exposing (Dict)
 import Json.Decode as Json
@@ -111,6 +111,7 @@ type alias Model =
     , newSessionModel : NewSessionModel
     , newWorkspaceModel : NewWorkspaceModel
     , workspaceModel : WorkspaceModel
+    , workspaceListModel : WorkspaceListModel
     , userPageModel : UserPageModel
     , chatPageStatus : ChatPageModel
     , userListPageModel : UserListPageModel
@@ -170,13 +171,17 @@ type alias WorkspaceModel =
     }
 
 
-type UserListShowMode
+type alias WorkspaceListModel =
+    { showMode : ListShowMode }
+
+
+type ListShowMode
     = Table
     | Panel
 
 
 type alias UserListPageModel =
-    { userWithIdOnly : Bool, showMode : UserListShowMode }
+    { userWithIdOnly : Bool, showMode : ListShowMode }
 
 
 type FilterMode
@@ -222,9 +227,10 @@ type Msg
     | NewSessionMsg NewSessionMsg
     | NewWorkspaceMsg NewWorkspaceMsg
     | WorkspaceMsg WorkspaceMsg
+    | WorkspaceListMsg WorkspaceListMsg
     | UserPageMsg UserPageMsg
-    | ChatPageMsg ChatPageMsg
     | UserListPageMsg UserListPageMsg
+    | ChatPageMsg ChatPageMsg
     | SettingsMsg SettingsMsg
     | StartSession (Set Member)
     | ReceiveNewSessionId { timestamp : Int, name : String, id : SessionID }
@@ -283,7 +289,7 @@ type UserPageMsg
 
 type UserListPageMsg
     = CheckUserWithIdOnly Bool
-    | ChangeShowMode UserListShowMode
+    | ChangeShowMode ListShowMode
 
 
 type ChatPageMsg
@@ -307,6 +313,10 @@ type WorkspaceMsg
     = FeedSessionsInWorkspace (List String)
     | StartNewSessionWS
     | SelectMember String Bool
+
+
+type WorkspaceListMsg
+    = ChangeShowModeWS ListShowMode
 
 
 type SettingsMsg

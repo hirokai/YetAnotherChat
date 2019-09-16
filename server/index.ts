@@ -460,7 +460,6 @@ app.get('/api/workspaces', (req: GetAuthRequest, res: JsonResponse<GetWorkspaces
     (async () => {
         const user_id = req.decoded.user_id;
         const wss = await model.workspaces.list(user_id);
-        log.info('/api/workspaces', wss);
         res.json({ ok: true, data: wss });
     })().catch(next);
 });
