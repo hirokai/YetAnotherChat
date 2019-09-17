@@ -42,15 +42,15 @@ export async function get(user_id: string, workspace_id: string): Promise<Worksp
 export async function create(user_id: string, name: string, members: string[]): Promise<{ ok: boolean, data?: Workspace }> {
     const id = shortid();
     const timestamp = new Date().getTime();
-    await db_.run('insert into workspaces (id,name,timestamp) values (?,?,?);', id, name, timestamp);
     const visibility: WorkspaceVisibility = 'private';
+    await db_.run('insert into workspaces (id,name,timestamp,visibility) values (?,?,?,?);', id, name, timestamp, visibility);
     for (let uid of members) {
         const user = await users.get(uid);
         if (user != null) {
             log.debug({ user_id, uid, user })
             const metadata: UserInWorkspaceMetadata = { role: user_id == uid ? 'owner' : 'member' };
             log.info({ uid, metadata });
-            await db_.run('insert into users_in_workspaces (user_id,workspace_id,timestamp,metadata,visibility) values (?,?,?,?,?);', uid, id, timestamp, JSON.stringify(metadata), visibility);
+            await db_.run('insert into users_in_workspaces (user_id,workspace_id,timestamp,metadata) values (?,?,?,?);', uid, id, timestamp, JSON.stringify(metadata));
         }
     }
     const data: Workspace = { id, name, members, owner: user_id, visibility };
