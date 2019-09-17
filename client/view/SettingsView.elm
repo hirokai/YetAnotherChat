@@ -5,6 +5,7 @@ import Dict
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
+import Json.Decode as Json
 import Ports exposing (..)
 import Regex exposing (..)
 import Types exposing (..)
@@ -56,6 +57,22 @@ userSettingView user model =
     let
         m1 =
             model.settingsPageModel
+
+        email_workspace =
+            case model.localConfig.email_workspace of
+                Just wid ->
+                    Dict.get wid model.workspaces
+
+                Nothing ->
+                    Nothing
+
+        import_email =
+            case email_workspace of
+                Just ws ->
+                    user.id ++ "+" ++ ws.id ++ "@mail.coi-sns.com"
+
+                Nothing ->
+                    user.id ++ "@mail.coi-sns.com"
     in
     { title = getUserNameDisplay model model.myself ++ ": " ++ appName
     , body =
@@ -110,10 +127,19 @@ userSettingView user model =
                         [ h2 [] [ text "メール連携設定" ]
                         , div []
                             [ h3 [] [ text "メールの取り込み" ]
-                            , text "登録済Emailアドレスから "
-                            , span [ class "monospace" ] [ text <| user.id ++ "@coi-sns.com" ]
-                            , text <| "にメールを転送すると" ++ appName ++ "に取り込まれます。"
-                            , span [ class "danger" ] [ text "注意：試験的機能であり，サーバー管理者に取り込まれたメッセージに見られる可能性があります。" ]
+                            , div [ class "config-subsection" ]
+                                [ text <| "登録済Emailアドレスからメールを転送すると" ++ appName ++ "に取り込まれます。"
+                                , br [] []
+                                , label [ for "import-to" ] [ text "取り込み先のワークスペース" ]
+                                , select [ id "import-to", on "change" <| Json.map (SaveConfigLocal "email_workspace") targetValue ] <|
+                                    option [ value "__none__" ] [ text "（取り込まない）" ]
+                                        :: List.map (\w -> option [ value w.id ] [ text w.name ]) (Dict.values model.workspaces)
+                                , br [] []
+                                , span [] [ text "送信先：" ]
+                                , span [ class "monospace", id "config-import-email" ] [ text import_email ]
+                                , br [] []
+                                , span [ class "danger" ] [ text "注意：試験的機能であり，サーバー管理者に取り込まれたメッセージに見られる可能性があります。" ]
+                                ]
                             ]
                         , div []
                             [ h3 [] [ text "メールによる通知" ]
@@ -167,31 +193,21 @@ userSettingView user model =
                                     ]
                                 ]
                             ]
-                        , p [ style "font-size" "14px" ]
-                            [ text "ユーザー間のメッセージ本文（文章・画像）は"
-                            , a [ class "link", href "https://ja.wikipedia.org/wiki/%E6%A5%95%E5%86%86%E6%9B%B2%E7%B7%9A%E3%83%87%E3%82%A3%E3%83%95%E3%82%A3%E3%83%BC%E3%83%BB%E3%83%98%E3%83%AB%E3%83%9E%E3%83%B3%E9%8D%B5%E5%85%B1%E6%9C%89" ] [ text "楕円曲線ディフィー・ヘルマン鍵共有（ECDH）" ]
-                            , text "および128ビット"
-                            , a [ class "link", href "https://ja.wikipedia.org/wiki/Advanced_Encryption_Standard" ] [ text "AES-GCM" ]
-                            , text "によってエンドツーエンド暗号化されています。秘密鍵は各ユーザーの端末のみに保存されるため，サーバー管理者でさえもエンドツーエンド暗号化された内容を読むことができません。ユーザー間の公開鍵の交換はサーバーを介して行われますが，公開鍵が改ざんされていないことがEthereumブロックチェーンで確認できます。"
-                            , a [ href "/public_keys", class "link" ] [ text "鍵一覧のページ" ]
-                            , br [] []
-                            , text "同じユーザーが他の端末で使用する場合は，下記より秘密鍵を書き出してから他の端末で読み込むか，あるいは一時的にサーバーに秘密鍵を預けてから他の端末でログインすることで利用が可能になります。なお，送信日時，送信ユーザーIDなどのメタデータ，プロフィール情報はサーバー上に保存され，サーバー管理者が読み取り可能です。"
-                            ]
                         , div [ class "row" ]
-                            [ div [ class "col-md-4 right-vline" ]
+                            [ div [ class "col-lg-3 col-md-6 right-vline" ]
                                 [ h3 []
                                     [ text "秘密鍵をサーバーに一時預け" ]
                                 , button [ class "btn btn-primary", disabled (model.profile.privateKey == ""), onClick UploadPrivateKey ] [ text "預ける" ]
                                 , br [] []
                                 , span [ style "font-size" "14px" ] [ text "サーバーに5分間だけ秘密鍵を保管します。その間に他の利用端末でログインすると，秘密鍵が自動でダウンロードされ端末に保存されます。" ]
                                 ]
-                            , div [ class "col-md-4 right-vline" ]
+                            , div [ class "col-lg-3 col-md-6 right-vline" ]
                                 [ h3 [] [ text "ファイルに書き出し" ]
                                 , a
                                     [ classList [ ( "btn", True ), ( "btn-primary", True ), ( "disabled", model.profile.privateKey == "" ) ], onClick DownloadPrivateKey, download "private_key.json", id "download-private-key" ]
                                     [ text "書き出す" ]
                                 ]
-                            , div [ class "col-md-4" ]
+                            , div [ class "col-md-6" ]
                                 [ h3 []
                                     [ text "秘密鍵ファイルを取り込み" ]
                                 , input

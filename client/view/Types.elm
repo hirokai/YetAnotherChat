@@ -141,6 +141,7 @@ type alias LocalConfig =
     , expand_toppane : Bool
     , expand_chatinput : Bool
     , show_users_with_email_only : Bool
+    , email_workspace : Maybe String
     }
 
 
@@ -273,6 +274,7 @@ type Msg
     | ResetKeys
     | ResetUserCache
     | SetValue String String
+    | SaveConfigLocal String String
     | SaveConfigLocalBool String Bool
     | DeleteWorkspace String
     | SetVisibility String String String

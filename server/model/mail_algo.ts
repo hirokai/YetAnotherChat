@@ -333,7 +333,9 @@ export function mk_user_name(fullname: string): string {
 }
 
 export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_recipient = false }: { body: object, db, myio?: SocketIO.Server, ignore_recipient?: boolean }): Promise<{ added_users: User[], comments: CommentTyp[] }> {
-    const recipient: string = body['recipient'].split('@')[0].replace('.', '');
+    const recipient_1: string = body['recipient'].split('@')[0];
+    const [recipient, metadata] = /\+/.test(recipient_1) ? recipient_1.split('+').slice(0, 2) : [recipient_1, undefined];
+    const workspace_id = metadata;
     fs.mkdir('imported_data/mailgun/' + recipient, { recursive: true }, () => {
         fs.writeFile('imported_data/mailgun/' + recipient + '/' + body['Message-Id'] + '.json', JSON.stringify(body, null, 2), () => {
 
@@ -368,7 +370,7 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
     if (session_id) {
         log.info('existing session', session_id);
     } else {
-        const r = await model.sessions.create(myself.id, replies[0].subject, []);
+        const r = await model.sessions.create(myself.id, replies[0].subject, [], workspace_id);
         session_id = r ? r.id : null;
         log.info('new session', session_id);
         if (myio) {

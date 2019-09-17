@@ -510,6 +510,7 @@ type LocalConfig = {
     expand_toppane: boolean
     expand_chatinput: boolean
     show_users_with_email_only: boolean
+    email_workspace: string | null
 }
 
 type UserInWorkspaceMetadata = {

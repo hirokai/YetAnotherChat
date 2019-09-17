@@ -926,3 +926,13 @@ h3{
 #toolbar-sessionview select{
     margin: 0px 10px;
 }
+
+.config-subsection {
+    margin: 5px 0px 0px 10px;
+}
+
+#config-import-email{
+    font-size: 18px;
+    font-weight: bold;
+
+}

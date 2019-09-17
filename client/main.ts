@@ -397,6 +397,7 @@ window['importKey'] = crypto.importKey;
     });
 
     app.ports.setConfigLocal.subscribe(({ key, value }) => {
+        console.log('setConfigLocal', key, value);
         model.config.saveLocal(key, value);
     });
 

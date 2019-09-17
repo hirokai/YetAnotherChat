@@ -47,7 +47,8 @@ export class Model {
         expand_chatinput: false,
         show_toppane: true,
         expand_toppane: false,
-        show_users_with_email_only: false
+        show_users_with_email_only: false,
+        email_workspace: null
     };
     async init(): Promise<boolean> {
         try {

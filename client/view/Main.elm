@@ -455,6 +455,29 @@ update msg model =
             in
             ( m, Cmd.batch [ c, deleteWorkspace ws ] )
 
+        SaveConfigLocal k v ->
+            let
+                new_config =
+                    case k of
+                        "email_workspace" ->
+                            let
+                                config =
+                                    model.localConfig
+                            in
+                            { config
+                                | email_workspace =
+                                    if v /= "__none__" then
+                                        Just v
+
+                                    else
+                                        Nothing
+                            }
+
+                        _ ->
+                            model.localConfig
+            in
+            ( { model | localConfig = new_config }, setConfigLocal { key = k, value = "\"" ++ v ++ "\"" } )
+
         SaveConfigLocalBool k v ->
             let
                 s =
