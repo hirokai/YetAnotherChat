@@ -532,16 +532,22 @@ export async function get_user_for_reset_password_token(token: string): Promise<
     }
 }
 
-export async function reset_password_from_link(token: string, password: string): Promise<boolean> {
+export async function reset_password_from_link(token: string, password: string): Promise<{ ok: boolean, error?: string }> {
     const user = await get_user_for_reset_password_token(token);
     if (user == null) {
-        return false;
+        return { ok: false, error: 'User does not exist' };
     } else {
+        const not_pwned = await check_password_not_pwned(password);
+        if (!not_pwned) {
+            return { ok: false, error: 'Breached password' };
+        }
         const ok = await save_password(user.id, password);
         if (ok) {
             await remove_password_reset_token(token);
+            return { ok: true };
+        } else {
+            return { ok: false, error: 'Password save failed' }
         }
-        return ok;
     }
 }
 

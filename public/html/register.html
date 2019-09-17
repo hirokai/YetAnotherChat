@@ -129,8 +129,8 @@
                         $('#info-username').html('無効なユーザー名です（"__"から始まることはできません）')
                         return;
                     }
-                    if (username.indexOf('@') != -1) {
-                        $('#info-username').html('無効なユーザー名です（"@"を含めることはできません）')
+                    if (/[@~!\s]/.test(username)) {
+                        $('#info-username').html('無効なユーザー名です（空白または使用できない記号が含まれています）')
                         return;
                     }
                     const password = $('#password').val();
@@ -148,6 +148,8 @@
                         } else {
                             if (res.error == "User already exists") {
                                 $('#info-username').html('ユーザー名がすでに使われています。')
+                            } else if (res.error == 'Invalid username') {
+                                $('#info-username').html('無効なユーザー名です。')
                             } else if (res.error == 'Breached password') {
                                 $('#info-username').html('漏洩したことのあるパスワードは利用できません。<br><a href="https://haveibeenpwned.com/Passwords">Pwned Passwords</a> <a href="https://ascii.jp/elem/000/001/867/1867166/">説明</a>')
                             } else {

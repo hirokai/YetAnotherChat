@@ -184,8 +184,8 @@ app.get('/main', (req, res, next) => {
 
 app.post('/api/reset_password', (req, res, next) => {
     (async () => {
-        const ok = await model.users.reset_password_from_link(req.body.token, req.body.password);
-        res.send({ ok });
+        const { ok, error } = await model.users.reset_password_from_link(req.body.token, req.body.password);
+        res.send({ ok, error });
     })().catch(next);
 });
 
@@ -264,6 +264,10 @@ app.post('/api/register', (req, res: JsonResponse<RegisterResponse>, next) => {
         const not_pwned = await model.users.check_password_not_pwned(password);
         if (!not_pwned) {
             res.json({ ok: false, error: 'Breached password' });
+            return;
+        }
+        if (/[@~!\s]/.test(username)) {
+            res.json({ ok: false, error: 'Invalid username' });
             return;
         }
         const r1 = await model.users.register({ username, password, email, fullname, source: 'self_register' });
