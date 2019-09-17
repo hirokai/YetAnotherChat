@@ -7,6 +7,7 @@ import { fingerPrint } from '../../common/common_model'
 import { map, includes, orderBy, keyBy, min, max, chain, compact, zip, sum, values, sortedUniq, sortBy } from 'lodash';
 const emojis = require("./emojis.json").emojis;
 const emoji_dict = keyBy(emojis, 'shortname');
+import * as model from './index'
 import * as _ from 'lodash';
 import * as bunyan from 'bunyan';
 const log = bunyan.createLogger({ name: "model.sessions", src: true, level: 1 });
@@ -72,7 +73,7 @@ export function get_session_of_members(user_id: string, members: string[], is_al
     }
     return new Promise((resolve) => {
         // https://stackoverflow.com/questions/1897352/sqlite-group-concat-ordering
-        const q = "select id,name,timestamp,source,group_concat(user_id) as members, group_concat(source) as sources, from (select s.*,m.user_id from sessions as s join session_current_members as m on s.id=m.session_id order by s.timestamp,m.user_id) group by id having members like ? order by timestamp desc;"
+        const q = "select id,name,timestamp,source,s.visibility,group_concat(user_id) as members, group_concat(source) as sources, from (select s.*,m.user_id from sessions as s join session_current_members as m on s.id=m.session_id order by s.timestamp,m.user_id) group by id having members like ? order by timestamp desc;"
         db.all(q, s, (err, sessions) => {
             const ss = map(sessions, (session) => {
                 const roles: SessionMemberSource[] = session.sources.split(',');
@@ -81,7 +82,8 @@ export function get_session_of_members(user_id: string, members: string[], is_al
                 var r: RoomInfo = {
                     id: session.id, name: session.name, timestamp: session.timestamp,
                     numMessages: s['count(timestamp)'], firstMsgTime: -1, lastMsgTime: -1, members,
-                    owner: owner_index != -1 ? members[owner_index] : ''
+                    owner: owner_index != -1 ? members[owner_index] : '',
+                    visibility: session.visibility
                 };
                 return r;
             });
@@ -193,19 +195,19 @@ export async function list(params: { user_id: string, of_members?: string[] | un
     if (of_members) {
         return get_session_of_members(user_id, of_members, is_all);
     }
-    const rows = workspace_id ? await db_.all<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string, source?: string }>(`
+    const rows = workspace_id ? await db_.all<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string, source?: string, visibility?: SessionVisibility }>(`
             select s.*,m2.* from sessions as s
             join session_current_members as m on s.id=m.session_id
             join session_current_members as m2 on m.session_id=m2.session_id
             where m.user_id=? and s.workspace=? order by s.timestamp desc;`, user_id, workspace_id) :
-        await db_.all<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string, source?: string }>(`
+        await db_.all<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string, source?: string, visibility?: SessionVisibility }>(`
             select s.*,m2.* from sessions as s
             join session_current_members as m on s.id=m.session_id
             join session_current_members as m2 on m.session_id=m2.session_id
             where m.user_id=? order by s.timestamp desc;`, user_id);
     // log.info('sessions.list', params, rows);
     const sessions = _.map(_.groupBy(rows, 'id'), (g) => {
-        return { id: g[0].id, members: _.map(g, (g) => { return { id: g.user_id, source: g.source }; }), name: g[0].name, timestamp: g[0].timestamp, workspace: g[0].workspace };
+        return { id: g[0].id, members: _.map(g, (g) => { return { id: g.user_id, source: g.source }; }), name: g[0].name, timestamp: g[0].timestamp, workspace: g[0].workspace, visibility: g[0].visibility };
     });
     const infos: { count: { [key: string]: number }, first: number, last: number }[] = [];
     for (let s of sessions) {
@@ -237,7 +239,7 @@ export async function list(params: { user_id: string, of_members?: string[] | un
         } else {
             const obj: RoomInfo = {
                 id: s.id, name: decipher(s.name) || '', timestamp: s.timestamp, members: _.map(s.members, 'id'), numMessages: info.count, firstMsgTime: info.first, lastMsgTime: info.last, workspace: s.workspace,
-                owner: owner.id
+                owner: owner.id, visibility: s.visibility || 'private'
             };
             return obj;
         }
@@ -369,34 +371,44 @@ export async function create_session_with_id(user_id: string, session_id: string
     }
 }
 
-export function get(user_id: string, session_id: string): Promise<RoomInfo | null> {
+export async function get(user_id: string, session_id: string): Promise<RoomInfo | null> {
     // log.info('get_session_info', session_id);
-    return new Promise((resolve) => {
-        // const ts = new Date().getTime();
-        db.serialize(() => {
-            db.get('select * from sessions where id=?;', session_id, (err, session) => {
-                if (!session) {
-                    resolve(null);
-                } else {
-                    db.all('select * from session_current_members as m where session_id=? group by m.user_id;', session_id, (err, r2) => {
-                        const members = map(r2, (r2): string => { return r2['user_id'] });
-                        const sources: SessionMemberSource[] = map(r2, (r2) => { return r2['source'] });
-                        const owner_index = _.findIndex(sources, 'owner');
-                        const numMessages: { [key: string]: number } = {};
-                        const firstMsgTime = -1;
-                        const lastMsgTime = -1;
-                        const id = session_id;
-                        if (owner_index == -1) {
-                            resolve(null)
-                        } else {
-                            const obj: RoomInfo = { name: decipher(session.name) || "(decryption error)", timestamp: session.timestamp, members, numMessages, firstMsgTime, lastMsgTime, id, owner: members[owner_index] };
-                            resolve(obj);
-                        }
-                    })
-
-                }
-            });
-        });
-    });
+    // const ts = new Date().getTime();
+    const session = await db_.get<{ id: string, workspace?: string, name: string, timestamp: number, visibility?: SessionVisibility }>('select * from sessions where id=?;', session_id);
+    if (!session) {
+        return null;
+    } else {
+        const r2 = await db_.all('select * from session_current_members as m where session_id=? group by m.user_id;', session_id);
+        const members = map(r2, (r2): string => { return r2['user_id'] });
+        let allowed = false;
+        if (!session.visibility) {  //Default is private
+            allowed = _.includes(members, user_id);
+        } else if (_.includes(['public', 'url'], session.visibility)) {
+            allowed = true;
+        } else if (session.visibility == 'workspace' && session.workspace) {
+            const ws = await model.workspaces.get(user_id, session.workspace);
+            allowed = !!ws && _.includes(ws.members, user_id);
+        }
+        log.debug({ visibility: session.visibility, members, user_id, allowed })
+        if (!allowed) {
+            return null;
+        }
+        const sources: SessionMemberSource[] = map(r2, (r2) => { return r2['source'] });
+        const owner_index = sources.indexOf('owner');
+        const numMessages: { [key: string]: number } = {};
+        const firstMsgTime = -1;
+        const lastMsgTime = -1;
+        const id = session_id;
+        log.debug({ members, sources, owner_index })
+        if (owner_index == -1) {
+            return null;
+        } else {
+            const obj: RoomInfo = {
+                name: decipher(session.name) || "(decryption error)", timestamp: session.timestamp, members, numMessages, firstMsgTime, lastMsgTime, id, owner: members[owner_index],
+                visibility: session.visibility || 'private'
+            };
+            return obj;
+        }
+    }
 }
 

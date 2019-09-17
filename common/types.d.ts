@@ -8,6 +8,7 @@ type RoomInfo = {
     members: string[],
     owner: string,
     workspace?: string,
+    visibility: SessionVisibility
 }
 
 type RoomInfoClient = {
@@ -21,6 +22,7 @@ type RoomInfoClient = {
     members: Array<string>
     owner: string
     workspace: string
+    visibility: SessionVisibility
 }
 
 interface PostCommentResponse {
@@ -152,11 +154,13 @@ interface SessionEventClient extends ChatEntryClientCommon {
     action: string
 }
 
+type SessionVisibility = 'public' | 'workspace' | 'url' | 'private';
+
 interface Workspace {
     id: string
     name: string
     owner: string,
-    members: string[]
+    members: string[],
 }
 
 interface UserSlack {

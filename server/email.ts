@@ -84,7 +84,7 @@ async function send_email({ subject, to: tos, from, content }: { subject: string
 //     .catch(err => log.info(err)); // logs any error
 
 export async function send_emails_to_session_members({ session_id, user_id, comment }: { session_id: string, user_id: string, comment: string }): Promise<void> {
-    const session = await model.sessions.get(session_id);
+    const session = await model.sessions.get(user_id, session_id);
     const online_users = await model.users.list_online_users();
     const members = await model.sessions.get_members({ myself: user_id, session_id });
     const from = find(members, (m => m.id == user_id));

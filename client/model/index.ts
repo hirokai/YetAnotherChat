@@ -523,6 +523,7 @@ export class Model {
                 timestamp: d.timestamp,
                 members: d.members,
                 owner: d.owner,
+                visibility: d.visibility,
                 workspace: d.workspace || ""
             };
             return r;

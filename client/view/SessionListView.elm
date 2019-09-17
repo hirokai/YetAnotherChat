@@ -11,6 +11,25 @@ import Regex exposing (..)
 import Types exposing (..)
 
 
+showVisibility : String -> String
+showVisibility s =
+    case s of
+        "public" ->
+            "ワークスペース内の一覧に表示"
+
+        "workspace" ->
+            "ワークスペース内の一覧に表示"
+
+        "url" ->
+            "URL共有で参加"
+
+        "private" ->
+            "招待メンバーのみ"
+
+        _ ->
+            "N/A"
+
+
 sessionListView : Model -> { title : String, body : List (Html Msg) }
 sessionListView model =
     let
@@ -28,6 +47,7 @@ sessionListView model =
                     tr []
                         [ td [] [ a [ href <| "#/workspaces/" ++ room.workspace ] [ text ws_name ] ]
                         , td [] [ a [ href <| "#/sessions/" ++ room.id ] [ text room.name ] ]
+                        , td [] [ text <| showVisibility room.visibility ]
                         , td [] [ a [ href <| "#/users/" ++ room.owner ] [ text <| getUserNameDisplay model room.owner ] ]
                         , td [] <| List.intersperse (text ", ") (List.map (\u -> a [ href <| "/main#" ++ pageToPath (UserPage u), class "clickable" ] [ text (getUserName model u) ]) (roomUsers room.id model))
                         , td [] [ text <| ourFormatter model.timezone room.lastMsgTime ]
@@ -50,6 +70,7 @@ sessionListView model =
                             [ tr []
                                 [ th [] [ text "ワークスペース" ]
                                 , th [] [ text "名前" ]
+                                , th [] [ text "公開範囲" ]
                                 , th [] [ text "管理者" ]
                                 , th [] [ text "メンバー" ]
                                 , th [] [ text "最終更新" ]

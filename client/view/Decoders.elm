@@ -78,6 +78,7 @@ sessionInfoDecoder =
         |> JE.andMap (Json.field "members" (Json.list Json.string))
         |> JE.andMap (Json.field "owner" Json.string)
         |> JE.andMap (Json.field "workspace" Json.string)
+        |> JE.andMap (Json.field "visibility" Json.string)
         |> JE.andMap (Json.field "firstMsgTime" Json.int)
         |> JE.andMap (Json.field "lastMsgTime" Json.int)
         |> JE.andMap (Json.field "numMessages" (Json.dict Json.int))
