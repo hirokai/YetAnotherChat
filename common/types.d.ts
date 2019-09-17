@@ -154,6 +154,7 @@ interface SessionEventClient extends ChatEntryClientCommon {
     action: string
 }
 
+type WorkspaceVisibility = 'public' | 'url' | 'private';
 type SessionVisibility = 'public' | 'workspace' | 'url' | 'private';
 
 interface Workspace {
@@ -161,6 +162,7 @@ interface Workspace {
     name: string
     owner: string,
     members: string[],
+    visibility: WorkspaceVisibility
 }
 
 interface UserSlack {
@@ -391,6 +393,15 @@ type DeleteWorkspaceResponse = {
     ok: boolean
 }
 
+type UpdateWorkspaceData = {
+    name?: string,
+    visibility?: WorkspaceVisibility
+}
+
+type UpdateWorkspaceResponse = {
+    ok: boolean
+}
+
 type PostWorkspaceResponse = {
     ok: boolean,
     data?: Workspace
@@ -418,6 +429,13 @@ type CommentsNewSocket = {
     temporary_id: string,
     entry: CommentTyp,
 }
+
+type WorkspacesUpdateSocket = {
+    __type: 'workspaces.update',
+    timestamp: number
+    data: { name?: string }
+}
+
 
 type SessionsNewSocket = {
     __type: 'sessions.new',

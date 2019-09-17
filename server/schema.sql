@@ -138,6 +138,7 @@ CREATE TABLE workspaces
     name TEXT not null,
     timestamp INTEGER not null,
     kind TEXT,
+    visibility TEXT,
     metadata TEXT
 );
 

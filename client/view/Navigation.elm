@@ -1,4 +1,4 @@
-port module Navigation exposing (enterHome, enterNewSession, enterNewWorkspace, enterProfileEdit, enterSession, enterSessionList, enterUser, enterUserList, enterUserProfile, enterUserSetting, enterWorkspace, enterWorkspaceList, notFound, notFoundView, pageToPath, pathToPage, updatePageHash)
+port module Navigation exposing (enterHome, enterNewSession, enterNewWorkspace, enterProfileEdit, enterSession, enterSessionList, enterUser, enterUserList, enterUserProfile, enterUserSetting, enterWorkspace, enterWorkspaceEdit, enterWorkspaceList, notFound, notFoundView, pageToPath, pathToPage, updatePageHash)
 
 import Dict
 import Html exposing (..)
@@ -30,6 +30,9 @@ pageToPath page =
 
         WorkspaceListPage ->
             "/workspaces"
+
+        WorkspaceEditPage id ->
+            "/workspaces/" ++ id ++ "/edit"
 
         NewWorkspacePage ->
             "/workspaces/new"
@@ -89,12 +92,15 @@ pathToPage hash =
             else
                 UserProfilePage u
 
-        "workspaces" :: id :: _ ->
+        "workspaces" :: id :: rest ->
             if id == "" then
                 WorkspaceListPage
 
             else if id == "new" then
                 NewWorkspacePage
+
+            else if rest == [ "edit" ] then
+                WorkspaceEditPage id
 
             else
                 WorkspacePage id
@@ -155,6 +161,31 @@ enterWorkspace model wid =
             { model | page = WorkspacePage wid, workspaceModel = { workspaceModel | selectedMembers = Set.empty } }
     in
     ( new_model, Cmd.batch [ updatePageHash new_model, getSessionsInWorkspace wid ] )
+
+
+enterWorkspaceEdit : Model -> String -> ( Model, Cmd Msg )
+enterWorkspaceEdit model wid =
+    let
+        ws_m =
+            Dict.get wid model.workspaces
+
+        workspaceEditModel =
+            model.workspaceEditModel
+    in
+    case ws_m of
+        Just ws ->
+            if ws.owner == model.myself then
+                let
+                    new_model =
+                        { model | page = WorkspaceEditPage wid, workspaceEditModel = { workspaceEditModel | name = ws.name } }
+                in
+                ( new_model, Cmd.batch [ updatePageHash new_model, getSessionsInWorkspace wid ] )
+
+            else
+                ( model, Cmd.none )
+
+        Nothing ->
+            ( model, Cmd.none )
 
 
 enterNewWorkspace : Model -> ( Model, Cmd Msg )

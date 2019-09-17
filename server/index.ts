@@ -477,6 +477,28 @@ app.get('/api/workspaces/:id', (req: GetAuthRequest, res: JsonResponse<GetWorksp
     })().catch(next);
 });
 
+app.patch('/api/workspaces/:id', (req: MyPostRequest<UpdateWorkspaceData>, res: JsonResponse<UpdateWorkspaceResponse>, next) => {
+    (async () => {
+        if (req.params) {
+            const user_id = req.decoded.user_id;
+            const workspace_id = req.params.id;
+            const timestamp = new Date().getTime();
+            const { ok, data } = await model.workspaces.update(user_id, workspace_id, req.body);
+            if (ok && data) {
+                const obj: WorkspacesUpdateSocket = {
+                    __type: 'workspaces.update',
+                    timestamp,
+                    data
+                };
+                io.emit('workspaces.update', obj);
+            }
+            res.json({ ok });
+        } else {
+            res.json({ ok: false });
+        }
+    })().catch(next);
+});
+
 app.delete('/api/workspaces/:id', (req: GetAuthRequest, res: JsonResponse<DeleteWorkspaceResponse>, next) => {
     (async () => {
         if (req.params) {
@@ -629,7 +651,7 @@ app.patch('/api/sessions/:id', (req: MyPostRequest<UpdateSessionsBody>, res: Jso
         if (ok) {
             res.json({ ok: true });
         } else {
-            res.status(404).json({ ok: false });
+            res.json({ ok: false });
         }
     })().catch(next);
 });

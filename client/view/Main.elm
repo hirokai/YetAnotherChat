@@ -37,6 +37,7 @@ init { user_id, config } =
       , newWorkspaceModel = { selected = Set.empty }
       , workspaceModel = { sessions = [], selectedMembers = Set.empty }
       , workspaceListModel = { showMode = Table }
+      , workspaceEditModel = { name = "" }
       , newSessionModel = { selected = Set.empty, sessions_same_members = [] }
       , userPageModel = { sessions = [], messages = [], shownFileID = Nothing, newFileBox = False, selectedSDGs = Set.empty }
       , chatPageStatus = initialChatPageStatus config.expand_toppane config.expand_chatinput
@@ -154,6 +155,18 @@ update msg model =
                             updateWorkspaceModel ws msg1 model.workspaceModel
                     in
                     ( { model | workspaceModel = m }, c )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        WorkspaceEditMsg msg1 ->
+            case model.page of
+                WorkspaceEditPage ws ->
+                    let
+                        ( m, c ) =
+                            updateWorkspaceEditModel ws msg1 model.workspaceEditModel
+                    in
+                    ( { model | workspaceEditModel = m }, c )
 
                 _ ->
                     ( model, Cmd.none )
@@ -282,6 +295,9 @@ update msg model =
                     WorkspacePage id ->
                         enterWorkspace model id
 
+                    WorkspaceEditPage id ->
+                        enterWorkspaceEdit model id
+
                     NewWorkspacePage ->
                         enterNewWorkspace model
 
@@ -338,8 +354,8 @@ update msg model =
         ReloadRoom room ->
             ( model, reloadSession room )
 
-        SetVisibility id v ->
-            ( model, setVisibility { id = id, visibility = v } )
+        SetVisibility kind id v ->
+            ( model, setVisibility { kind = kind, id = id, visibility = v } )
 
         StartNewPosterSession file_id ->
             ( model, startPosterSession file_id )
@@ -507,6 +523,14 @@ view model =
             case Dict.get id model.workspaces of
                 Just ws ->
                     workspaceView model ws
+
+                Nothing ->
+                    notFoundView model
+
+        WorkspaceEditPage id ->
+            case Dict.get id model.workspaces of
+                Just ws ->
+                    workspaceEditView model ws
 
                 Nothing ->
                     notFoundView model

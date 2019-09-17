@@ -102,6 +102,12 @@ window['importKey'] = crypto.importKey;
         app.ports.feedUsers.send(usersClient);
     });
 
+    socket.on("workspaces.update", async (msg: WorkspacesUpdateSocket) => {
+        // await model.workspaces.on_update(msg);
+        const wss = await model.workspaces.list().catch(() => []);
+        app.ports.feedWorkspaces.send(values(wss));
+    });
+
     socket.on("sessions.new", async (msg: SessionsNewSocket) => {
         await model.sessions.on_new(msg);
         app.ports.onChangeData.send({ resource: "sessions", id: msg.id, operation: "new" });
@@ -205,6 +211,15 @@ window['importKey'] = crypto.importKey;
             });
         }
     });
+
+    app.ports.saveWorkspace.subscribe(async ({ id, name }) => {
+        if (name != "") {
+            const ok = await model.workspaces.update({ id, name });
+            console.log('saveWorkspace', id, name, ok)
+        } else {
+
+        }
+    })
 
     app.ports.createSession.subscribe(async function ({ workspace, name, members, redirect }: { workspace: string, name: string, members: string[], redirect: boolean }) {
         console.log('createSession', { workspace, name, members })
@@ -395,8 +410,12 @@ window['importKey'] = crypto.importKey;
         app.ports.feedConfigValues.send(configList);
     });
 
-    app.ports.setVisibility.subscribe(async ({ id, visibility }) => {
-        await model.sessions.set_visibility({ user_id, id, visibility });
+    app.ports.setVisibility.subscribe(async ({ id, kind, visibility }) => {
+        if (kind == 'session') {
+            await model.sessions.set_visibility({ user_id, id, visibility });
+        } else if (kind == 'workspace' && visibility != 'workspace') {
+            await model.workspaces.update({ id, visibility });
+        }
     });
 
     app.ports.uploadPrivateKey.subscribe(async () => {
@@ -649,7 +668,7 @@ interface ElmAppPorts {
     feedWorkspaces: ElmSend<Workspace[]>;
     feedSessionsInWorkspace: ElmSend<string[]>;
     getSessionsInWorkspace: ElmSub<string>;
-    setVisibility: ElmSub<{ id: string, visibility: SessionVisibility }>;
+    setVisibility: ElmSub<{ id: string, kind: 'session' | 'workspace', visibility: SessionVisibility | WorkspaceVisibility }>;
     getUsers: ElmSub<void>;
     feedUsers: ElmSend<UserClient[]>;
     getUserMessages: ElmSub<string>;
@@ -688,6 +707,7 @@ interface ElmAppPorts {
     videoJoin: ElmSend<string>;
     videoLeft: ElmSend<string>;
     saveSDGs: ElmSub<string>;
+    saveWorkspace: ElmSub<{ id: string, name: string }>;
 }
 
 interface ElmApp {

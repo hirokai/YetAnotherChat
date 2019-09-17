@@ -1,4 +1,4 @@
-port module Workspace exposing (newWorkspaceView, updateNewWorkspaceModel, workspaceListView, workspaceView,updateWorkspaceModel,updateWorkspaceListModel)
+port module Workspace exposing (newWorkspaceView, updateNewWorkspaceModel, workspaceListView, updateWorkspaceEditModel, workspaceView,updateWorkspaceModel,updateWorkspaceListModel,workspaceEditView)
 
 import Components exposing (..)
 import Dict
@@ -10,9 +10,11 @@ import Regex exposing (..)
 import Set
 import Types exposing (..)
 import Navigation exposing (..)
+import Json.Decode as Json
 
 port createSessionWS : {workspace: String, members: List String} -> Cmd msg
 
+port saveWorkspace : { id : String, name : String } -> Cmd msg
 
 
 newWorkspaceView : Model -> { title : String, body : List (Html Msg) }
@@ -105,6 +107,7 @@ showTable model workspaces =
         showItem ws =
             tr []
                 [ td [] [], td [] [ a [ href <| "#/workspaces/" ++ ws.id ] [ text ws.name ] ]
+                , td [] [ text <| showVisibility ws.visibility]
                 , td [] [ if ws.owner == "" then text "(N/A)" else a [href <| "#/users/" ++ ws.owner] [text <| getUserNameDisplay model ws.owner]]
                 , td [] (List.intersperse (text ", ") <| List.map (\n -> a [ class "clickable", href <| "#/users/" ++ n ] [ text (getUserName model n) ]) ws.members)
                 ]
@@ -113,7 +116,7 @@ showTable model workspaces =
     div []
         [ table [ class "table", id "userlist-table" ]
             [ thead []
-                [ tr [] [ th [] [], th [] [ text "名前" ], th [] [text "管理者"], th [] [ text "メンバー" ]]
+                [ tr [] [ th [] [], th [] [ text "名前" ], th [] [text "公開範囲"], th [] [text "管理者"], th [] [ text "メンバー" ]]
                 ]
             , tbody [] <|
                 List.map showItem workspaces
@@ -155,7 +158,7 @@ workspaceView model ws =
                 , smallMenu
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text <| "ワークスペース：" ++ ws.name ]
-                    , if ws.owner == model.myself then div [] [button [class "btn btn-danger", onClick (DeleteWorkspace ws.id)] [text "削除"]] else text ""
+                    , if ws.owner == model.myself then div [] [a [class "btn btn-light", href <| "#/workspaces/" ++ ws.id ++ "/edit"] [text "編集"]] else text ""
                     , div [] [span [] [text "オーナー: "], span [] [text <| getUserNameDisplay model ws.owner]]
                     , section [] [
                         h2 [] [text "ワークスペースのメンバー"] 
@@ -190,6 +193,62 @@ workspaceView model ws =
     }
 
 
+
+workspaceEditView : Model -> Workspace -> { title : String, body : List (Html Msg) }
+workspaceEditView model ws =
+    let
+        mkSessionRow sid =
+            case Dict.get sid model.sessions of
+                Just session ->
+                    tr []
+                        [ 
+                        td []
+                            [ a [ class "clickable", href <| "#/sessions/" ++ sid ] [ text <| session.name ]
+                            ]
+                        , td [] [text <| showVisibility session.visibility]
+                        , td [] [a [href <| "#/users/" ++ session.owner, class "clickable"] [text <| getUserNameDisplay model session.owner]]
+                        , td [] <| List.intersperse (text ", ") (List.map (\u -> a [ href <| "/main#" ++ pageToPath (UserPage u), class "clickable" ] [ text (getUserName model u) ]) (roomUsers sid model))
+                        ]
+                Nothing ->
+                    tr [] [ td [] [text "N/A"]]
+        mkMemberRow uid =
+            tr []
+                [ td [] [input [type_ "checkbox", onCheck (WorkspaceMsg << SelectMember uid)][]],
+                td []
+                    [ a [ class "clickable", href <| "#/users/" ++ uid ] [ text <| getUserNameDisplay model uid ]
+                    ]
+                , td [] [span [] [text <| Maybe.withDefault "" <| Maybe.andThen (\u -> List.head u.emails) <| getUserInfo model uid ]
+                ]
+                ]
+    in
+    { title = ws.name ++ "- workspace: " ++ appName
+    , body =
+        [ div [ class "container-fluid" ]
+            [ div [ class "row" ]
+                [ leftMenu model
+                , smallMenu
+                , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
+                    [ h1 [] [ text <| "ワークスペース：" ++ ws.name ]
+                    , div [] [button [class "btn btn-light", onClick (WorkspaceEditMsg <| FinishEditingWSE)] [text "保存"],button [class "btn btn-danger", onClick (DeleteWorkspace ws.id)] [text "削除"]]
+                    , div [] [label [for "ws-owner"] [text "オーナー: "], 
+                        select [id "ws-owner"] <| List.map (\m -> option [] [text <| getUserNameDisplay model m]) ws.members
+                    ]
+                    , div [] [
+                        label [] [text "名前"]
+                        , input [type_ "input", value model.workspaceEditModel.name, onInput (WorkspaceEditMsg << InputNameWSE)] []
+                    , div [] [
+                        select
+                    [ on "change" <| Json.map (SetVisibility "workspace" ws.id) targetValue ]
+                    [ option [ value "public", selected (ws.visibility == "public") ] [ text "公開" ], option [ value "url", selected (ws.visibility == "url") ] [ text "URL共有" ], option [ value "private", selected (ws.visibility == "private") ] [ text "プライベート（招待のみ）" ] ]
+                    ]
+                    ]
+                    
+                ]
+            ]
+        ]
+        ]
+    }
+
 updateWorkspaceModel : String -> WorkspaceMsg -> WorkspaceModel -> (WorkspaceModel, Cmd msg)
 updateWorkspaceModel wid msg model =
     case msg of
@@ -215,3 +274,12 @@ updateNewWorkspaceModel msg model =
                     toggleSet user model.selected
             in
             ( { model | selected = newSelected }, Cmd.none )
+
+
+updateWorkspaceEditModel : String -> WorkspaceEditMsg -> WorkspaceEditModel -> (WorkspaceEditModel, Cmd msg)
+updateWorkspaceEditModel ws_id msg model =
+    case msg of
+        FinishEditingWSE ->
+            (model, saveWorkspace {id = ws_id, name = model.name})
+        InputNameWSE s ->
+            ({model | name = s}, Cmd.none)

@@ -201,6 +201,9 @@ leftMenu model =
                         WorkspaceListPage ->
                             showWorkspaces model
 
+                        WorkspaceEditPage _ ->
+                            showWorkspaces model
+
                         _ ->
                             showChannels model
                    )
@@ -217,7 +220,7 @@ showWorkspaces model =
                 li []
                     [ hr [] []
                     , div
-                        [ classList [ ( "chatlist-name", True ), ( "clickable", True ), ( "current", WorkspacePage w.id == model.page ) ]
+                        [ classList [ ( "chatlist-name", True ), ( "clickable", True ), ( "current", WorkspacePage w.id == model.page || WorkspaceEditPage w.id == model.page ) ]
                         ]
                         [ a [ href <| "#/workspaces/" ++ w.id ] [ text <| String.fromInt (i + 1) ++ ": " ++ w.name ++ " (" ++ (String.fromInt <| List.length w.members) ++ ")" ]
                         ]
@@ -334,7 +337,7 @@ showVisibility : String -> String
 showVisibility s =
     case s of
         "public" ->
-            "ワークスペース内の一覧に表示"
+            "公開"
 
         "workspace" ->
             "ワークスペース内の一覧に表示"

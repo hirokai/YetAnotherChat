@@ -1,4 +1,4 @@
-module Types exposing (ChatEntry(..), ChatFileTyp, ChatPageModel, CommentTyp, FilterMode(..), ListShowMode(..), LocalConfig, Member, Model, Msg(..), NewSessionModel, NewSessionMsg(..), NewWorkspaceModel, NewWorkspaceMsg(..), Page(..), SessionEventTyp, SessionID, SessionInfo, SessionMsg(..), SettingsMsg(..), SettingsPageModel, User, UserListPageModel, UserListPageMsg(..), UserPageModel, UserPageMsg(..), Workspace, WorkspaceListModel, WorkspaceListMsg(..), WorkspaceModel, WorkspaceMsg(..), appName, getId, getKind, getRoomID, getSDGs, getUser, getUserFullname, getUserInfo, getUserName, getUserNameDisplay, roomName, roomUsers, toggleSet, truncate)
+module Types exposing (ChatEntry(..), ChatFileTyp, ChatPageModel, CommentTyp, FilterMode(..), ListShowMode(..), LocalConfig, Member, Model, Msg(..), NewSessionModel, NewSessionMsg(..), NewWorkspaceModel, NewWorkspaceMsg(..), Page(..), SessionEventTyp, SessionID, SessionInfo, SessionMsg(..), SettingsMsg(..), SettingsPageModel, User, UserListPageModel, UserListPageMsg(..), UserPageModel, UserPageMsg(..), Workspace, WorkspaceEditModel, WorkspaceEditMsg(..), WorkspaceListModel, WorkspaceListMsg(..), WorkspaceModel, WorkspaceMsg(..), appName, getId, getKind, getRoomID, getSDGs, getUser, getUserFullname, getUserInfo, getUserName, getUserNameDisplay, roomName, roomUsers, toggleSet, truncate)
 
 import Dict exposing (Dict)
 import Json.Decode as Json
@@ -17,6 +17,7 @@ type alias Workspace =
     , name : String
     , owner : String
     , members : List String
+    , visibility : String
     }
 
 
@@ -114,6 +115,7 @@ type alias Model =
     , newWorkspaceModel : NewWorkspaceModel
     , workspaceModel : WorkspaceModel
     , workspaceListModel : WorkspaceListModel
+    , workspaceEditModel : WorkspaceEditModel
     , userPageModel : UserPageModel
     , chatPageStatus : ChatPageModel
     , userListPageModel : UserListPageModel
@@ -177,6 +179,10 @@ type alias WorkspaceListModel =
     { showMode : ListShowMode }
 
 
+type alias WorkspaceEditModel =
+    { name : String }
+
+
 type ListShowMode
     = Table
     | Panel
@@ -217,6 +223,7 @@ type Page
     | UserSettingPage
     | WorkspaceListPage
     | WorkspacePage String
+    | WorkspaceEditPage String
     | NewWorkspacePage
     | HomePage
     | NewSession
@@ -230,6 +237,7 @@ type Msg
     | NewWorkspaceMsg NewWorkspaceMsg
     | WorkspaceMsg WorkspaceMsg
     | WorkspaceListMsg WorkspaceListMsg
+    | WorkspaceEditMsg WorkspaceEditMsg
     | UserPageMsg UserPageMsg
     | UserListPageMsg UserListPageMsg
     | SessionMsg SessionMsg
@@ -267,7 +275,7 @@ type Msg
     | SetValue String String
     | SaveConfigLocalBool String Bool
     | DeleteWorkspace String
-    | SetVisibility String String
+    | SetVisibility String String String
     | NoOp
 
 
@@ -320,6 +328,11 @@ type WorkspaceMsg
 
 type WorkspaceListMsg
     = ChangeShowModeWS ListShowMode
+
+
+type WorkspaceEditMsg
+    = FinishEditingWSE
+    | InputNameWSE String
 
 
 type SettingsMsg

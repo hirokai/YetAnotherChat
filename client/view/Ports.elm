@@ -28,7 +28,7 @@ port feedWorkspaces : (List Workspace -> msg) -> Sub msg
 port onChangeData : ({ resource : String, id : String, operation : String } -> msg) -> Sub msg
 
 
-port setVisibility : { id : String, visibility : String } -> Cmd msg
+port setVisibility : { kind : String, id : String, visibility : String } -> Cmd msg
 
 
 port initializeData : () -> Cmd msg

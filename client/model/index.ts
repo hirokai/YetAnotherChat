@@ -843,6 +843,11 @@ export class Model {
         delete: async (id: string): Promise<boolean> => {
             const { data: { ok } }: AxiosResponse<DeleteWorkspaceResponse> = await axios.delete('/api/workspaces/' + id);
             return ok
+        },
+        update: async ({ id, name, visibility }: { id: string, name?: string, visibility?: WorkspaceVisibility }) => {
+            const data: UpdateWorkspaceData = { name, visibility };
+            const { data: { ok } }: AxiosResponse<UpdateWorkspaceResponse> = await axios.patch('/api/workspaces/' + id, data);
+            return true;
         }
     }
 }

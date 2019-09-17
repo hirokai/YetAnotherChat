@@ -145,7 +145,7 @@ roomTitle room model =
                 , a [ id "delete-room", class "btn btn-danger btn-sm", onClick (DeleteRoom room.id) ]
                     [ text "削除" ]
                 , select
-                    [ on "change" <| Json.map (SetVisibility room.id) targetValue ]
+                    [ on "change" <| Json.map (SetVisibility "session" room.id) targetValue ]
                     [ option [ value "workspace", selected (room.visibility == "workspace") ] [ text "ワークスペース内で公開" ], option [ value "url", selected (room.visibility == "url") ] [ text "URL共有" ], option [ value "private", selected (room.visibility == "private") ] [ text "プライベート（招待のみ）" ] ]
                 ]
 
