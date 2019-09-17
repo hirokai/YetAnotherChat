@@ -55,6 +55,7 @@
     "forever:nohup": "nohup sudo NODE_PRODUCTION=true PORT=80 forever -c node ./server/index.js &",
     "test": "npx jest --runInBand --silent --verbose"
   },
+  "version": "0.1.0",
   "devDependencies": {
     "@types/axios": "^0.14.0",
     "@types/base-x": "^3.0.0",

@@ -43,6 +43,7 @@
                             <th rowspan='2' style='vertical-align: top'>内容</th>
                             <th rowspan='2' style='vertical-align: top'>実装</th>
                             <th colspan='2'>暗号化</th>
+                            <th rowspan='2' style='vertical-align: top'>備考</th>
                         </tr>
                         <tr>
                             <th>サーバー上での暗号化</th>
@@ -58,29 +59,21 @@
                             <td class='ok'>✓</td>
                             <td class='ng'>&#8212;</td>
                             <td class='ng'>&#8212;</td>
+                            <td></td>
                         </tr>
                         <tr>
-                            <td>プロフィール</td>
+                            <td>パスワード</td>
+                            <td class='ok'>✓</td>
+                            <td class='ok'>✓</td>
+                            <td class='ng'>&#8212;</td>
+                            <td>ソルト付加の上ハッシュ化して保存</td>
+                        </tr>
+                        <tr>
+                            <td>プロフィール（ポスター，SDGs）</td>
                             <td class='ok'>✓</td>
                             <td class='ng'>&#8212;</td>
                             <td class='ng'>&#8212;</td>
-                        </tr>
-                    </tbody>
-                    <tbody>
-                        <tr class='section'>
-                            <td colspan='3'>チャット</td>
-                        </tr>
-                        <tr>
-                            <td>メッセージ</td>
-                            <td class='ok'>✓</td>
-                            <td class='ok'>✓</td>
-                            <td class='ok'>✓</td>
-                        </tr>
-                        <tr>
-                            <td>画像</td>
-                            <td class='ok'>✓</td>
-                            <td class='ok'>✓</td>
-                            <td class='ok'>✓</td>
+                            <td></td>
                         </tr>
                     </tbody>
                     <tbody>
@@ -92,6 +85,40 @@
                             <td class='ok'>✓</td>
                             <td class='ng'>&#8212;</td>
                             <td class='ng'>&#8212;</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>ワークスペースのセッション一覧</td>
+                            <td class='ok'>✓</td>
+                            <td class='ng'>&#8212;</td>
+                            <td class='ng'>&#8212;</td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                    <tbody>
+                        <tr class='section'>
+                            <td colspan='3'>セッション</td>
+                        </tr>
+                        <tr>
+                            <td>セッションのユーザー一覧</td>
+                            <td class='ok'>✓</td>
+                            <td class='ng'>&#8212;</td>
+                            <td class='ng'>&#8212;</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td>メッセージ</td>
+                            <td class='ok'>✓</td>
+                            <td class='ok'>✓</td>
+                            <td class='ok'>✓</td>
+                            <td>128ビットAES-GCMによるE2E暗号化</td>
+                        </tr>
+                        <tr>
+                            <td>画像</td>
+                            <td class='ok'>✓</td>
+                            <td class='ok'>✓</td>
+                            <td class='ok'>✓</td>
+                            <td>128ビットAES-GCMによるE2E暗号化</td>
                         </tr>
                     </tbody>
                 </table>
