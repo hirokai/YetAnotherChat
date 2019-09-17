@@ -13,6 +13,29 @@ import Types exposing (..)
 
 sessionListView : Model -> { title : String, body : List (Html Msg) }
 sessionListView model =
+    let
+        mkSessionRowInList : SessionID -> Html Msg
+        mkSessionRowInList room_id =
+            case Dict.get room_id model.sessions of
+                Just room ->
+                    let
+                        ws_m =
+                            Dict.get room.workspace model.workspaces
+
+                        ws_name =
+                            Maybe.withDefault "" <| Maybe.map .name ws_m
+                    in
+                    tr []
+                        [ td [] [ a [ href <| "#/workspaces/" ++ room.workspace ] [ text ws_name ] ]
+                        , td [] [ a [ href <| "#/sessions/" ++ room.id ] [ text room.name ] ]
+                        , td [] [ a [ href <| "#/users/" ++ room.owner ] [ text <| getUserNameDisplay model room.owner ] ]
+                        , td [] <| List.intersperse (text ", ") (List.map (\u -> a [ href <| "/main#" ++ pageToPath (UserPage u), class "clickable" ] [ text (getUserName model u) ]) (roomUsers room.id model))
+                        , td [] [ text <| ourFormatter model.timezone room.lastMsgTime ]
+                        ]
+
+                Nothing ->
+                    text ""
+    in
     { title = "List of sessions"
     , body =
         [ div [ class "container-fluid" ]
@@ -27,12 +50,13 @@ sessionListView model =
                             [ tr []
                                 [ th [] [ text "ワークスペース" ]
                                 , th [] [ text "名前" ]
+                                , th [] [ text "管理者" ]
                                 , th [] [ text "メンバー" ]
                                 , th [] [ text "最終更新" ]
                                 ]
                             ]
                         , tbody [] <|
-                            List.map (\r -> mkSessionRowInList model r)
+                            List.map (\r -> mkSessionRowInList r)
                                 (Dict.keys model.sessions)
                         ]
                     , div
@@ -43,25 +67,3 @@ sessionListView model =
             ]
         ]
     }
-
-
-mkSessionRowInList : Model -> SessionID -> Html Msg
-mkSessionRowInList model room_id =
-    case Dict.get room_id model.sessions of
-        Just room ->
-            let
-                ws_m =
-                    Dict.get room.workspace model.workspaces
-
-                ws_name =
-                    Maybe.withDefault "" <| Maybe.map .name ws_m
-            in
-            tr []
-                [ td [] [ a [ href <| "#/workspaces/" ++ room.workspace ] [ text ws_name ] ]
-                , td [] [ a [ href <| "#/sessions/" ++ room.id ] [ text room.name ] ]
-                , td [] <| List.intersperse (text ", ") (List.map (\u -> a [ href <| "/main#" ++ pageToPath (UserPage u), class "clickable" ] [ text (getUserName model u) ]) (roomUsers room.id model))
-                , td [] [ text <| ourFormatter model.timezone room.lastMsgTime ]
-                ]
-
-        Nothing ->
-            text ""

@@ -127,7 +127,11 @@ roomTitle room model =
           else
             text room.name
         , a [ id "edit-roomname", class "clickable", onClick (StartEditing "room-title" room.name) ] [ text "Edit" ]
-        , a [ id "delete-room", class "clickable", onClick (DeleteRoom room.id) ] [ text "Delete" ]
+        , if room.owner == model.myself then
+            a [ id "delete-room", class "btn btn-danger btn-sm", onClick (DeleteRoom room.id) ] [ text "削除" ]
+
+          else
+            text ""
         , a [ id "reload-room", class "btn btn-light", onClick (ReloadRoom room.id) ] [ text "Reload" ]
         , if Set.isEmpty model.chatPageStatus.videoMembers then
             a [ id "start-video", class "btn btn-sm btn-light", onClick (ChatPageMsg <| StartVideo room.id) ] [ text "ビデオ通話を開始" ]

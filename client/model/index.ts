@@ -522,6 +522,7 @@ export class Model {
                 formattedTime: formatTime(d.timestamp),
                 timestamp: d.timestamp,
                 members: d.members,
+                owner: d.owner,
                 workspace: d.workspace || ""
             };
             return r;

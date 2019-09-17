@@ -608,9 +608,9 @@ app.get('/api/users/:id/comments', (req, res: JsonResponse<GetCommentsResponse>,
     })().catch(next);
 });
 
-app.get('/api/sessions/:id', (req, res: JsonResponse<GetSessionResponse>, next) => {
+app.get('/api/sessions/:id', (req: GetAuthRequest1<any>, res: JsonResponse<GetSessionResponse>, next) => {
     (async () => {
-        const data = await model.sessions.get(req.params.id);
+        const data = await model.sessions.get(req.decoded.user_id, req.params.id);
         if (data) {
             res.json({ ok: true, data });
         } else {
@@ -660,10 +660,10 @@ app.patch('/api/sessions/:id', (req, res: JsonResponse<PatchSessionResponse>, ne
     })().catch(next);
 });
 
-app.delete('/api/sessions/:id', (req, res: JsonResponse<CommentsDeleteResponse>, next) => {
+app.delete('/api/sessions/:id', (req: MyPostRequest<any>, res: JsonResponse<CommentsDeleteResponse>, next) => {
     (async () => {
         const id = req.params.id;
-        const ok = await model.sessions.delete_session(id);
+        const ok = await model.sessions.delete_session(req.decoded.user_id, id);
         if (ok) {
             res.json({ ok: true });
             const obj: SessionsDeleteSocket = { __type: 'sessions.delete', id };
@@ -789,7 +789,7 @@ app.post('/api/join_session', (req: PostRequest<JoinSessionParam>, res: JsonResp
             const socket_ids_newmember: string[] = await model.users.get_socket_ids(myself);
             log.info('emitting to new member', socket_ids_newmember);
 
-            const data2 = await model.sessions.get(session_id);
+            const data2 = await model.sessions.get(myself, session_id);
             if (data2) {
                 socket_ids_newmember.forEach(socket_id => {
                     io.to(socket_id).emit("message", _.extend({}, { __type: "new_session" }, data2));

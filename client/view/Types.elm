@@ -67,6 +67,7 @@ type alias SessionInfo =
     , name : String
     , formattedTime : String
     , members : List Member
+    , owner : String
     , workspace : String
     , firstMsgTime : Int
     , lastMsgTime : Int

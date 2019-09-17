@@ -71,12 +71,13 @@ sessionInfoListDecoder =
 
 sessionInfoDecoder : Json.Decoder SessionInfo
 sessionInfoDecoder =
-    Json.map8 SessionInfo
-        (Json.field "id" Json.string)
-        (Json.field "name" Json.string)
-        (Json.field "formattedTime" Json.string)
-        (Json.field "members" (Json.list Json.string))
-        (Json.field "workspace" Json.string)
-        (Json.field "firstMsgTime" Json.int)
-        (Json.field "lastMsgTime" Json.int)
-        (Json.field "numMessages" (Json.dict Json.int))
+    Json.succeed SessionInfo
+        |> JE.andMap (Json.field "id" Json.string)
+        |> JE.andMap (Json.field "name" Json.string)
+        |> JE.andMap (Json.field "formattedTime" Json.string)
+        |> JE.andMap (Json.field "members" (Json.list Json.string))
+        |> JE.andMap (Json.field "owner" Json.string)
+        |> JE.andMap (Json.field "workspace" Json.string)
+        |> JE.andMap (Json.field "firstMsgTime" Json.int)
+        |> JE.andMap (Json.field "lastMsgTime" Json.int)
+        |> JE.andMap (Json.field "numMessages" (Json.dict Json.int))

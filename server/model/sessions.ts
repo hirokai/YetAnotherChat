@@ -9,14 +9,18 @@ const emojis = require("./emojis.json").emojis;
 const emoji_dict = keyBy(emojis, 'shortname');
 import * as _ from 'lodash';
 import * as bunyan from 'bunyan';
-const log = bunyan.createLogger({ name: "model.sessions", src: true });
+const log = bunyan.createLogger({ name: "model.sessions", src: true, level: 1 });
 
-export async function delete_session(id: string): Promise<boolean> {
+export async function delete_session(user_id: string, id: string): Promise<boolean> {
     try {
-        await db_.run('delete from sessions where id=?;', id);
-        await db_.run('delete from comments where session_id=?;', id);
+        const session = await get(user_id, id);
+        if (!session || session.owner != user_id) {
+            return false;
+        }
         await db_.run('delete from session_current_members where session_id=?;', id);
+        await db_.run('delete from comments where session_id=?;', id);
         await db_.run('delete from session_events where session_id=?;', id);
+        await db_.run('delete from sessions where id=?;', id);
         return true;
     } catch (e) {
         return false;
@@ -68,12 +72,16 @@ export function get_session_of_members(user_id: string, members: string[], is_al
     }
     return new Promise((resolve) => {
         // https://stackoverflow.com/questions/1897352/sqlite-group-concat-ordering
-        const q = "select id,name,timestamp,group_concat(user_id) as members from (select s.id,s.name,s.timestamp,m.user_id from sessions as s join session_current_members as m on s.id=m.session_id order by s.timestamp,m.user_id) group by id having members like ? order by timestamp desc;"
+        const q = "select id,name,timestamp,source,group_concat(user_id) as members, group_concat(source) as sources, from (select s.*,m.user_id from sessions as s join session_current_members as m on s.id=m.session_id order by s.timestamp,m.user_id) group by id having members like ? order by timestamp desc;"
         db.all(q, s, (err, sessions) => {
             const ss = map(sessions, (session) => {
+                const roles: SessionMemberSource[] = session.sources.split(',');
+                const owner_index = _.findIndex(roles, 'owner');
+                const members: string[] = session.members.split(",");
                 var r: RoomInfo = {
                     id: session.id, name: session.name, timestamp: session.timestamp,
-                    numMessages: s['count(timestamp)'], firstMsgTime: -1, lastMsgTime: -1, members: session.members.split(",")
+                    numMessages: s['count(timestamp)'], firstMsgTime: -1, lastMsgTime: -1, members,
+                    owner: owner_index != -1 ? members[owner_index] : ''
                 };
                 return r;
             });
@@ -181,22 +189,23 @@ export async function delete_comment(user_id: string, comment_id: string): Promi
 
 export async function list(params: { user_id: string, of_members?: string[] | undefined, is_all: boolean, workspace_id?: string }): Promise<RoomInfo[]> {
     const { user_id, of_members, is_all, workspace_id } = params;
+    log.debug(params);
     if (of_members) {
         return get_session_of_members(user_id, of_members, is_all);
     }
-    const rows = workspace_id ? await db_.all<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string }>(`
-            select s.*,m2.user_id from sessions as s
+    const rows = workspace_id ? await db_.all<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string, source?: string }>(`
+            select s.*,m2.* from sessions as s
             join session_current_members as m on s.id=m.session_id
             join session_current_members as m2 on m.session_id=m2.session_id
             where m.user_id=? and s.workspace=? order by s.timestamp desc;`, user_id, workspace_id) :
-        await db_.all<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string }>(`
-            select s.*,m2.user_id from sessions as s
+        await db_.all<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string, source?: string }>(`
+            select s.*,m2.* from sessions as s
             join session_current_members as m on s.id=m.session_id
             join session_current_members as m2 on m.session_id=m2.session_id
             where m.user_id=? order by s.timestamp desc;`, user_id);
     // log.info('sessions.list', params, rows);
     const sessions = _.map(_.groupBy(rows, 'id'), (g) => {
-        return { id: g[0].id, members: _.map(g, 'user_id'), name: g[0].name, timestamp: g[0].timestamp, workspace: g[0].workspace };
+        return { id: g[0].id, members: _.map(g, (g) => { return { id: g.user_id, source: g.source }; }), name: g[0].name, timestamp: g[0].timestamp, workspace: g[0].workspace };
     });
     const infos: { count: { [key: string]: number }, first: number, last: number }[] = [];
     for (let s of sessions) {
@@ -207,7 +216,7 @@ export async function list(params: { user_id: string, of_members?: string[] | un
             return u['count(*)'];
         }).value();
         map(s.members, (m) => {
-            count[m] = count[m] || 0;
+            count[m.id] = count[m.id] || 0;
         });
         count['__total'] = sum(values(count)) || 0;
         const info = { count, first, last };
@@ -219,18 +228,27 @@ export async function list(params: { user_id: string, of_members?: string[] | un
         if (!s || !info) {
             return null;
         }
-        if (!includes(s.members, user_id)) {   //Double check if user_id is included.
+        if (!includes(_.map(s.members, 'id'), user_id)) {   //Double check if user_id is included.
             return null;
         }
-        const obj: RoomInfo = {
-            id: s.id, name: decipher(s.name) || '', timestamp: s.timestamp, members: s.members, numMessages: info.count, firstMsgTime: info.first, lastMsgTime: info.last, workspace: s.workspace
-        };
-        return obj;
+        const owner = _.find(s.members, (m) => m.source == 'owner');
+        if (!owner) {
+            return null;
+        } else {
+            const obj: RoomInfo = {
+                id: s.id, name: decipher(s.name) || '', timestamp: s.timestamp, members: _.map(s.members, 'id'), numMessages: info.count, firstMsgTime: info.first, lastMsgTime: info.last, workspace: s.workspace,
+                owner: owner.id
+            };
+            return obj;
+        }
     }));
     const ss_sorted = orderBy(ss, 'lastMsgTime', 'desc');
     return ss_sorted;
 }
-async function add_member_internal({ session_id, user_id, source }: { session_id: string, user_id: string, source: string }): Promise<boolean> {
+
+type SessionMemberSource = 'owner' | 'added_by_member';
+
+async function add_member_internal({ session_id, user_id, source }: { session_id: string, user_id: string, source: SessionMemberSource }): Promise<boolean> {
     try {
         await db_.run('insert into session_current_members (session_id,user_id,source) values (?,?,?);', session_id, user_id, source);
         return true;
@@ -332,7 +350,7 @@ export async function create(user_id: string, name: string, members: string[], w
     return create_session_with_id(user_id, session_id, name, members, workspace);
 }
 
-export async function create_session_with_id(user_id, session_id: string, name: string, members: string[], workspace?: string): Promise<RoomInfo> {
+export async function create_session_with_id(user_id: string, session_id: string, name: string, members: string[], workspace?: string): Promise<RoomInfo> {
     const timestamp = new Date().getTime();
     if (workspace) {
         db.run('insert or ignore into sessions (id, name, timestamp,workspace) values (?,?,?,?);', session_id, cipher(name), timestamp, workspace);
@@ -343,7 +361,7 @@ export async function create_session_with_id(user_id, session_id: string, name: 
     for (let m of members) {
         const r = await add_member_internal({ session_id, user_id: m, source: 'added_by_member' });
     }
-    const roomInfo = await get(session_id);
+    const roomInfo = await get(user_id, session_id);
     if (roomInfo) {
         return roomInfo;
     } else {
@@ -351,8 +369,8 @@ export async function create_session_with_id(user_id, session_id: string, name: 
     }
 }
 
-export function get(session_id: string): Promise<RoomInfo | null> {
-    log.info('get_session_info', session_id);
+export function get(user_id: string, session_id: string): Promise<RoomInfo | null> {
+    // log.info('get_session_info', session_id);
     return new Promise((resolve) => {
         // const ts = new Date().getTime();
         db.serialize(() => {
@@ -360,14 +378,20 @@ export function get(session_id: string): Promise<RoomInfo | null> {
                 if (!session) {
                     resolve(null);
                 } else {
-                    db.all('select * from session_current_members as m where session_id=? group by m.user_id', session_id, (err, r2) => {
+                    db.all('select * from session_current_members as m where session_id=? group by m.user_id;', session_id, (err, r2) => {
                         const members = map(r2, (r2): string => { return r2['user_id'] });
+                        const sources: SessionMemberSource[] = map(r2, (r2) => { return r2['source'] });
+                        const owner_index = _.findIndex(sources, 'owner');
                         const numMessages: { [key: string]: number } = {};
                         const firstMsgTime = -1;
                         const lastMsgTime = -1;
                         const id = session_id;
-                        const obj: RoomInfo = { name: decipher(session.name) || "(decryption error)", timestamp: session.timestamp, members, numMessages, firstMsgTime, lastMsgTime, id };
-                        resolve(obj);
+                        if (owner_index == -1) {
+                            resolve(null)
+                        } else {
+                            const obj: RoomInfo = { name: decipher(session.name) || "(decryption error)", timestamp: session.timestamp, members, numMessages, firstMsgTime, lastMsgTime, id, owner: members[owner_index] };
+                            resolve(obj);
+                        }
                     })
 
                 }

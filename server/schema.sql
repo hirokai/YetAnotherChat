@@ -88,7 +88,8 @@ CREATE TABLE sessions
     id text not null unique,
     timestamp integer not null,
     name text not null,
-    workspace text
+    workspace text,
+    visibility text
 );
 
 DROP TABLE IF EXISTS public_keys;

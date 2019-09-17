@@ -6,6 +6,7 @@ type RoomInfo = {
     id: string,
     timestamp: number,
     members: string[],
+    owner: string,
     workspace?: string,
 }
 
@@ -18,6 +19,7 @@ type RoomInfoClient = {
     timestamp: number,
     formattedTime: string,
     members: Array<string>
+    owner: string
     workspace: string
 }
 
