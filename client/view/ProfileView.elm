@@ -15,20 +15,6 @@ import Types exposing (..)
 
 userProfileView : User -> Model -> { title : String, body : List (Html Msg) }
 userProfileView user model =
-    let
-        user_files =
-            Maybe.withDefault [] <| Dict.get user.id model.files
-
-        current_file =
-            List.Extra.find (\f -> Just f.file_id == model.userPageModel.shownFileID) user_files
-
-        current_file_id =
-            Maybe.withDefault "" <| Maybe.map .file_id current_file
-
-        selectedSDGs : Set.Set Int
-        selectedSDGs =
-            model.userPageModel.selectedSDGs
-    in
     { title = user.fullname ++ ": " ++ appName
     , body =
         [ div [ class "container-fluid" ]
@@ -44,36 +30,10 @@ userProfileView user model =
                         [ span [] [ text "Email: ", text <| Maybe.withDefault "（未登録）" <| (.emails >> List.head) user ]
                         ]
                     , div [] [ span [] [ text <| "Fingerprint: " ++ user.fingerprint ] ]
-                    , div [ id "poster-div" ]
-                        [ h2 [] [ text "ポスター" ]
-                        , div []
-                            (List.indexedMap
-                                (\i f ->
-                                    button
-                                        [ class "btn btn-light btn-sm poster-tab-button"
-                                        , classList [ ( "active", f.file_id == current_file_id ) ]
-                                        , onClick (UserPageMsg <| SetShownImageID f.file_id)
-                                        ]
-                                        [ text (String.fromInt (1 + i) ++ ": " ++ f.file_id)
-                                        , span [ class "clickable delete-poster", onClick (UserPageMsg <| DeletePosterImage f.file_id) ] [ text "×" ]
-                                        ]
-                                )
-                                user_files
-                            )
-                        , div
-                            [ classList [ ( "profile-img", True ) ]
-                            , attribute "data-file_id" (Maybe.withDefault "" <| Maybe.map .file_id current_file)
-                            ]
-                            [ img [ src <| Maybe.withDefault "" <| Maybe.map .url current_file ] [] ]
-                        , div []
-                            [ button
-                                [ classList [ ( "btn", True ), ( "btn-light", True ), ( "disabled", not <| Maybe.Extra.isJust model.userPageModel.shownFileID ) ]
-                                , onClick (StartNewPosterSession (Maybe.withDefault "" model.userPageModel.shownFileID))
-                                ]
-                                [ text "ポスターセッションを開始" ]
-                            ]
+                    , div [ class "row" ]
+                        [ posterDiv user model
+                        , sdgsDiv user model False
                         ]
-                    , sdgsDiv user model False
                     ]
                 ]
             ]
@@ -81,24 +41,51 @@ userProfileView user model =
     }
 
 
+posterDiv user model =
+    let
+        user_files =
+            Maybe.withDefault [] <| Dict.get user.id model.files
+
+        current_file =
+            List.Extra.find (\f -> Just f.file_id == model.userPageModel.shownFileID) user_files
+
+        current_file_id =
+            Maybe.withDefault "" <| Maybe.map .file_id current_file
+    in
+    div [ id "poster-div", class "col-lg-6 col-md-12 col-sm-12" ]
+        [ h2 [] [ text "ポスター" ]
+        , div []
+            (List.indexedMap
+                (\i f ->
+                    button
+                        [ class "btn btn-light btn-sm poster-tab-button"
+                        , classList [ ( "active", f.file_id == current_file_id ) ]
+                        , onClick (UserPageMsg <| SetShownImageID f.file_id)
+                        ]
+                        [ text (String.fromInt (1 + i) ++ ": " ++ f.file_id)
+                        ]
+                )
+                user_files
+            )
+        , div
+            [ classList [ ( "profile-img", True ) ]
+            , attribute "data-file_id" (Maybe.withDefault "" <| Maybe.map .file_id current_file)
+            ]
+            [ img [ src <| Maybe.withDefault "" <| Maybe.map .url current_file ] [] ]
+        , div []
+            [ button
+                [ classList [ ( "btn", True ), ( "btn-light", True ), ( "disabled", not <| Maybe.Extra.isJust model.userPageModel.shownFileID ) ]
+                , onClick (StartNewPosterSession (Maybe.withDefault "" model.userPageModel.shownFileID))
+                ]
+                [ text "ポスターセッションを開始" ]
+            ]
+        ]
+
+
 profileEditView : Model -> { title : String, body : List (Html Msg) }
 profileEditView model =
     case getUserInfo model model.myself of
         Just user ->
-            let
-                user_files =
-                    Maybe.withDefault [] <| Dict.get user.id model.files
-
-                current_file =
-                    List.Extra.find (\f -> Just f.file_id == model.userPageModel.shownFileID) user_files
-
-                current_file_id =
-                    Maybe.withDefault "" <| Maybe.map .file_id current_file
-
-                selectedSDGs : Set.Set Int
-                selectedSDGs =
-                    model.userPageModel.selectedSDGs
-            in
             { title = "プロフィールを編集 - " ++ appName
             , body =
                 [ div [ class "container-fluid" ]
@@ -111,56 +98,10 @@ profileEditView model =
                                 [ span [] [ text "Email: ", text <| Maybe.withDefault "（未登録）" <| (.emails >> List.head) user ]
                                 ]
                             , div [] [ span [] [ text <| "Fingerprint: " ++ user.fingerprint ] ]
-                            , div [ id "poster-div" ]
-                                [ h2 [] [ text "ポスター" ]
-                                , div []
-                                    (List.indexedMap
-                                        (\i f ->
-                                            button
-                                                [ class <|
-                                                    "btn btn-light btn-sm poster-tab-button"
-                                                        ++ (if f.file_id == current_file_id then
-                                                                " active"
-
-                                                            else
-                                                                ""
-                                                           )
-                                                , onClick (UserPageMsg <| SetShownImageID f.file_id)
-                                                ]
-                                                [ text (String.fromInt (1 + i) ++ ": " ++ f.file_id)
-                                                , span [ class "clickable delete-poster", onClick (UserPageMsg <| DeletePosterImage f.file_id) ] [ text "×" ]
-                                                ]
-                                        )
-                                        user_files
-                                        ++ (if user.id == model.myself then
-                                                [ button [ class "btn btn-light btn-sm poster-tab-button poster-tab-button-add", onClick (UserPageMsg <| AddNewFileBox) ] [ text "+" ] ]
-
-                                            else
-                                                []
-                                           )
-                                    )
-                                , div
-                                    [ classList [ ( "profile-img", True ), ( "mine", user.id == model.myself ), ( "droppable", user.id == model.myself ) ]
-                                    , attribute "data-file_id" (Maybe.withDefault "" <| Maybe.map .file_id current_file)
-                                    ]
-                                    [ img [ src <| Maybe.withDefault "" <| Maybe.map .url current_file ] [] ]
-                                , div []
-                                    [ button
-                                        [ class
-                                            ("btn btn-light"
-                                                ++ (if Maybe.Extra.isJust model.userPageModel.shownFileID then
-                                                        ""
-
-                                                    else
-                                                        " disabled"
-                                                   )
-                                            )
-                                        , onClick (StartNewPosterSession (Maybe.withDefault "" model.userPageModel.shownFileID))
-                                        ]
-                                        [ text "ポスターセッションを開始" ]
-                                    ]
+                            , div [ class "row" ]
+                                [ posterDivEdit user model
+                                , sdgsDiv user model True
                                 ]
-                            , sdgsDiv user model True
                             ]
                         ]
                     ]
@@ -171,9 +112,75 @@ profileEditView model =
             { title = "プロフィールを編集 - " ++ appName, body = [] }
 
 
+posterDivEdit user model =
+    let
+        user_files =
+            Maybe.withDefault [] <| Dict.get user.id model.files
+
+        current_file =
+            List.Extra.find (\f -> Just f.file_id == model.userPageModel.shownFileID) user_files
+
+        current_file_id =
+            Maybe.withDefault "" <| Maybe.map .file_id current_file
+    in
+    div [ id "poster-div", class "col-lg-6 col-md-12 col-sm-12" ]
+        [ h2 [] [ text "ポスター" ]
+        , div []
+            (List.indexedMap
+                (\i f ->
+                    button
+                        [ class <|
+                            "btn btn-light btn-sm poster-tab-button"
+                                ++ (if f.file_id == current_file_id then
+                                        " active"
+
+                                    else
+                                        ""
+                                   )
+                        , onClick (UserPageMsg <| SetShownImageID f.file_id)
+                        ]
+                        [ text (String.fromInt (1 + i) ++ ": " ++ f.file_id)
+                        , span [ class "clickable delete-poster", onClick (UserPageMsg <| DeletePosterImage f.file_id) ] [ text "×" ]
+                        ]
+                )
+                user_files
+                ++ (if user.id == model.myself then
+                        [ button [ class "btn btn-light btn-sm poster-tab-button poster-tab-button-add", onClick (UserPageMsg <| AddNewFileBox) ] [ text "+" ] ]
+
+                    else
+                        []
+                   )
+            )
+        , div
+            [ classList [ ( "profile-img", True ), ( "mine", user.id == model.myself ), ( "droppable", user.id == model.myself ) ]
+            , attribute "data-file_id" (Maybe.withDefault "" <| Maybe.map .file_id current_file)
+            ]
+            [ img [ src <| Maybe.withDefault "" <| Maybe.map .url current_file ] [] ]
+        , div []
+            [ button
+                [ class
+                    ("btn btn-light"
+                        ++ (if Maybe.Extra.isJust model.userPageModel.shownFileID then
+                                ""
+
+                            else
+                                " disabled"
+                           )
+                    )
+                , onClick (StartNewPosterSession (Maybe.withDefault "" model.userPageModel.shownFileID))
+                ]
+                [ text "ポスターセッションを開始" ]
+            ]
+        ]
+
+
 sdgsDiv : User -> Model -> Bool -> Html Msg
 sdgsDiv user model editable =
     let
+        selectedSDGs : Set.Set Int
+        selectedSDGs =
+            model.userPageModel.selectedSDGs
+
         selected =
             if editable then
                 model.userPageModel.selectedSDGs
@@ -181,7 +188,7 @@ sdgsDiv user model editable =
             else
                 getSDGs user
     in
-    div [ id "sdgs-div" ] <|
+    div [ id "sdgs-div", class "col-lg-6 col-md-12 col-sm-12" ] <|
         [ h2
             []
             [ text "SDGs" ]
