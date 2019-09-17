@@ -109,12 +109,15 @@ userSettingView user model =
                     , div [ class "setting-group" ]
                         [ h2 [] [ text "メール連携設定" ]
                         , div []
-                            [ text "登録済Emailアドレスから "
+                            [ h3 [] [ text "メールの取り込み" ]
+                            , text "登録済Emailアドレスから "
                             , span [ class "monospace" ] [ text <| user.id ++ "@coi-sns.com" ]
                             , text <| "にメールを転送すると" ++ appName ++ "に取り込まれます。"
+                            , span [ class "danger" ] [ text "注意：試験的機能であり，サーバー管理者に取り込まれたメッセージに見られる可能性があります。" ]
                             ]
                         , div []
-                            [ span [] [ text "通知の頻度" ]
+                            [ h3 [] [ text "メールによる通知" ]
+                            , span [] [ text "通知の頻度" ]
                             , span []
                                 [ input [ type_ "range", Html.Attributes.min "1", Html.Attributes.max "5", value (Maybe.withDefault "" <| Dict.get "email_frequency" m1.configValues), onInput (SettingsMsg << UpdateConfigEditingValue "email_frequency") ] []
                                 , span [] [ text <| getEmailFreqTxt model.settingsPageModel ]

@@ -19,6 +19,9 @@ userPageView user model =
     let
         user_info =
             getUserInfo model user
+
+        registered =
+            Maybe.map .registered user_info == Just True
     in
     { title = (Maybe.withDefault "" <| Maybe.map .fullname user_info) ++ ": " ++ appName
     , body =
@@ -27,7 +30,15 @@ userPageView user model =
                 [ leftMenu model
                 , smallMenu
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
-                    [ h1 [] [ text <| getUserNameDisplay model user ]
+                    [ h1 []
+                        [ text <| getUserNameDisplay model user
+                        , span [] [ text " " ]
+                        , if registered then
+                            span [ title <| appName ++ "に登録済", class "badge badge-primary" ] [ text "登録ユーザー" ]
+
+                          else
+                            span [ title <| appName ++ "に未登録（Emailから自動取り込み）", class "badge badge-secondary" ] [ text "未登録" ]
+                        ]
                     , div []
                         [ span [] [ text "Email: ", text <| Maybe.withDefault "（未登録）" <| Maybe.andThen (.emails >> List.head) user_info ]
                         ]

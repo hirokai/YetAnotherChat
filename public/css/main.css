@@ -608,6 +608,10 @@ textarea[disabled] {
     transition: opacity linear 0.2s;
 }
 
+.not-registered {
+    color: #777;
+}
+
 .right-vline {
     border-right: 1px solid #ccc;
 }
@@ -891,4 +895,13 @@ body {
 
 .clear {
     clear: both;
+}
+
+.danger {
+    color: red;
+    font-weight: bold;
+}
+
+h3{
+    margin: 5px 0px 0px 0px;
 }

@@ -68,6 +68,9 @@ chatParticipants room model =
     let
         ws_name =
             Maybe.withDefault "" <| Maybe.map .name <| Dict.get room.workspace model.workspaces
+
+        non_registered_exists =
+            not <| List.all identity <| List.filterMap (Maybe.map .registered << getUserInfo model) room.members
     in
     div [ id "chat-participants" ]
         [ a [ title <| "ワークスペース名: " ++ ws_name, class "clickable", href <| "#/workspaces/" ++ room.workspace ] [ text ws_name ]
@@ -77,19 +80,30 @@ chatParticipants room model =
                     case getUserInfo model u of
                         Just user ->
                             a [ href <| "#/users/" ++ u ]
-                                [ li []
+                                [ li [ classList [ ( "not-registered", not user.registered ) ] ] <|
                                     [ span [ classList [ ( "online-mark", True ), ( "hidden-animate", not user.online ) ] ] [ text "●" ]
                                     , span [] [ text user.username ]
-                                    , text "("
-                                    , a [] [ text <| String.join "," <| List.intersperse "," user.emails ]
-                                    , text ")"
                                     ]
+                                        ++ (if user.registered then
+                                                []
+
+                                            else
+                                                [ text "("
+                                                , a [] [ text <| String.join "," <| List.intersperse "," user.emails ]
+                                                , text ")"
+                                                ]
+                                           )
                                 ]
 
                         Nothing ->
                             li [] [ span [] [ text "(N/A)" ] ]
                 )
                 room.members
+        , if non_registered_exists then
+            span [] [ text "\u{3000}※薄字は未登録ユーザー（Emailから自動追加）" ]
+
+          else
+            text ""
         ]
 
 
