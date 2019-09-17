@@ -205,8 +205,16 @@ export async function list(params: { user_id: string, of_members?: string[] | un
             join session_current_members as m on s.id=m.session_id
             join session_current_members as m2 on m.session_id=m2.session_id
             where m.user_id=? order by s.timestamp desc;`, user_id);
+
+    const workspaces = workspace_id ? [workspace_id] : _.map(await model.workspaces.list(user_id), 'id');
+    const rows_also_non_member =
+        await db_.all<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string, source?: string, visibility?: SessionVisibility }>(`
+        select s.*,m.* from sessions as s
+        join session_current_members as m on s.id=m.session_id
+        where s.visibility in ('public','workspace');`);
+
     // log.info('sessions.list', params, rows);
-    const sessions = _.map(_.groupBy(rows, 'id'), (g) => {
+    const sessions = _.map(_.groupBy(_.uniqBy(rows.concat(rows_also_non_member), (r) => { return r.id + r.user_id; }), 'id'), (g) => {
         return { id: g[0].id, members: _.map(g, (g) => { return { id: g.user_id, source: g.source }; }), name: g[0].name, timestamp: g[0].timestamp, workspace: g[0].workspace, visibility: g[0].visibility };
     });
     const infos: { count: { [key: string]: number }, first: number, last: number }[] = [];
@@ -230,7 +238,7 @@ export async function list(params: { user_id: string, of_members?: string[] | un
         if (!s || !info) {
             return null;
         }
-        if (!includes(_.map(s.members, 'id'), user_id)) {   //Double check if user_id is included.
+        if (!_.includes(_.map(s.members, 'id'), user_id) && !_.includes(workspaces, s.workspace)) {
             return null;
         }
         const owner = _.find(s.members, (m) => m.source == 'owner');
@@ -416,7 +424,7 @@ export async function get(user_id: string, session_id: string): Promise<RoomInfo
 export async function set_visibility(user_id: string, id: string, visibility: SessionVisibility) {
     try {
         const s = await get(user_id, id);
-        if (s) {
+        if (s && s.owner == user_id) {
             db_.run('update sessions set visibility=? where id=?;', visibility, id);
             return true;
         } else {

@@ -99,7 +99,6 @@ window['importKey'] = crypto.importKey;
         const users = await model.users.list().catch(() => []);
         const ps = map(values(users), model.users.toClient);
         const usersClient = await Promise.all(ps);
-        console.log('users.update Feeding users', usersClient);
         app.ports.feedUsers.send(usersClient);
     });
 

@@ -131,7 +131,9 @@ workspaceView model ws =
                         td []
                             [ a [ class "clickable", href <| "#/sessions/" ++ sid ] [ text <| session.name ]
                             ]
-                            ,td [] <| List.intersperse (text ", ") (List.map (\u -> a [ href <| "/main#" ++ pageToPath (UserPage u), class "clickable" ] [ text (getUserName model u) ]) (roomUsers sid model))
+                        , td [] [text <| showVisibility session.visibility]
+                        , td [] [a [href <| "#/users/" ++ session.owner, class "clickable"] [text <| getUserNameDisplay model session.owner]]
+                        , td [] <| List.intersperse (text ", ") (List.map (\u -> a [ href <| "/main#" ++ pageToPath (UserPage u), class "clickable" ] [ text (getUserName model u) ]) (roomUsers sid model))
                         ]
                 Nothing ->
                     tr [] [ td [] [text "N/A"]]
@@ -173,7 +175,7 @@ workspaceView model ws =
                         h2 [] [text "セッション一覧"]
                          , table [ class "table" ]
                             [ thead []
-                                [ tr [] [ th [] [ text "名前" ], th [] [text "メンバー"] ]
+                                [ tr [] [ th [] [ text "名前" ], th [] [text "公開範囲"], th [] [text "管理者"], th [] [text "メンバー"] ]
                                 ]
                             , tbody [] <|
                                 List.map

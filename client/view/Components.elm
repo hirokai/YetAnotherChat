@@ -1,4 +1,4 @@
-module Components exposing (iconOfUser, leftMenu, makeLinkToOriginal, mkPeoplePanel, mkWorkspacePanel, onKeyDown, ourFormatter, sdgIcon, showChannels, showSource, smallMenu, topPane, updateRoomName)
+module Components exposing (iconOfUser, leftMenu, makeLinkToOriginal, mkPeoplePanel, mkWorkspacePanel, onKeyDown, ourFormatter, sdgIcon, showChannels, showSource, showVisibility, smallMenu, topPane, updateRoomName)
 
 import DateFormat
 import Dict exposing (Dict)
@@ -328,3 +328,22 @@ ourFormatter zone t =
         ]
         zone
         (Time.millisToPosix t)
+
+
+showVisibility : String -> String
+showVisibility s =
+    case s of
+        "public" ->
+            "ワークスペース内の一覧に表示"
+
+        "workspace" ->
+            "ワークスペース内の一覧に表示"
+
+        "url" ->
+            "URL共有で参加"
+
+        "private" ->
+            "招待メンバーのみ"
+
+        _ ->
+            "N/A"

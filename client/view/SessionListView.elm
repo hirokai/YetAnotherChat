@@ -11,25 +11,6 @@ import Regex exposing (..)
 import Types exposing (..)
 
 
-showVisibility : String -> String
-showVisibility s =
-    case s of
-        "public" ->
-            "ワークスペース内の一覧に表示"
-
-        "workspace" ->
-            "ワークスペース内の一覧に表示"
-
-        "url" ->
-            "URL共有で参加"
-
-        "private" ->
-            "招待メンバーのみ"
-
-        _ ->
-            "N/A"
-
-
 sessionListView : Model -> { title : String, body : List (Html Msg) }
 sessionListView model =
     let
