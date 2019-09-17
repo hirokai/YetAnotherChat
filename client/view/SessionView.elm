@@ -5,6 +5,7 @@ import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
+import Json.Decode as Json
 import List.Extra
 import Ports exposing (..)
 import Regex exposing (..)
@@ -112,32 +113,50 @@ roomTitle room model =
     h1 [ id "room-title" ]
         [ if Set.member "room-title" model.editing then
             input
-                [ value (Maybe.withDefault "(N/A)" <| Dict.get "room-title" model.editingValue)
+                [ id "room-title-input"
+                , value (Maybe.withDefault "(N/A)" <| Dict.get "room-title" model.editingValue)
                 , onKeyDown
                     (let
                         nv =
                             Maybe.withDefault "" <| Dict.get "room-title" model.editingValue
                      in
-                     EditingKeyDown "room-title" (updateRoomName room.id nv) (sendRoomName { id = room.id, new_name = nv })
+                     EditingKeyDown "room-title" (updateRoomName room.id nv) (sendRoomName { id = room.id, new_name = nv }) False
                     )
                 , onInput (UpdateEditingValue "room-title")
                 ]
                 []
 
           else
-            text room.name
-        , a [ id "edit-roomname", class "clickable", onClick (StartEditing "room-title" room.name) ] [ text "Edit" ]
+            span [ id "room-title-text" ] [ text room.name ]
         , if room.owner == model.myself then
-            a [ id "delete-room", class "btn btn-danger btn-sm", onClick (DeleteRoom room.id) ] [ text "削除" ]
+            div [ id "toolbar-sessionview" ]
+                [ if Set.member "room-title" model.editing then
+                    let
+                        nv =
+                            Maybe.withDefault "" <| Dict.get "room-title" model.editingValue
+                    in
+                    span []
+                        [ a [ id "edit-roomname", class "btn btn-sm btn-light", onClick (FinishEditing "room-title" (updateRoomName room.id nv) (sendRoomName { id = room.id, new_name = nv })) ] [ text "確定" ]
+                        , a [ id "edit-roomname", class "btn btn-sm btn-light", onClick (AbortEditing "room-title") ] [ text "キャンセル" ]
+                        ]
+
+                  else
+                    span [] [ a [ id "edit-roomname", class "btn btn-sm btn-light", onClick (StartEditing "room-title" room.name) ] [ text "名前を変更" ] ]
+                , a [ id "delete-room", class "btn btn-danger btn-sm", onClick (DeleteRoom room.id) ]
+                    [ text "削除" ]
+                , select
+                    [ on "change" <| Json.map (SetVisibility room.id) targetValue ]
+                    [ option [ value "workspace", selected (room.visibility == "workspace") ] [ text "ワークスペース内で公開" ], option [ value "url", selected (room.visibility == "url") ] [ text "URL共有" ], option [ value "private", selected (room.visibility == "private") ] [ text "プライベート（招待のみ）" ] ]
+                ]
 
           else
             text ""
         , a [ id "reload-room", class "btn btn-light", onClick (ReloadRoom room.id) ] [ text "Reload" ]
         , if Set.isEmpty model.chatPageStatus.videoMembers then
-            a [ id "start-video", class "btn btn-sm btn-light", onClick (ChatPageMsg <| StartVideo room.id) ] [ text "ビデオ通話を開始" ]
+            a [ id "start-video", class "btn btn-sm btn-light", onClick (SessionMsg <| StartVideo room.id) ] [ text "ビデオ通話を開始" ]
 
           else
-            a [ id "start-video", class "btn btn-sm btn-primary", onClick (ChatPageMsg <| StartVideo room.id) ] [ text "ビデオ通話に参加" ]
+            a [ id "start-video", class "btn btn-sm btn-primary", onClick (SessionMsg <| StartVideo room.id) ] [ text "ビデオ通話に参加" ]
         ]
 
 
@@ -167,8 +186,8 @@ chatBody room model =
                            )
                         ++ "."
                     )
-                , button [ class "btn-sm btn-light btn", onClick (ChatPageMsg ScrollToBottom) ] [ text "⬇⬇" ]
-                , button [ class "btn-sm btn-light btn", onClick (ChatPageMsg (SetShrinkEntries (not model.chatPageStatus.shrunkEntries))) ]
+                , button [ class "btn-sm btn-light btn", onClick (SessionMsg ScrollToBottom) ] [ text "⬇⬇" ]
+                , button [ class "btn-sm btn-light btn", onClick (SessionMsg (SetShrinkEntries (not model.chatPageStatus.shrunkEntries))) ]
                     [ text
                         (if model.chatPageStatus.shrunkEntries then
                             "展開する"
@@ -227,14 +246,14 @@ videoDiv room model =
             ]
         ]
             ++ List.indexedMap (\i u -> remoteVideoCell u i) users
-            ++ [ button [ class "btn btn-primary", id "stop-video", onClick (ChatPageMsg <| StopVideo room.id) ] [ text "終了" ] ]
+            ++ [ button [ class "btn btn-primary", id "stop-video", onClick (SessionMsg <| StopVideo room.id) ] [ text "終了" ] ]
 
 
 footer : SessionInfo -> Model -> Html Msg
 footer room model =
     div [ classList [ ( "col-lg-10", True ), ( "col-md-7", True ), ( "expanded", model.chatPageStatus.expandChatInput ) ], id "footer_wrapper" ]
         [ div [ class "col-md-12 col-lg-12", id "footer" ]
-            [ button [ class "btn btn-light", id "chat-input-expand", onClick (ChatPageMsg <| ClickExpandInput) ]
+            [ button [ class "btn btn-light", id "chat-input-expand", onClick (SessionMsg <| ClickExpandInput) ]
                 [ i [ class "material-icons" ] [ text "unfold_more" ] ]
             , textarea
                 [ id "chat-input"
@@ -294,7 +313,7 @@ showItem model entry =
                                 , span [ class "chat_timestamp" ] [ text m.formattedTime ]
                                 , a [ href (makeLinkToOriginal m) ] [ showSource m.source ]
                                 , if m.user == model.myself then
-                                    span [ class "remove-item clickable", onClick (ChatPageMsg (RemoveItem m.id)) ] [ text "×" ]
+                                    span [ class "remove-item clickable", onClick (SessionMsg (RemoveItem m.id)) ] [ text "×" ]
 
                                   else
                                     text ""
@@ -329,7 +348,7 @@ showItem model entry =
                                 , span [ class "chat_timestamp" ] [ text m.formattedTime ]
                                 , a [ href m.url ] [ text "self" ]
                                 , span [ style "margin-left" "10px" ] [ text m.id ]
-                                , span [ class "remove-item clickable", onClick (ChatPageMsg (RemoveItem m.id)) ] [ text "×" ]
+                                , span [ class "remove-item clickable", onClick (SessionMsg (RemoveItem m.id)) ] [ text "×" ]
                                 ]
                             , div [ class "file-image-chat" ]
                                 [ img
@@ -364,6 +383,7 @@ onKeyDownTextArea model room =
                     (sendCommentToServer
                         { comment = c, user = model.myself, session = room }
                     )
+                    True
 
             else
                 \_ -> NoOp
@@ -409,7 +429,7 @@ port sendCommentToServer : { user : String, comment : String, session : String }
 port sendCommentToServerDone : (() -> msg) -> Sub msg
 
 
-updateChatPageStatus : ChatPageMsg -> ChatPageModel -> ( ChatPageModel, Cmd msg )
+updateChatPageStatus : SessionMsg -> ChatPageModel -> ( ChatPageModel, Cmd msg )
 updateChatPageStatus msg model =
     case msg of
         SetFilterMode mode ->
@@ -542,4 +562,4 @@ showAll messages =
 
 sessionSubscriptions : List (Sub Msg)
 sessionSubscriptions =
-    [ videoJoin (ChatPageMsg << VideoJoin), videoLeft (ChatPageMsg << VideoLeft) ]
+    [ videoJoin (SessionMsg << VideoJoin), videoLeft (SessionMsg << VideoLeft) ]

@@ -619,6 +619,21 @@ app.get('/api/sessions/:id', (req: GetAuthRequest1<any>, res: JsonResponse<GetSe
     })().catch(next);
 });
 
+app.patch('/api/sessions/:id', (req: MyPostRequest<UpdateSessionsBody>, res: JsonResponse<UpdateSessionsResponse>, next) => {
+    (async () => {
+        let ok = true;
+        if (req.body.visibility) {
+            const ok_ = await model.sessions.set_visibility(req.decoded.user_id, req.body.id, req.body.visibility);
+            ok = ok && ok_
+        }
+        if (ok) {
+            res.json({ ok: true });
+        } else {
+            res.status(404).json({ ok: false });
+        }
+    })().catch(next);
+});
+
 app.delete('/api/comments/:id', (req: GetAuthRequest, res: JsonResponse<DeleteCommentResponse>, next) => {
     (async () => {
         if (req.params) {

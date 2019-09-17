@@ -569,6 +569,12 @@ export class Model {
             const { data }: AxiosResponse<CommentsDeleteResponse> = await axios.delete('/api/sessions/' + id);
             return data;
         },
+        set_visibility: async ({ user_id, id, visibility }: { user_id: string, id: string, visibility: SessionVisibility }) => {
+            const post_data: UpdateSessionsBody = { id, visibility };
+            const { data: { ok } } = await axios.patch<UpdateSessionsResponse>('/api/sessions/' + id, post_data);
+            console.log(user_id, id, visibility, ok);
+            return;
+        },
         on_new: async (msg: SessionsNewSocket): Promise<void> => {
             console.log('sessions.on_new', msg);
             await this.sessions.deleteDb(msg.id);

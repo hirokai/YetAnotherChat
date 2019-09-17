@@ -143,6 +143,7 @@ export function expandSpan(date: string, span: Timespan): string[] {
     }
 }
 
+
 export enum Timespan {
     day,
     week,

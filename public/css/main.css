@@ -731,6 +731,17 @@ span.config-name {
     margin-bottom: -4px;
 }
 
+#room-title-input {
+    display: inline-block;
+    min-width: 300px;
+}
+
+#room-title-text {
+    display: inline-block;
+    min-width: 300px;
+}
+
+
 div.chat_user_name {
     font-weight: bold;
     font-size: 14px;
@@ -904,4 +915,13 @@ body {
 
 h3{
     margin: 5px 0px 0px 0px;
+}
+
+#toolbar-sessionview {
+    display: inline-block;
+    width: 500px;
+}
+
+#toolbar-sessionview select{
+    margin: 0px 10px;
 }

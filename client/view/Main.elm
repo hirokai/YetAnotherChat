@@ -191,7 +191,7 @@ update msg model =
             in
             ( { model | userListPageModel = m }, c )
 
-        ChatPageMsg msg1 ->
+        SessionMsg msg1 ->
             let
                 ( m, c ) =
                     updateChatPageStatus msg1 model.chatPageStatus
@@ -241,9 +241,9 @@ update msg model =
             in
             ( { model | editingValue = nev }, Cmd.none )
 
-        EditingKeyDown id updateFunc updatePort { code, shiftKey } ->
+        EditingKeyDown id updateFunc updatePort shifted { code, shiftKey } ->
             if code == 13 then
-                if shiftKey then
+                if (shifted && shiftKey) || (not shifted && not shiftKey) then
                     finishEditing id updateFunc updatePort model
 
                 else
@@ -337,6 +337,9 @@ update msg model =
 
         ReloadRoom room ->
             ( model, reloadSession room )
+
+        SetVisibility id v ->
+            ( model, setVisibility { id = id, visibility = v } )
 
         StartNewPosterSession file_id ->
             ( model, startPosterSession file_id )
@@ -537,7 +540,7 @@ subscriptions _ =
     Sub.batch <|
         [ feedUsers FeedUsers
         , feedWorkspaces FeedWorkspaces
-        , feedMessages (\ms -> ChatPageMsg <| FeedMessages (Result.withDefault [] (Json.decodeValue chatEntriesDecoder ms)))
+        , feedMessages (\ms -> SessionMsg <| FeedMessages (Result.withDefault [] (Json.decodeValue chatEntriesDecoder ms)))
         , feedUserMessages (\ms -> UserPageMsg <| FeedUserMessages (Result.withDefault [] (Json.decodeValue chatEntriesDecoder ms)))
         , receiveNewRoomInfo ReceiveNewSessionId
         , hashChanged HashChanged

@@ -347,6 +347,16 @@ interface PostSessionsParam extends AuthedParams {
     file_id?: string,
 }
 
+
+interface UpdateSessionsBody {
+    id: string,
+    visibility?: SessionVisibility
+}
+
+interface UpdateSessionsResponse {
+    ok: boolean
+}
+
 interface JoinSessionParam extends AuthedParams {
     session_id: string,
     user_id: string,

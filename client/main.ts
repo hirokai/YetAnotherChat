@@ -396,6 +396,10 @@ window['importKey'] = crypto.importKey;
         app.ports.feedConfigValues.send(configList);
     });
 
+    app.ports.setVisibility.subscribe(async ({ id, visibility }) => {
+        await model.sessions.set_visibility({ user_id, id, visibility });
+    });
+
     app.ports.uploadPrivateKey.subscribe(async () => {
         await model.keys.upload_my_private_key();
     });
@@ -646,6 +650,7 @@ interface ElmAppPorts {
     feedWorkspaces: ElmSend<Workspace[]>;
     feedSessionsInWorkspace: ElmSend<string[]>;
     getSessionsInWorkspace: ElmSub<string>;
+    setVisibility: ElmSub<{ id: string, visibility: SessionVisibility }>;
     getUsers: ElmSub<void>;
     feedUsers: ElmSend<UserClient[]>;
     getUserMessages: ElmSub<string>;

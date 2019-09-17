@@ -101,18 +101,18 @@ topPane model =
                 ]
                 [ div []
                     [ if model.chatPageStatus.topPaneExpanded then
-                        button [ id "top-pane-expand-button", class "btn btn-sm btn-light", onClick (ChatPageMsg <| ExpandTopPane False) ] [ i [ class "material-icons" ] [ text "expand_more" ] ]
+                        button [ id "top-pane-expand-button", class "btn btn-sm btn-light", onClick (SessionMsg <| ExpandTopPane False) ] [ i [ class "material-icons" ] [ text "expand_more" ] ]
 
                       else
-                        button [ id "top-pane-expand-button", class "btn btn-sm btn-light", onClick (ChatPageMsg <| ExpandTopPane True) ] [ i [ class "material-icons" ] [ text "chevron_right" ] ]
+                        button [ id "top-pane-expand-button", class "btn btn-sm btn-light", onClick (SessionMsg <| ExpandTopPane True) ] [ i [ class "material-icons" ] [ text "chevron_right" ] ]
                     , span [ class "top-page-menu-label" ] [ text "フィルタ" ]
-                    , button [ klass Thread, onClick (ChatPageMsg <| SetFilterMode Thread) ] [ text "スレッド" ]
-                    , button [ klass Person, onClick (ChatPageMsg <| SetFilterMode Person) ] [ text "人" ]
-                    , button [ klass Date, onClick (ChatPageMsg <| SetFilterMode Date) ] [ text "日付" ]
+                    , button [ klass Thread, onClick (SessionMsg <| SetFilterMode Thread) ] [ text "スレッド" ]
+                    , button [ klass Person, onClick (SessionMsg <| SetFilterMode Person) ] [ text "人" ]
+                    , button [ klass Date, onClick (SessionMsg <| SetFilterMode Date) ] [ text "日付" ]
                     , span [ id "toppane-subject", class "hidden" ] [ text (roomName roomId model) ]
                     , div [ id "topright-buttons" ]
-                        [ button [ class "btn btn-sm btn-light", onClick (ChatPageMsg <| SmallerFont) ] [ span [ class "smaller-font-btn" ] [ text "A" ] ]
-                        , button [ class "btn btn-sm btn-light", onClick (ChatPageMsg <| LargerFont) ] [ span [ class "bigger-font-btn" ] [ text "A" ] ]
+                        [ button [ class "btn btn-sm btn-light", onClick (SessionMsg <| SmallerFont) ] [ span [ class "smaller-font-btn" ] [ text "A" ] ]
+                        , button [ class "btn btn-sm btn-light", onClick (SessionMsg <| LargerFont) ] [ span [ class "bigger-font-btn" ] [ text "A" ] ]
                         ]
                     ]
                 , if model.chatPageStatus.topPaneExpanded then
@@ -127,7 +127,7 @@ topPane model =
 
                         Person ->
                             div [ id "top-pane-list-container" ]
-                                [ ul [] <| List.map (\u -> li [] [ input [ type_ "checkbox", checked (Set.member u model.chatPageStatus.filter), onCheck (\b -> ChatPageMsg <| SetFilter u b) ] [], span [] [ text (getUserName model u) ] ]) model.chatPageStatus.users
+                                [ ul [] <| List.map (\u -> li [] [ input [ type_ "checkbox", checked (Set.member u model.chatPageStatus.filter), onCheck (\b -> SessionMsg <| SetFilter u b) ] [], span [] [ text (getUserName model u) ] ]) model.chatPageStatus.users
                                 ]
 
                   else

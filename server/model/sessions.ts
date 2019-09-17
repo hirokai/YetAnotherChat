@@ -412,3 +412,17 @@ export async function get(user_id: string, session_id: string): Promise<RoomInfo
     }
 }
 
+
+export async function set_visibility(user_id: string, id: string, visibility: SessionVisibility) {
+    try {
+        const s = await get(user_id, id);
+        if (s) {
+            db_.run('update sessions set visibility=? where id=?;', visibility, id);
+            return true;
+        } else {
+            return false;
+        }
+    } catch{
+        return false;
+    }
+}

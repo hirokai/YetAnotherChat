@@ -1,4 +1,4 @@
-module Types exposing (ChatEntry(..), ChatFileTyp, ChatPageModel, ChatPageMsg(..), CommentTyp, FilterMode(..), ListShowMode(..), LocalConfig, Member, Model, Msg(..), NewSessionModel, NewSessionMsg(..), NewWorkspaceModel, NewWorkspaceMsg(..), Page(..), SessionEventTyp, SessionID, SessionInfo, SettingsMsg(..), SettingsPageModel, User, UserListPageModel, UserListPageMsg(..), UserPageModel, UserPageMsg(..), Workspace, WorkspaceListModel, WorkspaceListMsg(..), WorkspaceModel, WorkspaceMsg(..), appName, getId, getKind, getRoomID, getSDGs, getUser, getUserFullname, getUserInfo, getUserName, getUserNameDisplay, roomName, roomUsers, toggleSet, truncate)
+module Types exposing (ChatEntry(..), ChatFileTyp, ChatPageModel, CommentTyp, FilterMode(..), ListShowMode(..), LocalConfig, Member, Model, Msg(..), NewSessionModel, NewSessionMsg(..), NewWorkspaceModel, NewWorkspaceMsg(..), Page(..), SessionEventTyp, SessionID, SessionInfo, SessionMsg(..), SettingsMsg(..), SettingsPageModel, User, UserListPageModel, UserListPageMsg(..), UserPageModel, UserPageMsg(..), Workspace, WorkspaceListModel, WorkspaceListMsg(..), WorkspaceModel, WorkspaceMsg(..), appName, getId, getKind, getRoomID, getSDGs, getUser, getUserFullname, getUserInfo, getUserName, getUserNameDisplay, roomName, roomUsers, toggleSet, truncate)
 
 import Dict exposing (Dict)
 import Json.Decode as Json
@@ -232,7 +232,7 @@ type Msg
     | WorkspaceListMsg WorkspaceListMsg
     | UserPageMsg UserPageMsg
     | UserListPageMsg UserListPageMsg
-    | ChatPageMsg ChatPageMsg
+    | SessionMsg SessionMsg
     | SettingsMsg SettingsMsg
     | StartSession (Set Member)
     | ReceiveNewSessionId { timestamp : Int, name : String, id : SessionID }
@@ -247,7 +247,7 @@ type Msg
     | UpdateEditingValue String String
     | FinishEditing String (Model -> Model) (Cmd Msg)
     | AbortEditing String
-    | EditingKeyDown String (Model -> Model) (Cmd Msg) { code : Int, shiftKey : Bool }
+    | EditingKeyDown String (Model -> Model) (Cmd Msg) Bool { code : Int, shiftKey : Bool }
     | SetPageHash
     | HashChanged String
     | FeedUserImages { user_id : String, images : List { url : String, file_id : String } }
@@ -267,6 +267,7 @@ type Msg
     | SetValue String String
     | SaveConfigLocalBool String Bool
     | DeleteWorkspace String
+    | SetVisibility String String
     | NoOp
 
 
@@ -294,7 +295,7 @@ type UserListPageMsg
     | ChangeShowMode ListShowMode
 
 
-type ChatPageMsg
+type SessionMsg
     = SetFilterMode FilterMode
     | SetFilter String Bool
     | ScrollToBottom
