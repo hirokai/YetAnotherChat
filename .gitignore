@@ -13,3 +13,4 @@ imported_data/
 elm-stuff/
 public/img/letter/*.png
 public/js/*.js
+coverage/*
