@@ -301,7 +301,7 @@ window['importKey'] = crypto.importKey;
     app.ports.getRoomInfo.subscribe(getAndfeedRoomInfo);
 
     app.ports.sendCommentToServer.subscribe(({ comment, session }: { comment: string, session: string }) => {
-        model.comments.new({ comment, session }).then(() => {
+        model.comments.new({ comment, session_id: session }).then(() => {
             app.ports.sendCommentToServerDone.send(null);
             getAndfeedRoomInfo();
             scrollToBottom();
