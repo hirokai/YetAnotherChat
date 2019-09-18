@@ -914,7 +914,7 @@ body {
     font-weight: bold;
 }
 
-h3{
+h3 {
     margin: 5px 0px 0px 0px;
 }
 
@@ -923,7 +923,7 @@ h3{
     width: 500px;
 }
 
-#toolbar-sessionview select{
+#toolbar-sessionview select {
     margin: 0px 10px;
 }
 
@@ -931,8 +931,13 @@ h3{
     margin: 5px 0px 0px 10px;
 }
 
-#config-import-email{
+#config-import-email {
     font-size: 18px;
     font-weight: bold;
 
+}
+
+#link-to-public-keys {
+    margin-bottom: 10px;
+    margin-left: 10px;
 }

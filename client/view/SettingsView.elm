@@ -192,6 +192,7 @@ userSettingView user model =
                                         ]
                                     ]
                                 ]
+                            , div [ id "link-to-public-keys" ] [ a [ class "clickable", href "/public_keys" ] [ text "公開鍵の一覧" ] ]
                             ]
                         , div [ class "row" ]
                             [ div [ class "col-lg-3 col-md-6 right-vline" ]

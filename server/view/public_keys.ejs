@@ -25,7 +25,12 @@
         }
 
         input {
-            width: 150px ! important;
+            width: 180px ! important;
+        }
+
+        tr.matched {
+            font-weight: bold;
+            background: #eef;
         }
     </style>
 </head>
@@ -56,8 +61,8 @@
                 <div class='row'>
                     <div class="col-md-12">
                         <input id='id-input' class='form-control' style='display:inline-block' type="text"
-                            placeholder="IDを入力">
-                        <button id='calc-hash' class='btn btn-light btn-sm'>IDのSHA256ハッシュを計算</button>
+                            placeholder="ユーザーIDを入力">
+                        <button id='calc-hash' class='btn btn-light btn-sm'>ユーザーIDのSHA256ハッシュを計算</button>
                         <span id='hash-result'></span>
                     </div>
                     <table class='table'>
@@ -137,7 +142,7 @@
                     for (let i = 0; i < len; i++) {
                         const r = results[i];
                         console.log('get(' + r['idx'] + ') result', r);
-                        el.append('<tr><td style="min-width:50px;">' + r['idx'] + '</td><td>' + formatDate(new Date(+r.timestamp)) + '</td><td>' + r.user + '</td><td>' + r.hash + '</td></tr>');
+                        el.append('<tr><td style="min-width:50px;">' + r['idx'] + '</td><td>' + formatDate(new Date(+r.timestamp)) + '</td><td class="hash">' + r.user + '</td><td>' + r.hash + '</td></tr>');
                     }
                 });
             })
@@ -146,7 +151,12 @@
         $(function () {
             get_and_add();
             $('#calc-hash').click(function () {
-                $('#hash-result').text(getSHA256Hash($('#id-input').val()));
+                const hash = getSHA256Hash($('#id-input').val());
+                $('#hash-result').text(hash);
+                const sel = 'td.hash:contains(' + hash + ')';
+                console.log(sel);
+                $('tr').removeClass('matched');
+                $('td.hash:contains(' + hash + ')').parent().addClass('matched');
             });
         })
 
