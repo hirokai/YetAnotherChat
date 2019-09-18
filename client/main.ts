@@ -487,7 +487,7 @@ window['importKey'] = crypto.importKey;
         $(document).on('dragleave', '#chat-input', (ev) => {
             $(ev.target).removeClass('dragover');
         });
-        $(document).on('drop', '#chat-input', (ev: any) => {
+        $(document).on('drop', '#footer', (ev: any) => {
             const event: DragEvent = ev.originalEvent;
             console.log(ev);
             ev.stopPropagation();
@@ -500,14 +500,47 @@ window['importKey'] = crypto.importKey;
                     reader.onloadend = () => {
                         const session_id = $('#chat-body').attr('data-session_id');
                         if (session_id && reader.result) {
-                            model.files.upload_and_post(session_id, reader.result, file.name, file.type);
+                            console.log('reader result', reader.result);
+                            model.files.upload_and_post(session_id, <ArrayBuffer>reader.result, file.name, file.type).then(() => {
+
+                            });
                         }
                     };
                     reader.readAsArrayBuffer(file);
                 });
             }
         });
+        $(document).on('paste', (ev: any) => {
+            const event: ClipboardEvent = ev.originalEvent;
+            console.log(ev, event);
+            const is_image = /image.*/.test(event.clipboardData.items[0].type);
+            if (is_image) {
+                const file = event.clipboardData.items[0].getAsFile();
+                const reader = new FileReader();
+                reader.onload = function (evt) {
+                    const session_id = $('#chat-body').attr('data-session_id');
+                    if (session_id && reader.result) {
+                        console.log('reader result', reader.result);
+                        const byteString = atob((<string>reader.result).split(',')[1]);
+                        // バイナリデータを扱えるように、typed arrayに書き換えていく
+                        const buffer = new Uint8Array(byteString.length);
+                        for (var i = 0; i < byteString.length; i++) {
+                            buffer[i] = byteString.charCodeAt(i);// charCodeAtで配列に
+                        }
+                        model.files.upload_and_post(session_id, buffer, file.name, file.type).then(() => {
 
+                        });
+                    }
+                    console.log({
+                        dataURL: reader.result,
+                        event: evt,
+                        file: file,
+                        name: file.name
+                    });
+                };
+                reader.readAsDataURL(file);
+            }
+        });
         // @ts-ignore
         $('[data-toggle="tooltip"]').tooltip();
 

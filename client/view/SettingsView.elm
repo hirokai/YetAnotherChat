@@ -132,10 +132,10 @@ userSettingView user model =
                                 , br [] []
                                 , label [ for "import-to" ] [ text "取り込み先のワークスペース" ]
                                 , select [ id "import-to", on "change" <| Json.map (SaveConfigLocal "email_workspace") targetValue ] <|
-                                    option [ value "__none__" ] [ text "（取り込まない）" ]
-                                        :: List.map (\w -> option [ value w.id ] [ text w.name ]) (Dict.values model.workspaces)
+                                    option [ value "__none__", selected (Nothing == model.localConfig.email_workspace) ] [ text "（取り込まない）" ]
+                                        :: List.map (\w -> option [ value w.id, selected (Just w.id == model.localConfig.email_workspace) ] [ text w.name ]) (Dict.values model.workspaces)
                                 , br [] []
-                                , span [] [ text "送信先：" ]
+                                , span [] [ text "こちらに転送してください：" ]
                                 , span [ class "monospace", id "config-import-email" ] [ text import_email ]
                                 , br [] []
                                 , span [ class "danger" ] [ text "注意：試験的機能であり，サーバー管理者によって取り込まれたメッセージが閲覧される可能性があります。" ]

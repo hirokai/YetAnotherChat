@@ -754,7 +754,7 @@ export class Model {
         }
     }
     files = {
-        upload: async (session_id: string, data: string | ArrayBuffer, filename: string, filetype: string, encrypting: boolean): Promise<{ ok: boolean, files: { path: string, file_id: string }[], iv?: string, secret?: string }> => {
+        upload: async (session_id: string, data: ArrayBuffer, filename: string, filetype: string, encrypting: boolean): Promise<{ ok: boolean, files: { path: string, file_id: string }[], iv?: string, secret?: string }> => {
             const formData = new FormData();
             let secret: ArrayBuffer, iv: Uint8Array;
             if (encrypting) {
@@ -790,7 +790,7 @@ export class Model {
                 });
             });
         },
-        upload_and_post: async (session_id: string, data: ArrayBuffer | string, filename: string, filetype: string) => {
+        upload_and_post: async (session_id: string, data: ArrayBuffer, filename: string, filetype: string) => {
             const { ok, files, secret, iv } = await this.files.upload(session_id, data, filename, filetype, true);
             map(files, (file) => {
                 const comment = '<__file::' + file.file_id + '::' + file.path + '::' + iv + '::' + secret + '>';

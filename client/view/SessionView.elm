@@ -257,6 +257,7 @@ footer room model =
                 [ i [ class "material-icons" ] [ text "unfold_more" ] ]
             , textarea
                 [ id "chat-input"
+                , placeholder "Shift+Enterでコメント送信。画像はファイルをドラッグ＆ドロップあるいはクリップボードから貼り付けて投稿。"
                 , rows
                     (if model.chatPageStatus.expandChatInput then
                         5
