@@ -240,15 +240,22 @@ export async function list(params: { user_id: string, of_members?: string[] | un
             join session_current_members as m2 on m.session_id=m2.session_id
             where m.user_id=? order by s.timestamp desc;`, user_id);
 
-    const workspaces = workspace_id ? [workspace_id] : _.map(await model.workspaces.list(user_id), 'id');
-    const rows_also_non_member =
+    const rows_public =
         await db_.all<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string, source?: string, visibility?: SessionVisibility }>(`
         select s.*,m.* from sessions as s
         join session_current_members as m on s.id=m.session_id
-        where s.visibility in ('public','workspace');`);
+        where s.visibility in ('public');`);
+
+    const rows_workspace = workspace_id ?
+        await db_.all<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string, source?: string, visibility?: SessionVisibility }>(`
+        select s.*,m.* from sessions as s
+        join session_current_members as m on s.id=m.session_id
+        where s.workspace=?;`, workspace_id) : [];
+
+    const workspaces = workspace_id ? [workspace_id] : _.map(await model.workspaces.list(user_id), 'id');
 
     // log.info('sessions.list', params, rows);
-    const sessions = _.map(_.groupBy(_.uniqBy(rows.concat(rows_also_non_member), (r) => { return r.id + r.user_id; }), 'id'), (g) => {
+    const sessions = _.map(_.groupBy(_.uniqBy(rows.concat(rows_public).concat(rows_workspace), (r) => { return r.id + r.user_id; }), 'id'), (g) => {
         return { id: g[0].id, members: _.map(g, (g) => { return { id: g.user_id, source: g.source }; }), name: g[0].name, timestamp: g[0].timestamp, workspace: g[0].workspace, visibility: g[0].visibility };
     });
     const infos: { count: { [key: string]: number }, first: number, last: number }[] = [];

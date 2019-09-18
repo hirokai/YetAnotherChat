@@ -132,7 +132,7 @@ workspaceView model ws =
                     tr []
                         [ 
                         td []
-                            [ a [ class "clickable", href <| "#/sessions/" ++ sid ] [ text <| session.name ]
+                            [ text session.workspace, text ": ", a [ class "clickable", href <| "#/sessions/" ++ sid ] [ text <| session.name ]
                             ]
                         , td [] [text <| showVisibility session.visibility]
                         , td [] [a [href <| "#/users/" ++ session.owner, class "clickable"] [text <| getUserNameDisplay model session.owner]]

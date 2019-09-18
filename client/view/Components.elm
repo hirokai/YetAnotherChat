@@ -237,9 +237,6 @@ showChannels model =
         let
             sessions_sorted =
                 List.reverse <| List.sortBy (\s -> sessionLastUpdated s) (Dict.values model.sessions)
-
-            _ =
-                Debug.log "sessions" sessions_sorted
         in
         List.indexedMap
             (\i session ->

@@ -128,7 +128,7 @@ app.use('/public', express.static(path.join(__dirname, '../public')))
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
 
 
-app.use(pretty({ query: 'pretty' }));
+app.use(pretty({ query: 'pretty', spaces: 8 }));
 
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.use(bodyParser.json());
