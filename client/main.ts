@@ -513,32 +513,40 @@ window['importKey'] = crypto.importKey;
         $(document).on('paste', (ev: any) => {
             const event: ClipboardEvent = ev.originalEvent;
             console.log(ev, event);
-            const is_image = /image.*/.test(event.clipboardData.items[0].type);
-            if (is_image) {
-                const file = event.clipboardData.items[0].getAsFile();
-                const reader = new FileReader();
-                reader.onload = function (evt) {
-                    const session_id = $('#chat-body').attr('data-session_id');
-                    if (session_id && reader.result) {
-                        console.log('reader result', reader.result);
-                        const byteString = atob((<string>reader.result).split(',')[1]);
-                        // バイナリデータを扱えるように、typed arrayに書き換えていく
-                        const buffer = new Uint8Array(byteString.length);
-                        for (var i = 0; i < byteString.length; i++) {
-                            buffer[i] = byteString.charCodeAt(i);// charCodeAtで配列に
-                        }
-                        model.files.upload_and_post(session_id, buffer, file.name, file.type).then(() => {
+            const file = event.clipboardData ?
+                (event.clipboardData.items ?
+                    (event.clipboardData.items[0] ?
+                        event.clipboardData.items[0].getAsFile() : null) : null) : null;
+            if (file) {
+                const is_image = event.clipboardData ?
+                    (event.clipboardData.items ?
+                        (event.clipboardData.items[0] ?
+                            /image.*/.test(event.clipboardData.items[0].type) : null) : null) : null;
+                if (is_image) {
+                    const reader = new FileReader();
+                    reader.onload = function (evt) {
+                        const session_id = $('#chat-body').attr('data-session_id');
+                        if (session_id && reader.result) {
+                            console.log('reader result', reader.result);
+                            const byteString = atob((<string>reader.result).split(',')[1]);
+                            const buffer = new Uint8Array(byteString.length);
+                            for (var i = 0; i < byteString.length; i++) {
+                                buffer[i] = byteString.charCodeAt(i);
+                            }
+                            model.files.upload_and_post(session_id, buffer, file.name, file.type).then(() => {
 
+                            });
+                        }
+                        console.log({
+                            dataURL: reader.result,
+                            event: evt,
+                            file: file,
+                            name: file ? file.name : null
                         });
-                    }
-                    console.log({
-                        dataURL: reader.result,
-                        event: evt,
-                        file: file,
-                        name: file.name
-                    });
-                };
-                reader.readAsDataURL(file);
+                    };
+                    reader.readAsDataURL(file);
+                }
+
             }
         });
         // @ts-ignore

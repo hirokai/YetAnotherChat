@@ -189,6 +189,40 @@ export async function delete_comment(user_id: string, comment_id: string): Promi
     }
 }
 
+export async function get(user_id: string, session_id: string): Promise<RoomInfo | null> {
+    const rows =
+        await db_.all<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string, source?: string, visibility?: SessionVisibility }>(`
+            select s.*,m.* from sessions as s
+            join session_current_members as m on s.id=m.session_id
+            where s.id=? order by s.timestamp desc;`, session_id);
+    const session = { id: rows[0].id, members: _.map(rows, (row) => { return { id: row.user_id, source: row.source }; }), name: rows[0].name, timestamp: rows[0].timestamp, workspace: rows[0].workspace, visibility: rows[0].visibility };
+    const users = await db_.all("select count(*),user_id,max(timestamp),min(timestamp) from comments where session_id=? and for_user=? group by user_id;", session.id, user_id);
+    const first = min(map(users, 'min(timestamp)')) || -1;
+    const last = max(map(users, 'max(timestamp)')) || -1;
+    var count: { [key: string]: number } = chain(users).keyBy('user_id').mapValues((u) => {
+        return u['count(*)'];
+    }).value();
+    map(session.members, (m) => {
+        count[m.id] = count[m.id] || 0;
+    });
+    count['__total'] = sum(values(count)) || 0;
+    const info = { count, first, last };
+    if (!_.includes(_.map(session.members, 'id'), user_id)) {
+        return null;
+    }
+    const owner = _.find(session.members, (m) => m.source == 'owner');
+    if (!owner) {
+        return null;
+    } else {
+        const obj: RoomInfo = {
+            id: session.id, name: decipher(session.name) || '', timestamp: session.timestamp, members: _.map(session.members, 'id'), numMessages: info.count, firstMsgTime: info.first, lastMsgTime: info.last, workspace: session.workspace,
+            owner: owner.id, visibility: session.visibility || 'private'
+        };
+        return obj;
+    }
+}
+
+
 export async function list(params: { user_id: string, of_members?: string[] | undefined, is_all: boolean, workspace_id?: string }): Promise<RoomInfo[]> {
     const { user_id, of_members, is_all, workspace_id } = params;
     log.debug(params);
@@ -378,48 +412,6 @@ export async function create_session_with_id(user_id: string, session_id: string
         throw new Error('Session ID not found');
     }
 }
-
-export async function get(user_id: string, session_id: string): Promise<RoomInfo | null> {
-    // log.info('get_session_info', session_id);
-    // const ts = new Date().getTime();
-    const session = await db_.get<{ id: string, workspace?: string, name: string, timestamp: number, visibility?: SessionVisibility }>('select * from sessions where id=?;', session_id);
-    if (!session) {
-        return null;
-    } else {
-        const r2 = await db_.all('select * from session_current_members as m where session_id=? group by m.user_id;', session_id);
-        const members = map(r2, (r2): string => { return r2['user_id'] });
-        let allowed = false;
-        if (!session.visibility) {  //Default is private
-            allowed = _.includes(members, user_id);
-        } else if (_.includes(['public', 'url'], session.visibility)) {
-            allowed = true;
-        } else if (session.visibility == 'workspace' && session.workspace) {
-            const ws = await model.workspaces.get(user_id, session.workspace);
-            allowed = !!ws && _.includes(ws.members, user_id);
-        }
-        log.debug({ visibility: session.visibility, members, user_id, allowed })
-        if (!allowed) {
-            return null;
-        }
-        const sources: SessionMemberSource[] = map(r2, (r2) => { return r2['source'] });
-        const owner_index = sources.indexOf('owner');
-        const numMessages: { [key: string]: number } = {};
-        const firstMsgTime = -1;
-        const lastMsgTime = -1;
-        const id = session_id;
-        log.debug({ members, sources, owner_index })
-        if (owner_index == -1) {
-            return null;
-        } else {
-            const obj: RoomInfo = {
-                name: decipher(session.name) || "(decryption error)", timestamp: session.timestamp, members, numMessages, firstMsgTime, lastMsgTime, id, owner: members[owner_index],
-                visibility: session.visibility || 'private'
-            };
-            return obj;
-        }
-    }
-}
-
 
 export async function set_visibility(user_id: string, id: string, visibility: SessionVisibility) {
     try {

@@ -1,4 +1,4 @@
-module Types exposing (ChatEntry(..), ChatFileTyp, ChatPageModel, CommentTyp, FilterMode(..), ListShowMode(..), LocalConfig, Member, Model, Msg(..), NewSessionModel, NewSessionMsg(..), NewWorkspaceModel, NewWorkspaceMsg(..), Page(..), SessionEventTyp, SessionID, SessionInfo, SessionMsg(..), SettingsMsg(..), SettingsPageModel, User, UserListPageModel, UserListPageMsg(..), UserPageModel, UserPageMsg(..), Workspace, WorkspaceEditModel, WorkspaceEditMsg(..), WorkspaceListModel, WorkspaceListMsg(..), WorkspaceModel, WorkspaceMsg(..), appName, getId, getKind, getRoomID, getSDGs, getUser, getUserFullname, getUserInfo, getUserName, getUserNameDisplay, roomName, roomUsers, toggleSet, truncate)
+module Types exposing (ChatEntry(..), ChatFileTyp, ChatPageModel, CommentTyp, FilterMode(..), ListShowMode(..), LocalConfig, Member, Model, Msg(..), NewSessionModel, NewSessionMsg(..), NewWorkspaceModel, NewWorkspaceMsg(..), Page(..), SessionEventTyp, SessionID, SessionInfo, SessionMsg(..), SettingsMsg(..), SettingsPageModel, User, UserListPageModel, UserListPageMsg(..), UserPageModel, UserPageMsg(..), Workspace, WorkspaceEditModel, WorkspaceEditMsg(..), WorkspaceListModel, WorkspaceListMsg(..), WorkspaceModel, WorkspaceMsg(..), appName, getId, getKind, getRoomID, getSDGs, getUser, getUserFullname, getUserInfo, getUserName, getUserNameDisplay, roomName, roomUsers, sessionLastUpdated, toggleSet, truncate)
 
 import Dict exposing (Dict)
 import Json.Decode as Json
@@ -66,7 +66,7 @@ type alias SessionID =
 type alias SessionInfo =
     { id : String
     , name : String
-    , formattedTime : String
+    , timestamp : Int
     , members : List Member
     , owner : String
     , workspace : String
@@ -75,6 +75,14 @@ type alias SessionInfo =
     , lastMsgTime : Int
     , numMessages : Dict String Int
     }
+
+
+sessionLastUpdated room =
+    if room.lastMsgTime /= -1 then
+        room.lastMsgTime
+
+    else
+        room.timestamp
 
 
 type alias ChatFileTyp =

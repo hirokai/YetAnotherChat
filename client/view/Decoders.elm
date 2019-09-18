@@ -74,7 +74,7 @@ sessionInfoDecoder =
     Json.succeed SessionInfo
         |> JE.andMap (Json.field "id" Json.string)
         |> JE.andMap (Json.field "name" Json.string)
-        |> JE.andMap (Json.field "formattedTime" Json.string)
+        |> JE.andMap (Json.field "timestamp" Json.int)
         |> JE.andMap (Json.field "members" (Json.list Json.string))
         |> JE.andMap (Json.field "owner" Json.string)
         |> JE.andMap (Json.field "workspace" Json.string)

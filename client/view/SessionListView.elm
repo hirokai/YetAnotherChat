@@ -14,28 +14,23 @@ import Types exposing (..)
 sessionListView : Model -> { title : String, body : List (Html Msg) }
 sessionListView model =
     let
-        mkSessionRowInList : SessionID -> Html Msg
-        mkSessionRowInList room_id =
-            case Dict.get room_id model.sessions of
-                Just room ->
-                    let
-                        ws_m =
-                            Dict.get room.workspace model.workspaces
+        mkSessionRowInList : SessionInfo -> Html Msg
+        mkSessionRowInList s =
+            let
+                ws_m =
+                    Dict.get s.workspace model.workspaces
 
-                        ws_name =
-                            Maybe.withDefault "" <| Maybe.map .name ws_m
-                    in
-                    tr []
-                        [ td [] [ a [ href <| "#/workspaces/" ++ room.workspace ] [ text ws_name ] ]
-                        , td [] [ a [ href <| "#/sessions/" ++ room.id ] [ text room.name ] ]
-                        , td [] [ text <| showVisibility room.visibility ]
-                        , td [] [ a [ href <| "#/users/" ++ room.owner ] [ text <| getUserNameDisplay model room.owner ] ]
-                        , td [] <| List.intersperse (text ", ") (List.map (\u -> a [ href <| "/main#" ++ pageToPath (UserPage u), class "clickable" ] [ text (getUserName model u) ]) (roomUsers room.id model))
-                        , td [] [ text <| ourFormatter model.timezone room.lastMsgTime ]
-                        ]
-
-                Nothing ->
-                    text ""
+                ws_name =
+                    Maybe.withDefault "" <| Maybe.map .name ws_m
+            in
+            tr []
+                [ td [] [ a [ href <| "#/workspaces/" ++ s.workspace ] [ text ws_name ] ]
+                , td [] [ a [ href <| "#/sessions/" ++ s.id ] [ text s.name ] ]
+                , td [] [ text <| showVisibility s.visibility ]
+                , td [] [ a [ href <| "#/users/" ++ s.owner ] [ text <| getUserNameDisplay model s.owner ] ]
+                , td [] <| List.intersperse (text ", ") (List.map (\u -> a [ href <| "/main#" ++ pageToPath (UserPage u), class "clickable" ] [ text (getUserName model u) ]) (roomUsers s.id model))
+                , td [] [ text <| ourFormatter model.timezone <| sessionLastUpdated s ]
+                ]
     in
     { title = "List of sessions"
     , body =
@@ -59,7 +54,7 @@ sessionListView model =
                             ]
                         , tbody [] <|
                             List.map (\r -> mkSessionRowInList r)
-                                (Dict.keys model.sessions)
+                                (List.reverse <| List.sortBy (\s -> sessionLastUpdated s) (Dict.values model.sessions))
                         ]
                     , div
                         [ style "clear" "both" ]

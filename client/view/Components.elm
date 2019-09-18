@@ -234,33 +234,30 @@ showChannels : Model -> List (Html Msg)
 showChannels model =
     [ div [] [ text "セッション一覧" ]
     , ul [ class "menu-list" ] <|
-        List.indexedMap
-            (\i r ->
-                case Dict.get r model.sessions of
-                    Just rooms ->
-                        li []
-                            [ hr [] []
-                            , div
-                                [ classList [ ( "chatlist-name", True ), ( "clickable", True ), ( "current", RoomPage r == model.page ) ]
-                                ]
-                                [ a [ href <| "#/sessions/" ++ r ] [ text <| String.fromInt (i + 1) ++ ": " ++ roomName r model ++ " (" ++ (String.fromInt <| Maybe.withDefault 0 <| Dict.get "__total" <| rooms.numMessages) ++ ")" ]
-                                , div [ class "chatlist-members" ]
-                                    (List.intersperse (text ",") <|
-                                        List.map (\u -> a [ class "chatlist-member clickable", href <| "#/users/" ++ u ] [ text (getUserName model u) ]) <|
-                                            roomUsers r model
-                                    )
-                                ]
-                            ]
+        let
+            sessions_sorted =
+                List.reverse <| List.sortBy (\s -> sessionLastUpdated s) (Dict.values model.sessions)
 
-                    Nothing ->
-                        li []
-                            [ hr [] []
-                            , div
-                                []
-                                [ text "N/A" ]
-                            ]
+            _ =
+                Debug.log "sessions" sessions_sorted
+        in
+        List.indexedMap
+            (\i session ->
+                li []
+                    [ hr [] []
+                    , div
+                        [ classList [ ( "chatlist-name", True ), ( "clickable", True ), ( "current", RoomPage session.id == model.page ) ]
+                        ]
+                        [ a [ href <| "#/sessions/" ++ session.id ] [ text <| String.fromInt (i + 1) ++ ": " ++ session.name ++ " (" ++ (Maybe.withDefault "-" <| Maybe.map String.fromInt <| Dict.get "__total" <| session.numMessages) ++ ")" ]
+                        , div [ class "chatlist-members" ]
+                            (List.intersperse (text ",") <|
+                                List.map (\u -> a [ class "chatlist-member clickable", href <| "#/users/" ++ u ] [ text (getUserName model u) ]) <|
+                                    session.members
+                            )
+                        ]
+                    ]
             )
-            (Dict.keys model.sessions)
+            sessions_sorted
     ]
 
 
