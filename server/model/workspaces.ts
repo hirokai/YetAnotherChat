@@ -39,15 +39,18 @@ export async function get(user_id: string, workspace_id: string): Promise<Worksp
     return wss[0];
 }
 
-export async function create(user_id: string, name: string, members: string[]): Promise<{ ok: boolean, data?: Workspace }> {
+export async function create(user_id: string, name: string, members: string[]): Promise<{ ok: boolean, error?: string, data?: Workspace }> {
     const id = shortid();
     const timestamp = new Date().getTime();
     const visibility: WorkspaceVisibility = 'private';
+    if (!_.includes(members, user_id)) {
+        return { ok: false, error: 'Owner must be a member' }
+    }
     await db_.run('insert into workspaces (id,name,timestamp,visibility) values (?,?,?,?);', id, name, timestamp, visibility);
     for (let uid of members) {
         const user = await users.get(uid);
         if (user != null) {
-            log.debug({ user_id, uid, user })
+            log.debug({ user_id, uid, user });
             const metadata: UserInWorkspaceMetadata = { role: user_id == uid ? 'owner' : 'member' };
             log.info({ uid, metadata });
             await db_.run('insert into users_in_workspaces (user_id,workspace_id,timestamp,metadata) values (?,?,?,?);', uid, id, timestamp, JSON.stringify(metadata));
@@ -55,6 +58,28 @@ export async function create(user_id: string, name: string, members: string[]): 
     }
     const data: Workspace = { id, name, members, owner: user_id, visibility };
     return { ok: true, data }
+}
+
+export async function add_member(myself: string, workspace_id: string, added_user: string) {
+    const user = await users.get(added_user);
+    const timestamp = new Date().getTime();
+    const ws = await get(myself, workspace_id);
+    if (ws && user) {
+        const metadata: UserInWorkspaceMetadata = { role: 'member' };
+        await db_.run('insert into users_in_workspaces (user_id,workspace_id,timestamp,metadata) values (?,?,?,?);', user.id, workspace_id, timestamp, JSON.stringify(metadata));
+    }
+}
+
+export async function remove_member(myself_id: string, workspace_id: string, removed_user: string) {
+    const myself = await users.get(myself_id);
+    const user = await users.get(removed_user);
+    if (!myself || !user || myself.id != user.id) { //Can only remove myself
+        return false;
+    }
+    const ws = await get(myself.id, workspace_id);
+    if (ws) {
+        await db_.run('delete from users_in_workspaces where user_id=? and workspace_id=?;', user.id, ws.id);
+    }
 }
 
 export async function update(user_id: string, workspace_id: string, data: UpdateWorkspaceData): Promise<{ ok: boolean, data?: { name?: string } }> {

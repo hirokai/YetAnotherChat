@@ -358,6 +358,7 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
             throw new Error('Cannot find test user');
         }
     }
+    const workspace = workspace_id ? await model.workspaces.get(myself.id, workspace_id) : undefined;
 
     const replies: MailgunParsed[] = email.parse_mailgun_webhook_thread(body);
     log.info('-------')
@@ -370,7 +371,7 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
     if (session_id) {
         log.info('existing session', session_id);
     } else {
-        const r = await model.sessions.create(myself.id, replies[0].subject, [], workspace_id);
+        const r = await model.sessions.create(myself.id, replies[0].subject, [], workspace ? workspace.id : undefined);
         session_id = r ? r.id : null;
         log.info('new session', session_id);
         if (myio) {
@@ -404,6 +405,9 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
             log.info('User=null');
         } else {
             await model.users.add_to_contact(myself.id, u.id);
+            if (workspace) {
+                await model.workspaces.add_member(myself.id, workspace.id, u.id);
+            }
             added_users.push(u);
             const url = (reply.message_id || replies[0].message_id) + '::lines=' + reply.lines.start + '-' + reply.lines.end;
             const r1: JoinSessionResponse = await model.sessions.join({ session_id, user_id: u.id, timestamp, source: 'email_thread' });

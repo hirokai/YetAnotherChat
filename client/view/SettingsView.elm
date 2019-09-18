@@ -138,7 +138,7 @@ userSettingView user model =
                                 , span [] [ text "送信先：" ]
                                 , span [ class "monospace", id "config-import-email" ] [ text import_email ]
                                 , br [] []
-                                , span [ class "danger" ] [ text "注意：試験的機能であり，サーバー管理者に取り込まれたメッセージに見られる可能性があります。" ]
+                                , span [ class "danger" ] [ text "注意：試験的機能であり，サーバー管理者によって取り込まれたメッセージが閲覧される可能性があります。" ]
                                 ]
                             ]
                         , div []
