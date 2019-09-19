@@ -836,6 +836,10 @@ export class Model {
             const { data: { ok, data: res } }: AxiosResponse<PostWorkspaceResponse> = await axios.post('/api/workspaces', data);
             return res || null;
         },
+        get: async (id: string): Promise<Workspace | null> => {
+            const { data: { ok, data } }: AxiosResponse<GetWorkspaceResponse> = await axios.get('/api/workspaces/' + id);
+            return data || null;
+        },
         list: async (): Promise<{ [key: string]: Workspace }> => {
             const { data: { ok, data } }: AxiosResponse<GetWorkspacesResponse> = await axios.get('/api/workspaces');
             console.log('workspaces.list', data);
@@ -843,6 +847,14 @@ export class Model {
         },
         delete: async (id: string): Promise<boolean> => {
             const { data: { ok } }: AxiosResponse<DeleteWorkspaceResponse> = await axios.delete('/api/workspaces/' + id);
+            return ok
+        },
+        join: async (id: string): Promise<boolean> => {
+            const { data: { ok } }: AxiosResponse<OkResponse> = await axios.post('/api/workspaces/' + id + '/join');
+            return ok
+        },
+        quit: async (id: string): Promise<boolean> => {
+            const { data: { ok } }: AxiosResponse<QuitWorkspaceResponse> = await axios.post('/api/workspaces/' + id + '/quit');
             return ok
         },
         update: async ({ id, name, visibility }: { id: string, name?: string, visibility?: WorkspaceVisibility }) => {

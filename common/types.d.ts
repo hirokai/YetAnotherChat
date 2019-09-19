@@ -393,6 +393,12 @@ type DeleteWorkspaceResponse = {
     ok: boolean
 }
 
+type OkResponse = {
+    ok: boolean
+}
+
+type QuitWorkspaceResponse = OkResponse
+
 type UpdateWorkspaceData = {
     name?: string,
     visibility?: WorkspaceVisibility

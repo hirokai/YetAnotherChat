@@ -159,7 +159,13 @@ workspaceView model ws =
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 [] [ text <| "ワークスペース：" ++ ws.name ]
                     , if ws.owner == model.myself then div [] [a [class "btn btn-light", href <| "#/workspaces/" ++ ws.id ++ "/edit"] [text "編集"]] else text ""
-                    , div [] [span [] [text "オーナー: "], span [] [text <| getUserNameDisplay model ws.owner]]
+                    , div [] [span [] [text "オーナー: "], span [] [text <| getUserNameDisplay model ws.owner],text "　", span [] [text "公開範囲: "], span [] [text <| showVisibility ws.visibility]]
+                    , div [] [
+                        if List.member model.myself ws.members then 
+                           span [] [button [class "btn btn-sm btn-danger", onClick (QuitWorkspace ws.id)] [text "抜ける"]]
+                        else
+                            span [] [text "まだメンバーでありません", button [class "btn btn-sm btn-primary", onClick (JoinWorkspace ws.id)] [text "参加する"]]
+                            ]
                     , section [] [
                         h2 [] [text "ワークスペースのメンバー"] 
                         , table [ class "table" ]

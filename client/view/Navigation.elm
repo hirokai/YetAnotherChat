@@ -160,7 +160,7 @@ enterWorkspace model wid =
         new_model =
             { model | page = WorkspacePage wid, workspaceModel = { workspaceModel | selectedMembers = Set.empty } }
     in
-    ( new_model, Cmd.batch [ updatePageHash new_model, getSessionsInWorkspace wid ] )
+    ( new_model, Cmd.batch [ updatePageHash new_model, getWorkspace wid, getSessionsInWorkspace wid ] )
 
 
 enterWorkspaceEdit : Model -> String -> ( Model, Cmd Msg )

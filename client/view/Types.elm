@@ -256,6 +256,7 @@ type Msg
     | FeedRoomInfo Json.Value
     | FeedNewRoomInfo Json.Value
     | FeedWorkspaces (List Workspace)
+    | FeedWorkspace Workspace
     | FeedUsers (List User)
     | CreateWorkspace (Set Member)
     | ReloadSessions
@@ -285,6 +286,8 @@ type Msg
     | SaveConfigLocal String String
     | SaveConfigLocalBool String Bool
     | DeleteWorkspace String
+    | JoinWorkspace String
+    | QuitWorkspace String
     | SetVisibility String String String
     | NoOp
 

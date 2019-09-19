@@ -88,6 +88,13 @@ update msg model =
             in
             ( { model | workspaces = Dict.fromList <| List.map (\u -> ( u.id, u )) ws, loaded = { loaded | workspaces = True } }, Cmd.none )
 
+        FeedWorkspace w ->
+            let
+                loaded =
+                    model.loaded
+            in
+            ( { model | workspaces = Dict.insert w.id w model.workspaces, loaded = { loaded | workspaces = True } }, Cmd.none )
+
         FeedUsers users ->
             let
                 loaded =
@@ -455,6 +462,16 @@ update msg model =
             in
             ( m, Cmd.batch [ c, deleteWorkspace ws ] )
 
+        JoinWorkspace ws ->
+            ( model, joinWorkspace ws )
+
+        QuitWorkspace ws ->
+            let
+                ( m, c ) =
+                    enterWorkspaceList model
+            in
+            ( m, Cmd.batch [ c, quitWorkspace ws ] )
+
         SaveConfigLocal k v ->
             let
                 new_config =
@@ -587,6 +604,7 @@ subscriptions _ =
     Sub.batch <|
         [ feedUsers FeedUsers
         , feedWorkspaces FeedWorkspaces
+        , feedWorkspace FeedWorkspace
         , feedMessages (\ms -> SessionMsg <| FeedMessages (Result.withDefault [] (Json.decodeValue chatEntriesDecoder ms)))
         , feedUserMessages (\ms -> UserPageMsg <| FeedUserMessages (Result.withDefault [] (Json.decodeValue chatEntriesDecoder ms)))
         , receiveNewRoomInfo ReceiveNewSessionId

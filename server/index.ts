@@ -518,6 +518,36 @@ app.delete('/api/workspaces/:id', (req: GetAuthRequest, res: JsonResponse<Delete
     })().catch(next);
 });
 
+app.post('/api/workspaces/:id/join', (req: GetAuthRequest, res: JsonResponse<OkResponse>, next) => {
+    (async () => {
+        if (req.params) {
+            log.info('/api/workspaces/:id/join')
+            const user_id = req.decoded.user_id;
+            const workspace_id = req.params.id;
+            const ok = await model.workspaces.add_member(user_id, workspace_id, user_id);
+            res.json({ ok });
+        } else {
+            res.json({ ok: false });
+        }
+    })().catch(next);
+});
+
+app.post('/api/workspaces/:id/quit', (req: GetAuthRequest, res: JsonResponse<any>, next) => {
+    (async () => {
+        if (req.params) {
+            log.info('/api/workspaces/:id/quit')
+            const user_id = req.decoded.user_id;
+            const workspace_id = req.params.id;
+            const ok = await model.workspaces.remove_member(user_id, workspace_id, user_id);
+            res.json({ ok });
+        } else {
+            res.json({ ok: false });
+        }
+    })().catch(next);
+});
+
+
+
 app.get('/api/workspaces/:id/sessions', (req: GetAuthRequest, res: JsonResponse<GetSessionsResponse>, next) => {
     (async () => {
         if (req.params) {

@@ -1,4 +1,4 @@
-port module Ports exposing (createSession, createWorkspace, deleteFile, deleteSession, deleteWorkspace, downloadPrivateKey, feedMessages, feedNewRoomInfo, feedRoomInfo, feedSessionsInWorkspace, feedSessionsOf, feedSessionsWithSameMembers, feedUserImages, feedUserMessages, feedUsers, feedWorkspaces, getConfig, getCurrentSessionInfo, getMessages, getRoomInfo, getSessionsInWorkspace, getSessionsOf, getSessionsWithSameMembers, getUserMessages, getUsers, hashChanged, initializeData, joinRoom, logout, onChangeData, recalcElementPositions, receiveNewRoomInfo, reloadSession, reloadSessions, removeItemRemote, resetKeys, resetUserCache, saveConfig, scrollTo, scrollToBottom, sendRoomName, setConfigLocal, setPageHash, setValue, setVisibility, startPosterSession, startVideo, stopVideo, uploadPrivateKey, videoJoin, videoLeft)
+port module Ports exposing (createSession, createWorkspace, deleteFile, deleteSession, deleteWorkspace, downloadPrivateKey, feedMessages, feedNewRoomInfo, feedRoomInfo, feedSessionsInWorkspace, feedSessionsOf, feedSessionsWithSameMembers, feedUserImages, feedUserMessages, feedUsers, feedWorkspace, feedWorkspaces, getConfig, getCurrentSessionInfo, getMessages, getRoomInfo, getSessionsInWorkspace, getSessionsOf, getSessionsWithSameMembers, getUserMessages, getUsers, getWorkspace, hashChanged, initializeData, joinRoom, joinWorkspace, logout, onChangeData, quitWorkspace, recalcElementPositions, receiveNewRoomInfo, reloadSession, reloadSessions, removeItemRemote, resetKeys, resetUserCache, saveConfig, scrollTo, scrollToBottom, sendRoomName, setConfigLocal, setPageHash, setValue, setVisibility, startPosterSession, startVideo, stopVideo, uploadPrivateKey, videoJoin, videoLeft)
 
 import Json.Decode as Json
 import Types exposing (..)
@@ -20,6 +20,9 @@ port getUsers : () -> Cmd msg
 
 
 port feedUsers : (List User -> msg) -> Sub msg
+
+
+port feedWorkspace : (Workspace -> msg) -> Sub msg
 
 
 port feedWorkspaces : (List Workspace -> msg) -> Sub msg
@@ -59,6 +62,9 @@ port feedSessionsOf : (List String -> msg) -> Sub msg
 
 
 port feedSessionsInWorkspace : (List String -> msg) -> Sub msg
+
+
+port getWorkspace : String -> Cmd msg
 
 
 port getSessionsInWorkspace : String -> Cmd msg
@@ -125,6 +131,12 @@ port deleteSession : { id : String } -> Cmd msg
 
 
 port deleteWorkspace : String -> Cmd msg
+
+
+port joinWorkspace : String -> Cmd msg
+
+
+port quitWorkspace : String -> Cmd msg
 
 
 port reloadSession : String -> Cmd msg

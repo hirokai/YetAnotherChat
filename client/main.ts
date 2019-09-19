@@ -191,6 +191,28 @@ window['importKey'] = crypto.importKey;
         }
     });
 
+    app.ports.joinWorkspace.subscribe(async (workspace_id) => {
+        const ok = await model.workspaces.join(workspace_id);
+        console.log('joinWorkspace', ok);
+        if (ok) {
+            const ws = await model.workspaces.get(workspace_id);
+            console.log('joinWorkspace', ws);
+            if (ws) {
+                app.ports.feedWorkspace.send(ws);
+                const us = await model.users.list();
+                const users = await Promise.all(map(us, model.users.toClient));
+                app.ports.feedUsers.send(users);
+            }
+        }
+    });
+    app.ports.quitWorkspace.subscribe(async (workspace_id) => {
+        const ok = await model.workspaces.quit(workspace_id);
+        if (ok) {
+            const wss = await model.workspaces.list();
+            app.ports.feedWorkspaces.send(values(wss));
+        }
+    });
+
     app.ports.getSessionsInWorkspace.subscribe(async (workspace_id) => {
         const data = await model.sessions.list_in_workspace(workspace_id);
         app.ports.feedSessionsInWorkspace.send(compact(map(data, 'id')))
@@ -218,6 +240,14 @@ window['importKey'] = crypto.importKey;
             console.log('saveWorkspace', id, name, ok)
         } else {
 
+        }
+    })
+
+    app.ports.getWorkspace.subscribe(async (wid) => {
+        const ws = await model.workspaces.get(wid);
+        console.log('getWorkspace', ws);
+        if (ws) {
+            app.ports.feedWorkspace.send(ws);
         }
     })
 
@@ -707,6 +737,8 @@ interface ElmAppPorts {
     setConfigValue: ElmSub<{ key: string, value: string }>;
     setConfigLocal: ElmSub<{ key: string, value: string }>;
     setProfileValue: ElmSub<{ key: string, value: string }>;
+    getWorkspace: ElmSub<string>;
+    feedWorkspace: ElmSend<Workspace>;
     feedWorkspaces: ElmSend<Workspace[]>;
     feedSessionsInWorkspace: ElmSend<string[]>;
     getSessionsInWorkspace: ElmSub<string>;
@@ -735,6 +767,8 @@ interface ElmAppPorts {
     deleteFile: ElmSub<string>;
     deleteSession: ElmSub<{ id: string }>;
     deleteWorkspace: ElmSub<string>;
+    joinWorkspace: ElmSub<string>;
+    quitWorkspace: ElmSub<string>;
     reloadSession: ElmSub<string>;
     reloadSessions: ElmSub<void>;
     saveConfig: ElmSub<{ userWithEmailOnly: boolean }>;
