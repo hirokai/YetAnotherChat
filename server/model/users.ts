@@ -346,8 +346,7 @@ export async function set_user_config(user_id: string, key: string, value: strin
     }
 }
 
-export async function register({ username, password, email, fullname, source }: { username: string, password: string, email?: string, fullname?: string, source: 'self_register' | 'email_thread' }): Promise<{ ok: boolean, user?: User, error?: string, error_code?: number }> {
-    const user_id = shortid();
+export async function register({ username, password, email, fullname, source, workspace }: { username: string, password: string, email?: string, fullname?: string, source: 'self_register' | 'email_thread', workspace?: string }): Promise<{ ok: boolean, user?: User, error?: string, error_code?: number }> {
     if (!username || !password) {
         return { ok: false, error: 'Username and password are required' };
     } else if (username.length > 64 || password.length > 64) {
@@ -369,16 +368,21 @@ export async function register({ username, password, email, fullname, source }: 
                         resolve({ ok: false, error: 'Password hashing error' });
                     } else {
                         db.serialize(() => {
+                            const user_id = shortid();
                             const timestamp = new Date().getTime();
                             db.run('insert into users (id,name,password,fullname,timestamp,source) values (?,?,?,?,?,?)', user_id, username, hash, fullname, timestamp, source);
                             db.run('insert into user_emails (user_id,email) values (?,?)', user_id, email || "");
+                            if (workspace) {
+                                const metadata: UserInWorkspaceMetadata = { role: 'member' };
+                                db.run('insert into users_in_workspaces (user_id,workspace_id,timestamp,metadata) values (?,?,?,?);', user_id, workspace, timestamp, JSON.stringify(metadata));
+                            }
                             const avatar = choose_avatar(username);
                             set_profile(user_id, 'avatar', avatar).then(() => {
                                 const emails = email ? [email] : [];
                                 const user: User = {
                                     id: user_id, fullname: fullname || undefined, username, emails, avatar, online: false, timestamp, registered: source == 'self_register', publicKey: undefined
                                 }
-                                if (!_.includes(user.emails, email)) {
+                                if (email && !_.includes(user.emails, email)) {
                                     reject('Unknown error');
                                 }
                                 resolve({ ok: true, user });

@@ -23,7 +23,9 @@ import * as mail_algo from './model/mail_algo'
 import * as utils from './model/utils'
 import * as email from './email'
 import { db } from './model/utils'
+import { default_workspace } from './config'
 const credential = require('./private/credential');
+
 import * as bunyan from 'bunyan';
 const log = bunyan.createLogger({ name: "index", src: true, level: 1 });
 
@@ -85,7 +87,7 @@ const upload = multer({
     limits: {
         fieldNameSize: 1000,
         files: 100,
-        fileSize: 1000000000
+        fileSize: 1000 * 1000 * 10
     }
 }).single('user_image');
 
@@ -270,7 +272,7 @@ app.post('/api/register', (req, res: JsonResponse<RegisterResponse>, next) => {
             res.json({ ok: false, error: 'Invalid username' });
             return;
         }
-        const r1 = await model.users.register({ username, password, email, fullname, source: 'self_register' });
+        const r1 = await model.users.register({ username, password, email, fullname, source: 'self_register', workspace: default_workspace });
         if (r1 == null) {
             res.json({ ok: false });
         } else {
