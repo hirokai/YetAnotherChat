@@ -207,7 +207,7 @@ export async function get(user_id: string, session_id: string): Promise<RoomInfo
     });
     count['__total'] = sum(values(count)) || 0;
     const info = { count, first, last };
-    if (!_.includes(_.map(session.members, 'id'), user_id)) {
+    if (session.visibility == 'private' && !_.includes(_.map(session.members, 'id'), user_id)) {
         return null;
     }
     const owner = _.find(session.members, (m) => m.source == 'owner');
