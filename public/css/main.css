@@ -716,6 +716,8 @@ span.config-name {
 
 .ws-panel-member {
     font-size: 12px;
+    overflow: hidden;
+    word-break: break-all;
 }
 
 .ws-list-center {

@@ -279,6 +279,10 @@ showUsers model =
 
 mkWorkspacePanel : Model -> Workspace -> Html Msg
 mkWorkspacePanel model ws =
+    let
+        text_too_long =
+            List.sum (List.map (\m -> String.length <| getUserName model m) ws.members) >= 50
+    in
     div
         [ classList [ ( "ws-list-item", True ) ]
         ]
@@ -288,7 +292,13 @@ mkWorkspacePanel model ws =
                     [ text ws.name
                     ]
                 ]
-            , div [ class "ws-panel-member" ] (List.intersperse (text ", ") <| List.map (\n -> a [ class "clickable", href <| "#/users/" ++ n ] [ text (getUserName model n) ]) ws.members)
+            , div [ class "ws-panel-member" ]
+                (if text_too_long then
+                    [ text <| String.fromInt (List.length ws.members) ++ "人の参加者" ]
+
+                 else
+                    List.intersperse (text ", ") <| List.map (\n -> a [ class "clickable", href <| "#/users/" ++ n ] [ text (getUserName model n) ]) ws.members
+                )
             ]
         ]
 
