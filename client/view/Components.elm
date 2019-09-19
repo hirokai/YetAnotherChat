@@ -139,9 +139,9 @@ topPane model =
 smallMenu : Html Msg
 smallMenu =
     div [ id "smallmenu", class "d-block d-md-none" ]
-        [ a [ class "clickable smallmenu-item", href "#/users/" ] [ text "ユーザー" ]
+        [ a [ class "clickable smallmenu-item", href "#/workspaces/" ] [ text "ワークスペース" ]
         , a [ class "clickable smallmenu-item", href "#/sessions/" ] [ text "セッション" ]
-        , a [ class "clickable smallmenu-item", href "#/sessions/new" ] [ text "新しい会話" ]
+        , a [ class "clickable smallmenu-item", href "#/users/" ] [ text "ユーザー" ]
         , a [ class "clickable smallmenu-item right", onClick Logout ] [ text "ログアウト" ]
         , a [ class "clickable smallmenu-item right", href "#/settings" ] [ text "設定" ]
         ]
