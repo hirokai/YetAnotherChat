@@ -31,9 +31,7 @@ const log = bunyan.createLogger({ name: "index", src: true, level: 1 });
 
 utils.connectToDB();
 
-const http = production ? require('http').createServer(app).all("*", function (request, response) {
-    response.redirect(`https://${request.hostname}${request.url}`);
-}).listen(80) : require('http').createServer(app);
+const http = require('http').createServer(app);
 
 var https;
 if (production) {
@@ -48,6 +46,12 @@ if (production) {
         ca: ca
     };
     https = require('https').createServer(credentials, app);
+    app.use((req, res, next) => {
+        if (!req.secure) {
+            return res.redirect('https://' + req.get('host') + req.url);
+        }
+        next();
+    });
 }
 
 const io = require('socket.io')(production ? https : http);
@@ -1076,13 +1080,13 @@ model.delete_all_connections().then(() => {
     http.listen(port, () => {
         log.info("server is running at port " + port);
     })
+    if (production) {
+        https.listen(443, () => {
+            log.info("HTTPS server is running at port " + 443);
+        })
+    }
 });
 
-if (production) {
-    https.listen(443, () => {
-        log.info("HTTPS server is running at port " + 443);
-    })
-}
 
 io.on('connection', (socket: SocketIO.Socket) => {
     log.info('A user connected', socket.id);
