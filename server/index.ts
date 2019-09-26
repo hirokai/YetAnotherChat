@@ -31,7 +31,9 @@ const log = bunyan.createLogger({ name: "index", src: true, level: 1 });
 
 utils.connectToDB();
 
-const http = require('http').createServer(app);
+const http = production ? require('http').createServer(app).all("*", function (request, response) {
+    response.redirect(`https://${request.hostname}${request.url}`);
+}).listen(80) : require('http').createServer(app);
 
 var https;
 if (production) {
@@ -40,7 +42,6 @@ if (production) {
     const privateKey = fs.readFileSync('/etc/letsencrypt/live/coi-sns.com/privkey.pem', 'utf8');
     const certificate = fs.readFileSync('/etc/letsencrypt/live/coi-sns.com/cert.pem', 'utf8');
     const ca = fs.readFileSync('/etc/letsencrypt/live/coi-sns.com/chain.pem', 'utf8');
-
     const credentials = {
         key: privateKey,
         cert: certificate,
