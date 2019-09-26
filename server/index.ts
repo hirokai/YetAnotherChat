@@ -15,7 +15,7 @@ import moment from 'moment';
 
 import * as mail_algo from './model/mail_algo'
 import * as utils from './model/utils'
-import { db } from './model/utils'
+import { db, pool } from './model/utils'
 import { router as api_routes } from './api'
 import { router as api_public_routes } from './api_public'
 import { init_socket, io } from './socket'
@@ -27,7 +27,12 @@ import * as credential from './private/credential'
 log.info('Starting...');
 const port = process.env.PORT || 3000;
 
+import dotenv from 'dotenv'
+dotenv.config();
+// log.debug(process.env)
+
 utils.connectToDB();
+utils.connectToDB_postgres();
 
 const http = require('http').createServer(app);
 let https;

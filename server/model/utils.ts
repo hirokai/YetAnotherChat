@@ -8,15 +8,23 @@ import { createCipher, createDecipher } from 'crypto';
 shortid_.characters('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$_');
 export const shortid = shortid_.generate;
 
-export let db: sqlite3.Database;
+import { Pool, Client } from 'pg';
 
+export let db: sqlite3.Database;
+export let pool: Pool;
 const default_database = path.join(__dirname, '../private/db.sqlite3');
 export function connectToDB(db_path: string = default_database) {
     db = new sqlite3.Database(db_path);
 }
 
-function isFunction(functionToCheck) {
-    return functionToCheck && {}.toString.call(functionToCheck) === '[object Function]';
+export function connectToDB_postgres(db_path: string = default_database) {
+    // pools will use environment variables
+    // for connection information
+    pool = new Pool();
+    (async () => {
+        const rows = await pool.query<User>('select * from users; ');
+        console.log(rows.rows);
+    })();
 }
 
 export const db_ = {

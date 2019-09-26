@@ -10,14 +10,14 @@ import * as bunyan from 'bunyan';
 const log = bunyan.createLogger({ name: "api.workspaces", src: true, level: 1 });
 
 
-router.post('', (req: PostRequest<any>, res, next) => {
+router.post('/', (req: PostRequest<any>, res, next) => {
     (async () => {
         const r = await model.workspaces.create(req.decoded.user_id, req.body.name, req.body.members)
         res.json(r);
     })().catch(next);
 })
 
-router.get('', (req: GetAuthRequest, res: JsonResponse<GetWorkspacesResponse>, next) => {
+router.get('/', (req: GetAuthRequest, res: JsonResponse<GetWorkspacesResponse>, next) => {
     (async () => {
         const user_id = req.decoded.user_id;
         const wss = await model.workspaces.list(user_id);
@@ -91,8 +91,6 @@ router.post('/:id/sessions', (req: PostRequest<PostSessionsParam>, res: JsonResp
         res.json(r);
     })().catch(next);
 });
-
-
 
 router.patch('/:id', (req: MyPostRequest<UpdateWorkspaceData>, res: JsonResponse<UpdateWorkspaceResponse>, next) => {
     (async () => {
