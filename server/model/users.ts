@@ -33,10 +33,14 @@ export async function save_socket_id(user_id: string, socket_id: string): Promis
 }
 
 export async function get(user_id: string): Promise<User | null> {
-    const rows = (await pool.query<UserWithEmail>("select users.source,users.timestamp,users.id,users.name,array_to_string(ARRAY(SELECT unnest(array_agg(distinct user_emails.email))), ',') as emails,users.fullname,profile_value from users join user_emails on users.id=user_emails.user_id join profiles as p on p.user_id=users.id where users.id=$1 and p.profile_name='avatar' group by users.id;", [user_id])).rows;
-    if (rows[0]) {
+    const rows = (await pool.query<UserWithEmail>(`
+    select distinct on (users.id) users.*, user_emails.email,profile_value from users
+    join user_emails on users.id=user_emails.user_id
+    join profiles as p on p.user_id=users.id
+    where users.id=$1 and p.profile_name='avatar';`, [user_id])).rows;
+    if (rows.length > 0) {
         const row = rows[0];
-        const emails = row.emails ? row.emails.split(',') : [];
+        const emails = _.map(rows, 'email');
         const pub = await keys.get_public_key(user_id);
         const publicKey = pub ? pub.publicKey : undefined;
         const online_users = await list_online_users();
@@ -243,26 +247,27 @@ interface UserWithEmail {
     fullname: string,
     username: string,
     timestamp: number,
-    emails: string
+    email: string
 }
 
 export async function find_user_from_email(email: string): Promise<User | null> {
     if (!email || email.trim() == "") {
         return null;
     } else {
-        const row = (await pool.query<UserWithEmail>(`
-            select users.*,array_to_string(ARRAY(SELECT unnest(array_agg(distinct user_emails.email))), ',') as emails,profile_value from users
+        const rows = (await pool.query<UserWithEmail>(`
+            select users.*,user_emails.email,profile_value from users
             join user_emails on users.id=user_emails.user_id
             join profiles on profiles.user_id=users.id
             where user_emails.email=$1
-            group by users.id;`, [email])).rows[0];
-        if (row) {
+            group by users.id;`, [email])).rows;
+        if (rows.length > 0) {
+            const row = rows[0];
             const user_id = row.id;
             const pub = await get_public_key(user_id);
             const publicKey = pub ? pub.publicKey : undefined;
             const online_users = await list_online_users();
             const online: boolean = includes(online_users, user_id);
-            const emails = (row.emails || '').split(',');
+            const emails = _.map(rows, 'email');
             const registered = row['source'] == 'self_register';
             return { username: row.name, fullname: row.fullname || undefined, id: user_id, emails, avatar: row['profile_value'], online, publicKey, timestamp: row.timestamp, registered };
         } else {

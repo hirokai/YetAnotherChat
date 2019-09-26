@@ -64,7 +64,6 @@ export async function get_member_ids({ myself, session_id, only_registered = tru
     }
 }
 
-
 export async function get_session_of_members(user_id: string, members: string[], is_all: boolean): Promise<RoomInfo[]> {
     log.info('get_session_of_members');
     var s: string = sortedUniq(sortBy([user_id].concat(members))).join(",");
@@ -276,7 +275,7 @@ export async function list(params: { user_id: string, of_members?: string[] | un
             return null;
         } else {
             const obj: RoomInfo = {
-                id: s.id, name: decipher(s.name) || '', timestamp: s.timestamp, members: _.map(s.members, 'id'), numMessages: info.count, firstMsgTime: info.first, lastMsgTime: info.last, workspace: s.workspace,
+                id: s.id, name: decipher(s.name) || '', timestamp: +s.timestamp, members: _.map(s.members, 'id'), numMessages: info.count, firstMsgTime: info.first, lastMsgTime: info.last, workspace: s.workspace,
                 owner: owner.id, visibility: s.visibility || 'private'
             };
             return obj;

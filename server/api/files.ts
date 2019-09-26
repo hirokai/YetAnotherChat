@@ -18,14 +18,14 @@ const upload = multer({
     }
 }).single('user_image');
 
-router.get('/api/files', (req, res, next) => {
+router.get('/', (req, res, next) => {
     (async () => {
         const files = await model.files.list_user_files(req.query.kind);
         res.json({ ok: true, files: files });
     })().catch(next);
 });
 
-router.post('/api/files', (req, res, next) => {
+router.post('/', (req, res, next) => {
     (async () => {
         const { kind, session_id } = req.query;
         const err = await new Promise((resolve) => {
@@ -48,7 +48,7 @@ router.post('/api/files', (req, res, next) => {
     })().catch(next);
 });
 
-router.patch('/api/files/:id', (req, res: JsonResponse<PostFileResponse>, next) => {
+router.patch('/:id', (req, res: JsonResponse<PostFileResponse>, next) => {
     (async () => {
         const err = await new Promise((resolve) => {
             upload(req, <any>res, function (e) {
@@ -75,7 +75,7 @@ router.patch('/api/files/:id', (req, res: JsonResponse<PostFileResponse>, next) 
     })().catch(next);
 });
 
-router.delete('/api/files/:id', (req: DeleteRequest<DeleteFileRequestParam, DeleteFileRequestData>, res: JsonResponse<DeleteFileResponse>, next) => {
+router.delete('/:id', (req: DeleteRequest<DeleteFileRequestParam, DeleteFileRequestData>, res: JsonResponse<DeleteFileResponse>, next) => {
     (async () => {
         log.info('delete comment');
         const file_id = req.params.id;

@@ -17,7 +17,7 @@ const log = bunyan.createLogger({ name: "model.users.test", level: 1 });
 beforeEach(done => {
     return new Promise(async (resolve, reject) => {
         await exec('psql -d test < server/schema.sql');
-        connectToDB('test');
+        await connectToDB('test');
         done();
     });
 });

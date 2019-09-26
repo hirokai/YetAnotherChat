@@ -25,7 +25,6 @@ export async function get(user_id: string, workspace_id: string): Promise<Worksp
     const rows = (await pool.query<{ id: string, user_id: string, name: string, metadata: string, visibility?: WorkspaceVisibility }>('select w.*,u2.user_id,u2.metadata from workspaces as w join users_in_workspaces as u on w.id=u.workspace_id join users_in_workspaces as u2 on w.id=u2.workspace_id where u.user_id=$1 and w.id=$2;', [user_id, workspace_id])).rows;
     const public_rows = (await pool.query<{ id: string, user_id: string, name: string, metadata: string, visibility?: WorkspaceVisibility }>(`select * from workspaces as w join users_in_workspaces as u on w.id=u.workspace_id where w.visibility in ('url','public') and id=$1;`, [workspace_id])).rows;
     const all_rows = _.uniqBy(rows.concat(public_rows), 'user_id');
-    log.info(all_rows);
     const metadata: { [key: string]: UserInWorkspaceMetadata } = _.fromPairs(_.compact(_.map(all_rows, (v): [string, UserInWorkspaceMetadata] | null => {
         try {
             log.debug(v);

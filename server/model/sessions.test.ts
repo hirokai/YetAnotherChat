@@ -19,7 +19,7 @@ const random_str = (N) => {
 beforeEach(done => {
     return new Promise(async (resolve, reject) => {
         await exec('psql -d test < server/schema.sql');
-        connectToDB('test');
+        await connectToDB('test');
         done();
     });
 });

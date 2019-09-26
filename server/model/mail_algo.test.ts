@@ -14,7 +14,7 @@ jest.setTimeout(1000);
 beforeEach(done => {
     return new Promise(async (resolve, reject) => {
         await exec('psql -d test < server/schema.sql');
-        connectToDB('test');
+        await connectToDB('test');
         done();
     });
 });

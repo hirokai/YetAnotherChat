@@ -16,9 +16,19 @@ export let client: Client;
 export async function connectToDB(database?: string) {
     // pools will use environment variables
     // for connection information
-    const opt = database ? { database } : undefined;
-    pool = new Pool(opt);
-    client = new Client();
+    if (database == 'test') {
+        pool = new Pool({
+            database: 'test',
+            user: 'hiroyuki'
+        });
+        client = new Client({
+            database: 'test',
+            user: 'hiroyuki'
+        });
+    } else {
+        pool = new Pool();
+        client = new Client();
+    }
     await client.connect();
 }
 
