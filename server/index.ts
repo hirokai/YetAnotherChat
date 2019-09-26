@@ -15,7 +15,6 @@ import moment from 'moment';
 
 import * as mail_algo from './model/mail_algo'
 import * as utils from './model/utils'
-import { db, pool } from './model/utils'
 import { router as api_routes } from './api'
 import { router as api_public_routes } from './api_public'
 import { init_socket, io } from './socket'
@@ -30,9 +29,6 @@ const port = process.env.PORT || 3000;
 import dotenv from 'dotenv'
 dotenv.config();
 // log.debug(process.env)
-
-utils.connectToDB();
-utils.connectToDB_postgres();
 
 const http = require('http').createServer(app);
 let https;
@@ -216,16 +212,19 @@ setInterval(async () => {
     await model.keys.remove_old_temporary_private_key();
 }, 10 * 1000);
 
-model.delete_all_connections().then(() => {
-    http.listen(port, () => {
-        log.info("HTTP server is running at port " + port);
-    })
-    if (production) {
-        https.listen(443, () => {
-            log.info("HTTPS server is running at port " + 443);
+utils.connectToDB().then(() => {
+    model.delete_all_connections().then(() => {
+        http.listen(port, () => {
+            log.info("HTTP server is running at port " + port);
         })
-    }
+        if (production) {
+            https.listen(443, () => {
+                log.info("HTTPS server is running at port " + 443);
+            })
+        }
+    });
 });
+
 
 if (!production) {
     app.post('/debug/emit_socket', (req, res) => {
@@ -239,7 +238,7 @@ if (!production) {
             try {
                 const body = JSON.parse(fs.readFileSync('./imported_data/mailgun/' + user_id + '/' + mail_id + '.json', 'utf8'));
                 log.info('Import email from: ', body['From']);
-                const { added_users, comments } = await mail_algo.update_db_on_mailgun_webhook({ body: body, db, myio: io, ignore_recipient: true });
+                const { added_users, comments } = await mail_algo.update_db_on_mailgun_webhook({ body: body, pool: utils.pool, myio: io, ignore_recipient: true });
                 log.info('Parsing done.', added_users);
                 res.json({ ok: true, comments, added_users });
             } catch (e) {

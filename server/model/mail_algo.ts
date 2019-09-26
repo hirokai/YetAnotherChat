@@ -8,6 +8,7 @@ import * as _ from 'lodash';
 import moment from 'moment';
 moment.locale('ja');
 
+import { Pool } from 'pg';
 import * as model from './index';
 import * as user_info from '../private/user_info';
 import * as email from './email'
@@ -124,13 +125,9 @@ export function group_email_sessions(threads: MailgunParsed[][]): MailGroup[] {
 
 }
 
-export async function find_email_session(db: any, data: MailgunParsed): Promise<string> {
+export async function find_email_session(pool: Pool, data: MailgunParsed): Promise<string> {
     const results = await Promise.all(_.map(data.references, async (r): Promise<string | null> => {
-        const row = await new Promise<any>((resolve) => {
-            db.get("select session_id from comments where url_original=?", r, (err, r) => {
-                resolve(r);
-            })
-        });
+        const row = (await pool.query("select session_id from comments where url_original=?", [r])).rows[0];
         if (row && row['session_id']) {
             return row['session_id'];
         } else {
@@ -227,7 +224,7 @@ export function split_replies(txt: string): MailThreadItem[] {
         if (line.replace(/>/g, '').trim() != '') {
             line_prev = line;
         }
-        console.log(reply_depth, reply_indent, (header_reading ? '-' : ' '), line);
+        log.debug(reply_depth, reply_indent, (header_reading ? '-' : ' '), line);
     });
     if (reply_depth > 0) {
         const p = parseHead(head_txt_prev);
@@ -332,7 +329,7 @@ export function mk_user_name(fullname: string): string {
     }
 }
 
-export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_recipient = false }: { body: object, db, myio?: SocketIO.Server, ignore_recipient?: boolean }): Promise<{ added_users: User[], comments: CommentTyp[] }> {
+export async function update_db_on_mailgun_webhook({ body, pool, myio, ignore_recipient = false }: { body: object, pool: Pool, myio?: SocketIO.Server, ignore_recipient?: boolean }): Promise<{ added_users: User[], comments: CommentTyp[] }> {
     const recipient_1: string = body['recipient'].split('@')[0];
     const [recipient, metadata] = /\+/.test(recipient_1) ? recipient_1.split('+').slice(0, 2) : [recipient_1, undefined];
     const workspace_id = metadata;
@@ -367,7 +364,7 @@ export async function update_db_on_mailgun_webhook({ body, db, myio, ignore_reci
     if (replies.length == 0) {
         throw new Error('Email thread length is zero')
     }
-    var session_id: string | null = await find_email_session(db, replies[0]);
+    var session_id: string | null = await find_email_session(pool, replies[0]);
     if (session_id) {
         log.info('existing session', session_id);
     } else {

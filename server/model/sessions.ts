@@ -1,6 +1,6 @@
 /// <reference path="./types.d.ts" />
 
-import { db, shortid, cipher, decipher, db_ } from './utils'
+import { shortid, cipher, decipher, pool, client } from './utils'
 import * as users from './users'
 import { get_public_key } from './keys'
 import { fingerPrint } from '../../common/common_model'
@@ -18,12 +18,15 @@ export async function delete_session(user_id: string, id: string): Promise<boole
         if (!session || session.owner != user_id) {
             return false;
         }
-        await db_.run('delete from session_current_members where session_id=?;', id);
-        await db_.run('delete from comments where session_id=?;', id);
-        await db_.run('delete from session_events where session_id=?;', id);
-        await db_.run('delete from sessions where id=?;', id);
+        client.query('BEGIN');
+        await client.query('delete from session_current_members where session_id=$1;', [id]);
+        await client.query('delete from comments where session_id=$1;', [id]);
+        await client.query('delete from session_events where session_id=$1;', [id]);
+        await client.query('delete from sessions where id=$1;', [id]);
+        client.query('COMMIT');
         return true;
     } catch (e) {
+        client.query('ROLLBACK');
         return false;
     }
 }
@@ -35,27 +38,24 @@ export async function get_members({ myself, session_id, only_registered = true }
     })));
 }
 
-export function is_member(session_id: string, user_id: string): Promise<boolean> {
-    return new Promise((resolve) => {
-        db.get('select * from session_current_members where session_id=? and user_id=?', session_id, user_id, (err, row) => {
-            log.info('model.is_member', err, row)
-            resolve(!!row);
-        });
-    });
+export async function is_member(session_id: string, user_id: string): Promise<boolean> {
+    const row = (await pool.query('select * from session_current_members where session_id=$1 and user_id=$2', [session_id, user_id])).rows[0];
+    log.info('model.is_member', row)
+    return !!row;
 }
 
 export async function get_member_ids({ myself, session_id, only_registered = true }: { myself: string, session_id: string, only_registered?: boolean }): Promise<string[] | null> {
     if (only_registered) {
-        const rows = await db_.all<{ user_id: string }>("select user_id from session_current_members where session_id=? and source<>'email_thread'", session_id);
-        const ids = map(rows, 'user_id');
+        const r = await pool.query<{ user_id: string }>("select user_id from session_current_members where session_id=$1 and source<>'email_thread'", [session_id]);
+        const ids = map(r.rows, 'user_id');
         if (!includes(ids, myself)) {  //The user is not a member.
             return null;
         } else {
             return ids;
         }
     } else {
-        const rows = await db_.all<{ user_id: string }>('select user_id from session_current_members where session_id=?', session_id);
-        const ids = map(rows, 'user_id');
+        const r = await pool.query<{ user_id: string }>('select user_id from session_current_members where session_id=$1', [session_id]);
+        const ids = map(r.rows, 'user_id');
         if (!includes(ids, myself)) {  //The user is not a member.
             return null;
         } else {
@@ -65,48 +65,42 @@ export async function get_member_ids({ myself, session_id, only_registered = tru
 }
 
 
-export function get_session_of_members(user_id: string, members: string[], is_all: boolean): Promise<RoomInfo[]> {
+export async function get_session_of_members(user_id: string, members: string[], is_all: boolean): Promise<RoomInfo[]> {
     log.info('get_session_of_members');
     var s: string = sortedUniq(sortBy([user_id].concat(members))).join(",");
     if (!is_all) {
         s = '%' + s + '%';
     }
-    return new Promise((resolve) => {
-        // https://stackoverflow.com/questions/1897352/sqlite-group-concat-ordering
-        const q = "select id,name,timestamp,source,s.visibility,group_concat(user_id) as members, group_concat(source) as sources, from (select s.*,m.user_id from sessions as s join session_current_members as m on s.id=m.session_id order by s.timestamp,m.user_id) group by id having members like ? order by timestamp desc;"
-        db.all(q, s, (err, sessions) => {
-            const ss = map(sessions, (session) => {
-                const roles: SessionMemberSource[] = session.sources.split(',');
-                const owner_index = _.findIndex(roles, 'owner');
-                const members: string[] = session.members.split(",");
-                var r: RoomInfo = {
-                    id: session.id, name: session.name, timestamp: session.timestamp,
-                    numMessages: s['count(timestamp)'], firstMsgTime: -1, lastMsgTime: -1, members,
-                    owner: owner_index != -1 ? members[owner_index] : '',
-                    visibility: session.visibility
-                };
-                return r;
-            });
-            const ss_sorted = orderBy(ss, 'lastMsgTime', 'desc');
-            resolve(ss_sorted);
-        });
+    // https://stackoverflow.com/questions/1897352/sqlite-group-concat-ordering
+    const q = "select id,name,timestamp,source,s.visibility,array_to_string(ARRAY(SELECT unnest(array_agg(user_id))), ',') as members, array_to_string(ARRAY(SELECT unnest(array_agg(source))), ',') as sources, from (select s.*,m.user_id from sessions as s join session_current_members as m on s.id=m.session_id order by s.timestamp,m.user_id) group by id having members like $1 order by timestamp desc;"
+    const sessions = (await pool.query(q, [s])).rows;
+    const ss = map(sessions, (session) => {
+        const roles: SessionMemberSource[] = session.sources.split(',');
+        const owner_index = _.findIndex(roles, 'owner');
+        const members: string[] = session.members.split(",");
+        var r: RoomInfo = {
+            id: session.id, name: session.name, timestamp: session.timestamp,
+            numMessages: s['count(timestamp)'], firstMsgTime: -1, lastMsgTime: -1, members,
+            owner: owner_index != -1 ? members[owner_index] : '',
+            visibility: session.visibility
+        };
+        return r;
     });
+    const ss_sorted = orderBy(ss, 'lastMsgTime', 'desc');
+    return ss_sorted;
 }
 
-export function update({ session_id, name }: { session_id: string, name: string }): Promise<{ ok: boolean, timestamp?: number }> {
-    return new Promise((resolve) => {
-        const timestamp = new Date().getTime();
-        db.run('update sessions set name=? where id=?;', cipher(name), session_id, (err) => {
-            if (!err) {
-                resolve({ ok: false });
-            } else {
-                resolve({ ok: true, timestamp });
-            }
-        });
-    });
+export async function update({ session_id, name }: { session_id: string, name: string }): Promise<{ ok: boolean, timestamp?: number }> {
+    const timestamp = new Date().getTime();
+    try {
+        await pool.query('update sessions set name=$1 where id=$2;', [cipher(name), session_id]);
+        return { ok: true, timestamp };
+    } catch{
+        return { ok: false }
+    }
 }
 
-export function list_comments(for_user: string, session_id?: string, user_id?: string, time_after?: number): Promise<ChatEntry[] | null> {
+export async function list_comments(for_user: string, session_id?: string, user_id?: string, time_after?: number): Promise<ChatEntry[] | null> {
     const processRow = (row): ChatEntry => {
         const comment = row.comment.replace(/(:.+?:)/g, function (m, $1) {
             const r = emoji_dict[$1];
@@ -117,53 +111,48 @@ export function list_comments(for_user: string, session_id?: string, user_id?: s
     time_after = time_after ? time_after : -1;
     var func;
     if (session_id && !user_id) {
-        func = (cb) => {
-            db.all('select * from comments where session_id=? and for_user=? and timestamp>? order by timestamp;', session_id, for_user, time_after, cb);
+        func = () => {
+            pool.query('select * from comments where session_id=$1 and for_user=$2 and timestamp>$3 order by timestamp;', [session_id, for_user, time_after]);
         };
     } else if (!session_id && user_id) {
-        func = (cb) => {
-            db.all('select * from comments where user_id=? and for_user=? and timestamp>? order by timestamp;', user_id, for_user, time_after, cb);
+        func = () => {
+            pool.query('select * from comments where user_id=$1 and for_user=$2 and timestamp>$3 order by timestamp;', [user_id, for_user, time_after]);
         }
     } else if (session_id && user_id) {
-        func = (cb) => {
-            db.all('select * from comments where session_id=? and user_id=? and for_user=? and timestamp>? order by timestamp;', session_id, user_id, for_user, time_after, cb);
+        func = () => {
+            pool.query('select * from comments where session_id=$1 and user_id=$2 and for_user=$3 and timestamp>$4 order by timestamp;', [session_id, user_id, for_user, time_after]);
         }
     } else {
-        func = (cb) => {
-            db.all('select * from comments and for_user=? and timestamp>? order by timestamp;', for_user, time_after, cb);
+        func = () => {
+            pool.query('select * from comments and for_user=$1 and timestamp>$2 order by timestamp;', [for_user, time_after]);
         }
     }
 
-    return new Promise((resolve) => {
-        db.get('select id from sessions where id=?;', session_id, (err1, row1) => {
-            if (row1 == null) {
-                resolve(null);
-            } else {
-                func((err, rows) => {
-                    if (session_id) {
-                        db.all('select * from session_events where session_id=? and for_user=?;', session_id, user_id, (err, rows2) => {
-                            const res1 = map(rows, processRow);
-                            const res2 = map(rows2, (r) => {
-                                r.kind = "event";
-                                return r;
-                            });
-                            resolve(sortBy(res1.concat(res2), ['timestamp', (r) => {
-                                return { 'event': 0, 'comment': 1 }[r.kind];
-                            }]));
-                        });
-                    } else {
-                        resolve(map(rows, processRow));
-                    }
-                });
-            }
-        });
-    });
-
+    const row1 = (await pool.query('select 1 from sessions where id=$1;', [session_id])).rows[0];
+    if (row1 == null) {
+        return null;
+    } else {
+        const rows = (await func()).rows;
+        const res1 = map(rows, processRow);
+        if (session_id) {
+            const rows2 = (await pool.query('select * from session_events where session_id=$1 and for_user=$2;', [session_id, user_id])).rows;
+            const res2 = map(rows2, (r) => {
+                r.kind = "event";
+                return r;
+            });
+            return sortBy(res1.concat(res2), ['timestamp', (r) => {
+                return { 'event': 0, 'comment': 1 }[r.kind];
+            }]);
+        } else {
+            return res1;
+        }
+    }
 }
 
 export async function delete_comment(user_id: string, comment_id: string): Promise<{ ok: boolean, data?: DeleteCommentData, error?: string }> {
-    const row = await db_.get('select * from comments where id=?;', comment_id);
-    if (row) {
+    const rows = (await pool.query<{ session_id: string, user_id: string, encrypt_group?: string }>('select * from comments where id=$1;', [comment_id])).rows;
+    if (rows) {
+        const row = rows[0];
         const session_id = row['session_id'];
         const user_id_ = row['user_id'];
         if (user_id != user_id_) {
@@ -173,12 +162,12 @@ export async function delete_comment(user_id: string, comment_id: string): Promi
         if (!encrypt_group) {
             return { ok: false, error: 'Encrypted data was not correctly saved.' }
         }
-        const row2 = await db_.get('select * from comments where encrypt_group=?;', encrypt_group);
-        if (!row2) {
+        const rows2 = (await pool.query('select * from comments where encrypt_group=$1;', [encrypt_group])).rows;
+        if (!rows2[0]) {
             return { ok: false, error: 'Encrypted data was not correctly saved.' }
         }
         try {
-            await db_.run('delete from comments where encrypt_group=?;', encrypt_group);
+            await pool.query('delete from comments where encrypt_group=$1;', [encrypt_group]);
             const data: DeleteCommentData = { comment_id, encrypt_group, session_id };
             return { ok: true, data };
         } catch (err) {
@@ -191,12 +180,12 @@ export async function delete_comment(user_id: string, comment_id: string): Promi
 
 export async function get(user_id: string, session_id: string): Promise<RoomInfo | null> {
     const rows =
-        await db_.all<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string, source?: string, visibility?: SessionVisibility }>(`
+        (await pool.query<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string, source?: string, visibility?: SessionVisibility }>(`
             select s.*,m.* from sessions as s
             join session_current_members as m on s.id=m.session_id
-            where s.id=? order by s.timestamp desc;`, session_id);
+            where s.id=$1 order by s.timestamp desc;`, [session_id])).rows;
     const session = { id: rows[0].id, members: _.map(rows, (row) => { return { id: row.user_id, source: row.source }; }), name: rows[0].name, timestamp: rows[0].timestamp, workspace: rows[0].workspace, visibility: rows[0].visibility };
-    const users = await db_.all("select count(*),user_id,max(timestamp),min(timestamp) from comments where session_id=? and for_user=? group by user_id;", session.id, user_id);
+    const users = (await pool.query("select count(*),user_id,max(timestamp),min(timestamp) from comments where session_id=$1 and for_user=$2 group by user_id;", [session.id, user_id])).rows;
     const first = min(map(users, 'min(timestamp)')) || -1;
     const last = max(map(users, 'max(timestamp)')) || -1;
     var count: { [key: string]: number } = chain(users).keyBy('user_id').mapValues((u) => {
@@ -229,28 +218,28 @@ export async function list(params: { user_id: string, of_members?: string[] | un
     if (of_members) {
         return get_session_of_members(user_id, of_members, is_all);
     }
-    const rows = workspace_id ? await db_.all<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string, source?: string, visibility?: SessionVisibility }>(`
+    const rows = (workspace_id ? await pool.query<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string, source?: string, visibility?: SessionVisibility }>(`
             select s.*,m2.* from sessions as s
             join session_current_members as m on s.id=m.session_id
             join session_current_members as m2 on m.session_id=m2.session_id
-            where m.user_id=? and s.workspace=? order by s.timestamp desc;`, user_id, workspace_id) :
-        await db_.all<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string, source?: string, visibility?: SessionVisibility }>(`
+            where m.user_id=$1 and s.workspace=$2 order by s.timestamp desc;`, [user_id, workspace_id]) :
+        await pool.query<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string, source?: string, visibility?: SessionVisibility }>(`
             select s.*,m2.* from sessions as s
             join session_current_members as m on s.id=m.session_id
             join session_current_members as m2 on m.session_id=m2.session_id
-            where m.user_id=? order by s.timestamp desc;`, user_id);
+            where m.user_id=$1 order by s.timestamp desc;`, [user_id])).rows;
 
     const rows_public =
-        await db_.all<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string, source?: string, visibility?: SessionVisibility }>(`
+        (await pool.query<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string, source?: string, visibility?: SessionVisibility }>(`
         select s.*,m.* from sessions as s
         join session_current_members as m on s.id=m.session_id
-        where s.visibility in ('public');`);
+        where s.visibility in ('public');`)).rows;
 
     const rows_workspace = workspace_id ?
-        await db_.all<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string, source?: string, visibility?: SessionVisibility }>(`
+        (await pool.query<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string, source?: string, visibility?: SessionVisibility }>(`
         select s.*,m.* from sessions as s
         join session_current_members as m on s.id=m.session_id
-        where s.workspace=?;`, workspace_id) : [];
+        where s.workspace=$1;`, [workspace_id])).rows : [];
 
     const workspaces = workspace_id ? [workspace_id] : _.map(await model.workspaces.list(user_id), 'id');
 
@@ -260,7 +249,7 @@ export async function list(params: { user_id: string, of_members?: string[] | un
     });
     const infos: { count: { [key: string]: number }, first: number, last: number }[] = [];
     for (let s of sessions) {
-        const users = await db_.all("select count(*),user_id,max(timestamp),min(timestamp) from comments where session_id=? and for_user=? group by user_id;", s.id, user_id);
+        const users = (await pool.query("select count(*),user_id,max(timestamp),min(timestamp) from comments where session_id=$1 and for_user=$2 group by user_id;", [s.id, user_id])).rows;
         const first = min(map(users, 'min(timestamp)')) || -1;
         const last = max(map(users, 'max(timestamp)')) || -1;
         var count: { [key: string]: number } = chain(users).keyBy('user_id').mapValues((u) => {
@@ -301,50 +290,32 @@ type SessionMemberSource = 'owner' | 'added_by_member';
 
 async function add_member_internal({ session_id, user_id, source }: { session_id: string, user_id: string, source: SessionMemberSource }): Promise<boolean> {
     try {
-        await db_.run('insert into session_current_members (session_id,user_id,source) values (?,?,?);', session_id, user_id, source);
+        await pool.query('insert into session_current_members (session_id,user_id,source) values ($1,$2,$3);', [session_id, user_id, source]);
         return true;
     } catch{
         return false;
     }
 }
 
-export function join({ session_id, user_id, timestamp = -1, source }: { session_id: string, user_id: string, timestamp: number, source: string }): Promise<JoinSessionResponse> {
+export async function join({ session_id, user_id, timestamp = -1, source }: { session_id: string, user_id: string, timestamp: number, source: string }): Promise<JoinSessionResponse> {
     log.info('join_session source', source, user_id);
-    return new Promise((resolve, reject) => {
-        if (!session_id || !user_id) {
-            reject();
-        }
-        const ts: number = timestamp > 0 ? timestamp : new Date().getTime();
-        const id: string = shortid();
-        db.serialize(async () => {
-            const is_registered_user = (await users.get(user_id)) != null;
-            const members: string[] = await get_member_ids({ myself: user_id, session_id }) || [];
-            const is_member: boolean = includes(members, user_id);
-            if (!is_registered_user) {
-                resolve({ ok: false, error: 'User ID invalid' })
-            } else if (is_member) {
-                resolve({ ok: false, error: 'Already member' })
-            } else {
-                db.run('insert into session_events (id,session_id,user_id,timestamp,action) values (?,?,?,?,?);', id, session_id, user_id, ts, 'join', (err) => {
-                    // log.info('model.join_session', err);
-                    const data = { id, members };
-                    if (!err) {
-                        db.run('insert into session_current_members (session_id,user_id,source) values (?,?,?);',
-                            session_id, user_id, source, (err2) => {
-                                if (!err2) {
-                                    resolve({ ok: true, data });
-                                } else {
-                                    resolve({ ok: false, data });
-                                }
-                            });
-                    } else {
-                        log.info('error')
-                        resolve({ ok: false })
-                    }
-                });
-            }
-        });
-    });
+    if (!session_id || !user_id) {
+        return { ok: false };
+    }
+    const ts: number = timestamp > 0 ? timestamp : new Date().getTime();
+    const id: string = shortid();
+    const is_registered_user = (await users.get(user_id)) != null;
+    const members: string[] = await get_member_ids({ myself: user_id, session_id }) || [];
+    const is_member: boolean = includes(members, user_id);
+    if (!is_registered_user) {
+        return ({ ok: false, error: 'User ID invalid' })
+    } else if (is_member) {
+        return ({ ok: false, error: 'Already member' })
+    } else {
+        await pool.query('insert into session_events (id,session_id,user_id,timestamp,action) values ($1,$2,$3,$4,$5);', [id, session_id, user_id, ts, 'join']);
+        await pool.query('insert into session_current_members (session_id,user_id,source) values ($1,$2,$3);', [session_id, user_id, source]);
+        return { ok: true, data: { id, members } };
+    }
 }
 
 export async function post_comment(p: PostCommentModelParams): Promise<{ ok: boolean, for_user: string, data?: CommentTyp, error?: string }[]> {
@@ -378,10 +349,10 @@ async function post_comment_for_each(
         const fp_to = to ? await fingerPrint(to.publicKey) : undefined;
         // log.info('Posting with key: ' + fingerprint, publicKey, user_id, for_user);
         try {
-            await db_.run(`insert into comments (
+            await pool.query(`insert into comments (
                                     id,user_id,comment,for_user,encrypt,timestamp,session_id,original_url,sent_to,source,encrypt_group,fingerprint_from,fingerprint_to
-                                    ) values (?,?,?,?,?,?,?,?,?,?,?,?,?);`, _comment_id, user_id, comment, for_user, encrypt, timestamp, session_id, original_url, sent_to, source, encrypt_group, fp_from, fp_to);
-            await db_.run('insert or ignore into session_current_members (session_id,user_id) values (?,?)', session_id, user_id);
+                                    ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13);`, [_comment_id, user_id, comment, for_user, encrypt, timestamp, session_id, original_url, sent_to, source, encrypt_group, fp_from, fp_to]);
+            await pool.query('insert or ignore into session_current_members (session_id,user_id) values ($1,$2)', [session_id, user_id]);
             const data: CommentTyp = {
                 id: _comment_id, timestamp: timestamp, user_id, comment: comment, session_id, original_url, sent_to, source: source, kind: "comment", encrypt,
                 fingerprint: { from: fp_from, to: fp_to }
@@ -404,9 +375,9 @@ export async function create(user_id: string, name: string, members: string[], w
 export async function create_session_with_id(user_id: string, session_id: string, name: string, members: string[], workspace?: string): Promise<RoomInfo> {
     const timestamp = new Date().getTime();
     if (workspace) {
-        db.run('insert or ignore into sessions (id, name, timestamp,workspace) values (?,?,?,?);', session_id, cipher(name), timestamp, workspace);
+        await pool.query('insert or ignore into sessions (id, name, timestamp,workspace) values ($1,$2,$3,$4);', [session_id, cipher(name), timestamp, workspace]);
     } else {
-        db.run('insert or ignore into sessions (id, name, timestamp) values (?,?,?);', session_id, cipher(name), timestamp);
+        await pool.query('insert or ignore into sessions (id, name, timestamp) values ($1,$2,$3);', [session_id, cipher(name), timestamp]);
     }
     await add_member_internal({ session_id, user_id, source: 'owner' });
     for (let m of members) {
@@ -424,7 +395,7 @@ export async function set_visibility(user_id: string, id: string, visibility: Se
     try {
         const s = await get(user_id, id);
         if (s && s.owner == user_id) {
-            db_.run('update sessions set visibility=? where id=?;', visibility, id);
+            pool.query('update sessions set visibility=$1 where id=$2;', [visibility, id]);
             return true;
         } else {
             return false;

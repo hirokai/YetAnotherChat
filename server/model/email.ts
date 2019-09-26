@@ -40,7 +40,7 @@ export function parse_mailgun_webhook_thread(body): MailgunParsed[] {
     if (items.length == 0) {
         return [];
     }
-    // console.log('parseMailgunWebhookThread: split', items.length);
+    // log.debug('parseMailgunWebhookThread: split', items.length);
     const message_id = body['Message-Id'];
     // const user = body['From'];
     // const user_id: string = user_info_private.find_user(body['From']);

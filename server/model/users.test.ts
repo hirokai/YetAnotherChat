@@ -1,5 +1,5 @@
 import * as path from 'path'
-import { connectToDB, shortid, db, db_ } from './utils'
+import { shortid, pool, connectToDB } from './utils'
 import * as model from './index'
 import { exec as exec_ } from 'child_process'
 import * as util from 'util'
@@ -16,8 +16,8 @@ const log = bunyan.createLogger({ name: "model.users.test", level: 1 });
 
 beforeEach(done => {
     return new Promise(async (resolve, reject) => {
-        await exec('sqlite3 server/private/db_test.sqlite3 < server/schema.sql');
-        connectToDB('server/private/db_test.sqlite3');
+        await exec('psql -d test < server/schema.sql');
+        connectToDB('test');
         done();
     });
 });
@@ -54,7 +54,7 @@ test('Email must be unique', async () => {
     const email = random_str(8) + '@' + random_str(4) + '.com'
     const user = await register({ username: username, password: password, email });
     expect(user).toEqual(expect.anything());
-    console.log(user);
+    log.debug(user);
     const username2 = 'Tanaka' + Math.floor(Math.random() * 100000);
     const password2 = random_str(16);
     await expect(register({ username: username2, password: password2, email })).rejects.toThrow();
@@ -108,7 +108,7 @@ test('User config', async () => {
         oks.push(ok);
     }
     expect(_.every(oks)).toBeTruthy();
-    console.log(oks);
+    log.debug(oks);
     const cs = await model.users.get_user_config(user.id);
 
     expect(cs).toHaveLength(L + 2); //username, email ToDo: Remove these.
@@ -230,7 +230,7 @@ describe('Workspaces', () => {
         const ws = await model.users.create_workspace(me.id, { name: 'Test', public: false });
         await model.users.join_workspace(me.id, ws.id);
         await model.users.remove_workspace(ws.id);
-        const rows = await db_.all('select * from workspaces;');
+        const rows = (await pool.query('select * from workspaces;')).rows;
         expect(rows).toHaveLength(0);
         done();
     });

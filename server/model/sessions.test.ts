@@ -1,11 +1,11 @@
-import { connectToDB, shortid, db, db_ } from './utils'
+import { connectToDB, shortid, pool } from './utils'
 import { exec as exec_ } from 'child_process'
 import * as model from './index'
 import * as util from 'util'
 import * as _ from 'lodash';
 import * as sessions from './sessions'
 import { userInfo } from 'os';
-import { register } from './test_utils'
+import { register, log } from './test_utils'
 
 const exec = util.promisify(exec_);
 
@@ -18,8 +18,8 @@ const random_str = (N) => {
 
 beforeEach(done => {
     return new Promise(async (resolve, reject) => {
-        await exec('sqlite3 server/private/db_test.sqlite3 < server/schema.sql');
-        connectToDB('server/private/db_test.sqlite3');
+        await exec('psql -d test < server/schema.sql');
+        connectToDB('test');
         done();
     });
 });
@@ -30,7 +30,7 @@ describe('Sessions', () => {
         const other = await register();
         var s = await sessions.create(myself.id, random_str(30), []);
         expect(s).not.toBeNull();
-        console.log(s);
+        log.debug(s);
         var ss = await sessions.list({ user_id: myself.id, is_all: false });
         expect(ss).toHaveLength(1)
         s = await sessions.create(myself.id, random_str(30), []);
@@ -50,7 +50,7 @@ describe('Sessions', () => {
         const myself = await register();
         const other = await register();
         var s = await sessions.create(myself.id, random_str(30), [other.id]);
-        let r = await db_.all('select * from sessions;');
+        let r = (await pool.query('select * from sessions;')).rows;
         expect(r).toHaveLength(1);
 
         var timestamp = new Date().getTime();
@@ -67,11 +67,11 @@ describe('Sessions', () => {
         }
         const ms = await sessions.post_comment(p);
 
-        const r1 = await sessions.delete_session(s.id);
+        const r1 = await sessions.delete_session(myself.id, s.id);
         expect(r1).toBe(true);
-        r = await db_.all('select * from sessions;');
+        r = (await pool.query('select * from sessions;')).rows;
         expect(r).toHaveLength(0);
-        r = await db_.all('select * from comments;');
+        r = (await pool.query('select * from comments;')).rows;
         expect(r).toHaveLength(0);
 
         done();
@@ -102,7 +102,7 @@ describe('Sessions', () => {
             comments
         }
         const ms = await sessions.post_comment(p);
-        console.log('post_comment', ms);
+        log.debug('post_comment', ms);
         const cs = await sessions.list_comments(myself.id, s.id);
         expect(cs).toHaveLength(1);
         done();
@@ -127,7 +127,7 @@ describe('Sessions', () => {
             expect(r.ok).toBe(true);
             const cs2 = await sessions.list_comments(myself.id, s.id);
             expect(cs2).toHaveLength(0);
-            const cs3 = await db_.all('select * from comments;');
+            const cs3 = (await pool.query('select * from comments;')).rows;
             expect(cs3).toHaveLength(0);
         } else {
             throw new Error('Error')

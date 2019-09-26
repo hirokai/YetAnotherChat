@@ -1,6 +1,5 @@
 /// <reference path="../common/types.d.ts" />
 
-import { db } from '../server/model/utils'
 import * as model from './model';
 import * as credentials from './private/credential';
 import { find, map, includes, compact } from 'lodash';

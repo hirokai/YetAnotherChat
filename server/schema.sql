@@ -24,7 +24,7 @@ CREATE TABLE comments
     encrypt text,
     for_user text,
     encrypt_group text,
-    comment_blob blob,
+    comment_blob bytea,
     fingerprint text,
     fingerprint_from text,
     fingerprint_to text

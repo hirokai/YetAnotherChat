@@ -7,8 +7,8 @@ const exec = util.promisify(exec_);
 
 beforeEach(done => {
     return new Promise(async (resolve, reject) => {
-        await exec('sqlite3 server/private/db_test.sqlite3 < server/schema.sql');
-        connectToDB('server/private/db_test.sqlite3');
+        await exec('psql -d test < server/schema.sql');
+        connectToDB('test');
         done();
     });
 });

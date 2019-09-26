@@ -1,12 +1,12 @@
-import { db_, shortid } from './utils'
+import { shortid, pool, client } from './utils'
 import * as _ from 'lodash';
 import * as users from './users'
 import * as bunyan from 'bunyan';
 const log = bunyan.createLogger({ name: "model.workspaces", src: true, level: 1 });
 
 export async function list(user_id: string): Promise<Workspace[]> {
-    const rows = await db_.all<{ id: string, user_id: string, name: string, metadata: string, visibility?: WorkspaceVisibility }>('select w.*,u2.user_id,u2.metadata from workspaces as w join users_in_workspaces as u on w.id=u.workspace_id join users_in_workspaces as u2 on w.id=u2.workspace_id where u.user_id=?;', user_id);
-    const rows_public = await db_.all<{ id: string, user_id: string, name: string, metadata: string, visibility?: WorkspaceVisibility }>("select w.*,u.user_id,u.metadata from workspaces as w join users_in_workspaces as u on w.id=u.workspace_id where w.visibility='public';");
+    const rows = (await pool.query<{ id: string, user_id: string, name: string, metadata: string, visibility?: WorkspaceVisibility }>('select w.*,u2.user_id,u2.metadata from workspaces as w join users_in_workspaces as u on w.id=u.workspace_id join users_in_workspaces as u2 on w.id=u2.workspace_id where u.user_id=$1;', [user_id])).rows;
+    const rows_public = (await pool.query<{ id: string, user_id: string, name: string, metadata: string, visibility?: WorkspaceVisibility }>("select w.*,u.user_id,u.metadata from workspaces as w join users_in_workspaces as u on w.id=u.workspace_id where w.visibility='public';")).rows;
     const wss: Workspace[] = _.chain(rows.concat(rows_public)).groupBy('id').values().map((vs) => {
         const metadata: { [key: string]: UserInWorkspaceMetadata } = _.fromPairs(_.compact(_.map(vs, (v): [string, UserInWorkspaceMetadata] | null => {
             try {
@@ -22,8 +22,8 @@ export async function list(user_id: string): Promise<Workspace[]> {
 }
 
 export async function get(user_id: string, workspace_id: string): Promise<Workspace | null> {
-    const rows = await db_.all<{ id: string, user_id: string, name: string, metadata: string, visibility?: WorkspaceVisibility }>('select w.*,u2.user_id,u2.metadata from workspaces as w join users_in_workspaces as u on w.id=u.workspace_id join users_in_workspaces as u2 on w.id=u2.workspace_id where u.user_id=? and w.id=?;', user_id, workspace_id);
-    const public_rows = await db_.all<{ id: string, user_id: string, name: string, metadata: string, visibility?: WorkspaceVisibility }>(`select * from workspaces as w join users_in_workspaces as u on w.id=u.workspace_id where w.visibility in ('url','public') and id=?;`, workspace_id);
+    const rows = (await pool.query<{ id: string, user_id: string, name: string, metadata: string, visibility?: WorkspaceVisibility }>('select w.*,u2.user_id,u2.metadata from workspaces as w join users_in_workspaces as u on w.id=u.workspace_id join users_in_workspaces as u2 on w.id=u2.workspace_id where u.user_id=$1 and w.id=$2;', [user_id, workspace_id])).rows;
+    const public_rows = (await pool.query<{ id: string, user_id: string, name: string, metadata: string, visibility?: WorkspaceVisibility }>(`select * from workspaces as w join users_in_workspaces as u on w.id=u.workspace_id where w.visibility in ('url','public') and id=$1;`, [workspace_id])).rows;
     const all_rows = _.uniqBy(rows.concat(public_rows), 'user_id');
     log.info(all_rows);
     const metadata: { [key: string]: UserInWorkspaceMetadata } = _.fromPairs(_.compact(_.map(all_rows, (v): [string, UserInWorkspaceMetadata] | null => {
@@ -50,14 +50,14 @@ export async function create(user_id: string, name: string, members: string[]): 
     if (!_.includes(members, user_id)) {
         return { ok: false, error: 'Owner must be a member' }
     }
-    await db_.run('insert into workspaces (id,name,timestamp,visibility) values (?,?,?,?);', id, name, timestamp, visibility);
+    await pool.query('insert into workspaces (id,name,timestamp,visibility) values ($1,$2,$3,$4);', [id, name, timestamp, visibility]);
     for (let uid of members) {
         const user = await users.get(uid);
         if (user != null) {
             log.debug({ user_id, uid, user });
             const metadata: UserInWorkspaceMetadata = { role: user_id == uid ? 'owner' : 'member' };
             log.info({ uid, metadata });
-            await db_.run('insert into users_in_workspaces (user_id,workspace_id,timestamp,metadata) values (?,?,?,?);', uid, id, timestamp, JSON.stringify(metadata));
+            await pool.query('insert into users_in_workspaces (user_id,workspace_id,timestamp,metadata) values ($1,$2,$3,$4);', [uid, id, timestamp, JSON.stringify(metadata)]);
         }
     }
     const data: Workspace = { id, name, members, owner: user_id, visibility };
@@ -70,7 +70,7 @@ export async function add_member(myself: string, workspace_id: string, added_use
     const ws = await get(myself, workspace_id);
     if (ws && user) {
         const metadata: UserInWorkspaceMetadata = { role: 'member' };
-        await db_.run('insert into users_in_workspaces (user_id,workspace_id,timestamp,metadata) values (?,?,?,?);', user.id, workspace_id, timestamp, JSON.stringify(metadata));
+        await pool.query('insert into users_in_workspaces (user_id,workspace_id,timestamp,metadata) values ($1,$2,$3,$4);', [user.id, workspace_id, timestamp, JSON.stringify(metadata)]);
         return true;
     } else {
         return false;
@@ -85,7 +85,7 @@ export async function remove_member(myself_id: string, workspace_id: string, rem
     }
     const ws = await get(myself.id, workspace_id);
     if (ws) {
-        await db_.run('delete from users_in_workspaces where user_id=? and workspace_id=?;', user.id, ws.id);
+        await pool.query('delete from users_in_workspaces where user_id=$1 and workspace_id=$2;', [user.id, ws.id]);
         return true;
     }
     return false;
@@ -97,11 +97,11 @@ export async function update(user_id: string, workspace_id: string, data: Update
     const ws = await get(user_id, workspace_id);
     if (ws && ws.owner == user_id) {
         if (data.name) {
-            db_.run('update workspaces set name=? where id=?;', data.name, workspace_id);
+            await pool.query('update workspaces set name=$1 where id=$2;', [data.name, workspace_id]);
             data = Object.assign({}, data, { name: data.name });
         }
         if (data.visibility) {
-            db_.run('update workspaces set visibility=? where id=?;', data.visibility, workspace_id);
+            await pool.query('update workspaces set visibility=$1 where id=$2;', [data.visibility, workspace_id]);
             data = Object.assign({}, data, { visibility: data.visibility });
         }
         return { ok, data };
@@ -114,8 +114,14 @@ export async function remove(user_id: string, workspace_id: string): Promise<{ o
     const ws = await get(user_id, workspace_id);
     if (ws) {
         if (ws.owner == user_id) {
-            db_.run('delete from users_in_workspaces where workspace_id=?;', workspace_id);
-            db_.run('delete from workspaces where id=?;', workspace_id);
+            try {
+                await client.query('begin');
+                await client.query('delete from users_in_workspaces where workspace_id=$1;', [workspace_id]);
+                await client.query('delete from workspaces where id=$1;', [workspace_id]);
+                await client.query('commit');
+            } catch{
+                await client.query('rollback');
+            }
             return { ok: true };
         }
     }

@@ -1,5 +1,8 @@
 import * as model from './index'
 
+import * as bunyan from 'bunyan';
+export const log = bunyan.createLogger({ name: "model.test", src: true, level: 1 });
+
 export const random_str = (N) => {
     const S = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
     return Array.from(Array(N)).map(() => S[Math.floor(Math.random() * S.length)]).join('');

@@ -1,82 +1,25 @@
 import * as shortid_ from 'shortid';
-import path from 'path'
-import sqlite3 from 'sqlite3'
 import * as CryptoJS from "crypto-js";
 import * as credentials from '../private/credential';
 import { createCipher, createDecipher } from 'crypto';
+import * as bunyan from 'bunyan';
+export const log = bunyan.createLogger({ name: "model", src: true, level: 1 });
 
 shortid_.characters('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$_');
 export const shortid = shortid_.generate;
 
 import { Pool, Client } from 'pg';
 
-export let db: sqlite3.Database;
 export let pool: Pool;
-const default_database = path.join(__dirname, '../private/db.sqlite3');
-export function connectToDB(db_path: string = default_database) {
-    db = new sqlite3.Database(db_path);
-}
+export let client: Client;
 
-export function connectToDB_postgres(db_path: string = default_database) {
+export async function connectToDB(database?: string) {
     // pools will use environment variables
     // for connection information
-    pool = new Pool();
-    (async () => {
-        const rows = await pool.query<User>('select * from users; ');
-        console.log(rows.rows);
-    })();
-}
-
-export const db_ = {
-    run_: (query: string, ...rest) => {
-        db.run(query, rest);
-    },
-    run: (query: string, ...args: any[]): void | Promise<any> => {
-        return new Promise((resolve, reject) => {
-            db.run(query, args, (err) => {
-                if (err) {
-                    reject(err)
-                } else {
-                    resolve();
-                }
-            });
-
-        });
-    },
-    get_: (query: string, ...rest) => {
-        db.get(query, rest);
-    },
-    get: <T = any>(query: string, ...args: any[]): Promise<T> => {
-        return new Promise((resolve, reject) => {
-            db.get(query, args, (err, row: T) => {
-                if (err) {
-                    reject(err)
-                } else {
-                    resolve(row);
-                }
-            });
-        });
-    },
-    all_: (query: string, ...rest) => {
-        db.all(query, rest);
-    },
-    all: <T = any>(query: string, ...args: any[]): Promise<T[]> => {
-        return new Promise((resolve, reject) => {
-            db.all(query, args, (err, rows) => {
-                if (err) {
-                    reject(err)
-                } else {
-                    resolve(rows);
-                }
-            });
-        });
-    },
-    serialize: (...rest) => {
-        db.serialize(...rest);
-    },
-    close: (...rest) => {
-        db.close(...rest);
-    }
+    const opt = database ? { database } : undefined;
+    pool = new Pool(opt);
+    client = new Client();
+    await client.connect();
 }
 
 export function cipher(plainText: string, password: string = credentials.cipher_secret): string | null {
@@ -84,11 +27,11 @@ export function cipher(plainText: string, password: string = credentials.cipher_
         var cipher = createCipher('aes192', password);
         var cipheredText = cipher.update(plainText, 'utf8', 'hex');
         cipheredText += cipher.final('hex');
-        // console.log('ciphered length', cipheredText.length);
+        // log.debug('ciphered length', cipheredText.length);
         return cipheredText;
 
     } catch (e) {
-        console.log(e, plainText);
+        log.debug(e, plainText);
         return null;
     }
 }
@@ -98,10 +41,10 @@ export function decipher(cipheredText: string, password: string = credentials.ci
         var decipher = createDecipher('aes192', password);
         var dec = decipher.update(cipheredText, 'hex', 'utf8');
         dec += decipher.final('utf8');
-        // console.log('deciphered length', dec.length);
+        // log.debug('deciphered length', dec.length);
         return dec;
     } catch (e) {
-        console.log(e, cipheredText);
+        log.debug(e, cipheredText);
         return null;
     }
 }
@@ -111,7 +54,7 @@ export function cipher2(plainText: string, password: string = credentials.cipher
         var cipheredText: string = CryptoJS.AES.encrypt(plainText, password).toString();
         return cipheredText;
     } catch (e) {
-        console.log(e, plainText);
+        log.debug(e, plainText);
         return null;
     }
 }
@@ -122,7 +65,7 @@ export function decipher2(cipheredText: string, password: string = credentials.c
         var depheredText = bytes.toString(CryptoJS.enc.Utf8);
         return depheredText;
     } catch (e) {
-        console.log(e, cipheredText);
+        log.debug(e, cipheredText);
         return null;
     }
 }

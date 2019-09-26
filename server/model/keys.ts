@@ -1,62 +1,59 @@
-import { db, db_ } from './utils'
+import { pool } from './utils'
 import * as ethereum from './ethereum'
 import * as credentials from '../private/credential'
 import { fingerPrint } from '../../common/common_model'
+import * as bunyan from 'bunyan';
+const log = bunyan.createLogger({ name: "model.keys", src: true, level: 1 });
 
 export async function update_public_key({ user_id, for_user, jwk }: { user_id: string, for_user: string, jwk: JsonWebKey }): Promise<{ ok: boolean, error?: string }> {
-    return new Promise((resolve) => {
-        const timestamp = new Date().getTime();
-        for_user = for_user != null ? for_user : '';
-        console.log('update_public_key', { user_id, for_user, timestamp, jwk })
-        if (user_id != null && jwk != null) {
-            db.run('update public_keys set user_id=?, for_user=?, public_key=?, timestamp=? where user_id=? and for_user=?;', user_id, for_user, JSON.stringify(jwk), timestamp, user_id, for_user, (err) => {
-                if (!err) {
-                    console.log(user_id);
-                    resolve({ ok: true });
-                } else {
-                    resolve({ ok: false, error: 'Update error: ' + err });
-                }
-            });
-        } else {
-            resolve({ ok: false, error: 'Params user_id or jwk is null' });
+    const timestamp = new Date().getTime();
+    for_user = for_user != null ? for_user : '';
+    log.debug('update_public_key', { user_id, for_user, timestamp, jwk })
+    if (user_id != null && jwk != null) {
+        try {
+            await pool.query('update public_keys set user_id=$1, for_user=$2, public_key=$3, timestamp=$4 where user_id=$5 and for_user=$6;', [user_id, for_user, JSON.stringify(jwk), timestamp, user_id, for_user]);
+            log.debug(user_id);
+            return ({ ok: true });
+
+        } catch (e) {
+            return ({ ok: false, error: 'Update error: ' + e });
         }
-    });
+    } else {
+        return ({ ok: false, error: 'Params user_id or jwk is null' });
+    }
 }
 
 export async function register_public_key({ user_id, for_user, jwk, privateKeyFingerprint }: { user_id: string, for_user: string, jwk: JsonWebKey, privateKeyFingerprint: string }): Promise<{ ok: boolean, timestamp?: number }> {
     const timestamp = new Date().getTime();
     for_user = for_user != null ? for_user : '';
-    console.log('register_public_key', { user_id, for_user, jwk })
+    log.debug('register_public_key', { user_id, for_user, jwk })
     if (user_id != null && jwk != null) {
-        const err = await db_.run('insert into public_keys (user_id,for_user,public_key,timestamp,private_fingerprint) values (?,?,?,?,?);', user_id, for_user, JSON.stringify(jwk), timestamp, privateKeyFingerprint);
+        const err = await pool.query('insert into public_keys (user_id,for_user,public_key,timestamp,private_fingerprint) values ($1,$2,$3,$4,$5);', [user_id, for_user, JSON.stringify(jwk), timestamp, privateKeyFingerprint]);
         if (!err) {
-            console.log(user_id);
+            log.debug(user_id);
             const pub_fp = await fingerPrint(jwk);
             //Do not "await" the following. It takes time.
             ethereum.add_to_ethereum(credentials.ethereum, user_id, timestamp, pub_fp).then(() => {
-                console.log('add_to_ethereum done');
+                log.debug('add_to_ethereum done');
             })
             return { ok: true, timestamp };
         } else {
-            console.log('register_public_key', err);
+            log.debug('register_public_key', err);
             return { ok: false };
         }
     } else {
-        console.log('register_public_key error', user_id, jwk)
+        log.debug('register_public_key error', user_id, jwk)
         return { ok: false };
     }
 }
 
 async function get_public_key_internal({ user_id, for_user }: { user_id: string, for_user: string }): Promise<{ publicKey: JsonWebKey, prv_fingerprint: string } | null> {
-    return new Promise((resolve) => {
-        db.get('select * from public_keys where user_id=? and for_user=? order by timestamp desc limit 1', user_id, for_user, (err, row) => {
-            if (!err && row) {
-                resolve({ publicKey: JSON.parse(row['public_key']), prv_fingerprint: row['private_fingerprint'] });
-            } else {
-                resolve(null);
-            }
-        });
-    });
+    const row = (await pool.query('select * from public_keys where user_id=$1 and for_user=$2 order by timestamp desc limit 1', [user_id, for_user])).rows[0];
+    if (row) {
+        return { publicKey: JSON.parse(row['public_key']), prv_fingerprint: row['private_fingerprint'] };
+    } else {
+        return null;
+    }
 }
 
 export async function get_public_key(user_id: string): Promise<{ publicKey: JsonWebKey, prv_fingerprint: string } | null> {
@@ -64,37 +61,26 @@ export async function get_public_key(user_id: string): Promise<{ publicKey: Json
 }
 
 export async function get_private_key(user_id: string): Promise<{ ok: boolean, privateKey: JsonWebKey }> {
-    return new Promise((resolve) => {
-        const timestamp = new Date().getTime();
-        db.get('select * from private_key_temporary where user_id=?;', user_id, (err, row) => {
-            resolve({ ok: !!row, privateKey: row ? JSON.parse(row['private_key']) : undefined });
-        });
-    });
+    const row = (await pool.query('select * from private_key_temporary where user_id=$1;', [user_id])).rows[0];
+    return { ok: !!row, privateKey: row ? JSON.parse(row['private_key']) : undefined };
 }
 
 export async function temporarily_store_private_key(user_id: string, key: JsonWebKey): Promise<boolean> {
-    return new Promise((resolve) => {
-        const key_str = JSON.stringify(key);
-        const timestamp = new Date().getTime();
-        console.log('temporarily_store_private_key 1');
-        db.run('insert into private_key_temporary (user_id,timestamp,private_key) values (?,?,?);', user_id, timestamp, key_str, (err) => {
-            console.log('temporarily_store_private_key 2');
-            if (err) {
-                db.run('update private_key_temporary set timestamp=?,private_key=? where user_id=?;', timestamp, key_str, user_id, (err2) => {
-                    resolve(err2 == null);
-                });
-            } else {
-                resolve(true);
-            }
-        });
-    });
+    const key_str = JSON.stringify(key);
+    const timestamp = new Date().getTime();
+    try {
+        await pool.query('insert into private_key_temporary (user_id,timestamp,private_key) values ($1,$2,$3);', [user_id, timestamp, key_str]);
+    } catch{
+    }
+    try {
+        await pool.query('update private_key_temporary set timestamp=$1,private_key=$2 where user_id=$3;', [timestamp, key_str, user_id]);
+        return true;
+    } catch{
+        return false;
+    }
 }
 
 export async function remove_old_temporary_private_key() {
-    return new Promise((resolve) => {
-        const threshold = new Date().getTime() - 1000 * 60 * 5; // 5 minutes
-        db.run('delete from private_key_temporary where timestamp<?', threshold, (err) => {
-            resolve(!err);
-        });
-    });
+    const threshold = new Date().getTime() - 1000 * 60 * 5; // 5 minutes
+    await pool.query('delete from private_key_temporary where timestamp<$1', [threshold]);
 }

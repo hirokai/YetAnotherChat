@@ -5,7 +5,7 @@ import * as fs from "fs";
 const path = require('path');
 import { map, keyBy, difference } from 'lodash';
 
-import { db } from './utils'
+import { pool } from './utils'
 
 import * as users_ from './users'
 export const users = users_;
@@ -20,6 +20,9 @@ export const workspaces = workspaces_;
 import * as _ from 'lodash';
 import moment from 'moment';
 
+import * as bunyan from 'bunyan';
+const log = bunyan.createLogger({ name: "model", src: true, level: 1 });
+
 export function make_email_content(c: CommentTyp): string {
     return c.comment + '\r\n\r\n--------\r\n' + 'このメールに返信すると，COI SNS上で会話を続けられます。\r\n' + 'COI SNSでリアルタイムチャット： ' + 'https://coi-sns.com/main#/sessions/' + c.session_id;
 }
@@ -27,7 +30,7 @@ export function make_email_content(c: CommentTyp): string {
 export async function list_comment_delta({ for_user, session_id, cached_ids, last_updated }: { for_user: string, session_id: string, cached_ids: string[], last_updated: number }): Promise<CommentChange[]> {
     const comments = await sessions.list_comments(for_user, session_id);
     if (comments) {
-        console.log('Comments length:', comments.length);
+        log.debug('Comments length:', comments.length);
         const cached_id_dict = keyBy(cached_ids);
         var delta: CommentChange[] = [];
         if (comments.length == 0) {
@@ -43,7 +46,7 @@ export async function list_comment_delta({ for_user, session_id, cached_ids, las
             });
             const current_ids = map(comments, 'id');
             const removed_ids = difference(cached_ids, current_ids);
-            // console.log('cached and current', for_user, cached_ids, current_ids)
+            // log.debug('cached and current', for_user, cached_ids, current_ids)
             removed_ids.forEach((id) => {
                 delta.push({ __type: 'delete', id });
             });
@@ -61,10 +64,10 @@ export function get_original_email_highlighted(mail_id: string): Promise<{ lines
             const [message_id, start_s, end_s] = [m[1], m[2], m[3]];
             const [start, end] = [+start_s, +end_s];
             const file_path = path.join(__dirname, '../imported_data/mailgun/' + message_id + '.json');
-            console.log(file_path);
+            log.debug(file_path);
             fs.readFile(file_path, 'utf8', (err, s: string) => {
                 if (err) {
-                    console.log(err);
+                    log.debug(err);
                     reject();
                 } else {
                     const obj = JSON.parse(s);
@@ -83,44 +86,31 @@ export function get_original_email_highlighted(mail_id: string): Promise<{ lines
 }
 
 export async function delete_connection(socket_id: string): Promise<{ user_id: string, online: boolean, timestamp: number } | null> {
-    return new Promise((resolve) => {
-        db.get('select user_id from user_connections where socket_id=?;', socket_id, (err, row) => {
-            if (row) {
-                const user_id = row['user_id'];
-                const timestamp = new Date().getTime();
-                db.run('delete from user_connections where socket_id=?;', socket_id, () => {
-                    db.get('select count(*) from user_connections where user_id=?;', user_id, (err1, row1) => {
-                        console.log('select count(*) from user_connections', user_id, err1, row1);
-                        const online: boolean = !!(row1 && row1['count(*)'] > 0);
-                        resolve({ user_id, online, timestamp });
-                    });
-                });
-            } else {
-                resolve(null);
-            }
-        });
-    });
+    const row = (await pool.query('select user_id from user_connections where socket_id=$1;', [socket_id])).rows[0]
+    if (row) {
+        const user_id = row['user_id'];
+        const timestamp = new Date().getTime();
+        await pool.query('delete from user_connections where socket_id=$1;', [socket_id]);
+        const row1 = (await pool.query('select count(*) from user_connections where user_id=$1;', [user_id])).rows[0]
+        const online: boolean = !!(row1 && row1['count(*)'] > 0);
+        return { user_id, online, timestamp };
+    } else {
+        return null;
+    }
 }
 
 export async function delete_connection_of_user(user_id: string): Promise<{ timestamp: number }> {
-    return new Promise((resolve) => {
-        const timestamp = new Date().getTime();
-        db.run('delete from user_connections where user_id=?;', user_id, () => {
-            resolve({ timestamp });
-        });
-    });
+    const timestamp = new Date().getTime();
+    await pool.query('delete from user_connections where user_id=$1;', [user_id]);
+    return { timestamp };
 }
 
-export async function delete_all_connections(): Promise<boolean> {
-    return new Promise((resolve) => {
-        db.run('delete from user_connections;', (err) => {
-            resolve(!err);
-        });
-    });
+export async function delete_all_connections(): Promise<void> {
+    await pool.query('delete from user_connections;');
 }
 
 export function expandSpan(date: string, span: Timespan): string[] {
-    console.log('expandSpan', span);
+    log.debug('expandSpan', span);
     if (span == Timespan.day) {
         return [date];
     } else if (span == Timespan.week) {

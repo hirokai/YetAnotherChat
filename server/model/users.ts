@@ -1,6 +1,6 @@
 import { map, filter, includes, orderBy, compact } from 'lodash';
 import * as _ from 'lodash';
-import { db, db_, shortid } from './utils'
+import { shortid, pool, client } from './utils'
 import bcrypt from 'bcrypt';
 
 import { get_public_key } from './keys'
@@ -16,37 +16,34 @@ import axios from 'axios'
 import * as bunyan from 'bunyan';
 const log = bunyan.createLogger({ name: "model.users", src: true, level: 1 });
 import { fingerPrint } from '../../common/common_model'
-
-
+import { promisify } from 'util';
+const bcryptHash = promisify(bcrypt.hash);
+const cryptoRandomBytes = promisify(crypto.randomBytes);
 const saltRounds = 10;
 
 export async function get_socket_ids(user_id: string): Promise<string[]> {
-    const rows = await db_.all('select socket_id from user_connections where user_id=?;', user_id);
+    const rows = (await pool.query<{ socket_id: string }>('select socket_id from user_connections where user_id=$1;', [user_id])).rows;
     return map(rows, 'socket_id');
 }
 
-export function save_socket_id(user_id: string, socket_id: string): Promise<{ ok: boolean, timestamp?: number }> {
-    return new Promise((resolve) => {
-        const timestamp: number = new Date().getTime();
-        db.run('insert into user_connections (socket_id,user_id,timestamp) values (?,?,?);', socket_id, user_id, timestamp, (err) => {
-            const ok = !err;
-            resolve({ ok: !err, timestamp: ok ? timestamp : undefined });
-        });
-    });
+export async function save_socket_id(user_id: string, socket_id: string): Promise<{ ok: boolean, timestamp?: number }> {
+    const timestamp: number = new Date().getTime();
+    await pool.query('insert into user_connections (socket_id,user_id,timestamp) values ($1,$2,$3);', [socket_id, user_id, timestamp]);
+    return ({ ok: true, timestamp });
 }
 
 export async function get(user_id: string): Promise<User | null> {
-    const row = await db_.get<UserWithEmail>("select users.source,users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profile_value from users join user_emails on users.id=user_emails.user_id join profiles as p on p.user_id=users.id where users.id=? and p.profile_name='avatar' group by users.id;", user_id);
-    if (row && row.id) {
+    const rows = (await pool.query<UserWithEmail>("select users.source,users.timestamp,users.id,users.name,array_to_string(ARRAY(SELECT unnest(array_agg(distinct user_emails.email))), ',') as emails,users.fullname,profile_value from users join user_emails on users.id=user_emails.user_id join profiles as p on p.user_id=users.id where users.id=$1 and p.profile_name='avatar' group by users.id;", [user_id])).rows;
+    if (rows[0]) {
+        const row = rows[0];
         const emails = row.emails ? row.emails.split(',') : [];
         const pub = await keys.get_public_key(user_id);
         const publicKey = pub ? pub.publicKey : undefined;
         const online_users = await list_online_users();
-        const id = row['id']
+        const id = row.id;
         const online: boolean = includes(online_users, id);
         const registered = row['source'] == 'self_register';
         return ({ username: row.name, id, emails, avatar: row['profile_value'], fullname: row.fullname || undefined, online, publicKey, timestamp: row.timestamp, registered });
-
     } else {
         return (null);
     }
@@ -67,56 +64,55 @@ export async function create_workspace(myself: string, options: CreateWorkspaceP
     const id = shortid();
     const timestamp = new Date().getTime();
     const kind = options.public ? 'public' : 'private';
-    await db_.run('insert into workspaces (id,name,timestamp,kind) values (?,?,?,?);', id, options.name, timestamp, kind);
+    await pool.query('insert into workspaces (id,name,timestamp,kind) values ($1,$2,$3,$4);', [id, options.name, timestamp, kind]);
     return { name: options.name, public: options.public, id };
 }
 
 export async function remove_workspace(workspace_id: string): Promise<boolean> {
     const id = shortid();
-    await db_.run('delete from workspaces where id=?;', workspace_id);
+    await pool.query('delete from workspaces where id=$1;', [workspace_id]);
     return true;
 }
 
 export async function join_workspace(myself: string, workspace: string) {
     const timestamp = new Date().getTime()
-    await db_.run('insert into users_in_workspaces (user_id,workspace_id,timestamp) values (?,?,?);', myself, workspace, timestamp);
+    await pool.query('insert into users_in_workspaces (user_id,workspace_id,timestamp) values ($1,$2,$3);', [myself, workspace, timestamp]);
     return true;
 }
 
 export async function get_workspace_member_ids(workspace_id: string): Promise<string[]> {
-    const timestamp = new Date().getTime()
-    const rows = await db_.all<{ user_id: string }>('select * from users_in_workspaces where workspace_id=?;', workspace_id);
+    const rows = (await pool.query<{ user_id: string }>('select * from users_in_workspaces where workspace_id=$1;', [workspace_id])).rows;
     return map(rows, 'user_id');
 }
 
 export async function add_to_contact(myself: string, contact: string) {
     const timestamp = new Date().getTime()
-    await db_.run('insert into contacts (user_id,contact_id,timestamp,source) values (?,?,?,?);', myself, contact, timestamp, 'manual');
+    await pool.query('insert into contacts (user_id,contact_id,timestamp,source) values ($1,$2,$3,$4);', [myself, contact, timestamp, 'manual']);
     return true;
 }
 
 export async function list(myself: string): Promise<User[]> {
-    const rows: { [key: string]: any } = await db_.all(`
-    select users.source,users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profiles.profile_value as avatar from users
+    const rows = (await pool.query(`
+    select users.source,users.timestamp,users.id,users.name,array_to_string(ARRAY(SELECT unnest(array_agg(distinct user_emails.email))), ',') as emails,users.fullname,profiles.profile_value as avatar from users
     join user_emails on users.id=user_emails.user_id
     join profiles on users.id=profiles.user_id
     join contacts on contacts.contact_id=users.id
-    where profiles.profile_name='avatar' and contacts.user_id=?
-    group by users.id;`, myself);
-    const rows_from_ws = await db_.all(`
-    select users.source,users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profiles.profile_value as avatar from users
+    where profiles.profile_name='avatar' and contacts.user_id=$1
+    group by users.id;`, [myself])).rows;
+    const rows_from_ws = (await pool.query(`
+    select users.source,users.timestamp,users.id,users.name,array_to_string(ARRAY(SELECT unnest(array_agg(distinct user_emails.email))), ',') as emails,users.fullname,profiles.profile_value as avatar from users
     join user_emails on users.id=user_emails.user_id
     join profiles on users.id=profiles.user_id
     join users_in_workspaces as w1 on users.id=w1.user_id
     join users_in_workspaces as w2 on w1.workspace_id=w2.workspace_id
-    where w2.user_id=?
-    group by w1.user_id;`, myself);
-    const rows_myself: { [key: string]: any } = await db_.all(`
-    select users.source,users.timestamp,users.id,users.name,group_concat(distinct user_emails.email) as emails,users.fullname,profiles.profile_value as avatar from users
+    where w2.user_id=$1
+    group by w1.user_id;`, [myself])).rows;
+    const rows_myself = (await pool.query(`
+    select users.source,users.timestamp,users.id,users.name,array_to_string(ARRAY(SELECT unnest(array_agg(distinct user_emails.email))), ',') as emails,users.fullname,profiles.profile_value as avatar from users
     join user_emails on users.id=user_emails.user_id
     join profiles on users.id=profiles.user_id
-    where profiles.profile_name='avatar' and users.id=?
-    group by users.id;`, myself);
+    where profiles.profile_name='avatar' and users.id=$1
+    group by users.id;`, [myself])).rows;
     const online_users = await list_online_users();
     const rows_all = rows.concat(rows_from_ws).concat(rows_myself);
     const users = compact(await Promise.all(map(rows_all, async (row): Promise<User | null> => {
@@ -124,7 +120,7 @@ export async function list(myself: string): Promise<User[]> {
         const pub = await get_public_key(user_id)
         const pk1 = pub ? pub.publicKey : undefined;
         const fingerprint = pk1 ? await fingerPrint(pk1) : undefined;
-        // console.log('model.list_users() publicKey', user_id, myself, pk1);
+        // log.debug('model.list_users() publicKey', user_id, myself, pk1);
         const obj: User = {
             emails: row['emails'].split(','),
             timestamp: row['timestamp'],
@@ -144,60 +140,56 @@ export async function list(myself: string): Promise<User[]> {
 }
 
 export async function list_online_users(): Promise<string[]> {
-    return new Promise((resolve) => {
-        db.all('select user_id from user_connections;', (err, rows) => {
-            resolve(map(rows, 'user_id'));
-        });
-    });
+    const rows = (await pool.query('select user_id from user_connections;')).rows;
+    return (map(rows, 'user_id'));
 }
 
 export async function get_user_password_hash(user_id: string): Promise<string | null> {
     if (!user_id) {
         return null;
     } else {
-        const row = await db_.get<{ password: string }>('select password from users where id=?', user_id).catch(() => null);
+        const row = (await pool.query<{ password: string }>('select password from users where id=$1', [user_id]).catch(() => { return { rows: [] } })).rows[0];
         return row ? row.password : null;
     }
 }
 
-export function merge(db, users: UserSubset[]) {
+export async function merge(db, users: UserSubset[]) {
     const merge_to_user: UserSubset = orderBy(users, (u) => {
         return (u.fullname ? 100 : 0) + (u.username ? 50 : 0);
     }, 'desc')[0];
 
-    console.log('Merging to', merge_to_user);
+    log.debug('Merging to', merge_to_user);
     if (merge_to_user == null) {
         return;
     } else {
         const new_id = merge_to_user.id;
-        db.serialize(() => {
-            map(map(users, (u: UserSubset): string => { return u.id; }), (old_id: string) => {
+        try {
+            await client.query('BEGIN');
+            const ids = map(users, u => u.id);
+            for (let old_id of ids) {
                 if (old_id != new_id) {
-                    db.run('update comments set user_id=? where user_id=?', new_id, old_id);
-
-                    db.get('select * from session_current_members where user_id');
-
-                    db.all("select session_id,group_concat(user_id) as uids,count(user_id) as uid_count from session_current_members where user_id in (?,?) group by session_id having uid_count > 1;",
-                        new_id, old_id, (err, rows) => {
-                            if (rows) {
-                                const session_ids: string[] = map(rows, 'session_id');
-                                console.log('Removing (sessions,user)', session_ids, old_id);
-                                session_ids.forEach((sid) => {
-                                    db.run('delete from session_current_members where session_id=? and user_id=?', sid, sid, old_id);
-                                })
-                            }
-                        });
-                    db.run('update session_current_members set user_id=? where user_id=?', new_id, old_id, (err) => {
-                        if (err)
-                            console.log('update session_current_members', new_id, old_id, err)
-                    });
-                    db.run('update session_events set user_id=? where user_id=?', new_id, old_id);
-                    db.run('update user_connections set user_id=? where user_id=?', new_id, old_id);
-                    db.run('delete from user_emails where user_id=?', old_id);
-                    db.run('delete from users where id=?', old_id);
+                    await client.query('update comments set user_id=$1 where user_id=$2', [new_id, old_id]);
+                    await client.query('select * from session_current_members where user_id');
+                    const rows = (await client.query("select session_id,array_to_string(ARRAY(SELECT unnest(array_agg(user_id))), ',') as uids,count(user_id) as uid_count from session_current_members where user_id in (?,?) group by session_id having uid_count > 1;",
+                        [new_id, old_id])).rows;
+                    if (rows) {
+                        const session_ids: string[] = map(rows, 'session_id');
+                        log.debug('Removing (sessions,user)', session_ids, old_id);
+                        for (let sid of session_ids) {
+                            await client.query('delete from session_current_members where session_id=$1 and user_id=$2', [sid, old_id]);
+                        };
+                    }
                 }
-            });
-        });
+                await client.query('update session_current_members set user_id=$1 where user_id=$2', [new_id, old_id]);
+                await client.query('update session_events set user_id=$1 where user_id=$2', [new_id, old_id]);
+                await client.query('update user_connections set user_id=$1 where user_id=$2', [new_id, old_id]);
+                await client.query('delete from user_emails where user_id=$1', [old_id]);
+                await client.query('delete from users where id=$1', [old_id]);
+            }
+            await client.query('COMMIT');
+        } catch{
+            await client.query('rollback');
+        }
     }
 }
 
@@ -206,8 +198,10 @@ type ProfileKey = 'username' | 'fullname' | 'email' | 'password';
 export async function update(user_id: string, { username, fullname, email }: { username?: string, fullname?: string, email?: string }): Promise<User> {
     const f = (s, value): Promise<boolean> => {
         return new Promise((r1) => {
-            db.run(s, value, user_id, (err) => {
-                r1(err == null);
+            pool.query(s, [value, user_id]).then(() => {
+                r1(true);
+            }).catch(() => {
+                r1(false);
             });
         })
     }
@@ -216,9 +210,9 @@ export async function update(user_id: string, { username, fullname, email }: { u
             r1(true);
         });
     }
-    const p1 = username ? f('update users set name=? where id=?;', username) : g();
-    const p2 = fullname ? f('update users set fullname=? where id=?;', fullname) : g();
-    const p3 = email ? f('update user_emails set email=? where user_id=?;', email) : g();
+    const p1 = username ? f('update users set name=$1 where id=$2;', username) : g();
+    const p2 = fullname ? f('update users set fullname=$1 where id=$2;', fullname) : g();
+    const p3 = email ? f('update user_emails set email=$1 where user_id=$2;', email) : g();
     const [r1, r2, r3] = await Promise.all([p1, p2, p3]);
     if (r1 && r2 && r3) {
         const user = await get(user_id);
@@ -234,11 +228,11 @@ export async function update(user_id: string, { username, fullname, email }: { u
 
 export async function save_password(user_id: string, password: string): Promise<boolean> {
     const hash = await bcrypt.hash(password, saltRounds);
-    const r = await db_.get<{ id: string }>('select id from users where id=?;', user_id);
-    if (!r || !r.id) {
+    const rows = (await pool.query<{ id: string }>('select id from users where id=$1;', [user_id])).rows;
+    if (!rows || !rows[0]) {
         return false;
     } else {
-        await db_.run('update users set password=? where id=?', hash, user_id);
+        await pool.query('update users set password=$1 where id=$2', [hash, user_id]);
         return true;
     }
 }
@@ -256,17 +250,13 @@ export async function find_user_from_email(email: string): Promise<User | null> 
     if (!email || email.trim() == "") {
         return null;
     } else {
-        const { err, row } = await new Promise<{ err: any, row: UserWithEmail }>((resolve) => {
-            db.get(`
-            select users.*,group_concat(distinct user_emails.email) as emails,profile_value from users
+        const row = (await pool.query<UserWithEmail>(`
+            select users.*,array_to_string(ARRAY(SELECT unnest(array_agg(distinct user_emails.email))), ',') as emails,profile_value from users
             join user_emails on users.id=user_emails.user_id
             join profiles on profiles.user_id=users.id
-            where user_emails.email=?
-            group by users.id;`, email, (err, row: UserWithEmail) => {
-                resolve({ err, row })
-            });
-        });
-        if (!err && row) {
+            where user_emails.email=$1
+            group by users.id;`, [email])).rows[0];
+        if (row) {
             const user_id = row.id;
             const pub = await get_public_key(user_id);
             const publicKey = pub ? pub.publicKey : undefined;
@@ -275,7 +265,6 @@ export async function find_user_from_email(email: string): Promise<User | null> 
             const emails = (row.emails || '').split(',');
             const registered = row['source'] == 'self_register';
             return { username: row.name, fullname: row.fullname || undefined, id: user_id, emails, avatar: row['profile_value'], online, publicKey, timestamp: row.timestamp, registered };
-
         } else {
             return null;
         }
@@ -283,13 +272,14 @@ export async function find_user_from_email(email: string): Promise<User | null> 
 }
 
 export async function find_from_username(username: string): Promise<User | null> {
-    const row = await db_.get(`
-    select users.*,group_concat(distinct user_emails.email) as emails,profiles.profile_value from users
+    const rows = (await pool.query(`
+    select users.*,array_to_string(ARRAY(SELECT unnest(array_agg(distinct user_emails.email))), ',') as emails,profiles.profile_value from users
     join user_emails on users.id=user_emails.user_id 
     join profiles on profiles.user_id=users.id 
-    where users.name=? and profiles.profile_name='avatar'
-    group by users.id;`, username);
-    if (row) {
+    where users.name=$1 and profiles.profile_name='avatar'
+    group by users.id;`, [username])).rows;
+    if (rows && rows[0]) {
+        const row = rows[0];
         const user_id = row['id']
         const emails = row['emails'] ? row['emails'].split(',') : [];
         const pub = await get_public_key(user_id);
@@ -307,11 +297,11 @@ export async function find_from_username(username: string): Promise<User | null>
 export async function get_user_config(user_id: string): Promise<string[][] | null> {
     const user = await users.get(user_id);
     if (user) {
-        const rows = await db_.all<any>('select * from user_configs where user_id=?;', user_id);
+        const rows = (await pool.query<{ config_name: string, config_value: string }>('select * from user_configs where user_id=$1;', [user_id])).rows;
         if (rows) {
-            const cs = filter(map(rows, (row) => [row['config_name'], row['config_value']]).concat(
-                [['username', user.username], ['fullname', user.fullname], ['email', user.emails[0]]]
-            ), (c) => { return c[0] != null && c[1] != null; });
+            const cs: string[][] = filter(map(rows, (row) => [row.config_name, row.config_value]).concat(
+                [['username', user.username], ['fullname', user.fullname || ""], ['email', user.emails[0]]]
+            ), (c): boolean => { return !!c[0] && !!c[1] && (c[1] != ""); });
             return cs;
         } else {
             return [];
@@ -322,11 +312,11 @@ export async function get_user_config(user_id: string): Promise<string[][] | nul
 }
 
 export async function set_user_config(user_id: string, key: string, value: string): Promise<{ ok: boolean }> {
-    const row = await db_.get('select * from user_configs where user_id=? and config_name=?;', user_id, key);
+    const row = (await pool.query('select 1 from user_configs where user_id=$1 and config_name=$2;', [user_id, key])).rows[0];
     if (row) {
         const timestamp = new Date().getTime();
         try {
-            await db_.run('update user_configs set timestamp=?,config_value=? where user_id=? and config_name=?;', timestamp, value, user_id, key);
+            await pool.query('update user_configs set timestamp=$1,config_value=$2 where user_id=$3 and config_name=$4;', [timestamp, value, user_id, key]);
             return { ok: true };
         } catch (err) {
             console.error('set_user_config', err);
@@ -336,7 +326,7 @@ export async function set_user_config(user_id: string, key: string, value: strin
     } else {
         const timestamp = new Date().getTime();
         try {
-            await db_.run('insert into user_configs (timestamp,user_id,config_name,config_value) values (?,?,?,?);', timestamp, user_id, key, value);
+            await pool.query('insert into user_configs (timestamp,user_id,config_name,config_value) values ($1,$2,$3,$4);', [timestamp, user_id, key, value]);
             return { ok: true };
         } catch (err) {
             console.error('set_user_config', err);
@@ -357,87 +347,62 @@ export async function register({ username, password, email, fullname, source, wo
         }
         const existing_user = await find_from_username(username);
         const existing_user2 = email ? await find_user_from_email(email) : null;
-        return new Promise((resolve, reject) => {
-            if (existing_user) {
-                resolve({ ok: false, error_code: error_code.USER_EXISTS, error: 'User name already exists' });
-            } else if (existing_user2) {
-                resolve({ ok: false, error_code: error_code.USER_EXISTS, error: 'User email already exists' });
-            } else {
-                bcrypt.hash(password, saltRounds, function (err, hash) {
-                    if (err) {
-                        resolve({ ok: false, error: 'Password hashing error' });
-                    } else {
-                        db.serialize(() => {
-                            const user_id = shortid();
-                            const timestamp = new Date().getTime();
-                            db.run('insert into users (id,name,password,fullname,timestamp,source) values (?,?,?,?,?,?)', user_id, username, hash, fullname, timestamp, source);
-                            db.run('insert into user_emails (user_id,email) values (?,?)', user_id, email || "");
-                            if (workspace) {
-                                const metadata: UserInWorkspaceMetadata = { role: 'member' };
-                                db.run('insert into users_in_workspaces (user_id,workspace_id,timestamp,metadata) values (?,?,?,?);', user_id, workspace, timestamp, JSON.stringify(metadata));
-                            }
-                            const avatar = choose_avatar(username);
-                            set_profile(user_id, 'avatar', avatar).then(() => {
-                                const emails = email ? [email] : [];
-                                const user: User = {
-                                    id: user_id, fullname: fullname || undefined, username, emails, avatar, online: false, timestamp, registered: source == 'self_register', publicKey: undefined
-                                }
-                                if (email && !_.includes(user.emails, email)) {
-                                    reject('Unknown error');
-                                }
-                                resolve({ ok: true, user });
-                            });
-                        });
-                    }
-                });
-
+        if (existing_user) {
+            return ({ ok: false, error_code: error_code.USER_EXISTS, error: 'User name already exists' });
+        } else if (existing_user2) {
+            return ({ ok: false, error_code: error_code.USER_EXISTS, error: 'User email already exists' });
+        } else {
+            const hash = await bcryptHash(password, saltRounds);
+            const user_id = shortid();
+            const timestamp = new Date().getTime();
+            await pool.query('insert into users (id,name,password,fullname,timestamp,source) values ($1,$2,$3,$4,$5,$6)', [user_id, username, hash, fullname, timestamp, source]);
+            await pool.query('insert into user_emails (user_id,email) values ($1,$2)', [user_id, email || ""]);
+            if (workspace) {
+                const metadata: UserInWorkspaceMetadata = { role: 'member' };
+                await pool.query('insert into users_in_workspaces (user_id,workspace_id,timestamp,metadata) values ($1,$2,$3,$4);', [user_id, workspace, timestamp, JSON.stringify(metadata)]);
             }
-        });
+            const avatar = choose_avatar(username);
+            await set_profile(user_id, 'avatar', avatar);
+            const emails = email ? [email] : [];
+            const user: User = {
+                id: user_id, fullname: fullname || undefined, username, emails, avatar, online: false, timestamp, registered: source == 'self_register', publicKey: undefined
+            }
+            if (email && !_.includes(user.emails, email)) {
+                throw new Error('Unknown error');
+            }
+            return ({ ok: true, user });
+        }
     }
 }
 
 export async function get_local_db_password(user_id: string): Promise<string> {
-    console.log('get_local_db_password', user_id);
-    return new Promise((resolve, reject) => {
-        db.get('select db_local_password from users where id=?;', user_id, (err, row) => {
-            let db_local_password;
-            if (!err && row) {
-                db_local_password = row['db_local_password'];
-            }
-            if (db_local_password) {
-                resolve(db_local_password);
-                // crypto.randomBytes(32, (err, buf) => {
-                //     const db_local_password_new = buf.toString('base64');
-                //     db.run('update users set db_local_password=? where id=?;', db_local_password_new, user_id, (err1, row1) => { });
-                // });
-            } else {
-                crypto.randomBytes(32, (err, buf) => {
-                    const db_local_password = buf.toString('base64');
-                    db.run('update users set db_local_password=? where id=?;', db_local_password, user_id, (err1, row1) => {
-                        if (!err1) {
-                            resolve(db_local_password);
-                        } else {
-                            reject('DB error');
-                        }
-                    });
-
-                });
-            }
-        });
-    });
+    log.debug('get_local_db_password', user_id);
+    const row = (await pool.query<{ db_local_password: string }>('select db_local_password from users where id=$1;', [user_id])).rows[0];
+    let db_local_password: string | undefined = undefined;
+    if (row) {
+        db_local_password = row['db_local_password'];
+    }
+    if (db_local_password) {
+        return db_local_password;
+    } else {
+        const buf = await cryptoRandomBytes(32);
+        const db_local_password = buf.toString('base64');
+        await pool.query('update users set db_local_password=$1 where id=$2;', [db_local_password, user_id]);
+        return db_local_password;
+    }
 }
 
 export async function match_password(username: string, password: string): Promise<boolean> {
     const user = await users.find_from_username(username);
     if (user != null) {
-        console.log('passwordMatch', user);
+        log.debug('passwordMatch', user);
         const hash = await users.get_user_password_hash(user.id);
-        console.log(hash, password, includes(user_info.allowed_passwords, password));
+        log.debug(hash, password, includes(user_info.allowed_passwords, password));
         if (!hash) {
             return includes(user_info.allowed_passwords, password);
         } else {
             const ok = await bcrypt.compare(password, hash);
-            console.log('bcrypt compare', ok);
+            log.debug('bcrypt compare', ok);
             return ok;
         }
     } else {
@@ -455,53 +420,36 @@ function choose_avatar(username: string): string {
 }
 
 export async function get_profile(user_id: string): Promise<{ [key: string]: string }> {
-    return new Promise((resolve) => {
-        db.all('select * from profiles where user_id=?;', user_id, (err, rows) => {
-            const obj: { [key: string]: string } = {};
-            rows.forEach((row) => {
-                obj[row['profile_name']] = row['profile_value'];
-            });
-            resolve(obj);
-        });
+    const rows = (await pool.query('select * from profiles where user_id=$1;', [user_id])).rows;
+    const obj: { [key: string]: string } = {};
+    rows.forEach((row) => {
+        obj[row['profile_name']] = row['profile_value'];
     });
+    return obj;
 }
 
 export async function get_profiles(): Promise<{ [key: string]: { [key: string]: string } }> {
-    return new Promise((resolve) => {
-        db.all('select * from profiles;', (err, rows) => {
-            const profiles: { [key: string]: { [key: string]: string } } = {};
-            rows.forEach((row) => {
-                const user_id = row['user_id'];
-                if (!profiles[user_id]) {
-                    profiles[user_id] = {};
-                }
-                profiles[user_id][row['profile_name']] = row['profile_value'];
-            });
-            resolve(profiles);
-        });
+    const rows = (await pool.query('select * from profiles;')).rows;
+    const profiles: { [key: string]: { [key: string]: string } } = {};
+    rows.forEach((row) => {
+        const user_id = row['user_id'];
+        if (!profiles[user_id]) {
+            profiles[user_id] = {};
+        }
+        profiles[user_id][row['profile_name']] = row['profile_value'];
     });
+    return profiles;
 }
 
 export async function set_profile(user_id: string, key: string, value: string): Promise<boolean> {
-    return new Promise((resolve) => {
-        db.get('select * from profiles where user_id=? and profile_name=?;', user_id, key, (err, row) => {
-            if (err) {
-                console.log(err);
-                resolve(false);
-                return;
-            }
-            const timestamp = new Date().getTime();
-            if (!row) {
-                db.run('insert into profiles (timestamp,user_id,profile_name,profile_value) values (?,?,?,?);', timestamp, user_id, key, value, (err1) => {
-                    resolve(!err1);
-                });
-            } else {
-                db.run('update profiles set timestamp=?,profile_value=? where user_id=? and profile_name=?;', timestamp, value, user_id, key, (err1) => {
-                    resolve(!err1);
-                });
-            }
-        });
-    });
+    const row = (await pool.query('select * from profiles where user_id=$1 and profile_name=$2;', [user_id, key])).rows[0];
+    const timestamp = new Date().getTime();
+    if (!row) {
+        await pool.query('insert into profiles (timestamp,user_id,profile_name,profile_value) values ($1,$2,$3,$4);', [timestamp, user_id, key, value]);
+    } else {
+        await pool.query('update profiles set timestamp=$1,profile_value=$2 where user_id=$3 and profile_name=$4;', [timestamp, value, user_id, key]);
+    }
+    return true;
 }
 
 
@@ -517,17 +465,17 @@ export async function make_password_reset_token(user: User): Promise<{ token: st
     });
     const timestamp = new Date().getTime();
     const expiresAt = timestamp + PasswordResetLinkExpirationPeriod;
-    await db_.run('insert into temporary_tokens (user_id,timestamp,kind,token) values (?,?,?,?);', user.id, timestamp, 'password_reset', token);
+    await pool.query('insert into temporary_tokens (user_id,timestamp,kind,token) values ($1,$2,$3,$4);', [user.id, timestamp, 'password_reset', token]);
     return { token, expiresAt };
 }
 
 export async function remove_password_reset_token(token: string) {
-    await db_.run('delete from temporary_tokens where kind=? and token=?;', 'password_reset', token);
+    await pool.query('delete from temporary_tokens where kind=$1 and token=$2;', ['password_reset', token]);
 }
 
 export async function get_user_for_reset_password_token(token: string): Promise<User | null> {
     const timestamp_since = new Date().getTime() - PasswordResetLinkExpirationPeriod;
-    const row = await db_.get<{ user_id: string }>('select * from temporary_tokens where kind=? and token=? and timestamp>?;', 'password_reset', token, timestamp_since).catch(() => null);
+    const row = (await pool.query<{ user_id: string }>('select * from temporary_tokens where kind=$1 and token=$2 and timestamp>$3;', ['password_reset', token, timestamp_since]).catch(() => { return { rows: [] } })).rows[0];
     if (row == null) {
         return null;
     } else {

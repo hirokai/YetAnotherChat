@@ -114,7 +114,7 @@
             const contract = '<%= contract %>';
             const abi = JSON.parse($('#abi').text());
 
-            console.log(url, contract);
+            log.debug(url, contract);
             var web3 = new Web3(new Web3.providers.HttpProvider(
                 url
             ));
@@ -141,7 +141,7 @@
                     });
                     for (let i = 0; i < len; i++) {
                         const r = results[i];
-                        console.log('get(' + r['idx'] + ') result', r);
+                        log.debug('get(' + r['idx'] + ') result', r);
                         el.append('<tr><td style="min-width:50px;">' + r['idx'] + '</td><td>' + formatDate(new Date(+r.timestamp)) + '</td><td class="hash">' + r.user + '</td><td>' + r.hash + '</td></tr>');
                     }
                 });
@@ -154,7 +154,7 @@
                 const hash = getSHA256Hash($('#id-input').val());
                 $('#hash-result').text(hash);
                 const sel = 'td.hash:contains(' + hash + ')';
-                console.log(sel);
+                log.debug(sel);
                 $('tr').removeClass('matched');
                 $('td.hash:contains(' + hash + ')').parent().addClass('matched');
             });
