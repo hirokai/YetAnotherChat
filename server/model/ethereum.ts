@@ -1,6 +1,6 @@
 import Web3 from 'web3';
 import fs from 'fs';
-const abi = JSON.parse(fs.readFileSync('./server/HashStorage3.json', 'utf8')).abi;
+const abi = JSON.parse(fs.readFileSync('./server/model/HashStorage3.json', 'utf8')).abi;
 import * as crypto from 'crypto';
 
 type Ethereum = {

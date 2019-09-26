@@ -1,7 +1,7 @@
 let existingCall;
 import $ from 'jquery';
 import Peer, { SfuRoom } from 'skyway-js';
-import * as credentials from '../server/private/credential';
+import { skyway_key } from '../server/private/credential'
 
 let localStream: MediaStream;
 let sfuRoom;
@@ -14,7 +14,7 @@ export function terminate(user_id: string, roomName: string) {
 }
 
 export function start(user_id: string, roomName: string, onPeerJoin: (string) => void, onPeerLeave: (string) => void) {
-    const peer = new Peer(user_id, { key: credentials.skyway_key });
+    const peer = new Peer(user_id, { key: skyway_key });
 
     const constraints = {
         audio: { deviceId: undefined },

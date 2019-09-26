@@ -137,7 +137,7 @@
                     const fullname = $('#fullname').val();
                     const email = $('#email').val();
                     $('#info-username').html('登録中です...');
-                    $.post('/api/register', { username, password, fullname, email }).then((res) => {
+                    $.post('/api_public/register', { username, password, fullname, email }).then((res) => {
                         console.log(res);
                         if (res.ok && res.token && res.decoded) {
                             localStorage.setItem("yacht.token", res.token);

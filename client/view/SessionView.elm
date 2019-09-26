@@ -279,6 +279,15 @@ footer room model =
 
 showItem : Model -> ChatEntry -> Html Msg
 showItem model entry =
+    let
+        session =
+            case model.page of
+                RoomPage s ->
+                    s
+
+                _ ->
+                    ""
+    in
     case entry of
         Comment m ->
             case getUserInfo model m.user of
@@ -314,7 +323,7 @@ showItem model entry =
                                 , span [ class "chat_timestamp" ] [ text m.formattedTime ]
                                 , a [ href (makeLinkToOriginal m) ] [ showSource m.source ]
                                 , if m.user == model.myself then
-                                    span [ class "remove-item clickable", onClick (SessionMsg (RemoveItem m.id)) ] [ text "×" ]
+                                    span [ class "remove-item clickable", onClick (SessionMsg (RemoveItem session m.id)) ] [ text "×" ]
 
                                   else
                                     text ""
@@ -349,7 +358,7 @@ showItem model entry =
                                 , span [ class "chat_timestamp" ] [ text m.formattedTime ]
                                 , a [ href m.url ] [ text "self" ]
                                 , span [ style "margin-left" "10px" ] [ text m.id ]
-                                , span [ class "remove-item clickable", onClick (SessionMsg (RemoveItem m.id)) ] [ text "×" ]
+                                , span [ class "remove-item clickable", onClick (SessionMsg (RemoveItem session m.id)) ] [ text "×" ]
                                 ]
                             , div [ class "file-image-chat" ]
                                 [ img
@@ -458,8 +467,8 @@ updateChatPageStatus msg model =
             in
             ( { model | messages = Just ms, users = users, filter = Set.fromList users }, Cmd.none )
 
-        RemoveItem id ->
-            removeItem id model
+        RemoveItem session id ->
+            removeItem session id model
 
         ExpandTopPane b ->
             ( { model | topPaneExpanded = b }, recalcElementPositions { show_toppane = b, expand_chatinput = model.expandChatInput } )
@@ -497,15 +506,15 @@ updateChatPageStatus msg model =
             ( { model | videoMembers = Set.remove u model.videoMembers }, Cmd.none )
 
 
-removeItem : String -> ChatPageModel -> ( ChatPageModel, Cmd msg )
-removeItem id model =
+removeItem : String -> String -> ChatPageModel -> ( ChatPageModel, Cmd msg )
+removeItem session id model =
     let
         f m =
             getId m /= id
     in
     case model.messages of
         Just msgs ->
-            ( { model | messages = Just (List.filter f msgs) }, removeItemRemote id )
+            ( { model | messages = Just (List.filter f msgs) }, removeItemRemote { session = session, comment = id } )
 
         Nothing ->
             ( model, Cmd.none )

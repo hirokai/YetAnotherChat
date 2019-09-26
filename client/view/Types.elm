@@ -321,7 +321,7 @@ type SessionMsg
     | SetFilter String Bool
     | ScrollToBottom
     | FeedMessages (List ChatEntry)
-    | RemoveItem String
+    | RemoveItem String String
     | ExpandTopPane Bool
     | SetShrinkEntries Bool
     | SmallerFont

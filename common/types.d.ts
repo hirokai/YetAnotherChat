@@ -560,3 +560,12 @@ interface DeleteRequest<T, U> {
     body: U,
     params: T
 }
+
+type RegisterResponse = {
+    ok: boolean,
+    error?: string,
+    error_code?: number,
+    token?: string,
+    decoded?: object,
+    local_db_password?: string
+}

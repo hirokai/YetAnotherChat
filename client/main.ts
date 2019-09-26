@@ -78,7 +78,7 @@ window['importKey'] = crypto.importKey;
         await model.users.update_my_info('SDGs', s);
     })
 
-    axios.get('/api/verify_token').then(({ data }) => {
+    axios.get('/api_public/verify_token').then(({ data }) => {
         if (!data.valid) {
             console.log('verify token failed', data);
             location.href = '/login' + location.hash;
@@ -353,8 +353,8 @@ window['importKey'] = crypto.importKey;
         });
     });
 
-    app.ports.removeItemRemote.subscribe((comment_id: string) => {
-        axios.delete('/api/comments/' + comment_id, { data: { token } }).then(({ data }: AxiosResponse<DeleteCommentResponse>) => {
+    app.ports.removeItemRemote.subscribe(({ session, comment }) => {
+        axios.delete('/api/sessions/' + session + '/comments/' + comment, { data: { token } }).then(({ data }: AxiosResponse<DeleteCommentResponse>) => {
             console.log(data);
         });
     });
@@ -393,7 +393,7 @@ window['importKey'] = crypto.importKey;
     app.ports.joinRoom.subscribe(({ session_id }) => {
         model.sessions.get(session_id).then((session: RoomInfo) => {
             if (!includes(map(session.members, 'id'), user_id)) {
-                $.post('/api/join_session', { token, session_id }).then((res: JoinSessionResponse) => {
+                axios.post('/api/sessions/join', { token, session_id }).then((res: AxiosResponse<JoinSessionResponse>) => {
                     console.log('join_session', res);
                 });
             } else {
@@ -754,7 +754,7 @@ interface ElmAppPorts {
     sendCommentToServer: ElmSub<{ comment: string, user: string, session: string }>;
     sendCommentToServerDone: ElmSend<null>;
     getRoomInfo: ElmSub<string>;
-    removeItemRemote: ElmSub<string>;
+    removeItemRemote: ElmSub<{ session: string, comment: string }>;
     sendRoomName: ElmSub<{ id: string, new_name: string }>;
     setPageHash: ElmSub<string>;
     hashChanged: ElmSend<string>;

@@ -710,7 +710,7 @@ export class Model {
             const private_key_1 = await this.keys.get_my_keys();
             if (private_key_1 && private_key_1.prv) {
                 const private_key = await crypto.exportKey(private_key_1.prv);
-                const { data: { ok } } = <AxiosResponse<PostPrivateKeyResponse>>await axios.post('/api/private_key', { private_key });
+                const { data: { ok } } = <AxiosResponse<PostPrivateKeyResponse>>await axios.post('/api/keys/private_key', { private_key });
                 return ok;
             } else {
                 throw new Error('No private key stored.');
@@ -718,8 +718,8 @@ export class Model {
         },
         download_my_keys_from_server: async (): Promise<{ pub?: CryptoKey, prv?: CryptoKey }> => {
             const params: GetPublicKeysParams = { user_id: this.user_id };
-            const { data: { publicKey: jwk_pub } } = <AxiosResponse<GetPublicKeysResponse>>await axios.get('/api/public_keys/me');
-            const { data: { privateKey: jwk_prv } } = <AxiosResponse<GetPrivateKeyResponse>>await axios.get('/api/private_key');
+            const { data: { publicKey: jwk_pub } } = <AxiosResponse<GetPublicKeysResponse>>await axios.get('/api/keys/public_keys/me');
+            const { data: { privateKey: jwk_prv } } = <AxiosResponse<GetPrivateKeyResponse>>await axios.get('/api/keys/private_key');
             if (jwk_pub) {
                 const publicKey = await crypto.importKey(jwk_pub, true, true);
                 const privateKey = jwk_prv ? await crypto.importKey(jwk_prv, false, true) : undefined;

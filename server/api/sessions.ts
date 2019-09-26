@@ -44,7 +44,6 @@ router.delete('/:id', (req: MyPostRequest<any>, res: JsonResponse<CommentsDelete
     })().catch(next);
 });
 
-
 router.get('/', (req: GetAuthRequest, res: JsonResponse<GetSessionsResponse>, next) => {
     (async () => {
         const ms: string = req.query.of_members;
@@ -55,7 +54,6 @@ router.get('/', (req: GetAuthRequest, res: JsonResponse<GetSessionsResponse>, ne
         res.json({ ok: true, data: r });
     })().catch(next);
 });
-
 
 router.post('/', (req: PostRequest<PostSessionsParam>, res: JsonResponse<PostSessionsResponse>, next) => {
     (async () => {
@@ -68,6 +66,34 @@ router.post('/', (req: PostRequest<PostSessionsParam>, res: JsonResponse<PostSes
     })().catch(next);
 });
 
+router.post('/join', (req: PostRequest<JoinSessionParam>, res: JsonResponse<JoinSessionResponse>, next) => {
+    (async () => {
+        const session_id = req.body.session_id;
+        const myself = req.decoded.user_id;
+        const source = 'manual';
+        const timestamp = new Date().getTime();
+        const r: JoinSessionResponse = await model.sessions.join({ session_id, user_id: req.decoded.user_id, source, timestamp });
+        res.json(r);
+        if (r.ok && r.data) {
+            _.map(r.data.members.concat([myself]), async (m: string) => {
+                const socket_ids: string[] = await model.users.get_socket_ids(m);
+                const data1 = { session_id, user_id: myself };
+                socket_ids.forEach(socket_id => {
+                    io.to(socket_id).emit("message", _.extend({}, { __type: "new_member" }, data1));
+                })
+            });
+            const socket_ids_newmember: string[] = await model.users.get_socket_ids(myself);
+            log.info('emitting to new member', socket_ids_newmember);
+
+            const data2 = await model.sessions.get(myself, session_id);
+            if (data2) {
+                socket_ids_newmember.forEach(socket_id => {
+                    io.to(socket_id).emit("message", _.extend({}, { __type: "new_session" }, data2));
+                });
+            }
+        }
+    })().catch(next);
+});
 
 router.post('/:session_id/comments/delta', (req: MyPostRequest<GetCommentsDeltaData>, res, next) => {
     // https://qiita.com/yukin01/items/1a36606439123525dc6d
@@ -91,6 +117,25 @@ router.get('/:session_id/comments', (req: GetAuthRequest1<GetCommentsParams>, re
     })().catch(next);
 });
 
+router.delete('/:session_id/comments/:id', (req: GetAuthRequest, res: JsonResponse<DeleteCommentResponse>, next) => {
+    (async () => {
+        if (req.params) {
+            const comment_id = req.params.id;
+            const r = await model.sessions.delete_comment(req.decoded.user_id, comment_id);
+            res.json(r);
+            if (r.data) {
+                const obj: CommentsDeleteSocket = {
+                    __type: 'comments.delete',
+                    id: comment_id,
+                    session_id: r.data.session_id
+                };
+                io.emit("comments.delete", obj);
+            }
+        } else {
+            res.json({ ok: false });
+        }
+    })().catch(next);
+});
 
 router.get('/:id', (req: GetAuthRequest1<any>, res: JsonResponse<GetSessionResponse>, next) => {
     (async () => {

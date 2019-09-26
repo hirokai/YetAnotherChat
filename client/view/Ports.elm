@@ -103,7 +103,7 @@ port receiveNewRoomInfo : ({ name : String, id : SessionID, timestamp : Int } ->
 port hashChanged : (String -> msg) -> Sub msg
 
 
-port removeItemRemote : String -> Cmd msg
+port removeItemRemote : { session : String, comment : String } -> Cmd msg
 
 
 port setPageHash : String -> Cmd msg
