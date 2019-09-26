@@ -522,3 +522,41 @@ type LocalConfig = {
 type UserInWorkspaceMetadata = {
     role?: 'owner' | 'member'
 }
+
+interface MyResponse extends Response {
+    token: any;
+    header: (k: string, v: string) => void;
+}
+
+interface MyPostRequest<T> {
+    token: any;
+    body: T;
+    params: { [key: string]: string }
+    decoded: { username: string, user_id: string, iap: number, exp: number }
+}
+
+interface GetAuthRequest extends Request {
+    token: any
+    query: { [key: string]: string }
+    params?: { [key: string]: string }
+    decoded: { username: string, user_id: string, iap: number, exp: number }
+}
+
+interface GetAuthRequest1<T> {
+    token: any
+    query: T
+    params: { [key: string]: string }
+    decoded: { username: string, user_id: string, iap: number, exp: number }
+}
+
+interface PostRequest<T> {
+    decoded: { user_id: string, username: string },
+    body: T
+    params?: any
+}
+
+interface DeleteRequest<T, U> {
+    decoded: { user_id: string, username: string },
+    body: U,
+    params: T
+}

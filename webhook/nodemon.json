@@ -1,7 +1,0 @@
-{
-    "watch": [
-        "."
-    ],
-    "ext": "ts",
-    "exec": "ts-node ./mailgun_webhook_server.ts"
-}

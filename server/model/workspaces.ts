@@ -64,7 +64,7 @@ export async function create(user_id: string, name: string, members: string[]): 
     return { ok: true, data }
 }
 
-export async function add_member(myself: string, workspace_id: string, added_user: string) {
+export async function add_member(myself: string, workspace_id: string, added_user: string): Promise<boolean> {
     const user = await users.get(added_user);
     const timestamp = new Date().getTime();
     const ws = await get(myself, workspace_id);
