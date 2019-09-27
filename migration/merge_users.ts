@@ -2,16 +2,16 @@ import { db } from '../server/model/utils'
 import * as _ from 'lodash';
 import * as model from '../server/model';
 
-db.all("select group_concat(user_id),email,group_concat(users.name,'####'),group_concat(users.fullname,'####') from user_emails join users on users.id=user_emails.user_id group by email;", (err, rows) => {
+db.all("select array_to_string(ARRAY(SELECT unnest(array_agg(distinct user_id))), '####') as user_ids,email,array_to_string(ARRAY(SELECT unnest(array_agg(distinct users.name))), '####') as users_name,array_to_string(ARRAY(SELECT unnest(array_agg(distinct users.fullname))), '####') as users_fullname from user_emails join users on users.id=user_emails.user_id group by email;", (err, rows) => {
     if (err || !rows) {
         return;
     }
     const datas = rows.map((row) => {
-        const user_ids_r = row['group_concat(user_id)'];
+        const user_ids_r = row['user_ids'];
         const user_ids: string[] = user_ids_r ? user_ids_r.split(',') : [];
-        const fullnames_r = row["group_concat(users.fullname,'####')"];
+        const fullnames_r = row["users_fullname"];
         const fullnames: string[] = fullnames_r ? fullnames_r.split('####') : [];
-        const names_r = row["group_concat(users.name,'####')"];
+        const names_r = row["users_name"];
         const names: string[] = names_r ? names_r.split('####') : [];
         const email: string = row['email'];
         return { user_ids, names, fullnames, email };

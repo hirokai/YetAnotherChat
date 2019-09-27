@@ -177,7 +177,7 @@ app.use(function (req, res, next) {
         var token = req.body.token || req.query.token || req.headers['x-access-token'];
         if (!production) {
             if ('debug' in req.query) {
-                token = token || credential.test_token;
+                token = token || process.env.TEST_TOKEN;
                 req.query['pretty'] = "";
                 log.info(req.query);
             }

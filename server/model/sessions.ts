@@ -71,7 +71,7 @@ export async function get_session_of_members(user_id: string, members: string[],
         s = '%' + s + '%';
     }
     // https://stackoverflow.com/questions/1897352/sqlite-group-concat-ordering
-    const q = "select id,name,timestamp,source,s.visibility,array_to_string(ARRAY(SELECT unnest(array_agg(user_id))), ',') as members, array_to_string(ARRAY(SELECT unnest(array_agg(source))), ',') as sources, from (select s.*,m.user_id from sessions as s join session_current_members as m on s.id=m.session_id order by s.timestamp,m.user_id) group by id having members like $1 order by timestamp desc;"
+    const q = "select id,name,timestamp,source,s.visibility,string_agg(DISTINCT user_id, ',') as members, string_agg(DISTINCT source, ',') as sources, from (select s.*,m.user_id from sessions as s join session_current_members as m on s.id=m.session_id order by s.timestamp,m.user_id) group by id having members like $1 order by timestamp desc;"
     const sessions = (await pool.query(q, [s])).rows;
     const ss = map(sessions, (session) => {
         const roles: SessionMemberSource[] = session.sources.split(',');

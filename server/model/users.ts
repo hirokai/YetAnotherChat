@@ -96,37 +96,31 @@ export async function add_to_contact(myself: string, contact: string) {
 }
 
 export async function list(myself: string): Promise<User[]> {
-    const rows = (await pool.query(`
-    select users.source,users.timestamp,users.id,users.name,array_to_string(ARRAY(SELECT unnest(array_agg(distinct user_emails.email))), ',') as emails,users.fullname,profiles.profile_value as avatar from users
-    join user_emails on users.id=user_emails.user_id
-    join profiles on users.id=profiles.user_id
-    join contacts on contacts.contact_id=users.id
-    where profiles.profile_name='avatar' and contacts.user_id=$1
-    group by users.id;`, [myself])).rows;
-    const rows_from_ws = (await pool.query(`
-    select users.source,users.timestamp,users.id,users.name,array_to_string(ARRAY(SELECT unnest(array_agg(distinct user_emails.email))), ',') as emails,users.fullname,profiles.profile_value as avatar from users
-    join user_emails on users.id=user_emails.user_id
-    join profiles on users.id=profiles.user_id
-    join users_in_workspaces as w1 on users.id=w1.user_id
-    join users_in_workspaces as w2 on w1.workspace_id=w2.workspace_id
+    log.debug('users/list')
+    const rows = (await pool.query<UserWithEmail>(`select distinct on (users.id,user_emails.email) id,name,fullname,users.timestamp,profile_value as avatar,users.source,user_emails.email from users
+    left join user_emails on users.id=user_emails.user_id
+    left join profiles on users.id=profiles.user_id
+    left join contacts on contacts.contact_id=users.id
+    where profiles.profile_name='avatar' and (contacts.user_id=$1 or users.id=$1);`, [myself])).rows;
+    const rows_from_ws = (await pool.query<UserWithEmail>(`select distinct on (users.id,user_emails.email) id,name,fullname,users.timestamp,profile_value as avatar,users.source,user_emails.email from users
+    left join user_emails on users.id=user_emails.user_id
+    left join profiles on users.id=profiles.user_id
+    left join contacts on contacts.contact_id=users.id
+    left join users_in_workspaces w1 on w1.user_id = users.id
+    left join users_in_workspaces w2 on w1.workspace_id = w2.workspace_id
     where w2.user_id=$1
-    group by w1.user_id;`, [myself])).rows;
-    const rows_myself = (await pool.query(`
-    select users.source,users.timestamp,users.id,users.name,array_to_string(ARRAY(SELECT unnest(array_agg(distinct user_emails.email))), ',') as emails,users.fullname,profiles.profile_value as avatar from users
-    join user_emails on users.id=user_emails.user_id
-    join profiles on users.id=profiles.user_id
-    where profiles.profile_name='avatar' and users.id=$1
-    group by users.id;`, [myself])).rows;
+    `, [myself])).rows;
     const online_users = await list_online_users();
-    const rows_all = rows.concat(rows_from_ws).concat(rows_myself);
-    const users = compact(await Promise.all(map(rows_all, async (row): Promise<User | null> => {
+    const rows_all = rows.concat(rows_from_ws);
+    const users = compact(await Promise.all(_.map(_.groupBy(rows_all, (r) => r.id), async (rows: UserWithEmail[]): Promise<User | null> => {
+        const row = rows[0];
         const user_id = row['id'];
         const pub = await get_public_key(user_id)
         const pk1 = pub ? pub.publicKey : undefined;
         const fingerprint = pk1 ? await fingerPrint(pk1) : undefined;
         // log.debug('model.list_users() publicKey', user_id, myself, pk1);
         const obj: User = {
-            emails: row['emails'].split(','),
+            emails: _.map(rows, 'email'),
             timestamp: row['timestamp'],
             username: row['name'] || row['id'],
             fullname: row['fullname'] || "",
@@ -140,6 +134,7 @@ export async function list(myself: string): Promise<User[]> {
         return obj;
 
     })));
+    log.debug(`${users.length} users.`)
     return users;
 }
 
@@ -174,7 +169,7 @@ export async function merge(db, users: UserSubset[]) {
                 if (old_id != new_id) {
                     await client.query('update comments set user_id=$1 where user_id=$2', [new_id, old_id]);
                     await client.query('select * from session_current_members where user_id');
-                    const rows = (await client.query("select session_id,array_to_string(ARRAY(SELECT unnest(array_agg(user_id))), ',') as uids,count(user_id) as uid_count from session_current_members where user_id in (?,?) group by session_id having uid_count > 1;",
+                    const rows = (await client.query("select session_id,string_agg(DISTINCT user_id, ',') as uids,count(user_id) as uid_count from session_current_members where user_id in (?,?) group by session_id having uid_count > 1;",
                         [new_id, old_id])).rows;
                     if (rows) {
                         const session_ids: string[] = map(rows, 'session_id');
@@ -255,11 +250,10 @@ export async function find_user_from_email(email: string): Promise<User | null> 
         return null;
     } else {
         const rows = (await pool.query<UserWithEmail>(`
-            select users.*,user_emails.email,profile_value from users
+            select distinct on (users.id) users.*,user_emails.email,profile_value from users
             join user_emails on users.id=user_emails.user_id
             join profiles on profiles.user_id=users.id
-            where user_emails.email=$1
-            group by users.id;`, [email])).rows;
+            where user_emails.email=$1;`, [email])).rows;
         if (rows.length > 0) {
             const row = rows[0];
             const user_id = row.id;
@@ -278,11 +272,11 @@ export async function find_user_from_email(email: string): Promise<User | null> 
 
 export async function find_from_username(username: string): Promise<User | null> {
     const rows = (await pool.query(`
-    select users.*,array_to_string(ARRAY(SELECT unnest(array_agg(distinct user_emails.email))), ',') as emails,profiles.profile_value from users
+    select users.*,string_agg(DISTINCT user_emails.email, ',') as emails,profiles.profile_value from users
     join user_emails on users.id=user_emails.user_id 
     join profiles on profiles.user_id=users.id 
     where users.name=$1 and profiles.profile_name='avatar'
-    group by users.id;`, [username])).rows;
+    group by users.id,users.timestamp,users.source,users.name,users.fullname,users.password,users.db_local_password,profiles.profile_value;`, [username])).rows;
     if (rows && rows[0]) {
         const row = rows[0];
         const user_id = row['id']
