@@ -64,29 +64,49 @@ export async function get_member_ids({ myself, session_id, only_registered = tru
     }
 }
 
-export async function get_session_of_members(user_id: string, members: string[], is_all: boolean): Promise<RoomInfo[]> {
-    log.info('get_session_of_members');
-    var s: string = sortedUniq(sortBy([user_id].concat(members))).join(",");
-    if (!is_all) {
-        s = '%' + s + '%';
-    }
-    // https://stackoverflow.com/questions/1897352/sqlite-group-concat-ordering
-    const q = "select id,name,timestamp,ms.visibility,string_agg(DISTINCT user_id, ',') members, string_agg(DISTINCT source, ',') as sources from (select s.*,m.* from sessions s join session_current_members m on s.id=m.session_id order by s.timestamp,m.user_id) ms group by id having members like $1 order by timestamp desc;"
-    const sessions = (await pool.query(q, [s])).rows;
-    const ss = map(sessions, (session) => {
-        const roles: SessionMemberSource[] = session.sources.split(',');
+export async function get_sessions_of_member(user_id: string, member_id: string): Promise<RoomInfo[]> {
+    const sessions = (await pool.query<{ id: string, timestamp: number, name: string, workspace: string, visibility?: SessionVisibility, member: string, source: SessionMemberSource }>(`
+    select s.id,s.timestamp,s.name,s.workspace,s.visibility,m.user_id member, m.source from sessions s
+    join session_current_members m on m.session_id=s.id
+    where (
+            s.visibility='public' or
+            (s.visibility='workspace' and
+                s.workspace in (select id from workspaces join users_in_workspaces on users_in_workspaces.workspace_id=workspaces.id where users_in_workspaces.user_id=$1)) or
+            s.id in (select id from sessions join session_current_members on sessions.id=session_current_members.session_id where user_id=$1))
+        and m.user_id=$2;`, [user_id, member_id])).rows;
+    const ss = map(_.groupBy(sessions, 'id'), (ss1) => {
+        const s1 = ss1[0];
+        const roles: SessionMemberSource[] = _.map(ss1, 'source');
         const owner_index = _.findIndex(roles, 'owner');
-        const members: string[] = session.members.split(",");
+        const members: string[] = _.map(ss1, 'member');
         var r: RoomInfo = {
-            id: session.id, name: session.name, timestamp: session.timestamp,
-            numMessages: s['count(timestamp)'], firstMsgTime: -1, lastMsgTime: -1, members,
+            id: s1.id, name: s1.name, timestamp: s1.timestamp,
+            numMessages: { '__total': -1 }, firstMsgTime: -1, lastMsgTime: -1, members,
             owner: owner_index != -1 ? members[owner_index] : '',
-            visibility: session.visibility
+            visibility: s1.visibility || 'private'
         };
         return r;
     });
     const ss_sorted = orderBy(ss, 'lastMsgTime', 'desc');
+    log.debug(`${ss_sorted.length} sessions.`)
     return ss_sorted;
+}
+
+export async function get_session_of_members(user_id: string, members: string[]): Promise<RoomInfo[]> {
+    log.info('get_session_of_members');
+    if (members.length == 0) {
+        return [];
+    }
+    if (members.length == 1) {
+        return get_sessions_of_member(user_id, members[0]);
+    } else {
+        const sessions_list = await Promise.all(_.map(members, (m) => get_sessions_of_member(user_id, m)));
+        let ss2 = sessions_list[0];
+        for (let ss of sessions_list) {
+            ss2 = _.intersectionBy(ss2, ss, (s) => s.id);
+        }
+        return orderBy(ss2, 'lastMsgTime', 'desc');
+    }
 }
 
 export async function update({ session_id, name }: { session_id: string, name: string }): Promise<{ ok: boolean, timestamp?: number }> {
@@ -211,11 +231,11 @@ export async function get(user_id: string, session_id: string): Promise<RoomInfo
 }
 
 
-export async function list(params: { user_id: string, of_members?: string[] | undefined, is_all: boolean, workspace_id?: string }): Promise<RoomInfo[]> {
-    const { user_id, of_members, is_all, workspace_id } = params;
+export async function list(params: { user_id: string, of_members?: string[] | undefined, workspace_id?: string }): Promise<RoomInfo[]> {
+    const { user_id, of_members, workspace_id } = params;
     log.debug(params);
     if (of_members) {
-        return get_session_of_members(user_id, of_members, is_all);
+        return get_session_of_members(user_id, of_members);
     }
     var hrstart = process.hrtime()
     const rows = (workspace_id ? await pool.query<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string, source?: string, visibility?: SessionVisibility }>(`
@@ -288,7 +308,7 @@ export async function list(params: { user_id: string, of_members?: string[] | un
     return ss_sorted;
 }
 
-type SessionMemberSource = 'owner' | 'added_by_member';
+type SessionMemberSource = 'owner' | 'added_by_member' | 'email_thread';
 
 async function add_member_internal({ session_id, user_id, source }: { session_id: string, user_id: string, source: SessionMemberSource }): Promise<boolean> {
     try {

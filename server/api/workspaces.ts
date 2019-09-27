@@ -72,7 +72,7 @@ router.get('/:id/sessions', (req: GetAuthRequest, res: JsonResponse<GetSessionsR
 
             const user_id = req.decoded.user_id;
             const workspace_id = req.params.id;
-            const data = await model.sessions.list({ user_id, workspace_id, is_all: false });
+            const data = await model.sessions.list({ user_id, workspace_id });
             res.json({ ok: data != null, data });
         } else {
             res.json({ ok: false });

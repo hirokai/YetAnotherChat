@@ -48,9 +48,8 @@ router.get('/', (req: GetAuthRequest, res: JsonResponse<GetSessionsResponse>, ne
     (async () => {
         const ms: string = req.query.of_members;
         const of_members: string[] | undefined = ms ? ms.split(",") : undefined;
-        const is_all: boolean = !(typeof req.query.is_all === 'undefined');
         const user_id: string = req.decoded.user_id;
-        const r = await model.sessions.list({ user_id, of_members, is_all });
+        const r = await model.sessions.list({ user_id, of_members });
         res.json({ ok: true, data: r });
     })().catch(next);
 });
