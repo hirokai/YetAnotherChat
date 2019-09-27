@@ -5,8 +5,8 @@ import * as bunyan from 'bunyan';
 const log = bunyan.createLogger({ name: "model.workspaces", src: true, level: 1 });
 
 export async function list(user_id: string): Promise<Workspace[]> {
-    const rows = (await pool.query<{ id: string, user_id: string, name: string, metadata: string, visibility?: WorkspaceVisibility }>('select w.*,u2.user_id,u2.metadata from workspaces as w join users_in_workspaces as u on w.id=u.workspace_id join users_in_workspaces as u2 on w.id=u2.workspace_id where u.user_id=$1;', [user_id])).rows;
-    const rows_public = (await pool.query<{ id: string, user_id: string, name: string, metadata: string, visibility?: WorkspaceVisibility }>("select w.*,u.user_id,u.metadata from workspaces as w join users_in_workspaces as u on w.id=u.workspace_id where w.visibility='public';")).rows;
+    const rows = (await pool.query<{ id: string, user_id: string, name: string, metadata: string, visibility?: WorkspaceVisibility }>('select w.*,u2.user_id,u2.metadata from workspaces w join users_in_workspaces u on w.id=u.workspace_id join users_in_workspaces as u2 on w.id=u2.workspace_id where u.user_id=$1;', [user_id])).rows;
+    const rows_public = (await pool.query<{ id: string, user_id: string, name: string, metadata: string, visibility?: WorkspaceVisibility }>("select w.*,u.user_id,u.metadata from workspaces w join users_in_workspaces u on w.id=u.workspace_id where w.visibility='public';")).rows;
     const wss: Workspace[] = _.chain(rows.concat(rows_public)).groupBy('id').values().map((vs) => {
         const metadata: { [key: string]: UserInWorkspaceMetadata } = _.fromPairs(_.compact(_.map(vs, (v): [string, UserInWorkspaceMetadata] | null => {
             try {

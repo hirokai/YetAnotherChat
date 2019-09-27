@@ -71,7 +71,7 @@ export async function get_session_of_members(user_id: string, members: string[],
         s = '%' + s + '%';
     }
     // https://stackoverflow.com/questions/1897352/sqlite-group-concat-ordering
-    const q = "select id,name,timestamp,source,s.visibility,string_agg(DISTINCT user_id, ',') as members, string_agg(DISTINCT source, ',') as sources, from (select s.*,m.user_id from sessions as s join session_current_members as m on s.id=m.session_id order by s.timestamp,m.user_id) group by id having members like $1 order by timestamp desc;"
+    const q = "select id,name,timestamp,ms.visibility,string_agg(DISTINCT user_id, ',') members, string_agg(DISTINCT source, ',') as sources from (select s.*,m.* from sessions s join session_current_members m on s.id=m.session_id order by s.timestamp,m.user_id) ms group by id having members like $1 order by timestamp desc;"
     const sessions = (await pool.query(q, [s])).rows;
     const ss = map(sessions, (session) => {
         const roles: SessionMemberSource[] = session.sources.split(',');
@@ -111,19 +111,19 @@ export async function list_comments(for_user: string, session_id?: string, user_
     var func;
     if (session_id && !user_id) {
         func = () => {
-            pool.query('select * from comments where session_id=$1 and for_user=$2 and timestamp>$3 order by timestamp;', [session_id, for_user, time_after]);
+            return pool.query('select * from comments where session_id=$1 and for_user=$2 and timestamp>$3 order by timestamp;', [session_id, for_user, time_after]);
         };
     } else if (!session_id && user_id) {
         func = () => {
-            pool.query('select * from comments where user_id=$1 and for_user=$2 and timestamp>$3 order by timestamp;', [user_id, for_user, time_after]);
+            return pool.query('select * from comments where user_id=$1 and for_user=$2 and timestamp>$3 order by timestamp;', [user_id, for_user, time_after]);
         }
     } else if (session_id && user_id) {
         func = () => {
-            pool.query('select * from comments where session_id=$1 and user_id=$2 and for_user=$3 and timestamp>$4 order by timestamp;', [session_id, user_id, for_user, time_after]);
+            return pool.query('select * from comments where session_id=$1 and user_id=$2 and for_user=$3 and timestamp>$4 order by timestamp;', [session_id, user_id, for_user, time_after]);
         }
     } else {
         func = () => {
-            pool.query('select * from comments and for_user=$1 and timestamp>$2 order by timestamp;', [for_user, time_after]);
+            return pool.query('select * from comments and for_user=$1 and timestamp>$2 order by timestamp;', [for_user, time_after]);
         }
     }
 
@@ -134,7 +134,7 @@ export async function list_comments(for_user: string, session_id?: string, user_
         const rows = (await func()).rows;
         const res1 = map(rows, processRow);
         if (session_id) {
-            const rows2 = (await pool.query('select * from session_events where session_id=$1 and for_user=$2;', [session_id, user_id])).rows;
+            const rows2 = (await pool.query('select * from session_events where session_id=$1;', [session_id])).rows;
             const res2 = map(rows2, (r) => {
                 r.kind = "event";
                 return r;
