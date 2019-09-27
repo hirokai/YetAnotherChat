@@ -217,6 +217,7 @@ export async function list(params: { user_id: string, of_members?: string[] | un
     if (of_members) {
         return get_session_of_members(user_id, of_members, is_all);
     }
+    var hrstart = process.hrtime()
     const rows = (workspace_id ? await pool.query<{ id: string, user_id: string, name: string, timestamp: number, workspace?: string, source?: string, visibility?: SessionVisibility }>(`
             select s.*,m2.* from sessions as s
             join session_current_members as m on s.id=m.session_id
@@ -259,7 +260,7 @@ export async function list(params: { user_id: string, of_members?: string[] | un
         });
         count['__total'] = sum(values(count)) || 0;
         const info = { count, first, last };
-        // log.info(info);
+        // const info = { count: { '__total': 0 }, first: 0, last: 0 };
         infos.push(info);
     }
     const ss: RoomInfo[] = compact(map(zip(sessions, infos), ([s, info]) => {
@@ -282,6 +283,8 @@ export async function list(params: { user_id: string, of_members?: string[] | un
         }
     }));
     const ss_sorted = orderBy(ss, 'lastMsgTime', 'desc');
+    const hrend = process.hrtime(hrstart);
+    log.debug(hrend);
     return ss_sorted;
 }
 
@@ -351,7 +354,10 @@ async function post_comment_for_each(
             await pool.query(`insert into comments (
                                     id,user_id,comment,for_user,encrypt,timestamp,session_id,original_url,sent_to,source,encrypt_group,fingerprint_from,fingerprint_to
                                     ) values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13);`, [_comment_id, user_id, comment, for_user, encrypt, timestamp, session_id, original_url, sent_to, source, encrypt_group, fp_from, fp_to]);
-            await pool.query('insert or ignore into session_current_members (session_id,user_id) values ($1,$2)', [session_id, user_id]);
+            const row = (await pool.query('select 1 from session_current_members where session_id=$1 and user_id=$2', [session_id, user_id])).rows[0];
+            if (!row) {
+                await pool.query('insert into session_current_members (session_id,user_id) values ($1,$2)', [session_id, user_id]);
+            }
             const data: CommentTyp = {
                 id: _comment_id, timestamp: timestamp, user_id, comment: comment, session_id, original_url, sent_to, source: source, kind: "comment", encrypt,
                 fingerprint: { from: fp_from, to: fp_to }

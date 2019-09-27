@@ -90,7 +90,7 @@ window['importKey'] = crypto.importKey;
         const users = await model.users.list().catch(() => []);
         const ps = map(values(users), model.users.toClient);
         const usersClient = await Promise.all(ps);
-        console.log('Feeding users', usersClient);
+        console.log(`Feeding ${usersClient.length} users`);
         app.ports.feedUsers.send(usersClient);
     });
 
@@ -273,7 +273,7 @@ window['importKey'] = crypto.importKey;
     app.ports.initializeData.subscribe(async () => {
         model.users.list().then(async (us) => {
             Promise.all(map(us, model.users.toClient)).then((users) => {
-                console.log('Feeding users', users);
+                console.log(`Feeding ${users.length} users`);
                 app.ports.feedUsers.send(users);
             })
         });
@@ -337,8 +337,9 @@ window['importKey'] = crypto.importKey;
     });
 
     function getAndfeedRoomInfo() {
+        console.log('Loading sessions...');
         model.sessions.list().then((rooms) => {
-            // console.log(rooms);
+            console.log(`Feeding ${rooms.length} sessions`);
             app.ports.feedRoomInfo.send(rooms);
         });
     }

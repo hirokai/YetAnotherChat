@@ -9,7 +9,6 @@ shortid_.characters('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVW
 export const shortid = shortid_.generate;
 
 import { Pool, Client } from 'pg';
-
 export let pool: Pool;
 export let client: Client;
 

@@ -461,16 +461,16 @@ export class Model {
         list: async (): Promise<RoomInfoClient[]> => {
             const { data: { data: rooms } }: AxiosResponse<GetSessionsResponse> = await axios.get('/api/sessions');
             const infos: RoomInfoClient[] = [];
-            for (let room of rooms || []) {
-                let room_cache = await this.sessions.load(room.id);
-                const info = this.sessions.toClient(room);
-                if (!room_cache) {
-                    room_cache = { id: room.id };
-                }
-                room_cache.info = info;
-                infos.push(info);
-                await this.sessions.save(room.id, room_cache);
+            let room_cache = await this.sessions.loadDb();
+            if (!room_cache) {
+                room_cache = {};
             }
+            for (let room of rooms || []) {
+                const info = this.sessions.toClient(room);
+                room_cache[room.id].info = info;
+                infos.push(info);
+            }
+            await this.sessions.saveDb(room_cache);
             return infos;
         },
         list_in_workspace: async (workspace_id: string) => {

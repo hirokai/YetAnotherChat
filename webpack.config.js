@@ -47,7 +47,7 @@ module.exports = env => {
                 exclude: [/elm-stuff/, /node_modules/],
                 use: {
                     loader: 'elm-webpack-loader',
-                    options: { optimize: mode == 'production' }
+                    options: { optimize: mode == 'production', debug: mode != 'production' }
                 },
             }, {
                 // 拡張子 .ts の場合
