@@ -12,112 +12,124 @@ import baseX from 'base-x';
 const bs58 = baseX(BASE58);
 jest.setTimeout(3000);
 import * as bunyan from 'bunyan';
+import { random } from 'lodash-es'
 const log = bunyan.createLogger({ name: "model.users.test", level: 1 });
 
-beforeEach(done => {
-    return new Promise(async (resolve, reject) => {
-        await exec('psql -d test < server/schema.sql');
-        await connectToDB('test');
+describe('Users tests', () => {
+
+    beforeEach(done => {
+        return new Promise(async (resolve, reject) => {
+            await exec('psql -d test < server/schema.sql');
+            await connectToDB('test');
+            done();
+        });
+    });
+
+    beforeEach(done => {
+        return new Promise(async (resolve, reject) => {
+            await exec('psql -d test < server/schema.sql');
+            await connectToDB('test');
+            done();
+        });
+    });
+
+    test('Get by random ID should be null', async done => {
+        const user_id = shortid();
+        expect(user_id).toEqual(expect.anything());
+        const user = await model.users.get(user_id);
+        expect(user).toBeNull();
         done();
     });
-});
 
-test('Get by random ID should be null', async done => {
-    const user_id = shortid();
-    expect(user_id).toEqual(expect.anything());
-    const user = await model.users.get(user_id);
-    expect(user).toBeNull();
-    done();
-});
+    test('Add and get', async done => {
+        const user = await register();
+        const user2 = await model.users.get(user.id);
+        expect(user2).toEqual(user);
+        done();
+    });
 
-test('Add and get', async done => {
-    const user = await register();
-    const user2 = await model.users.get(user.id);
-    expect(user2).toEqual(user);
-    done();
-});
+    test('Get by name multiple times', async done => {
+        const user = await register();
+        const user2 = await model.users.find_from_username(user.username);
+        expect(user2).toEqual(user);
+        if (user2) {
+            const user3 = await model.users.find_from_username(user2.username);
+            expect(user3).toEqual(user);
+        }
+        done();
+    });
 
-test('Get by name multiple times', async done => {
-    const user = await register();
-    const user2 = await model.users.find_from_username(user.username);
-    expect(user2).toEqual(user);
-    if (user2) {
-        const user3 = await model.users.find_from_username(user2.username);
+    test('Email must be unique', async () => {
+        const username = 'Sato' + Math.floor(Math.random() * 100000);
+        const password = random_str(16);
+        const email = random_str(8) + '@' + random_str(4) + '.com'
+        const user = await register({ username: username, password: password, email });
+        expect(user).toEqual(expect.anything());
+        log.debug(user);
+        const username2 = 'Tanaka' + Math.floor(Math.random() * 100000);
+        const password2 = random_str(16);
+        await expect(register({ username: username2, password: password2, email })).rejects.toThrow();
+    });
+
+    test('Get by email multiple times', async done => {
+        const username = 'Sato' + Math.floor(Math.random() * 100000);
+        const password = random_str(16);
+        const source = 'self_register';
+        const email = '' + Math.floor(Math.random() * 100000) + '@gmail.com';
+        const { ok, user, error } = await model.users.register({ username, password, email, source });
+        if (!user) {
+            throw new Error('User error');
+        }
+        const user2 = await model.users.find_user_from_email(user.emails[0]).catch(() => null);
+        const user3 = await model.users.find_user_from_email(user.emails[0]).catch(() => null);
+        expect(user2).toEqual(user);
         expect(user3).toEqual(user);
-    }
-    done();
-});
+        done();
+    });
 
-test('Email must be unique', async () => {
-    const username = 'Sato' + Math.floor(Math.random() * 100000);
-    const password = random_str(16);
-    const email = random_str(8) + '@' + random_str(4) + '.com'
-    const user = await register({ username: username, password: password, email });
-    expect(user).toEqual(expect.anything());
-    log.debug(user);
-    const username2 = 'Tanaka' + Math.floor(Math.random() * 100000);
-    const password2 = random_str(16);
-    await expect(register({ username: username2, password: password2, email })).rejects.toThrow();
-});
+    test('List', async done => {
+        const username = 'Sato' + Math.floor(Math.random() * 100000);
+        const password = 'Hoge';
+        const source = 'self_register';
+        const email = '' + Math.floor(Math.random() * 100000) + '@gmail.com';
+        const user = await register({ username, password, email, source });
+        const username2 = 'Tanaka' + Math.floor(Math.random() * 100000);
+        const email2 = '' + Math.floor(Math.random() * 100000) + '@gmail.com';
+        const user2 = await register({ username: username2, password, email: email2, source });
+        await model.users.add_to_contact(user.id, user.id);
+        await model.users.add_to_contact(user.id, user2.id);
+        const users = await model.users.list(user.id).catch(() => []);
+        expect(users).toHaveLength(2);
+        done();
+    });
 
-test('Get by email multiple times', async done => {
-    const username = 'Sato' + Math.floor(Math.random() * 100000);
-    const password = random_str(16);
-    const source = 'self_register';
-    const email = '' + Math.floor(Math.random() * 100000) + '@gmail.com';
-    const { ok, user, error } = await model.users.register({ username, password, email, source });
-    if (!user) {
-        throw new Error('User error');
-    }
-    const user2 = await model.users.find_user_from_email(user.emails[0]).catch(() => null);
-    const user3 = await model.users.find_user_from_email(user.emails[0]).catch(() => null);
-    expect(user2).toEqual(user);
-    expect(user3).toEqual(user);
-    done();
-});
+    test('User config', async () => {
+        const username = 'Sato' + Math.floor(Math.random() * 100000);
+        const password = random_str(16);
+        const source = 'self_register';
+        const email = '' + Math.floor(Math.random() * 100000) + '@gmail.com';
+        const user = await register({ username, password, email, source });
+        const key = 'avatar';
+        const value = '/public/img/test.png';
+        const L = 10;
+        const kvs = _.fromPairs(_.map(_.range(L), () => { return [random_str(100), random_str(100)]; }));
+        const oks: boolean[] = [];
+        for (let [k, v] of _.toPairs(kvs)) {
+            const { ok } = await model.users.set_user_config(user.id, k, v);
+            oks.push(ok);
+        }
+        expect(_.every(oks)).toBeTruthy();
+        log.debug(oks);
+        const cs = await model.users.get_user_config(user.id);
 
-test('List', async done => {
-    const username = 'Sato' + Math.floor(Math.random() * 100000);
-    const password = 'Hoge';
-    const source = 'self_register';
-    const email = '' + Math.floor(Math.random() * 100000) + '@gmail.com';
-    const user = await register({ username, password, email, source });
-    const username2 = 'Tanaka' + Math.floor(Math.random() * 100000);
-    const email2 = '' + Math.floor(Math.random() * 100000) + '@gmail.com';
-    const user2 = await register({ username: username2, password, email: email2, source });
-    await model.users.add_to_contact(user.id, user.id);
-    await model.users.add_to_contact(user.id, user2.id);
-    const users = await model.users.list(user.id).catch(() => []);
-    expect(users).toHaveLength(2);
-    done();
-});
-
-test('User config', async () => {
-    const username = 'Sato' + Math.floor(Math.random() * 100000);
-    const password = random_str(16);
-    const source = 'self_register';
-    const email = '' + Math.floor(Math.random() * 100000) + '@gmail.com';
-    const user = await register({ username, password, email, source });
-    const key = 'avatar';
-    const value = '/public/img/test.png';
-    const L = 10;
-    const kvs = _.fromPairs(_.map(_.range(L), () => { return [random_str(100), random_str(100)]; }));
-    const oks: boolean[] = [];
-    for (let [k, v] of _.toPairs(kvs)) {
-        const { ok } = await model.users.set_user_config(user.id, k, v);
-        oks.push(ok);
-    }
-    expect(_.every(oks)).toBeTruthy();
-    log.debug(oks);
-    const cs = await model.users.get_user_config(user.id);
-
-    expect(cs).toHaveLength(L + 2); //username, email ToDo: Remove these.
-    const oks2 = await Promise.all(_.map(kvs, async (v, k) => {
-        const { ok } = await model.users.set_user_config(user.id, k, v);
-        return ok;
-    }));
-    expect(_.every(oks2)).toBeTruthy();
-    expect(cs).toHaveLength(L + 2); //username, email ToDo: Remove these.
+        expect(cs).toHaveLength(L + 2); //username, email ToDo: Remove these.
+        const oks2 = await Promise.all(_.map(kvs, async (v, k) => {
+            const { ok } = await model.users.set_user_config(user.id, k, v);
+            return ok;
+        }));
+        expect(_.every(oks2)).toBeTruthy();
+        expect(cs).toHaveLength(L + 2); //username, email ToDo: Remove these.
+    });
 });
 
 describe('Password', () => {
@@ -150,6 +162,13 @@ describe('Password', () => {
 });
 
 describe('Profiles', () => {
+    beforeEach(done => {
+        return new Promise(async (resolve, reject) => {
+            await exec('psql -d test < server/schema.sql');
+            await connectToDB('test');
+            done();
+        });
+    });
     test('Set and get profiles', async () => {
         const user = await register();
         const profile = await model.users.get_profile(user.id);
@@ -205,6 +224,13 @@ describe('Socket', () => {
 })
 
 describe('Contacts', () => {
+    beforeAll(done => {
+        return new Promise(async (resolve, reject) => {
+            await exec('psql -d test < server/schema.sql');
+            await connectToDB('test');
+            done();
+        });
+    });
     test('Invisible before contact addition', async done => {
         const me = await register();
         const u2 = await register();
@@ -282,11 +308,34 @@ describe('Pwned password', () => {
     });
 })
 
-// describe.only('Email', () => {
-//     test('stub', () => {
 
-//     });
-// });
+describe('Password reset', () => {
+    test('Generate and remove token', async done => {
+        const user = await register();
+        const { token, expiresAt } = await model.users.make_password_reset_token(user);
+        let u2 = await model.users.get_user_for_reset_password_token(token);
+        expect(u2).toEqual(user);
+        await model.users.remove_password_reset_token(token);
+        u2 = await model.users.get_user_for_reset_password_token(token);
+        expect(u2).toBeNull();
+        done();
+    });
+
+    test('Execute resetting password', async done => {
+        const password = random_str(16);
+        const user = await register({ password });
+        const new_password = random_str(16);
+        expect(model.users.match_password(user.username, password)).resolves.toBe(true);
+        expect(model.users.match_password(user.username, new_password)).resolves.toBe(false);
+        const { token, expiresAt } = await model.users.make_password_reset_token(user);
+        await model.users.reset_password_from_link(token, new_password);
+        let u2 = await model.users.get_user_for_reset_password_token(token);
+        expect(u2).toBeNull();
+        expect(model.users.match_password(user.username, password)).resolves.toBe(false);
+        expect(model.users.match_password(user.username, new_password)).resolves.toBe(true);
+        done();
+    });
+})
 
 /*
 test('Merge', async () => {

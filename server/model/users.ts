@@ -84,11 +84,6 @@ export async function join_workspace(myself: string, workspace: string) {
     return true;
 }
 
-export async function get_workspace_member_ids(workspace_id: string): Promise<string[]> {
-    const rows = (await pool.query<{ user_id: string }>('select * from users_in_workspaces where workspace_id=$1;', [workspace_id])).rows;
-    return map(rows, 'user_id');
-}
-
 export async function add_to_contact(myself: string, contact: string) {
     const timestamp = new Date().getTime()
     await pool.query('insert into contacts (user_id,contact_id,timestamp,source) values ($1,$2,$3,$4);', [myself, contact, timestamp, 'manual']);
@@ -152,7 +147,7 @@ export async function get_user_password_hash(user_id: string): Promise<string | 
     }
 }
 
-export async function merge(db, users: UserSubset[]) {
+export async function merge(users: UserSubset[]) {
     const merge_to_user: UserSubset = orderBy(users, (u) => {
         return (u.fullname ? 100 : 0) + (u.username ? 50 : 0);
     }, 'desc')[0];

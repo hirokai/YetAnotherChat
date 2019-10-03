@@ -3,7 +3,6 @@
 const fs = require('fs');
 const glob = require('glob');
 import * as _ from 'lodash';
-import { db } from '../server/model/utils'
 import * as model from '../server/model';
 import { update_db_on_mailgun_webhook } from '../server/model/mail_algo';
 
@@ -23,7 +22,7 @@ glob.glob('imported_data/mailgun/*.json', (err, files) => {
             console.log(grouped);
             _.map(grouped, async (vs, email) => {
                 if (vs && vs.length > 1) {
-                    model.users.merge(db, vs);
+                    model.users.merge(vs);
                 }
             });
         });
