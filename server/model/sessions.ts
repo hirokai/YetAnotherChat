@@ -308,7 +308,7 @@ export async function list(params: { user_id: string, of_members?: string[] | un
     return ss_sorted;
 }
 
-type SessionMemberSource = 'owner' | 'added_by_member' | 'email_thread';
+type SessionMemberSource = 'owner' | 'added_by_member' | 'email_thread' | 'self_manual';
 
 async function add_member_internal({ session_id, user_id, source }: { session_id: string, user_id: string, source: SessionMemberSource }): Promise<boolean> {
     try {
@@ -319,7 +319,7 @@ async function add_member_internal({ session_id, user_id, source }: { session_id
     }
 }
 
-export async function join({ session_id, user_id, timestamp = -1, source }: { session_id: string, user_id: string, timestamp: number, source: string }): Promise<JoinSessionResponse> {
+export async function join({ session_id, user_id, timestamp = -1, source }: { session_id: string, user_id: string, timestamp: number, source: SessionMemberSource }): Promise<JoinSessionResponse> {
     log.info('join_session source', source, user_id);
     if (!session_id || !user_id) {
         return { ok: false };
@@ -392,17 +392,17 @@ async function post_comment_for_each(
     }
 }
 
-export async function create(user_id: string, name: string, members: string[], workspace?: string): Promise<RoomInfo> {
+export async function create(user_id: string, name: string, members: string[], visibility: SessionVisibility, workspace?: string): Promise<RoomInfo> {
     const session_id = shortid();
-    return create_session_with_id(user_id, session_id, name, members, workspace);
+    return create_session_with_id(user_id, session_id, name, members, visibility, workspace);
 }
 
-export async function create_session_with_id(user_id: string, session_id: string, name: string, members: string[], workspace?: string): Promise<RoomInfo> {
+export async function create_session_with_id(user_id: string, session_id: string, name: string, members: string[], visibility: SessionVisibility, workspace?: string): Promise<RoomInfo> {
     const timestamp = new Date().getTime();
     if (workspace) {
-        await pool.query('insert into sessions (id, name, timestamp,workspace) values ($1,$2,$3,$4);', [session_id, cipher(name), timestamp, workspace]);
+        await pool.query('insert into sessions (id, name, timestamp,workspace,visibility) values ($1,$2,$3,$4,$5);', [session_id, cipher(name), timestamp, workspace, visibility]);
     } else {
-        await pool.query('insert into sessions (id, name, timestamp) values ($1,$2,$3);', [session_id, cipher(name), timestamp]);
+        await pool.query('insert into sessions (id, name, timestamp,visibility) values ($1,$2,$3,$4);', [session_id, cipher(name), timestamp, visibility]);
     }
     await add_member_internal({ session_id, user_id, source: 'owner' });
     for (let m of members) {

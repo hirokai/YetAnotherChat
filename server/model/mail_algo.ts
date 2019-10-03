@@ -368,7 +368,7 @@ export async function update_db_on_mailgun_webhook({ body, pool, myio, ignore_re
     if (session_id) {
         log.info('existing session', session_id);
     } else {
-        const r = await model.sessions.create(myself.id, replies[0].subject, [], workspace ? workspace.id : undefined);
+        const r = await model.sessions.create(myself.id, replies[0].subject, [], 'private', workspace ? workspace.id : undefined);
         session_id = r ? r.id : null;
         log.info('new session', session_id);
         if (myio) {

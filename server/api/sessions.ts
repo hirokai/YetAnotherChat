@@ -69,7 +69,7 @@ router.post('/join', (req: PostRequest<JoinSessionParam>, res: JsonResponse<Join
     (async () => {
         const session_id = req.body.session_id;
         const myself = req.decoded.user_id;
-        const source = 'manual';
+        const source = 'self_manual';
         const timestamp = new Date().getTime();
         const r: JoinSessionResponse = await model.sessions.join({ session_id, user_id: req.decoded.user_id, source, timestamp });
         res.json(r);
@@ -206,7 +206,7 @@ export async function post_session(user_id: string, temporary_id: string, name: 
     try {
         if (name && members) {
             log.debug(name, members);
-            const data = await model.sessions.create(user_id, name, members, workspace);
+            const data = await model.sessions.create(user_id, name, members, 'private', workspace);
             const obj: SessionsNewSocket = {
                 __type: 'sessions.new',
                 temporary_id,

@@ -28,17 +28,17 @@ describe('Sessions', () => {
     test('Create and list', async done => {
         const myself = await register();
         const other = await register();
-        var s = await sessions.create(myself.id, random_str(30), []);
+        var s = await sessions.create(myself.id, random_str(30), [], 'private');
         expect(s).not.toBeNull();
         log.debug(s);
         var ss = await sessions.list({ user_id: myself.id });
         expect(ss).toHaveLength(1)
-        s = await sessions.create(myself.id, random_str(30), []);
+        s = await sessions.create(myself.id, random_str(30), [], 'private');
         const ms = await sessions.get_member_ids({ myself: myself.id, session_id: s.id });
         expect(ms).toContain(myself.id);
         ss = await sessions.list({ user_id: myself.id });
         expect(ss).toHaveLength(2)
-        s = await sessions.create(other.id, random_str(30), []);
+        s = await sessions.create(other.id, random_str(30), [], 'private');
         ss = await sessions.list({ user_id: myself.id });
         expect(ss).toHaveLength(2)
         ss = await sessions.list({ user_id: other.id });
@@ -49,7 +49,7 @@ describe('Sessions', () => {
     test('Create and delete session', async done => {
         const myself = await register();
         const other = await register();
-        var s = await sessions.create(myself.id, random_str(30), [other.id]);
+        var s = await sessions.create(myself.id, random_str(30), [other.id], 'private');
         let r = (await pool.query('select * from sessions;')).rows;
         expect(r).toHaveLength(1);
 
@@ -81,9 +81,9 @@ describe('Sessions', () => {
         const myself = await register();
         const other = await register();
 
-        var s = await sessions.create(myself.id, random_str(30), []);
+        var s = await sessions.create(myself.id, random_str(30), [], 'private');
         var timestamp = new Date().getTime();
-        await sessions.join({ session_id: s.id, user_id: other.id, timestamp, source: 'manual_join' });
+        await sessions.join({ session_id: s.id, user_id: other.id, timestamp, source: 'added_by_member' });
         const ms = await sessions.get_members({ myself: myself.id, session_id: s.id });
         expect(ms).toHaveLength(2);
         done();
@@ -91,7 +91,7 @@ describe('Sessions', () => {
 
     test('List comments', async done => {
         const myself = await register();
-        var s = await sessions.create(myself.id, random_str(30), []);
+        var s = await sessions.create(myself.id, random_str(30), [], 'private');
         var timestamp = new Date().getTime();
         const comments = _.map([myself.id], (uid) => { return { for_user: uid, content: 'Hoge' } });
         const p: PostCommentModelParams = {
@@ -111,7 +111,7 @@ describe('Sessions', () => {
     test('Add and delete comments', async done => {
         const myself = await register();
 
-        var s = await sessions.create(myself.id, random_str(30), []);
+        var s = await sessions.create(myself.id, random_str(30), [], 'private');
         var timestamp = new Date().getTime();
         const comments = _.map([myself.id], (uid) => { return { for_user: uid, content: 'Hoge' } });
         const p: PostCommentModelParams = {
