@@ -39,7 +39,7 @@ export async function get(user_id: string, workspace_id: string): Promise<Worksp
         return { id: vs[0].id, name: vs[0].name, members: _.map(vs, 'user_id'), owner, visibility: vs[0].visibility || 'private' };
     }).value();
     log.info(wss);
-    return wss[0];
+    return wss[0] || null;
 }
 
 export async function create(user_id: string, name: string, members: string[]): Promise<{ ok: boolean, error?: string, data?: Workspace }> {
