@@ -27,7 +27,7 @@ sessionViewLoading sid model =
                 [ leftMenu model
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10", id "chatroom_body" ]
                     [ topPane model
-                    , div [ id "chat-body", classList [ ( "row", True ), ( "input_expanded", model.chatPageStatus.expandChatInput ), ( "toppane_expanded", model.chatPageStatus.topPaneExpanded ) ], attribute "data-session_id" sid ]
+                    , div [ id "chat-body", classList [ ( "row", True ), ( "input_expanded", model.chatPageStatus.expandChatInput ), ( "toppane_expanded", model.chatPageStatus.topPaneExpanded ), ( "show_toppane", model.localConfig.show_toppane ) ], attribute "data-session_id" sid ]
                         [ div [ class "col-md-12 col-lg-12", id "chat-outer" ]
                             [ text "Loading..."
                             ]

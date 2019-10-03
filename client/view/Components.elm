@@ -1,4 +1,4 @@
-module Components exposing (iconOfUser, leftMenu, makeLinkToOriginal, mkPeoplePanel, mkWorkspacePanel, onKeyDown, ourFormatter, sdgIcon, showChannels, showSource, showVisibility, smallMenu, topPane, updateRoomName)
+module Components exposing (iconOfUser, leftMenu, makeLinkToOriginal, mkPeoplePanel, mkWorkspacePanel, onKeyDown, ourFormatter, sdgIcon, showChannels, showDate, showSource, showVisibility, smallMenu, topPane, updateRoomName)
 
 import DateFormat
 import Dict exposing (Dict)
@@ -196,7 +196,7 @@ leftMenu model =
                             showUsers model
 
                         WorkspacePage _ ->
-                            showWorkspaces model
+                            showWorkspacesAndSessions model
 
                         WorkspaceListPage ->
                             showWorkspaces model
@@ -213,7 +213,7 @@ leftMenu model =
 
 showWorkspaces : Model -> List (Html Msg)
 showWorkspaces model =
-    [ div [] [ text "ワークスペース一覧" ]
+    [ div [ class "menu-section-title" ] [ text "ワークスペース一覧" ]
     , ul [ class "menu-list" ] <|
         List.indexedMap
             (\i w ->
@@ -222,7 +222,7 @@ showWorkspaces model =
                     , div
                         [ classList [ ( "chatlist-name", True ), ( "clickable", True ), ( "current", WorkspacePage w.id == model.page || WorkspaceEditPage w.id == model.page ) ]
                         ]
-                        [ a [ href <| "#/workspaces/" ++ w.id ] [ text <| String.fromInt (i + 1) ++ ": " ++ w.name ++ " (" ++ (String.fromInt <| List.length w.members) ++ ")" ]
+                        [ a [ href <| "#/workspaces/" ++ w.id ] [ text <| String.fromInt (i + 1) ++ ": " ++ w.name ++ " (" ++ (String.fromInt <| List.length w.members) ++ "人)" ]
                         ]
                     ]
             )
@@ -230,13 +230,35 @@ showWorkspaces model =
     ]
 
 
-showChannels : Model -> List (Html Msg)
-showChannels model =
-    [ div [] [ text "セッション一覧" ]
+showWorkspacesAndSessions : Model -> List (Html Msg)
+showWorkspacesAndSessions model =
+    [ div [ class "menu-section-title" ] [ text "ワークスペース一覧" ]
+    , ul [ class "menu-list" ] <|
+        List.indexedMap
+            (\i w ->
+                li []
+                    [ hr [] []
+                    , div
+                        [ classList [ ( "chatlist-name", True ), ( "clickable", True ), ( "current", WorkspacePage w.id == model.page || WorkspaceEditPage w.id == model.page ) ]
+                        ]
+                        [ a [ href <| "#/workspaces/" ++ w.id ] [ text <| String.fromInt (i + 1) ++ ": " ++ w.name ++ " (" ++ (String.fromInt <| List.length w.members) ++ "人)" ]
+                        ]
+                    ]
+            )
+            (List.sortBy (\w -> 0 - List.length w.members) (Dict.values model.workspaces))
+    , div [ class "menu-section-title" ] [ text "セッション一覧" ]
     , ul [ class "menu-list" ] <|
         let
+            ws =
+                case model.page of
+                    WorkspacePage w ->
+                        w
+
+                    _ ->
+                        ""
+
             sessions_sorted =
-                List.reverse <| List.sortBy (\s -> sessionLastUpdated s) (Dict.values model.sessions)
+                List.reverse <| List.sortBy (\s -> sessionLastUpdated s) <| List.filter (\s -> s.workspace == ws) (Dict.values model.sessions)
         in
         List.indexedMap
             (\i session ->
@@ -258,9 +280,41 @@ showChannels model =
     ]
 
 
+showChannels : Model -> List (Html Msg)
+showChannels model =
+    [ div [ class "menu-section-title" ] [ text "セッション一覧" ]
+    , ul [ class "menu-list" ] <|
+        let
+            sessions_sorted : List SessionInfo
+            sessions_sorted =
+                List.reverse <| List.sortBy (\s -> sessionLastUpdated s) (Dict.values model.sessions)
+
+            f : Int -> SessionInfo -> Html Msg
+            f i session =
+                li []
+                    [ hr [] []
+                    , div
+                        [ classList [ ( "chatlist-name", True ), ( "clickable", True ), ( "current", RoomPage session.id == model.page ) ]
+                        ]
+                        [ a [ href <| "#/sessions/" ++ session.id ] [ text <| String.fromInt (i + 1) ++ ": " ++ session.name ++ " (" ++ (Maybe.withDefault "-" <| Maybe.map String.fromInt <| Dict.get "__total" <| session.numMessages) ++ ")" ]
+                        , div [ class "chatlist-members" ] <|
+                            [ span [] [ text <| showDate model.timezone session.lastMsgTime ++ " " ] ]
+                                ++ (List.intersperse (text ",") <|
+                                        List.map (\u -> a [ class "chatlist-member clickable", href <| "#/users/" ++ u ] [ text (getUserName model u) ]) <|
+                                            session.members
+                                   )
+                        ]
+                    ]
+        in
+        List.indexedMap
+            f
+            sessions_sorted
+    ]
+
+
 showUsers : Model -> List (Html Msg)
 showUsers model =
-    [ div [] [ text "ユーザー一覧" ]
+    [ div [ class "menu-section-title" ] [ text "ユーザー一覧" ]
     , ul [ class "menu-list" ] <|
         List.indexedMap
             (\i u ->
@@ -332,6 +386,17 @@ ourFormatter zone t =
         , DateFormat.hourMilitaryNumber
         , DateFormat.text ":"
         , DateFormat.minuteFixed
+        ]
+        zone
+        (Time.millisToPosix t)
+
+
+showDate : Zone -> Int -> String
+showDate zone t =
+    DateFormat.format
+        [ DateFormat.monthNumber
+        , DateFormat.text "/"
+        , DateFormat.dayOfMonthNumber
         ]
         zone
         (Time.millisToPosix t)
