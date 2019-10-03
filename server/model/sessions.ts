@@ -203,6 +203,10 @@ export async function get(user_id: string, session_id: string): Promise<RoomInfo
             select s.*,m.* from sessions as s
             join session_current_members as m on s.id=m.session_id
             where s.id=$1 order by s.timestamp desc;`, [session_id])).rows;
+    if (!rows[0]) {
+        log.info('Query returned 0 rows');
+        return null;
+    }
     const session = { id: rows[0].id, members: _.map(rows, (row) => { return { id: row.user_id, source: row.source }; }), name: rows[0].name, timestamp: rows[0].timestamp, workspace: rows[0].workspace, visibility: rows[0].visibility };
     const users = (await pool.query("select count(*),user_id,max(timestamp),min(timestamp) from comments where session_id=$1 and for_user=$2 group by user_id;", [session.id, user_id])).rows;
     const first = min(map(users, 'min(timestamp)')) || -1;
@@ -215,15 +219,32 @@ export async function get(user_id: string, session_id: string): Promise<RoomInfo
     });
     count['__total'] = sum(values(count)) || 0;
     const info = { count, first, last };
+    const session_member_ids = _.map(session.members, 'id');
     if (session.visibility == 'private' && !_.includes(_.map(session.members, 'id'), user_id)) {
         return null;
+    }
+    if (session.visibility == 'workspace') {
+        if (!session.workspace) {
+            return null;
+        }
+        if (!_.includes(session_member_ids, user_id)) {
+            const ws = await model.workspaces.get(user_id, session.workspace);
+            if (!ws) {
+                log.info('Workspace not found', user_id, session.workspace);
+                return null;
+            }
+            if (ws && !_.includes(ws.members, user_id)) {
+                log.info('Not a member of workspace nor session', user_id, session.workspace);
+                return null;
+            }
+        }
     }
     const owner = _.find(session.members, (m) => m.source == 'owner');
     if (!owner) {
         return null;
     } else {
         const obj: RoomInfo = {
-            id: session.id, name: decipher(session.name) || '', timestamp: session.timestamp, members: _.map(session.members, 'id'), numMessages: info.count, firstMsgTime: info.first, lastMsgTime: info.last, workspace: session.workspace,
+            id: session.id, name: decipher(session.name) || '', timestamp: session.timestamp, members: session_member_ids, numMessages: info.count, firstMsgTime: info.first, lastMsgTime: info.last, workspace: session.workspace,
             owner: owner.id, visibility: session.visibility || 'private'
         };
         return obj;
@@ -319,23 +340,32 @@ async function add_member_internal({ session_id, user_id, source }: { session_id
     }
 }
 
-export async function join({ session_id, user_id, timestamp = -1, source }: { session_id: string, user_id: string, timestamp: number, source: SessionMemberSource }): Promise<JoinSessionResponse> {
-    log.info('join_session source', source, user_id);
-    if (!session_id || !user_id) {
+export async function add_member({ user_id, session_id, added_user, timestamp = -1, source }: { user_id: string, session_id: string, added_user: string, timestamp: number, source: SessionMemberSource }): Promise<JoinSessionResponse> {
+    log.info('join_session source', source, added_user);
+    if (!session_id || !added_user) {
         return { ok: false };
+    }
+    const session = await model.sessions.get(user_id, session_id);
+    if (!session) {
+        return { ok: false, error: 'You do not have access to the session' }
+    }
+    if (user_id != added_user && (source == 'owner' || source == 'self_manual')) {
+        return { ok: false, error: 'Only myself can do it' }
+    } else if (source == 'added_by_member' && !_.includes(session.members, user_id)) {
+        return { ok: false, error: 'Only session members can add others' }
     }
     const ts: number = timestamp > 0 ? timestamp : new Date().getTime();
     const id: string = shortid();
-    const is_registered_user = (await users.get(user_id)) != null;
-    const members: string[] = await get_member_ids({ myself: user_id, session_id }) || [];
-    const is_member: boolean = includes(members, user_id);
+    const is_registered_user = (await users.get(added_user)) != null;
+    const members: string[] = await get_member_ids({ myself: added_user, session_id }) || [];
+    const is_member: boolean = includes(members, added_user);
     if (!is_registered_user) {
         return ({ ok: false, error: 'User ID invalid' })
     } else if (is_member) {
         return ({ ok: false, error: 'Already member' })
     } else {
-        await pool.query('insert into session_events (id,session_id,user_id,timestamp,action) values ($1,$2,$3,$4,$5);', [id, session_id, user_id, ts, 'join']);
-        await pool.query('insert into session_current_members (session_id,user_id,source) values ($1,$2,$3);', [session_id, user_id, source]);
+        await pool.query('insert into session_events (id,session_id,user_id,timestamp,action) values ($1,$2,$3,$4,$5);', [id, session_id, added_user, ts, 'join']);
+        await pool.query('insert into session_current_members (session_id,user_id,source) values ($1,$2,$3);', [session_id, added_user, source]);
         return { ok: true, data: { id, members } };
     }
 }

@@ -386,7 +386,7 @@ export async function update_db_on_mailgun_webhook({ body, pool, myio, ignore_re
     }
     let added_users: User[] = [];
     var results_comments: CommentTyp[] = [];
-    await model.sessions.join({ session_id, user_id: myself.id, timestamp: replies[replies.length - 1].timestamp, source: 'owner' });
+    await model.sessions.add_member({ session_id, user_id: myself.id, added_user: myself.id, timestamp: replies[replies.length - 1].timestamp, source: 'owner' });
     for (const [i, reply] of replies.entries()) {
         const timestamp = reply.timestamp || -1;
         const { name: fullname, email } = parse_email_address(reply.from);
@@ -407,7 +407,7 @@ export async function update_db_on_mailgun_webhook({ body, pool, myio, ignore_re
             }
             added_users.push(u);
             const url = (reply.message_id || replies[0].message_id) + '::lines=' + reply.lines.start + '-' + reply.lines.end;
-            const r1: JoinSessionResponse = await model.sessions.join({ session_id, user_id: u.id, timestamp, source: 'email_thread' });
+            const r1: JoinSessionResponse = await model.sessions.add_member({ session_id, user_id: myself.id, added_user: u.id, timestamp, source: 'email_thread' });
             log.info('update_db_on_mailgun_webhook', { session_id, user_id: u.id, fullname, email, 'data.from': reply.from, r1 });
             const comments = [{ for_user: myself.id, content: reply.comment }];
             const params: PostCommentModelParams = { user_id: u.id, session_id, timestamp, comments, original_url: url, source: "email", encrypt: 'none' };

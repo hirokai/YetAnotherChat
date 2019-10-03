@@ -42,10 +42,11 @@ export async function get(user_id: string, workspace_id: string): Promise<Worksp
     return wss[0] || null;
 }
 
-export async function create(user_id: string, name: string, members: string[]): Promise<{ ok: boolean, error?: string, data?: Workspace }> {
+export async function create(user_id: string, name: string, members: string[], visibility?: WorkspaceVisibility): Promise<{ ok: boolean, error?: string, data?: Workspace }> {
     const id = shortid();
     const timestamp = new Date().getTime();
-    const visibility: WorkspaceVisibility = 'private';
+    visibility = visibility != undefined ? visibility : 'private';
+    members = _.uniq(members.concat([user_id]));
     if (!_.includes(members, user_id)) {
         return { ok: false, error: 'Owner must be a member' }
     }
@@ -125,4 +126,24 @@ export async function remove(user_id: string, workspace_id: string): Promise<{ o
         }
     }
     return { ok: false };
+}
+
+export async function remove_all(user_id: string): Promise<{ ok: boolean }> {
+    const wss = await list(user_id);
+    let ok = true;
+    for (let ws of wss) {
+        if (ws.owner == user_id) {
+            try {
+                await client.query('begin');
+                await client.query('delete from users_in_workspaces where workspace_id=$1;', [ws.id]);
+                await client.query('delete from workspaces where id=$1;', [ws.id]);
+                await client.query('commit');
+            } catch{
+                await client.query('rollback');
+                ok = false;
+                break;
+            }
+        }
+    }
+    return { ok };
 }

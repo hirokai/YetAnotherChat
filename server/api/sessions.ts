@@ -71,7 +71,8 @@ router.post('/join', (req: PostRequest<JoinSessionParam>, res: JsonResponse<Join
         const myself = req.decoded.user_id;
         const source = 'self_manual';
         const timestamp = new Date().getTime();
-        const r: JoinSessionResponse = await model.sessions.join({ session_id, user_id: req.decoded.user_id, source, timestamp });
+        const user_id = req.decoded.user_id;
+        const r: JoinSessionResponse = await model.sessions.add_member({ session_id, user_id, added_user: user_id, source, timestamp });
         res.json(r);
         if (r.ok && r.data) {
             _.map(r.data.members.concat([myself]), async (m: string) => {

@@ -55,7 +55,7 @@
     "start": "npx ts-node server/index.ts",
     "forever": "sudo NODE_PRODUCTION=true PORT=80 forever -c node ./server/index.js",
     "forever:nohup": "nohup sudo NODE_PRODUCTION=true PORT=80 forever -c node ./server/index.js &",
-    "test": "npx jest --runInBand --silent --verbose"
+    "test": "npx jest --runInBand --silent --verbose --colors | ./node_modules/.bin/bunyan -l warn"
   },
   "version": "0.1.0",
   "devDependencies": {

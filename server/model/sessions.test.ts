@@ -83,7 +83,7 @@ describe('Sessions', () => {
 
         var s = await sessions.create(myself.id, random_str(30), [], 'private');
         var timestamp = new Date().getTime();
-        await sessions.join({ session_id: s.id, user_id: other.id, timestamp, source: 'added_by_member' });
+        await sessions.add_member({ session_id: s.id, user_id: myself.id, added_user: other.id, timestamp, source: 'added_by_member' });
         const ms = await sessions.get_members({ myself: myself.id, session_id: s.id });
         expect(ms).toHaveLength(2);
         done();
