@@ -17,6 +17,7 @@ import * as mail_algo from './model/mail_algo'
 import * as utils from './model/utils'
 import { router as api_routes } from './api'
 import { router as api_public_routes } from './api_public'
+import { router as api_webhook } from './webhook'
 import { init_socket, io } from './socket'
 import { jwt_verify } from './auth'
 import * as bunyan from 'bunyan';
@@ -158,10 +159,11 @@ app.get('/.well-known/acme-challenge/QGHcMRRCmxHp5-pvGxCorKDreEX8CuWOPgIUelUPPww
 });
 
 //
-// Public APIs
+// Public APIs and Webhook endpoints
 //
 
 app.use('/api_public', api_public_routes);
+app.use('/webhook', api_webhook)
 
 //
 // Check JWT for authorized APIs

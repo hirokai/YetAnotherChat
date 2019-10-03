@@ -47,8 +47,7 @@
   },
   "scripts": {
     "server:watch": "nodemon | ./node_modules/.bin/bunyan",
-    "db": "sqlite3 server/private/db.sqlite3",
-    "db:test": "sqlite3 server/private/db_test.sqlite3",
+    "db": "psql -d coisns",
     "db:reset": "node migration/initialize_table.js",
     "client:watch": "npx webpack -w --env.development",
     "build": "npx tsc && npx webpack --env.production",

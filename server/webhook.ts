@@ -14,7 +14,7 @@ import * as bunyan from 'bunyan';
 const log = bunyan.createLogger({ name: "webhook", src: true, level: 1 });
 
 
-router.post('/webhook/mailgun', multer().none(), (req, res, next) => {
+router.post('/mailgun', multer().none(), (req, res, next) => {
     (async () => {
         res.json({ status: "ok" });
         log.info('Received email from: ', req.body['From']);
@@ -28,7 +28,7 @@ const shortid_ = require('shortid');
 shortid_.characters('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$_');
 const shortid = shortid_.generate;
 
-router.post('/webhook/slack', (req, res) => {
+router.post('/slack', (req, res) => {
     log.debug(req.body);
     res.send(req.body.challenge || '');
     fs.writeFile('imported_data/slack/' + req.body['event_id'] + '.json', JSON.stringify(req.body, null, 2), (err) => {
