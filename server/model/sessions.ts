@@ -400,9 +400,9 @@ export async function create(user_id: string, name: string, members: string[], w
 export async function create_session_with_id(user_id: string, session_id: string, name: string, members: string[], workspace?: string): Promise<RoomInfo> {
     const timestamp = new Date().getTime();
     if (workspace) {
-        await pool.query('insert or ignore into sessions (id, name, timestamp,workspace) values ($1,$2,$3,$4);', [session_id, cipher(name), timestamp, workspace]);
+        await pool.query('insert into sessions (id, name, timestamp,workspace) values ($1,$2,$3,$4);', [session_id, cipher(name), timestamp, workspace]);
     } else {
-        await pool.query('insert or ignore into sessions (id, name, timestamp) values ($1,$2,$3);', [session_id, cipher(name), timestamp]);
+        await pool.query('insert into sessions (id, name, timestamp) values ($1,$2,$3);', [session_id, cipher(name), timestamp]);
     }
     await add_member_internal({ session_id, user_id, source: 'owner' });
     for (let m of members) {

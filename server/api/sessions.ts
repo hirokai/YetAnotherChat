@@ -205,12 +205,14 @@ router.post('/:session_id/comments', (req: MyPostRequest<PostCommentData>, res: 
 export async function post_session(user_id: string, temporary_id: string, name: string, members: string[], workspace?: string) {
     try {
         if (name && members) {
+            log.debug(name, members);
             const data = await model.sessions.create(user_id, name, members, workspace);
             const obj: SessionsNewSocket = {
                 __type: 'sessions.new',
                 temporary_id,
                 id: data.id
             };
+            log.debug(data);
             io.emit("sessions.new", obj);
             _.map(members, async (m: string) => {
                 const socket_ids: string[] = await model.users.get_socket_ids(m);

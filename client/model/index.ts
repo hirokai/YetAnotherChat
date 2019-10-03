@@ -467,7 +467,11 @@ export class Model {
             }
             for (let room of rooms || []) {
                 const info = this.sessions.toClient(room);
-                room_cache[room.id].info = info;
+                if (!room_cache[room.id]) {
+                    room_cache[room.id] = { id: room.id, info };
+                } else {
+                    room_cache[room.id].info = info;
+                }
                 infos.push(info);
             }
             await this.sessions.saveDb(room_cache);
