@@ -258,8 +258,11 @@ workspaceEditView model ws =
 updateWorkspaceModel : String -> WorkspaceMsg -> WorkspaceModel -> (WorkspaceModel, Cmd msg)
 updateWorkspaceModel wid msg model =
     case msg of
-        FeedSessionsInWorkspace ws ->
-            ({model | sessions = ws}, Cmd.none)
+        FeedSessionsInWorkspace {workspace,sessions} ->
+            if workspace == wid then
+                ({model | sessions = sessions}, Cmd.none)
+            else
+                (model,Cmd.none)
         StartNewSessionWS ->
             (model, createSession {redirect = True, workspace = wid, name = "", members = (Set.toList model.selectedMembers)})
         SelectMember uid selected ->

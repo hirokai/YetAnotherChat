@@ -215,7 +215,8 @@ window['importKey'] = crypto.importKey;
 
     app.ports.getSessionsInWorkspace.subscribe(async (workspace_id) => {
         const data = await model.sessions.list_in_workspace(workspace_id);
-        app.ports.feedSessionsInWorkspace.send(compact(map(data, 'id')))
+        console.log('list_in_workspace result', workspace_id, data);
+        app.ports.feedSessionsInWorkspace.send({ workspace: workspace_id, sessions: compact(map(data, 'id')) })
     });
 
     app.ports.scrollToBottom.subscribe(scrollToBottom);
@@ -741,7 +742,7 @@ interface ElmAppPorts {
     getWorkspace: ElmSub<string>;
     feedWorkspace: ElmSend<Workspace>;
     feedWorkspaces: ElmSend<Workspace[]>;
-    feedSessionsInWorkspace: ElmSend<string[]>;
+    feedSessionsInWorkspace: ElmSend<{ workspace: string, sessions: string[] }>;
     getSessionsInWorkspace: ElmSub<string>;
     setVisibility: ElmSub<{ id: string, kind: 'session' | 'workspace', visibility: SessionVisibility | WorkspaceVisibility }>;
     getUsers: ElmSub<void>;

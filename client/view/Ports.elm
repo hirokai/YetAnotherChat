@@ -61,7 +61,7 @@ port feedSessionsWithSameMembers : (List String -> msg) -> Sub msg
 port feedSessionsOf : (List String -> msg) -> Sub msg
 
 
-port feedSessionsInWorkspace : (List String -> msg) -> Sub msg
+port feedSessionsInWorkspace : ({ workspace : String, sessions : List String } -> msg) -> Sub msg
 
 
 port getWorkspace : String -> Cmd msg

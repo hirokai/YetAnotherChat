@@ -334,7 +334,7 @@ type SessionMsg
 
 
 type WorkspaceMsg
-    = FeedSessionsInWorkspace (List String)
+    = FeedSessionsInWorkspace { workspace : String, sessions : List String }
     | StartNewSessionWS
     | SelectMember String Bool
 
