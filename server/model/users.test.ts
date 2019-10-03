@@ -182,7 +182,7 @@ describe('Profiles', () => {
         p1_and_p2[u1.id] = p1;
         p1_and_p2[u2.id] = p2;
         expect(p1_and_p2).toEqual(p_both);
-        expect(common_values).toEqual([]);
+        expect(_.filter(common_values, (v) => { return v.indexOf("/public/img/letter/") != 0 })).toEqual([]);
     });
 });
 

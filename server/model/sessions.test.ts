@@ -31,17 +31,17 @@ describe('Sessions', () => {
         var s = await sessions.create(myself.id, random_str(30), []);
         expect(s).not.toBeNull();
         log.debug(s);
-        var ss = await sessions.list({ user_id: myself.id, is_all: false });
+        var ss = await sessions.list({ user_id: myself.id });
         expect(ss).toHaveLength(1)
         s = await sessions.create(myself.id, random_str(30), []);
         const ms = await sessions.get_member_ids({ myself: myself.id, session_id: s.id });
         expect(ms).toContain(myself.id);
-        ss = await sessions.list({ user_id: myself.id, is_all: false });
+        ss = await sessions.list({ user_id: myself.id });
         expect(ss).toHaveLength(2)
         s = await sessions.create(other.id, random_str(30), []);
-        ss = await sessions.list({ user_id: myself.id, is_all: false });
+        ss = await sessions.list({ user_id: myself.id });
         expect(ss).toHaveLength(2)
-        ss = await sessions.list({ user_id: other.id, is_all: false });
+        ss = await sessions.list({ user_id: other.id });
         expect(ss).toHaveLength(1);
         done();
     });

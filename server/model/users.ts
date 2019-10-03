@@ -47,7 +47,7 @@ export async function get(user_id: string): Promise<User | null> {
         const id = row.id;
         const online: boolean = includes(online_users, id);
         const registered = row['source'] == 'self_register';
-        return ({ username: row.name, id, emails, avatar: row['profile_value'], fullname: row.fullname || undefined, online, publicKey, timestamp: row.timestamp, registered });
+        return ({ username: row.name, id, emails, avatar: row['profile_value'], fullname: row.fullname || undefined, online, publicKey, timestamp: +row.timestamp, registered });
     } else {
         return (null);
     }
@@ -263,7 +263,7 @@ export async function find_user_from_email(email: string): Promise<User | null> 
             const online: boolean = includes(online_users, user_id);
             const emails = _.map(rows, 'email');
             const registered = row['source'] == 'self_register';
-            return { username: row.name, fullname: row.fullname || undefined, id: user_id, emails, avatar: row['profile_value'], online, publicKey, timestamp: row.timestamp, registered };
+            return { username: row.name, fullname: row.fullname || undefined, id: user_id, emails, avatar: row['profile_value'], online, publicKey, timestamp: +row.timestamp, registered };
         } else {
             return null;
         }
@@ -286,7 +286,7 @@ export async function find_from_username(username: string): Promise<User | null>
         const online_users = await list_online_users();
         const online: boolean = includes(online_users, user_id);
         const registered = row['source'] == 'self_register';
-        return { username: row['name'], id: user_id, emails, avatar: row['profile_value'], fullname: row['fullname'] || undefined, online, publicKey, timestamp: row['timestamp'], registered };
+        return { username: row['name'], id: user_id, emails, avatar: row['profile_value'], fullname: row['fullname'] || undefined, online, publicKey, timestamp: +row['timestamp'], registered };
 
     } else {
         return null;
