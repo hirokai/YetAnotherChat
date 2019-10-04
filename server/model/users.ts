@@ -2,7 +2,6 @@ import { map, filter, includes, orderBy, compact } from 'lodash';
 import * as _ from 'lodash';
 import { shortid, pool, client } from './utils'
 import bcrypt from 'bcrypt';
-
 import { get_public_key } from './keys'
 import * as keys from './keys'
 import * as users from './users'
@@ -139,12 +138,8 @@ export async function list_online_users(): Promise<string[]> {
 }
 
 export async function get_user_password_hash(user_id: string): Promise<string | null> {
-    if (!user_id) {
-        return null;
-    } else {
-        const row = (await pool.query<{ password: string }>('select password from users where id=$1', [user_id]).catch(() => { return { rows: [] } })).rows[0];
-        return row ? row.password : null;
-    }
+    const row = (await pool.query<{ password: string }>('select password from users where id=$1', [user_id]).catch(() => { return { rows: [] } })).rows[0];
+    return row ? row.password : null;
 }
 
 export async function merge(users: UserSubset[]) {
@@ -241,27 +236,23 @@ interface UserWithEmail {
 }
 
 export async function find_user_from_email(email: string): Promise<User | null> {
-    if (!email || email.trim() == "") {
-        return null;
-    } else {
-        const rows = (await pool.query<UserWithEmail>(`
+    const rows = (await pool.query<UserWithEmail>(`
             select distinct on (users.id) users.*,user_emails.email,profile_value from users
             join user_emails on users.id=user_emails.user_id
             join profiles on profiles.user_id=users.id
             where user_emails.email=$1;`, [email])).rows;
-        if (rows.length > 0) {
-            const row = rows[0];
-            const user_id = row.id;
-            const pub = await get_public_key(user_id);
-            const publicKey = pub ? pub.publicKey : undefined;
-            const online_users = await list_online_users();
-            const online: boolean = includes(online_users, user_id);
-            const emails = _.map(rows, 'email');
-            const registered = row['source'] == 'self_register';
-            return { username: row.name, fullname: row.fullname || undefined, id: user_id, emails, avatar: row['profile_value'], online, publicKey, timestamp: +row.timestamp, registered };
-        } else {
-            return null;
-        }
+    if (rows.length > 0) {
+        const row = rows[0];
+        const user_id = row.id;
+        const pub = await get_public_key(user_id);
+        const publicKey = pub ? pub.publicKey : undefined;
+        const online_users = await list_online_users();
+        const online: boolean = includes(online_users, user_id);
+        const emails = _.map(rows, 'email');
+        const registered = row['source'] == 'self_register';
+        return { username: row.name, fullname: row.fullname || undefined, id: user_id, emails, avatar: row['profile_value'], online, publicKey, timestamp: +row.timestamp, registered };
+    } else {
+        return null;
     }
 }
 
@@ -290,22 +281,24 @@ export async function find_from_username(username: string): Promise<User | null>
 
 export async function get_user_config(user_id: string): Promise<string[][] | null> {
     const user = await users.get(user_id);
-    if (user) {
-        const rows = (await pool.query<{ config_name: string, config_value: string }>('select * from user_configs where user_id=$1;', [user_id])).rows;
-        if (rows) {
-            const cs: string[][] = filter(map(rows, (row) => [row.config_name, row.config_value]).concat(
-                [['username', user.username], ['fullname', user.fullname || ""], ['email', user.emails[0]]]
-            ), (c): boolean => { return !!c[0] && !!c[1] && (c[1] != ""); });
-            return cs;
-        } else {
-            return [];
-        }
-    } else {
+    if (!user) {
         return null;
+    } else {
+        const rows = (await pool.query<{ config_name: string, config_value: string }>('select * from user_configs where user_id=$1;', [user_id])).rows;
+        const cs: string[][] = filter(map(rows, (row) => [row.config_name, row.config_value]).concat(
+            [['username', user.username], ['fullname', user.fullname || ""], ['email', user.emails[0]]]
+        ), (c): boolean => { return !!c[0] && !!c[1] && (c[1] != ""); });
+        return cs;
     }
 }
 
 export async function set_user_config(user_id: string, key: string, value: string): Promise<{ ok: boolean }> {
+    if (key.length == 0) {
+        return { ok: false };
+    }
+    if ((await pool.query('select id from users where id=$1;', [user_id])).rows.length == 0) {
+        return { ok: false };
+    }
     const row = (await pool.query('select 1 from user_configs where user_id=$1 and config_name=$2;', [user_id, key])).rows[0];
     if (row) {
         const timestamp = new Date().getTime();
@@ -315,7 +308,6 @@ export async function set_user_config(user_id: string, key: string, value: strin
         } catch (err) {
             console.error('set_user_config', err);
             return { ok: false };
-
         }
     } else {
         const timestamp = new Date().getTime();
@@ -325,7 +317,6 @@ export async function set_user_config(user_id: string, key: string, value: strin
         } catch (err) {
             console.error('set_user_config', err);
             return { ok: false };
-
         }
     }
 }

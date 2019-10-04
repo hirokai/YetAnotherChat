@@ -4,27 +4,13 @@ import * as model from './index'
 import { exec as exec_ } from 'child_process'
 import * as util from 'util'
 import * as _ from 'lodash';
-import { random_str, register } from './test_utils'
+import { random_str, random_str_b58, register } from './test_utils'
 const exec = util.promisify(exec_);
-import crypto from 'crypto'
-const BASE58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
-import baseX from 'base-x';
-const bs58 = baseX(BASE58);
 jest.setTimeout(3000);
 import * as bunyan from 'bunyan';
-import { random } from 'lodash-es'
 const log = bunyan.createLogger({ name: "model.users.test", level: 1 });
 
-describe('Users tests', () => {
-
-    beforeEach(done => {
-        return new Promise(async (resolve, reject) => {
-            await exec('psql -d test < server/schema.sql');
-            await connectToDB('test');
-            done();
-        });
-    });
-
+describe('Get, list, add, and update', () => {
     beforeEach(done => {
         return new Promise(async (resolve, reject) => {
             await exec('psql -d test < server/schema.sql');
@@ -72,11 +58,8 @@ describe('Users tests', () => {
     });
 
     test('Get by email multiple times', async done => {
-        const username = 'Sato' + Math.floor(Math.random() * 100000);
-        const password = random_str(16);
         const source = 'self_register';
-        const email = '' + Math.floor(Math.random() * 100000) + '@gmail.com';
-        const { ok, user, error } = await model.users.register({ username, password, email, source });
+        const user = await register({ source });
         if (!user) {
             throw new Error('User error');
         }
@@ -88,14 +71,9 @@ describe('Users tests', () => {
     });
 
     test('List', async done => {
-        const username = 'Sato' + Math.floor(Math.random() * 100000);
-        const password = 'Hoge';
         const source = 'self_register';
-        const email = '' + Math.floor(Math.random() * 100000) + '@gmail.com';
-        const user = await register({ username, password, email, source });
-        const username2 = 'Tanaka' + Math.floor(Math.random() * 100000);
-        const email2 = '' + Math.floor(Math.random() * 100000) + '@gmail.com';
-        const user2 = await register({ username: username2, password, email: email2, source });
+        const user = await register({ source });
+        const user2 = await register({ source });
         await model.users.add_to_contact(user.id, user.id);
         await model.users.add_to_contact(user.id, user2.id);
         const users = await model.users.list(user.id).catch(() => []);
@@ -103,14 +81,93 @@ describe('Users tests', () => {
         done();
     });
 
-    test('User config', async () => {
-        const username = 'Sato' + Math.floor(Math.random() * 100000);
-        const password = random_str(16);
+    test('Update username', async done => {
         const source = 'self_register';
-        const email = '' + Math.floor(Math.random() * 100000) + '@gmail.com';
-        const user = await register({ username, password, email, source });
-        const key = 'avatar';
-        const value = '/public/img/test.png';
+        const u1 = await register({ source });
+        const u2 = await register({ source });
+        const u1_2username = random_str();
+        await model.users.update(u1.id, { username: u1_2username });
+        const u1_2 = await model.users.get(u1.id);
+        const u2_2 = await model.users.get(u2.id);
+        expect(u1_2).toEqual(expect.anything());
+        if (u1_2 && u2_2) {
+            expect(u1_2.username).toEqual(u1_2username);
+            const u1_2a = Object.assign({}, u1_2, { username: u1.username });
+            expect(u1_2a).toEqual(u1);
+            expect(u2_2.username).toEqual(u2.username);
+        } else {
+            throw new Error('Null')
+        }
+        done();
+    })
+    test('Update fullname', async done => {
+        const source = 'self_register';
+        const u1 = await register({ source });
+        const u2 = await register({ source });
+        const u1_2fullname = random_str();
+        await model.users.update(u1.id, { fullname: u1_2fullname });
+        const u1_2 = await model.users.get(u1.id);
+        const u2_2 = await model.users.get(u2.id);
+        expect(u1_2).toEqual(expect.anything());
+        if (u1_2 && u2_2) {
+            expect(u1_2.fullname).toEqual(u1_2fullname);
+            const u1_2a = Object.assign({}, u1_2, { fullname: u1.fullname });
+            expect(u1_2a).toEqual(u1);
+            expect(u2_2.fullname).toEqual(u2.fullname);
+        } else {
+            throw new Error('Null')
+        }
+        done();
+    });
+
+    test('Update email', async done => {
+        const source = 'self_register';
+        const u1 = await register({ source });
+        const u2 = await register({ source });
+        const u1_2email = random_str();
+        await model.users.update(u1.id, { email: u1_2email });
+        const u1_2 = await model.users.get(u1.id);
+        const u2_2 = await model.users.get(u2.id);
+        expect(u1_2).toEqual(expect.anything());
+        if (u1_2 && u2_2) {
+            expect(u1_2.emails[0]).toEqual(u1_2email);
+            const u1_2a = Object.assign({}, u1_2, { emails: u1.emails });
+            expect(u1_2a).toEqual(u1);
+            expect(u2_2.emails).toEqual(u2.emails);
+        } else {
+            throw new Error('Null')
+        }
+        done();
+    });
+
+});
+
+describe('Config', () => {
+    beforeEach(async done => {
+        await exec('psql -d test < server/schema.sql');
+        await connectToDB('test');
+        done();
+    });
+
+    test('Setting for non-existent and different users does not affect a user', async done => {
+        const u1 = await register({ source: 'self_register' });
+        const u2 = await register({ source: 'self_register' });
+        const [k1, v1, k2, v2] = _.map(_.range(4), () => random_str());
+        let { ok } = await model.users.set_user_config(u1.id, k1, v1);
+        expect(ok).toBe(true);
+        ok = (await model.users.set_user_config(u2.id, k2, v2)).ok;
+        expect(ok).toBe(true);
+        ok = (await model.users.set_user_config(random_str(), k2, v2)).ok;
+        expect(ok).toBe(false);
+        let ss = await model.users.get_user_config(u1.id);
+        expect(_.sortBy(ss)).toEqual(_.sortBy([[k1, v1], ['username', u1.username], ['email', u1.emails[0]]]));
+        ss = await model.users.get_user_config(u2.id);
+        expect(_.sortBy(ss)).toEqual(_.sortBy([[k2, v2], ['username', u2.username], ['email', u2.emails[0]]]));
+        done();
+    });
+
+    test('Set multiple configs', async () => {
+        const user = await register({ source: 'self_register' });
         const L = 10;
         const kvs = _.fromPairs(_.map(_.range(L), () => { return [random_str(100), random_str(100)]; }));
         const oks: boolean[] = [];
@@ -263,16 +320,6 @@ describe('Workspaces', () => {
 
 });
 
-async function get_random_string(length: number = 32) {
-    return await new Promise<string>((resolve) => {
-        crypto.randomBytes(length, (err, buf) => {
-            if (err) throw err;
-            const token = bs58.encode(buf);
-            resolve(token);
-        });
-    });
-}
-
 describe('Pwned password', () => {
     test('Bad passwords', async done => {
         let hrstart = process.hrtime()
@@ -290,14 +337,14 @@ describe('Pwned password', () => {
         done();
     });
     test('Safe passwords', async done => {
-        let password = await get_random_string();
+        let password = await random_str_b58();
         let hrstart = process.hrtime()
         let r = await model.users.check_password_not_pwned(password);
         let hrend = process.hrtime(hrstart);
         let msec = hrend[0] * 1e3 + hrend[1] / 1e6
         expect(r).toBe(true);
         log.info(`${msec} msec for API`)
-        password = await get_random_string();
+        password = await random_str_b58();
         hrstart = process.hrtime()
         r = await model.users.check_password_not_pwned(password);
         hrend = process.hrtime(hrstart);
