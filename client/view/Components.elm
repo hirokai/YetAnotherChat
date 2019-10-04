@@ -315,6 +315,7 @@ showChannels model =
 showUsers : Model -> List (Html Msg)
 showUsers model =
     [ div [ class "menu-section-title" ] [ text "ユーザー一覧" ]
+    , div [ class "leftmenu-filter" ] [ span [] [ text "登録ユーザーのみ" ] ]
     , ul [ class "menu-list" ] <|
         List.indexedMap
             (\i u ->
@@ -327,7 +328,7 @@ showUsers model =
                         ]
                     ]
             )
-            (Dict.values model.users)
+            (List.filter .registered <| Dict.values model.users)
     ]
 
 

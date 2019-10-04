@@ -952,6 +952,11 @@ h3 {
     color: #444;
 }
 
+.leftmenu-filter {
+    font-size: 12px;
+    border: 1px solid black;
+}
+
 #center-loading {
     text-align: center;
     margin-top: 50vh;

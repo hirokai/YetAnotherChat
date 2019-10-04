@@ -395,11 +395,13 @@ window['importKey'] = crypto.importKey;
     app.ports.joinRoom.subscribe(async ({ session_id }) => {
         console.log('Joining session');
         const session = await model.sessions.get(session_id);
-        if (!includes(map(session.members, 'id'), user_id)) {
-            const res: AxiosResponse<JoinSessionResponse> = await axios.post('/api/sessions/join', { token, session_id });
-            console.log('join_session', res);
-        } else {
-            socket.emit('enter_session');
+        if (session) {
+            if (!includes(map(session.members, 'id'), user_id)) {
+                const res: AxiosResponse<JoinSessionResponse> = await axios.post('/api/sessions/join', { token, session_id });
+                console.log('join_session', res);
+            } else {
+                socket.emit('enter_session');
+            }
         }
     });
 
