@@ -315,7 +315,14 @@ showChannels model =
 showUsers : Model -> List (Html Msg)
 showUsers model =
     [ div [ class "menu-section-title" ] [ text "ユーザー一覧" ]
-    , div [ class "leftmenu-filter" ] [ span [] [ text "登録ユーザーのみ" ] ]
+    , div [ class "leftmenu-filter" ]
+        [ div [] [ text "登録ユーザーのみ" ]
+        , if True then
+            div [] [ text "最近連絡" ]
+
+          else
+            text ""
+        ]
     , ul [ class "menu-list" ] <|
         List.indexedMap
             (\i u ->

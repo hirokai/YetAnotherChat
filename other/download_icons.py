@@ -26,7 +26,7 @@ def get_letter(letter):
             shutil.copyfileobj(res.raw, fp)
 
 
-for c in list('abcdefghijkmnopqrstuvwxyz'):
+for c in list('abcdefghijklmnopqrstuvwxyz'):
     print(c)
     get_letter(c)
     time.sleep(1)
