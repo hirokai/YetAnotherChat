@@ -267,7 +267,9 @@ window['importKey'] = crypto.importKey;
     app.ports.getCurrentSessionInfo.subscribe(async (id: string) => {
         const session = await model.sessions.get(id);
         if (session) {
-            app.ports.feedNewRoomInfo.send(model.sessions.toClient(session));
+            const s2 = model.sessions.toClient(session);
+            console.log('Feeding single room', s2);
+            app.ports.feedNewRoomInfo.send(s2);
         }
     });
 
@@ -390,16 +392,15 @@ window['importKey'] = crypto.importKey;
         });
     });
 
-    app.ports.joinRoom.subscribe(({ session_id }) => {
-        model.sessions.get(session_id).then((session: RoomInfo) => {
-            if (!includes(map(session.members, 'id'), user_id)) {
-                axios.post('/api/sessions/join', { token, session_id }).then((res: AxiosResponse<JoinSessionResponse>) => {
-                    console.log('join_session', res);
-                });
-            } else {
-                socket.emit('enter_session');
-            }
-        });
+    app.ports.joinRoom.subscribe(async ({ session_id }) => {
+        console.log('Joining session');
+        const session = await model.sessions.get(session_id);
+        if (!includes(map(session.members, 'id'), user_id)) {
+            const res: AxiosResponse<JoinSessionResponse> = await axios.post('/api/sessions/join', { token, session_id });
+            console.log('join_session', res);
+        } else {
+            socket.emit('enter_session');
+        }
     });
 
     app.ports.startPosterSession.subscribe(async (file_id: string) => {

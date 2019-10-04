@@ -207,7 +207,7 @@ export async function get(user_id: string, session_id: string): Promise<RoomInfo
         log.info('Query returned 0 rows');
         return null;
     }
-    const session = { id: rows[0].id, members: _.map(rows, (row) => { return { id: row.user_id, source: row.source }; }), name: rows[0].name, timestamp: rows[0].timestamp, workspace: rows[0].workspace, visibility: rows[0].visibility };
+    const session = { id: rows[0].id, members: _.map(rows, (row) => { return { id: row.user_id, source: row.source }; }), name: rows[0].name, timestamp: +rows[0].timestamp, workspace: rows[0].workspace, visibility: rows[0].visibility };
     const users = (await pool.query("select count(*),user_id,max(timestamp),min(timestamp) from comments where session_id=$1 and for_user=$2 group by user_id;", [session.id, user_id])).rows;
     const first = min(map(users, 'min(timestamp)')) || -1;
     const last = max(map(users, 'max(timestamp)')) || -1;

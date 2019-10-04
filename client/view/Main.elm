@@ -531,16 +531,15 @@ view model =
             newSessionView model
 
         RoomPage r ->
-            case Dict.get r model.sessions of
-                Just room ->
+            case ( Dict.get r model.sessions, model.loaded.session ) of
+                ( Just room, _ ) ->
                     chatRoomView room model
 
-                Nothing ->
-                    if not model.loaded.session then
-                        sessionViewLoading r model
+                ( Nothing, True ) ->
+                    notFoundView model
 
-                    else
-                        notFoundView model
+                ( Nothing, False ) ->
+                    sessionViewLoading r model
 
         SessionListPage ->
             sessionListView model
