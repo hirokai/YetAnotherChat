@@ -174,7 +174,7 @@ export class Model {
             const snapshot: { [key: string]: User } = await this.users.loadDb();
             // console.log('users snapshot', snapshot);
             if (snapshot && Object.keys(snapshot).length > 0) {
-                // console.log('Returning users from local DB.')
+                console.log('Returning users from local DB.')
                 return snapshot;
             } else {
                 console.log('users.list(): Getting users and save to local DB')
@@ -458,13 +458,10 @@ export class Model {
         }
     }
     sessions = {
-        list: async (): Promise<RoomInfoClient[]> => {
+        load_from_server: async (): Promise<{ [key: string]: SessionCache }> => {
             const { data: { data: rooms } }: AxiosResponse<GetSessionsResponse> = await axios.get('/api/sessions');
             const infos: RoomInfoClient[] = [];
-            let room_cache = await this.sessions.loadDb();
-            if (!room_cache) {
-                room_cache = {};
-            }
+            const room_cache = {};
             for (let room of rooms || []) {
                 const info = this.sessions.toClient(room);
                 if (!room_cache[room.id]) {
@@ -475,7 +472,21 @@ export class Model {
                 infos.push(info);
             }
             await this.sessions.saveDb(room_cache);
-            return infos;
+            return room_cache;
+        },
+        list: async (): Promise<RoomInfoClient[]> => {
+            let room_cache: { [key: string]: SessionCache } = await this.sessions.loadDb();
+            if (room_cache) {
+                console.log('Returning sessions from local DB...');
+                this.sessions.load_from_server().then(() => {
+                    console.log('Loaded after cache return');
+                });
+                return compact(map(Object.values(room_cache), 'info'));
+            } else {
+                console.log('Loading sessions from server...');
+                room_cache = await this.sessions.load_from_server();
+                return compact(map(Object.values(room_cache), 'info'));
+            }
         },
         list_in_workspace: async (workspace_id: string) => {
             const { data: { data: rooms } }: AxiosResponse<GetSessionsResponse> = await axios.get('/api/workspaces/' + workspace_id + '/sessions');

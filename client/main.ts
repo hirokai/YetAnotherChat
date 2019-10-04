@@ -272,17 +272,14 @@ window['importKey'] = crypto.importKey;
     });
 
     app.ports.initializeData.subscribe(async () => {
-        model.users.list().then(async (us) => {
-            Promise.all(map(us, model.users.toClient)).then((users) => {
-                console.log(`Feeding ${users.length} users`);
-                app.ports.feedUsers.send(users);
-            })
-        });
         getUserImages();
         getAndfeedRoomInfo();
         model.workspaces.list().then((ws) => {
             app.ports.feedWorkspaces.send(values(ws));
-        })
+        });
+        const users = await Promise.all(map(await model.users.list(), model.users.toClient));
+        console.log(`Feeding ${users.length} users`);
+        app.ports.feedUsers.send(users);
     });
 
     app.ports.reloadSessions.subscribe(() => {
@@ -340,6 +337,7 @@ window['importKey'] = crypto.importKey;
     function getAndfeedRoomInfo() {
         console.log('Loading sessions...');
         model.sessions.list().then((rooms) => {
+            // rooms = rooms.slice(0, 20);
             console.log(`Feeding ${rooms.length} sessions`);
             app.ports.feedRoomInfo.send(rooms);
         });

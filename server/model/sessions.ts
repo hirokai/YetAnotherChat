@@ -290,6 +290,8 @@ export async function list(params: { user_id: string, of_members?: string[] | un
     });
     const infos: { count: { [key: string]: number }, first: number, last: number }[] = [];
     for (let s of sessions) {
+        // infos.push({ count: { '__total': 0 }, first: 0, last: 0 });
+        // continue;
         const users = (await pool.query("select count(*),user_id,max(timestamp),min(timestamp) from comments where session_id=$1 and for_user=$2 group by user_id;", [s.id, user_id])).rows;
         const first = min(map(users, 'min(timestamp)')) || -1;
         const last = max(map(users, 'max(timestamp)')) || -1;
@@ -301,7 +303,6 @@ export async function list(params: { user_id: string, of_members?: string[] | un
         });
         count['__total'] = sum(values(count)) || 0;
         const info = { count, first, last };
-        // const info = { count: { '__total': 0 }, first: 0, last: 0 };
         infos.push(info);
     }
     const ss: RoomInfo[] = compact(map(zip(sessions, infos), ([s, info]) => {
