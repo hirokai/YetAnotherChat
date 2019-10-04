@@ -14,16 +14,9 @@ import Types exposing (..)
 port saveSDGs : String -> Cmd msg
 
 
-userPageView : String -> Model -> { title : String, body : List (Html Msg) }
+userPageView : User -> Model -> { title : String, body : List (Html Msg) }
 userPageView user model =
-    let
-        user_info =
-            getUserInfo model user
-
-        registered =
-            Maybe.map .registered user_info == Just True
-    in
-    { title = (Maybe.withDefault "" <| Maybe.map .fullname user_info) ++ ": " ++ appName
+    { title = user.fullname ++ ": " ++ appName
     , body =
         [ div [ class "container-fluid" ]
             [ div [ class "row" ]
@@ -31,20 +24,20 @@ userPageView user model =
                 , smallMenu
                 , div [ class "offset-md-5 offset-lg-2 col-md-7 col-lg-10" ]
                     [ h1 []
-                        [ text <| getUserNameDisplay model user
+                        [ text <| getUserNameDisplay model user.id
                         , span [] [ text " " ]
-                        , if registered then
+                        , if user.registered then
                             span [ title <| appName ++ "に登録済", class "badge badge-primary" ] [ text "登録ユーザー" ]
 
                           else
                             span [ title <| appName ++ "に未登録（Emailから自動取り込み）", class "badge badge-secondary" ] [ text "未登録" ]
                         ]
                     , div []
-                        [ span [] [ text "Email: ", text <| Maybe.withDefault "（未登録）" <| Maybe.andThen (.emails >> List.head) user_info ]
+                        [ span [] [ text "Email: ", text <| Maybe.withDefault "（未登録）" <| List.head user.emails ]
                         ]
-                    , div [] [ a [ class "clickable", href <| "#/profiles/" ++ user ] [ text "プロフィールを見る" ] ]
+                    , div [] [ a [ class "clickable", href <| "#/profiles/" ++ user.id ] [ text "プロフィールを見る" ] ]
                     , div [ id "user-messages" ]
-                        [ h2 [] [ text "メッセージ" ]
+                        [ h2 [] [ text "セッション" ]
                         , div [] [ text <| String.fromInt (List.length model.userPageModel.messages) ++ " messages in " ++ String.fromInt (List.length model.userPageModel.sessions) ++ " rooms." ]
                         , div [] <|
                             List.map

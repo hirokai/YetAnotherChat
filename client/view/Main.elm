@@ -545,8 +545,16 @@ view model =
         SessionListPage ->
             sessionListView model
 
-        UserPage user ->
-            userPageView user model
+        UserPage uid ->
+            case ( model.loaded.users, Dict.get uid model.users ) of
+                ( _, Just user ) ->
+                    userPageView user model
+
+                ( True, Nothing ) ->
+                    notFoundView model
+
+                ( False, Nothing ) ->
+                    loadingView model
 
         UserProfilePage u ->
             case getUserInfo model u of
@@ -560,12 +568,15 @@ view model =
             workspaceListView model
 
         WorkspacePage id ->
-            case Dict.get id model.workspaces of
-                Just ws ->
+            case ( model.loaded.workspaces, Dict.get id model.workspaces ) of
+                ( _, Just ws ) ->
                     workspaceView model ws
 
-                Nothing ->
+                ( True, Nothing ) ->
                     notFoundView model
+
+                ( False, Nothing ) ->
+                    loadingView model
 
         WorkspaceEditPage id ->
             case Dict.get id model.workspaces of

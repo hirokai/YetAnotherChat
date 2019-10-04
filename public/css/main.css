@@ -669,6 +669,7 @@ span.config-name {
 
 #userlist-table {
     font-size: 14px ! important;
+    word-break: break-all;
 }
 
 #userlist-table tr {
@@ -949,4 +950,11 @@ h3 {
 .menu-section-title {
     font-weight: bold;
     color: #444;
+}
+
+#center-loading {
+    text-align: center;
+    margin-top: 50vh;
+    font-size: 32px;
+    color: #999;
 }

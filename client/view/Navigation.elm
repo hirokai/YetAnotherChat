@@ -1,4 +1,4 @@
-port module Navigation exposing (enterHome, enterNewSession, enterNewWorkspace, enterProfileEdit, enterSession, enterSessionList, enterUser, enterUserList, enterUserProfile, enterUserSetting, enterWorkspace, enterWorkspaceEdit, enterWorkspaceList, notFound, notFoundView, pageToPath, pathToPage, updatePageHash)
+port module Navigation exposing (enterHome, enterNewSession, enterNewWorkspace, enterProfileEdit, enterSession, enterSessionList, enterUser, enterUserList, enterUserProfile, enterUserSetting, enterWorkspace, enterWorkspaceEdit, enterWorkspaceList, loadingView, notFound, notFoundView, pageToPath, pathToPage, updatePageHash)
 
 import Dict
 import Html exposing (..)
@@ -130,6 +130,13 @@ notFoundView : Model -> { title : String, body : List (Html Msg) }
 notFoundView _ =
     { title = "Not found"
     , body = [ div [] [ text "Not found" ], div [] [ a [ href "/main#/" ] [ text "ホームに戻る" ] ] ]
+    }
+
+
+loadingView : Model -> { title : String, body : List (Html Msg) }
+loadingView model =
+    { title = "COI SNS"
+    , body = [ div [ id "center-loading" ] [ text "Loading..." ] ]
     }
 
 
