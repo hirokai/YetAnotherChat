@@ -5,7 +5,9 @@
         "module": "commonjs",
         "esModuleInterop": true,
         "rootDir": "..",
-        "strictNullChecks": true
+        "strictNullChecks": true,
+        "allowSyntheticDefaultImports": true,
+        "noImplicitAny": false
     },
     "moduleResolution": "node",
     "files": [

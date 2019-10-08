@@ -105,6 +105,7 @@ app.use('/login', express.static(path.join(__dirname, '../public/html/login.html
 app.use('/reset_password', express.static(path.join(__dirname, '../public/html/reset_password.html')))
 app.use('/main', express.static(path.join(__dirname, '../public/html/main.html')))
 app.use('/matrix', express.static(path.join(__dirname, '../public/html/matrix.html')))
+app.use('/m', express.static(path.join(__dirname, '../client/mobile/html')))
 app.get('/', (req, res) => {
     res.redirect('/main#/');
 });

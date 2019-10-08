@@ -10,6 +10,7 @@ module.exports = env => {
         // mode: 'development',
         entry: {
             main: './client/main.ts',
+            // mobile_main: './client/mobile/main.ts',
             matrix: './client/matrix.ts',
         },
         output: {
@@ -43,17 +44,33 @@ module.exports = env => {
         ],
         module: {
             rules: [{
-                test: /\.elm$/,
+                test: (file) => { return /\.elm$/.test(file) && !/client\/mobile\/view\/.+\.elm$/.test(file); },
                 exclude: [/elm-stuff/, /node_modules/],
                 use: {
                     loader: 'elm-webpack-loader',
                     options: { optimize: mode == 'production', debug: mode != 'production' }
                 },
             }, {
+                test: (file) => { return /client\/mobile\/view\/.+\.elm$/.test(file); },
+                exclude: [/elm-stuff/, /node_modules/],
+                use: {
+                    loader: 'elm-webpack-loader',
+                    options: { optimize: mode == 'production', debug: false }
+                },
+            }, {
                 // 拡張子 .ts の場合
                 test: /\.ts$/,
                 // TypeScript をコンパイルする
                 use: "ts-loader"
+            }, {
+                test: /\.css/,
+                use: [
+                    "style-loader",
+                    {
+                        loader: "css-loader",
+                        options: { url: false }
+                    }
+                ]
             }]
         },
         resolve: {
@@ -61,6 +78,9 @@ module.exports = env => {
             },
             modules: ['node_modules'],
             extensions: [".ts", ".js"]
+        },
+        externals: {
+            'vue': 'Vue'
         }
     }
 };
