@@ -51,6 +51,15 @@ router.patch('/:id', (req: MyPostRequest<UpdateUserData>, res: JsonResponse<Upda
 
 });
 
+router.get('/:id/sessions', (req: GetAuthRequest, res: JsonResponse<GetSessionsResponse>, next) => {
+    (async () => {
+        const of_members: string[] = [req.params ? req.params.id : 'Invalid'];
+        const user_id: string = req.decoded.user_id;
+        const r = await model.sessions.list({ user_id, of_members });
+        res.json({ ok: true, data: r });
+    })().catch(next);
+});
+
 router.get('/all/profiles', (req, res: JsonResponse<GetProfilesResponse>, next) => {
     (async () => {
         const user_id = req.decoded.user_id;

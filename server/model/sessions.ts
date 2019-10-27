@@ -80,7 +80,7 @@ export async function get_sessions_of_member(user_id: string, member_id: string)
         const owner_index = _.findIndex(roles, 'owner');
         const members: string[] = _.map(ss1, 'member');
         var r: RoomInfo = {
-            id: s1.id, name: s1.name, timestamp: s1.timestamp,
+            id: s1.id, name: decipher(s1.name) || '', timestamp: s1.timestamp,
             numMessages: { '__total': -1 }, firstMsgTime: -1, lastMsgTime: -1, members,
             owner: owner_index != -1 ? members[owner_index] : '',
             visibility: s1.visibility || 'private'
