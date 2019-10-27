@@ -29,7 +29,7 @@ sessionListView model =
                 , td [ class "visibility" ] [ text <| showVisibility s.visibility ]
 
                 -- , td [] [ a [ href <| "#/users/" ++ s.owner ] [ text <| getUserNameDisplay model s.owner ] ]
-                , td [ class "members" ] <| List.intersperse (text ", ") (List.map (\u -> a [ href <| "/main#" ++ pageToPath (UserPage u), class "clickable" ] [ text (getUserName model u) ]) (roomUsers s.id model))
+                , td [ class "members" ] <| List.intersperse (text ", ") (List.map (\u -> a [ href <| "/main#" ++ pageToPath (UserPage u), classList [ ( "clickable", True ), ( "owner", s.owner == u ) ] ] [ text (getUserName model u) ]) (roomUsers s.id model))
                 , td [] [ text <| ourFormatter model.timezone <| sessionLastUpdated s ]
                 ]
     in

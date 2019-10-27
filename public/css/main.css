@@ -903,6 +903,10 @@ h3 {
     max-width: 200px;
 }
 
+#session-list-table .members a.owner {
+    text-decoration: underline;
+}
+
 #session-list-table .visibility {
     width: 100px;
 }
