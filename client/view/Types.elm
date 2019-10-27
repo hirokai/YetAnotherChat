@@ -1,4 +1,4 @@
-module Types exposing (ChatEntry(..), ChatFileTyp, ChatPageModel, CommentTyp, FilterMode(..), ListShowMode(..), LocalConfig, Member, Model, Msg(..), NewSessionModel, NewSessionMsg(..), NewWorkspaceModel, NewWorkspaceMsg(..), Page(..), SessionEventTyp, SessionID, SessionInfo, SessionMsg(..), SettingsMsg(..), SettingsPageModel, User, UserListPageModel, UserListPageMsg(..), UserPageModel, UserPageMsg(..), Workspace, WorkspaceEditModel, WorkspaceEditMsg(..), WorkspaceListModel, WorkspaceListMsg(..), WorkspaceModel, WorkspaceMsg(..), appName, getId, getKind, getRoomID, getSDGs, getUser, getUserFullname, getUserInfo, getUserName, getUserNameDisplay, roomName, roomUsers, sessionLastUpdated, toggleSet, truncate)
+module Types exposing (ChatEntry(..), ChatFileTyp, ChatPageModel, CommentTyp, FilterMode(..), ListShowMode(..), LocalConfig, Member, Model, Msg(..), NewSessionModel, NewSessionMsg(..), NewWorkspaceModel, NewWorkspaceMsg(..), Page(..), SessionEventTyp, SessionID, SessionInfo, SessionListPageModel, SessionListPageMsg(..), SessionMsg(..), SettingsMsg(..), SettingsPageModel, User, UserListPageModel, UserListPageMsg(..), UserPageModel, UserPageMsg(..), Workspace, WorkspaceEditModel, WorkspaceEditMsg(..), WorkspaceListModel, WorkspaceListMsg(..), WorkspaceModel, WorkspaceMsg(..), appName, getId, getKind, getRoomID, getSDGs, getUser, getUserFullname, getUserInfo, getUserName, getUserNameDisplay, roomName, roomUsers, sessionLastUpdated, toggleSet, truncate)
 
 import Dict exposing (Dict)
 import Json.Decode as Json
@@ -124,6 +124,7 @@ type alias Model =
     , workspaceModel : WorkspaceModel
     , workspaceListModel : WorkspaceListModel
     , workspaceEditModel : WorkspaceEditModel
+    , sessionListPageModel : SessionListPageModel
     , userPageModel : UserPageModel
     , chatPageStatus : ChatPageModel
     , userListPageModel : UserListPageModel
@@ -192,6 +193,10 @@ type alias WorkspaceEditModel =
     { name : String }
 
 
+type alias SessionListPageModel =
+    { page : Int }
+
+
 type ListShowMode
     = Table
     | Panel
@@ -250,6 +255,7 @@ type Msg
     | UserPageMsg UserPageMsg
     | UserListPageMsg UserListPageMsg
     | SessionMsg SessionMsg
+    | SessionListPageMsg SessionListPageMsg
     | SettingsMsg SettingsMsg
     | StartSession (Set Member)
     | ReceiveNewSessionId { timestamp : Int, name : String, id : SessionID }
@@ -331,6 +337,11 @@ type SessionMsg
     | StopVideo SessionID
     | VideoJoin String
     | VideoLeft String
+
+
+type SessionListPageMsg
+    = NextPage
+    | PrevPage
 
 
 type WorkspaceMsg

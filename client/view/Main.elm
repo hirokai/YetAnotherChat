@@ -38,6 +38,7 @@ init { user_id, config } =
       , workspaceModel = { sessions = [], selectedMembers = Set.empty }
       , workspaceListModel = { showMode = Table }
       , workspaceEditModel = { name = "" }
+      , sessionListPageModel = { page = 0 }
       , newSessionModel = { selected = Set.empty, sessions_same_members = [] }
       , userPageModel = { sessions = [], messages = [], shownFileID = Nothing, newFileBox = False, selectedSDGs = Set.empty }
       , chatPageStatus = initialChatPageStatus config.expand_toppane config.expand_chatinput
@@ -217,6 +218,13 @@ update msg model =
                     updateChatPageStatus msg1 model.chatPageStatus
             in
             ( { model | chatPageStatus = m }, c )
+
+        SessionListPageMsg msg1 ->
+            let
+                ( m, c ) =
+                    updateSessionListPageStatus msg1 model
+            in
+            ( { model | sessionListPageModel = m }, c )
 
         SettingsMsg msg1 ->
             let
