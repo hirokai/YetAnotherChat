@@ -252,7 +252,7 @@ export async function get(user_id: string, session_id: string): Promise<RoomInfo
 }
 
 
-export async function list(params: { user_id: string, of_members?: string[] | undefined, workspace_id?: string }): Promise<RoomInfo[]> {
+export async function list(params: { user_id: string, of_members?: string[] | undefined, workspace_id?: string, limit?: number, offset?: number }): Promise<RoomInfo[]> {
     const { user_id, of_members, workspace_id } = params;
     log.debug(params);
     if (of_members) {
@@ -327,7 +327,9 @@ export async function list(params: { user_id: string, of_members?: string[] | un
     const ss_sorted = orderBy(ss, 'lastMsgTime', 'desc');
     const hrend = process.hrtime(hrstart);
     log.debug(hrend);
-    return ss_sorted;
+    const from = params.offset || 0;
+    const until = params.limit ? from + params.limit : ss_sorted.length;
+    return ss_sorted.slice(from, until);
 }
 
 type SessionMemberSource = 'owner' | 'added_by_member' | 'email_thread' | 'self_manual';

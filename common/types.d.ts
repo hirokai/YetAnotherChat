@@ -538,7 +538,7 @@ interface MyPostRequest<T> {
 interface GetAuthRequest extends Request {
     token: any
     query: { [key: string]: string }
-    params?: { [key: string]: string }
+    params: { [key: string]: string }
     decoded: { username: string, user_id: string, iap: number, exp: number }
 }
 

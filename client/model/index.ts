@@ -459,7 +459,7 @@ export class Model {
     }
     sessions = {
         load_from_server: async (): Promise<{ [key: string]: SessionCache }> => {
-            const { data: { data: rooms } }: AxiosResponse<GetSessionsResponse> = await axios.get('/api/sessions');
+            const { data: { data: rooms } }: AxiosResponse<GetSessionsResponse> = await axios.get('/api/sessions', { params: { offset: 0 } });
             const infos: RoomInfoClient[] = [];
             const room_cache = {};
             for (let room of rooms || []) {
