@@ -891,6 +891,24 @@ h3 {
     box-shadow: #333 3px 3px 7px;
 }
 
+#session-list-table {
+    font-size: 16px;
+}
+
+#session-list-table .workspace {
+    width: 150px;
+}
+
+#session-list-table .members {
+    max-width: 200px;
+}
+
+#session-list-table .visibility {
+    width: 100px;
+}
+
+/* Color definitions */
+
 @media (prefers-color-scheme: dark) {
     body {
         background-color: #191714;

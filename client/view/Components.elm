@@ -417,13 +417,13 @@ showVisibility s =
             "公開"
 
         "workspace" ->
-            "ワークスペース内の一覧に表示"
+            "WS内"
 
         "url" ->
-            "URL共有で参加"
+            "URL共有"
 
         "private" ->
-            "招待メンバーのみ"
+            "非公開"
 
         _ ->
             "N/A"
