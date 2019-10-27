@@ -1,13 +1,5 @@
 /* @import url('https://fonts.googleapis.com/css?family=Noto+Sans+JP:400&subset=japanese'); */
 
-/* https://www.schemecolor.com/drab-army.php */
-@media (prefers-color-scheme: dark) {
-    body {
-        background: #191714;
-        color: #ccc;
-    }
-}
-
 div#footer_wrapper {
     height: 60px;
     padding: 10px 0px 0px 0px;
@@ -40,16 +32,6 @@ div#footer {
     resize: none;
 }
 
-@media (prefers-color-scheme: dark) {
-    div#footer_wrapper {
-        background: #191714;
-    }
-
-    #chat-input {
-        background: #222;
-        color: #ccc;
-    }
-}
 
 #submit-btn {
     margin-top: -3px;
@@ -60,31 +42,12 @@ div#footer button {
 }
 
 #menu-left-wrapper {
-    background-color: #9ea4a2;
-    box-shadow: #333 3px 3px 7px;
     position: fixed;
     bottom: 5px;
     top: 0px;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     z-index: 2000;
-}
-
-@media (prefers-color-scheme: dark) {
-    #menu-left-wrapper {
-        background: #191714;
-        box-shadow: #181613 3px 3px 7px;
-    }
-
-    .btn-light {
-        background: black;
-        color: white;
-    }
-
-    .btn-light:hover {
-        background: #222;
-        color: white;
-    }
 }
 
 #chat-outer {
@@ -125,10 +88,8 @@ div#footer button {
 }
 
 #toppane-subject.hidden {
-    color: rgba(0, 0, 0, 0);
-    transition: linear 0.2s;
+    transition: color linear 0.2s;
 }
-
 
 .current-room {
     font-weight: bold;
@@ -195,9 +156,7 @@ ul.menu-list li {
     cursor: pointer;
     overflow: hidden;
     white-space: nowrap;
-
     text-overflow: ellipsis;
-
     /* line-height: 10px; */
 }
 
@@ -208,13 +167,11 @@ ul.menu-list li {
 .chatlist-members {
     font-size: 11px;
     margin-top: 0px;
-
     /* line-height: 10px; */
 }
 
 .chatlist-member {
     cursor: pointer;
-
 }
 
 #edit-roomname {
@@ -241,8 +198,6 @@ ul.menu-list li {
     overflow: hidden;
     text-overflow: ellipsis;
 }
-
-
 
 h1 {
     font-size: 21px;
@@ -274,17 +229,6 @@ hr {
     background: #756683;
     box-shadow: #656867 3px 3px 6px;
     margin-bottom: 10px;
-}
-
-@media (prefers-color-scheme: dark) {
-    #top-pane {
-        background: #212B21;
-        box-shadow: #202619 3px 3px 6px;
-    }
-
-    hr {
-        background: #777;
-    }
 }
 
 #top-pane.shrunk {
@@ -499,7 +443,6 @@ textarea[disabled] {
 #delete-room {
     margin-left: 10px;
     font-size: 14px;
-    /* color: red; */
 }
 
 .searchclear {
@@ -511,7 +454,6 @@ textarea[disabled] {
     margin: auto;
     font-size: 14px;
     cursor: pointer;
-    color: #ccc;
 }
 
 #smallmenu {
@@ -601,7 +543,6 @@ textarea[disabled] {
 .setting-group h2 {
     margin: -5px 0px 0px -5px;
     font-weight: bold;
-    color: #444;
 }
 
 .hidden-animate {
@@ -776,22 +717,12 @@ div.chat_entry_comment.shrunk:after {
     bottom: 0;
     left: 0;
     pointer-events: none;
-    background-image: linear-gradient(to bottom,
-            rgba(255, 255, 255, 0),
-            rgba(255, 255, 255, 1));
     width: 100%;
     height: 2em;
 }
 
 div.chat_entry_comment:hover {
     background: #f8f8f8;
-}
-
-@media (prefers-color-scheme: dark) {
-
-    div.chat_entry_comment:hover {
-        background: #192017;
-    }
 }
 
 .remove-item {
@@ -827,7 +758,6 @@ img.chat_user_icon {
 }
 
 div.chat_comment_content {
-    color: #005;
     font-family: 'Noto Sans JP', Slack-Lato, appleLogo, sans-serif;
     font-size: 13px;
     max-width: 100%;
@@ -861,13 +791,6 @@ div.chat_comment_content.font-4 {
 
 div.chat_comment_content.font-5 {
     font-size: 18px;
-}
-
-@media (prefers-color-scheme: dark) {
-    div.chat_comment_content {
-        color: #ccc;
-    }
-
 }
 
 #chat-body {
@@ -961,5 +884,134 @@ h3 {
     text-align: center;
     margin-top: 50vh;
     font-size: 32px;
+}
+
+#menu-left-wrapper {
+    background-color: #9ea4a2;
+    box-shadow: #333 3px 3px 7px;
+}
+
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #191714;
+        color: #ddd;
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    h2 {
+        color: #fff;
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    #menu-left-wrapper {
+        background: #191714;
+        box-shadow: #181613 3px 3px 7px;
+    }
+}
+
+div.chat_comment_content {
+    color: #005;
+}
+
+@media (prefers-color-scheme: dark) {
+    div.chat_comment_content {
+        color: #ccc;
+    }
+}
+
+#toppane-subject.hidden {
+    color: rgba(0, 0, 0, 0);
+}
+
+@media (prefers-color-scheme: dark) {
+    #toppane-subject.hidden {
+        color: rgba(1, 1, 1, 0);
+    }
+}
+
+#center-loading {
     color: #999;
+}
+
+@media (prefers-color-scheme: dark) {
+    #center-loading {
+        color: #999;
+    }
+}
+
+.searchclear {
+    color: #ccc;
+}
+
+@media (prefers-color-scheme: dark) {
+    .searchclear {
+        color: #333;
+    }
+}
+
+div.chat_entry_comment.shrunk:after {
+    background-image: linear-gradient(to bottom,
+            rgba(255, 255, 255, 0),
+            rgba(255, 255, 255, 1));
+}
+
+@media (prefers-color-scheme: dark) {
+    div.chat_entry_comment.shrunk:after {
+        background-image: linear-gradient(to bottom,
+                rgba(255, 255, 255, 0),
+                rgba(100, 100, 100, 1));
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    table {
+        color: #ccc ! important;
+    }
+
+    .userlist-SDGs img.hidden {
+        opacity: 0.3;
+        height: 40px;
+    }
+
+    .userpage-room-entry {
+        background: #222;
+    }
+
+    div#footer_wrapper {
+        background: #191714;
+    }
+
+    #chat-input {
+        background: #222;
+        color: #ccc;
+    }
+
+    #top-pane {
+        background: #212B21;
+        box-shadow: #202619 3px 3px 6px;
+    }
+
+    hr {
+        background: #777;
+    }
+
+    div.chat_entry_comment:hover {
+        background: #192017;
+    }
+
+    .menu-section-title {
+        color: #ccc;
+    }
+
+    .btn-light {
+        background: black;
+        color: white;
+    }
+
+    .btn-light:hover {
+        background: #222;
+        color: white;
+    }
 }
