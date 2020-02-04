@@ -46,7 +46,6 @@ router.delete('/:id', (req: MyPostRequest<any>, res: JsonResponse<CommentsDelete
 
 router.get('/', (req: GetAuthRequest, res: JsonResponse<GetSessionsResponse>, next) => {
     (async () => {
-        console.log(req);
         const ms: string = req.query.of_members;
         const of_members: string[] | undefined = ms ? ms.split(",") : undefined;
         const user_id: string = req.decoded.user_id;

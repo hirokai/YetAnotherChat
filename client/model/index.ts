@@ -756,7 +756,7 @@ export class Model {
             const jwk = await crypto.exportKey(keyPair.publicKey);
             const privateKeyFingerprint = await crypto.fingerPrint1(keyPair.privateKey);
             const obj: UpdatePublicKeyParams = { for_user: this.user_id, publicKey: jwk, privateKeyFingerprint };
-            const { data } = await axios.post('/api/public_keys', obj);
+            const { data } = await axios.post('/api/keys/public_keys/me', obj);
             console.log('update_public_key result', data);
         },
         reset: async (): Promise<{ timestamp: number, fingerprint: { prv: string, pub: string } }> => {

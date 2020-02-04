@@ -29,18 +29,13 @@ export async function register_public_key({ user_id, for_user, jwk, privateKeyFi
     log.debug('register_public_key', { user_id, for_user, jwk })
     if (user_id != null && jwk != null) {
         const err = await pool.query('insert into public_keys (user_id,for_user,public_key,timestamp,private_fingerprint) values ($1,$2,$3,$4,$5);', [user_id, for_user, JSON.stringify(jwk), timestamp, privateKeyFingerprint]);
-        if (!err) {
-            log.debug(user_id);
-            const pub_fp = await fingerPrint(jwk);
-            //Do not "await" the following. It takes time.
-            ethereum.add_to_ethereum(credentials.ethereum, user_id, timestamp, pub_fp).then(() => {
-                log.debug('add_to_ethereum done');
-            })
-            return { ok: true, timestamp };
-        } else {
-            log.debug('register_public_key', err);
-            return { ok: false };
-        }
+        log.debug(user_id);
+        const pub_fp = await fingerPrint(jwk);
+        //Do not "await" the following. It takes time.
+        ethereum.add_to_ethereum(credentials.ethereum, user_id, timestamp, pub_fp).then(() => {
+            log.debug('add_to_ethereum done');
+        })
+        return { ok: true, timestamp };
     } else {
         log.debug('register_public_key error', user_id, jwk)
         return { ok: false };
