@@ -42,6 +42,7 @@ router.get('/public_keys/me', (req: GetAuthRequest, res: JsonResponse<GetPublicK
 
 router.post('/public_keys', (req: MyPostRequest<PostPublicKeyParams>, res, next) => {
     (async () => {
+        log.debug('publickeys')
         const user_id = req.decoded.user_id;
         const jwk = req.body.publicKey;
         const for_user = req.body.for_user;

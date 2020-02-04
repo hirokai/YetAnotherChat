@@ -18,9 +18,9 @@ import every from 'lodash/every'
 const shortid = require('shortid').generate;
 import $ from 'jquery';
 import * as crypto from './cryptography';
+import { localStorageLogger } from '../utils'
 
 import * as CryptoJS from "crypto-js";
-import { reject } from 'lodash-es';
 
 window['CryptoJS'] = CryptoJS;
 
@@ -53,22 +53,27 @@ export class Model {
     async init(): Promise<boolean> {
         try {
             if (!this.token) {
+                localStorageLogger('Token is missing');
                 return false;
             }
             let keyPair = await this.keys.download_my_keys_from_server().catch(() => null);
-            console.log('Downloaded key pair', keyPair);
+            // console.log('Downloaded key pair', keyPair);
             if (keyPair == null || keyPair.pub == null) {
+                localStorageLogger('Either of a key pair is missing ' + keyPair)
                 await this.keys.reset();
             } else {
+                localStorageLogger('Downloaded key pair ' + keyPair)
                 await this.keys.save_my_keys(keyPair, true);
             }
             if (keyPair && keyPair.prv) {
                 //For user export, it has to be prepared beforehand (no async operation)
-                this.privateKeyJson = await crypto.exportKey(keyPair.prv);;
+                this.privateKeyJson = await crypto.exportKey(keyPair.prv);
             }
+            localStorageLogger('Model init ok');
             return true;
         } catch (e) {
-            console.error('Model init error', e)
+            localStorageLogger('Model init error' + e);
+            // console.error('Model init error', e)
             return false;
         }
     }
