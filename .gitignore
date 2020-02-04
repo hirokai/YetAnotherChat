@@ -6,6 +6,7 @@ client/dist
 client/elm-stuff
 server/public/**/*
 .fusebox
+uploads
 .vscode
 public/uploads/
 not_uploaded/

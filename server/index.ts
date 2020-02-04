@@ -173,7 +173,6 @@ app.use('/webhook', api_webhook)
 // http://dotnsf.blog.jp/archives/1067083257.html
 app.use(function (req, res, next) {
     (async () => {
-        log.debug(req);
         if (req.path.indexOf('/api/') != 0) {
             next();
             return;
