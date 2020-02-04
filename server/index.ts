@@ -229,6 +229,10 @@ utils.connectToDB().then(() => {
             })
         }
     });
+}).catch(() => {
+    log.error('Connection to DB failed. Quitting.');
+    (production ? https : http).close();
+    process.exit(1);
 });
 
 
