@@ -232,7 +232,7 @@ videoDiv room model =
             div [ class "video-div-cell" ]
                 [ span [ class "video-username" ] [ text (getUserNameDisplay model uid) ]
                 , br [] []
-                , video [ autoplay True, Html.Attributes.attribute "playsinline" "true", id ("remote-video." ++ uid), Html.Attributes.attribute "muted" "true" ] []
+                , video [ autoplay True, Html.Attributes.attribute "playsinline" "true", id ("remote-video." ++ uid) ] []
                 ]
 
         users =
@@ -242,7 +242,7 @@ videoDiv room model =
         [ div [ class "video-div-cell" ]
             [ span [ class "video-username" ] [ text (getUserNameDisplay model model.myself) ]
             , br [] []
-            , video [ autoplay True, Html.Attributes.attribute "playsinline" "true", id "my-video", Html.Attributes.attribute "muted" "true" ] []
+            , video [ autoplay True, Html.Attributes.attribute "playsinline" "true", id "my-video" ] []
             ]
         ]
             ++ List.indexedMap (\i u -> remoteVideoCell u i) users
