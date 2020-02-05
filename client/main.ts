@@ -350,7 +350,7 @@ window['importKey'] = crypto.importKey;
     app.ports.sendCommentToServer.subscribe(({ comment, session }: { comment: string, session: string }) => {
         model.comments.new({ comment, session_id: session }).then(() => {
             app.ports.sendCommentToServerDone.send(null);
-            getAndfeedRoomInfo();
+            // getAndfeedRoomInfo();
             scrollToBottom();
         });
     });

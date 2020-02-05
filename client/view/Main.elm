@@ -388,6 +388,12 @@ update msg model =
                         if operation == "delete" then
                             getRoomInfo ()
 
+                        else if operation == "comments.new" then
+                            getMessages id
+
+                        else if operation == "comments.delete" then
+                            getMessages id
+
                         else
                             Cmd.batch [ getRoomInfo (), getMessages id ]
 

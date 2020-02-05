@@ -103,8 +103,9 @@ router.post('/:session_id/comments/delta', (req: MyPostRequest<GetCommentsDeltaD
         const session_id = req.params.session_id;
         const last_updated = req.body.last_updated;
         const cached_ids = req.body.cached_ids;
-        // log.info(session_id, last_updated, cached_ids);
+        log.info(session_id, last_updated, cached_ids);
         const deltas: CommentChange[] = await model.list_comment_delta({ session_id, cached_ids, for_user: req.decoded.user_id, last_updated });
+        log.info('Comment IDs: ' + deltas.map(d => d));
         res.json(deltas);
     })().catch(next);
 });
