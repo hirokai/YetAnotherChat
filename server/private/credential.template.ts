@@ -1,6 +1,6 @@
 // Fill the values and rename this file to credential.js
 
-import { abi } from '../model/HashStorage3.json'
+import { abi } from '../model/HashStorage3.json';
 
 const ethereum_all = {
     // Private key MUST BE private.

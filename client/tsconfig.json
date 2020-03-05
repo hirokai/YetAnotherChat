@@ -4,6 +4,7 @@
         "target": "es5",
         "module": "commonjs",
         "esModuleInterop": true,
+        "resolveJsonModule": true,
         "rootDir": "..",
         "strictNullChecks": true,
         "allowSyntheticDefaultImports": true,
