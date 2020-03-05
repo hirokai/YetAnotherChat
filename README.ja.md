@@ -1,18 +1,30 @@
 # 使い方
 
+Node.js v12で動作
+
+## 前提
+
+* Node.js v12
+* npm
+* PostgreSQL
+  * Macの場合 ```brew update && brew install postgresql``` でインストール
+
 ## インストール
 ```
 npm i
-brew update && brew install postgresql
+initdb <PostgreSQLデータを置くフォルダ>
+createdb yacht
+psql -d yacht -f server/schema.sql
 ```
 
-## Credentialの準備
-`server/private/credential`に`credential.ts`ファイルを置く。
+## 設定ファイル（プライベート）の準備
+`server/private/`に以下の2つのファイルを置く。
+* `credential.js`
+* `user_info.ts`
 
 ## データベースを開始する
 
 ```
-initdb ~/repos/postgres 
 pg_ctl -D ~/repos/postgres start
 ```
 

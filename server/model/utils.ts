@@ -17,16 +17,16 @@ export async function connectToDB(database?: string) {
     // for connection information
     if (database == 'test') {
         pool = new Pool({
-            database: 'test',
+            database: 'yacht_test',
             user: 'hiroyuki'
         });
         client = new Client({
-            database: 'test',
+            database: 'yacht_test',
             user: 'hiroyuki'
         });
     } else {
-        pool = new Pool();
-        client = new Client();
+        pool = new Pool({ database: 'yacht' });
+        client = new Client({ database: 'yacht' });
     }
     await client.connect();
 }

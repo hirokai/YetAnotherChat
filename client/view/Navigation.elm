@@ -1,4 +1,4 @@
-port module Navigation exposing (enterHome, enterNewSession, enterNewWorkspace, enterProfileEdit, enterSession, enterSessionList, enterUser, enterUserList, enterUserProfile, enterUserSetting, enterWorkspace, enterWorkspaceEdit, enterWorkspaceList, loadingView, notFound, notFoundView, pageToPath, pathToPage, updatePageHash)
+module Navigation exposing (enterHome, enterNewSession, enterNewWorkspace, enterProfileEdit, enterSession, enterSessionList, enterUser, enterUserList, enterUserProfile, enterUserSetting, enterWorkspace, enterWorkspaceEdit, enterWorkspaceList, loadingView, notFound, notFoundView, pageToPath, pathToPage, updatePageHash)
 
 import Dict
 import Html exposing (..)
