@@ -93,14 +93,17 @@ function getEncryptionKey(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey
                 bits
             );
         }).then(digest => {        // ハッシュ値の先頭16オクテットから128ビットAES-GCMの鍵を生成
-            return crypto.subtle.importKey(
+            console.log('Importing with digest: ', digest)
+            const key = crypto.subtle.importKey(
                 'raw',
                 digest.slice(0, 16),
                 { name: 'AES-GCM', length: 128 },
                 true,
                 ['encrypt', 'decrypt']
             );
+            return key;
         }).then(key => {
+            console.log('Key obtained: ', key);
             resolve(key);
         });
     });
@@ -168,14 +171,14 @@ export async function importEncryptionKey(key_str: string, exportable = false): 
 export async function encrypt(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey, input: Uint8Array): Promise<EncryptedData> {
     const fp1 = await fingerPrint1(remotePublicKey);
     const fp2 = await fingerPrint1(localPrivateKey);
-    console.log('encrypt() start', fromUint8Array(input), { remote_pub: fp1, self_prv: fp2, remotePublicKey });
+    let iv = crypto.getRandomValues(new Uint8Array(12));
+    console.log('encrypt() start', iv, fromUint8Array(input), { remote_pub: fp1, self_prv: fp2, remotePublicKey });
 
     return new Promise((resolve, reject) => {
         if (!remotePublicKey || !localPrivateKey) {
             console.error('encrypt(): Keys must be non-null.')
             reject();
         }
-        let iv = crypto.getRandomValues(new Uint8Array(12));
         getEncryptionKey(remotePublicKey, localPrivateKey).then((encryptionKey) => {
             return crypto.subtle.encrypt(
                 { name: 'AES-GCM', iv, tagLength: 128 },
@@ -195,6 +198,8 @@ export async function encrypt(remotePublicKey: CryptoKey, localPrivateKey: Crypt
 
 export async function encrypt_str(remotePublicKey: CryptoKey, localPrivateKey: CryptoKey, input: string): Promise<string> {
     const encrypted = await encrypt(remotePublicKey, localPrivateKey, toUint8Array(input));
+    const fp1 = await fingerPrint1(remotePublicKey);
+    console.log('Encrypted for remote pub', fp1, encrypted);
     return encrypted.iv + ':' + encrypted.data;
 }
 
@@ -212,7 +217,7 @@ export async function decrypt(remotePublicKey: CryptoKey, localPrivateKey: Crypt
     return new Promise((resolve, reject) => {
         getEncryptionKey(remotePublicKey, localPrivateKey).then((encryptionKey) => {
             // console.log('getEncryptionKey', { remotePublicKey, localPrivateKey, encryptionKey })
-            // console.log('decrypt start', encryptionKey, remotePublicKey, localPrivateKey, encrypted);
+            console.log('decrypt start', decodingFunc(encrypted.iv), encryptionKey, remotePublicKey, localPrivateKey, encrypted);
             // AES-GCMによる復号
             return crypto.subtle.decrypt(
                 { name: 'AES-GCM', iv: decodingFunc(encrypted.iv), tagLength: 128 },
@@ -222,7 +227,7 @@ export async function decrypt(remotePublicKey: CryptoKey, localPrivateKey: Crypt
         }).then(data => {
             resolve(new Uint8Array(data));
         }, (err) => {
-            console.log('decrypt() error', { remote_pub: fp1, self_prv: fp2 }, encrypted);
+            console.log('decrypt() error', { remote_pub: fp1, self_prv: fp2 }, encrypted, err);
             reject();
         });
     });

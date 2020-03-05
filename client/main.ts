@@ -15,6 +15,7 @@ import * as crypto from './model/cryptography';
 import * as video from './video';
 
 import * as shortid_ from 'shortid';
+import { test_crypto } from './model/test_crypto';
 shortid_.characters('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$_');
 const shortid = shortid_.generate;
 
@@ -25,6 +26,8 @@ const password: string = localStorage['yacht.db_password'] || "";
 axios.defaults.headers.common['x-access-token'] = token;
 
 window['importKey'] = crypto.importKey;
+
+// test_crypto();
 
 (async () => {
     const model = new Model({

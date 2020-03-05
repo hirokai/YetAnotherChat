@@ -11,7 +11,7 @@ module.exports = env => {
         entry: {
             main: './client/main.ts',
             // mobile_main: './client/mobile/main.ts',
-            matrix: './client/matrix.ts',
+            // matrix: './client/matrix.ts',
         },
         output: {
             filename: '[name].bundle.js',
@@ -71,6 +71,11 @@ module.exports = env => {
                         options: { url: false }
                     }
                 ]
+            }, {
+                test: /\.json$/,
+                use: {
+                    loader: 'json-loader'
+                }
             }]
         },
         resolve: {
