@@ -71,6 +71,11 @@ module.exports = env => {
                         options: { url: false }
                     }
                 ]
+            }, {
+                test: /\.json$/,
+                use: {
+                    loader: 'json-loader'
+                }
             }]
         },
         resolve: {
