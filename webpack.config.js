@@ -10,8 +10,8 @@ module.exports = env => {
         // mode: 'development',
         entry: {
             main: './client/main.ts',
+            email: './client/email.ts',
             // mobile_main: './client/mobile/main.ts',
-            // matrix: './client/matrix.ts',
         },
         output: {
             filename: '[name].bundle.js',

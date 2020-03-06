@@ -68,7 +68,7 @@ const pretty = require('express-prettify');
 app.use(pretty({ query: 'pretty', spaces: 8 }));
 
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '50mb' }));
 
 app.use(function (req: Request, res: MyResponse, next) {
     res.header("Access-Control-Allow-Origin", "*");
@@ -104,7 +104,7 @@ app.use('/register', express.static(path.join(__dirname, '../public/html/registe
 app.use('/login', express.static(path.join(__dirname, '../public/html/login.html')))
 app.use('/reset_password', express.static(path.join(__dirname, '../public/html/reset_password.html')))
 app.use('/main', express.static(path.join(__dirname, '../public/html/main.html')))
-app.use('/matrix', express.static(path.join(__dirname, '../public/html/matrix.html')))
+app.use('/email', express.static(path.join(__dirname, '../public/html/email.html')))
 app.use('/m', express.static(path.join(__dirname, '../client/mobile/html')))
 app.get('/', (req, res) => {
     res.redirect('/main#/');
@@ -209,6 +209,8 @@ app.use(function (req, res, next) {
 
 // http://catlau.co/how-to-modularize-routes-with-the-express-router/
 app.use('/api', api_routes);
+
+// console.log(app._router.stack);
 
 //Periodically remove old IDs.
 setInterval(async () => {

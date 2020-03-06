@@ -23,6 +23,17 @@ router.post('/mailgun', multer().none(), (req, res, next) => {
     })().catch(next);
 });
 
+router.post('/aws_ses', (req, res, next) => {
+    (async () => {
+        res.json({ status: "ok" });
+        log.info('Received email.');
+        fs.writeFileSync('email.temp.txt', req.body.data);
+        // await mail_algo.update_db_on_mailgun_webhook({ body: req.body, pool, myio: io });
+        // log.info('Parsing done.');
+    })().catch(next);
+});
+
+
 
 const shortid_ = require('shortid');
 shortid_.characters('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$_');
