@@ -1,7 +1,7 @@
 /// <reference path="../common/types.d.ts" />
 
 // @ts-ignore
-import { Elm } from './view/Email.elm';
+import { Elm } from './view/EmailList.elm';
 import map from 'lodash/map';
 import values from 'lodash/values';
 import includes from 'lodash/includes';
@@ -28,11 +28,8 @@ axios.defaults.headers.common['x-access-token'] = token;
 const app: ElmMail = Elm.Email.init({});
 
 const params: GetEmailsParams = {};
-const message_id = "<5a9ac130-e0a9-8aa5-cd16-3828805f020d@tohoku.ac.jp>";
-
-axios.get('/api/emails/' + message_id, { params }).then(({ data }: AxiosResponse<GetEmailsResponse>) => {
-    console.log(data.data);
-    app.ports.feedEmails.send(data.data);
-}).catch((e) => {
-    console.log(e);
+axios.get('/api/emails', { params }).then(({ data }: AxiosResponse<GetEmailsResponse>) => {
+    console.log(data.data.map((e) => e.email_from));
+    app.ports.feedEmails.send(data.data.map((e) => e.email_from))
+}).catch(() => {
 });

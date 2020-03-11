@@ -11,7 +11,7 @@ moment.locale('ja');
 import { Pool } from 'pg';
 import * as model from './index';
 import * as user_info from '../private/user_info';
-import * as email from './email'
+import * as email_mailgun from './email_mailgun'
 import * as bunyan from 'bunyan';
 const log = bunyan.createLogger({ name: "model.mail_algo", src: true });
 // https://stackoverflow.com/questions/21900713/finding-all-connected-components-of-an-undirected-graph
@@ -23,7 +23,7 @@ const log = bunyan.createLogger({ name: "model.mail_algo", src: true });
 const bfs = function (v0: string, all_pairs: string[][], visited: { [key: string]: boolean }): string[] {
     var q: string[] = [];
     var current_group: string[] = [];
-    var i, nextVertex
+    var i;
     var pair: string[];
     var length_all_pairs = all_pairs.length;
     q.push(v0);
@@ -54,7 +54,7 @@ const bfs = function (v0: string, all_pairs: string[][], visited: { [key: string
 
 export function find_groups(pairs: string[][]): string[][] {
     var groups: string[][] = [];
-    var i, k, length;
+    var i, length;
     var u: string;
     var v: string;
     var src: string | null;
@@ -145,7 +145,6 @@ export function split_replies(txt: string): MailThreadItem[] {
     var reply_indent_prev: number = 0;
     var reply_depth: number = 0;
     var content_lines: string[] = [];
-    var head_txt: string = '';
     var head_txt_prev: string = '';
     var line_prev: string = '';
     var start: number = 0;
@@ -290,11 +289,11 @@ export function parse_email_address(s: string): { email?: string, name?: string 
         if (m) {
             return { name: m[1].trim(), email: m[2].trim() };
         } else {
-            const re = /^(([^<>()\[\]\.,;:\s@\"]+(\.[^<>()\[\]\.,;:\s@\"]+)*)|(\".+\"))@(([^<>()[\]\.,;:\s@\"]+\.)+[^<>()[\]\.,;:\s@\"]{2,})$/i;
+            const re = /^(([^<>()[\].,;:\s@"]+(\.[^<>()[\].,;:\s@"]+)*)|(".+"))@(([^<>()[\].,;:\s@"]+\.)+[^<>()[\].,;:\s@"]{2,})$/i;
             if (re.test(s)) {
                 return { email: s };
             } else {
-                const name = s.trim().replace(/^["'<>\s]/g, '').replace(/["'<>\s]$/g, '');;
+                const name = s.trim().replace(/^["'<>\s]/g, '').replace(/["'<>\s]$/g, '');
                 const email = undefined;
                 return { name, email };
             }
@@ -357,7 +356,7 @@ export async function update_db_on_mailgun_webhook({ body, pool, myio, ignore_re
     }
     const workspace = workspace_id ? await model.workspaces.get(myself.id, workspace_id) : undefined;
 
-    const replies: MailgunParsed[] = email.parse_mailgun_webhook_thread(body);
+    const replies: MailgunParsed[] = email_mailgun.parse_mailgun_webhook_thread(body);
     log.info('-------')
     log.info('Thread of ' + replies.length + ' emails.');
     log.info('From: ', _.map(replies, d => d.from));
@@ -467,7 +466,7 @@ async function find_or_make_user_for_email(email: string, fullname?: string): Pr
         }
         log.info('find_or_make_user making', fullname, email, name);
         const source = "email_thread";
-        const { ok, user: user2, error } = await model.users.register({ username: name, password: "11111111", email, fullname, source });
+        const { ok: _, user: user2, error } = await model.users.register({ username: name, password: "11111111", email, fullname, source });
         log.info('find_or_make_user', error);
         if (user2) {
             return user2;
@@ -495,9 +494,9 @@ async function make_user_for_fullname(fullname?: string): Promise<User> {
             }
         }
     }
-    log.info('find_or_make_user making', fullname, email, name);
+    log.info('find_or_make_user making', fullname, name);
     const source = "email_thread";
-    const { ok, user: user2, error } = await model.users.register({ username: name, password: "11111111", fullname, source });
+    const { ok: _, user: user2, error: _error } = await model.users.register({ username: name, password: "11111111", fullname, source });
     if (user2) {
         return user2;
     } else {

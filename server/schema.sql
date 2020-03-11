@@ -161,3 +161,14 @@ CREATE TABLE temporary_tokens
     kind text not null,
     token text not null
 );
+
+DROP TABLE if exists email;
+
+CREATE TABLE email
+(
+    id text not null unique,
+    timestamp bigint not null,
+    email_from text not null,
+    email_to text,
+    email_text text
+);

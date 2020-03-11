@@ -104,7 +104,8 @@ app.use('/register', express.static(path.join(__dirname, '../public/html/registe
 app.use('/login', express.static(path.join(__dirname, '../public/html/login.html')))
 app.use('/reset_password', express.static(path.join(__dirname, '../public/html/reset_password.html')))
 app.use('/main', express.static(path.join(__dirname, '../public/html/main.html')))
-app.use('/email', express.static(path.join(__dirname, '../public/html/email.html')))
+app.use('/emails/:id', express.static(path.join(__dirname, '../public/html/email.html')))
+app.use('/emails', express.static(path.join(__dirname, '../public/html/email_list.html')))
 app.use('/m', express.static(path.join(__dirname, '../client/mobile/html')))
 app.get('/', (req, res) => {
     res.redirect('/main#/');
@@ -145,13 +146,6 @@ app.get('/reset_password/:reset_password_token', resetPasswordLimiter, (req, res
         } else {
             res.send('リンクが無効あるいは期限切れです。');
         }
-    })().catch(next);
-});
-
-app.get('/email/:id', (req, res, next) => {
-    (async () => {
-        const { lines, subject, range } = await model.get_original_email_highlighted(req.params.id);
-        res.render(path.join(__dirname, 'view', './email.ejs'), { lines, subject, range });
     })().catch(next);
 });
 

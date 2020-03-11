@@ -10,6 +10,7 @@ module.exports = env => {
         // mode: 'development',
         entry: {
             main: './client/main.ts',
+            email_list: './client/email_list.ts',
             email: './client/email.ts',
             // mobile_main: './client/mobile/main.ts',
         },

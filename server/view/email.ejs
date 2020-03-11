@@ -11,6 +11,7 @@
             margin: 0px;
             font-size: 13px;
         }
+
         p.hl {
             color: red;
         }
@@ -18,13 +19,14 @@
 </head>
 
 <body>
-<% lines.forEach( (line,i) => { %>
-    <p class=<%- line.highlight ? 'hl' : '' %> id=<%- range.start == i + 1 ? 'start' : '' %> ><%- line.line %></p>
-<% }) %>
+    <h1>Email</h1>
+    <% lines.forEach( (line,i) => { %>
+    <p class=<%- line.highlight ? 'hl' : '' %> id=<%- range.start == i + 1 ? 'start' : '' %>><%- line.line %></p>
+    <% }) %>
 
-<script>
-document.getElementById('start').scrollIntoView();
-</script>
+    <script>
+        document.getElementById('start').scrollIntoView();
+    </script>
 </body>
 
 </html>

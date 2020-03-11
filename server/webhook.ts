@@ -1,9 +1,9 @@
 /// <reference path="../common/types.d.ts" />
-import * as model from './model'
 import { Router } from 'express'
 export const router: any = Router();
 import { io } from './socket'
 import * as _ from 'lodash';
+import * as model from './model'
 import request from 'request';
 import multer from 'multer';
 import * as mail_algo from './model/mail_algo'
@@ -26,12 +26,30 @@ router.post('/mailgun', multer().none(), (req, res, next) => {
 router.post('/aws_ses', (req, res, next) => {
     (async () => {
         res.json({ status: "ok" });
+        fs.writeFileSync('uploads/email/' + req.body.key, req.body.data, "utf8");
+        const parsed = await model.email.parseEmail(req.body.data);
         log.info('Received email.');
-        fs.writeFileSync('email.temp.txt', req.body.data);
-        // await mail_algo.update_db_on_mailgun_webhook({ body: req.body, pool, myio: io });
-        // log.info('Parsing done.');
+        const r = await model.email.add(parsed);
+        log.debug(r);
     })().catch(next);
 });
+
+router.get('/aws_ses/debug/:email_id', (req, res, next) => {
+    (async () => {
+        try {
+            const data = fs.readFileSync('uploads/email/' + req.params.email_id, "utf8");
+            const parsed = await model.email.parseEmail(data);
+            log.info('Parsed email.');
+            const r = await model.email.add(parsed);
+            log.debug(r);
+            res.json({ ...r, ok: true, messageId: parsed.messageId });
+        } catch (e) {
+            log.debug(e);
+            res.json({ ok: false });
+        }
+    })().catch(next);
+});
+
 
 
 

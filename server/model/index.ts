@@ -17,6 +17,8 @@ import * as keys_ from './keys'
 export const keys = keys_;
 import * as workspaces_ from './workspaces'
 export const workspaces = workspaces_;
+import * as email_ from './email'
+export const email = email_;
 import * as _ from 'lodash';
 import moment from 'moment';
 

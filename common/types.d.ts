@@ -244,6 +244,11 @@ interface PostPublicKeyParams extends AuthedParams {
 
 type UpdatePublicKeyParams = PostPublicKeyParams
 
+interface GetEmailsParams extends AuthedParams {
+}
+
+type GetEmailsResponse = { ok: boolean, data: { email_from: string }[] }
+
 interface GetSessionsOfParams extends AuthedParams {
     of_members: string,
 }
@@ -497,8 +502,16 @@ interface ElmAppPorts {
     }
 }
 
+interface ElmMailPorts {
+    feedEmails: PortFn
+}
+
 interface ElmApp {
     ports: ElmAppPorts;
+}
+
+interface ElmMail {
+    ports: ElmMailPorts;
 }
 
 interface PortFn {

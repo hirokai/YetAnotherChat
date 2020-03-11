@@ -1,4 +1,4 @@
-port module Email exposing (Flags, init, main, subscriptions, update, view)
+port module EmailList exposing (Flags, init, main, subscriptions, update, view)
 
 import Browser
 import Decoders exposing (..)
@@ -26,22 +26,16 @@ import UserPageView exposing (..)
 import Workspace exposing (..)
 
 
-port feedEmails : ({ subject : String, from : String } -> msg) -> Sub msg
+port feedEmails : (List String -> msg) -> Sub msg
 
 
 type alias Model =
-    { loaded : Bool, email : Email }
-
-
-type alias Email =
-    { subject : String
-    , from : String
-    }
+    { titles : List String }
 
 
 init : Flags -> ( Model, Cmd MsgMail )
 init {} =
-    ( { loaded = False, email = { subject = "N/A", from = "N/A" } }
+    ( { titles = [] }
     , Cmd.none
     )
 
@@ -58,7 +52,7 @@ main =
 
 type MsgMail
     = NoOp1
-    | FeedEmail Email
+    | FeedEmail (List String)
 
 
 update : MsgMail -> Model -> ( Model, Cmd MsgMail )
@@ -67,8 +61,8 @@ update msg model =
         NoOp1 ->
             ( model, Cmd.none )
 
-        FeedEmail email ->
-            ( { model | email = email, loaded = True }, Cmd.none )
+        FeedEmail emails ->
+            ( { model | titles = emails }, Cmd.none )
 
 
 view : Model -> Browser.Document MsgMail
@@ -77,25 +71,13 @@ view model =
     , body =
         [ div [ class "container-fluid" ]
             [ div [ class "col-12" ]
-                [ div [ classList [ ( "row", True ), ( "fadein", model.loaded ) ] ] <|
-                    if model.loaded then
-                        [ div
-                            [ id "view" ]
-                            [ h1 []
-                                [ text
-                                    (if model.email.subject == "" then
-                                        "\u{3000}"
-
-                                     else
-                                        model.email.subject
-                                    )
-                                ]
-                            , p [] [ text "From: ", text model.email.from ]
-                            ]
-                        ]
-
-                    else
-                        []
+                [ div [ class "row" ]
+                    [ div
+                        [ id "view" ]
+                        (h1 [] [ text "メール一覧" ]
+                            :: List.map (\t -> div [] [ text t ]) model.titles
+                        )
+                    ]
                 ]
             ]
         ]

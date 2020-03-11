@@ -5,6 +5,7 @@ import { router as sessions } from './sessions'
 import { router as workspaces } from './workspaces'
 import { router as files } from './files'
 import { router as keys } from './keys'
+import { router as emails } from './emails'
 export const router: any = Router();
 import { io } from '../socket'
 
@@ -13,6 +14,7 @@ router.use('/sessions', sessions);
 router.use('/workspaces', workspaces);
 router.use('/files', files);
 router.use('/keys', keys);
+router.use('/emails', emails);
 
 
 router.post('/logout', (req, res, next) => {
