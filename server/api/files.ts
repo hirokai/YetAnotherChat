@@ -10,7 +10,7 @@ import * as bunyan from 'bunyan';
 const log = bunyan.createLogger({ name: "api.files", src: true, level: 1 });
 
 const upload = multer({
-    dest: './uploads/',
+    dest: './uploads/files/',
     limits: {
         fieldNameSize: 1000,
         files: 100,

@@ -2,20 +2,11 @@
 
 // @ts-ignore
 import { Elm } from './view/EmailList.elm';
-import map from 'lodash/map';
-import values from 'lodash/values';
-import includes from 'lodash/includes';
-import compact from 'lodash/compact'
 import axios from 'axios';
-import $ from 'jquery';
 import 'bootstrap';
-import io from "socket.io-client";
-import { Model, processData, formatTime2 } from './model';
-import * as crypto from './model/cryptography';
-import * as video from './video';
+import moment from 'moment';
 
 import * as shortid_ from 'shortid';
-import { test_crypto } from './model/test_crypto';
 shortid_.characters('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ$_');
 const shortid = shortid_.generate;
 
@@ -25,11 +16,12 @@ const password: string = localStorage['yacht.db_password'] || "";
 
 axios.defaults.headers.common['x-access-token'] = token;
 
-const app: ElmMail = Elm.Email.init({});
+const app: ElmMail = Elm.EmailList.init({});
 
 const params: GetEmailsParams = {};
 axios.get('/api/emails', { params }).then(({ data }: AxiosResponse<GetEmailsResponse>) => {
-    console.log(data.data.map((e) => e.email_from));
-    app.ports.feedEmails.send(data.data.map((e) => e.email_from))
+    const es: EmailClient[] = data.data.map((e: Email) => { console.log(e); return { from: e.from || "", subject: e.subject || "", date: moment(e.timestamp).format(), timestamp: e.timestamp, message_id: e.message_id } });
+    console.log(es);
+    app.ports.feedEmails.send(es);
 }).catch(() => {
 });

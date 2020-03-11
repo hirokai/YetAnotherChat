@@ -61,7 +61,7 @@
     "forever:nohup": "nohup sudo NODE_PRODUCTION=true PORT=80 forever -c node ./server/index.js &",
     "test": "npx jest --runInBand --silent --verbose --colors | ./node_modules/.bin/bunyan -l warn",
     "cert": "sudo certbot certonly",
-    "postinstall": "mkdir -p public/js/lib/ && cp node_modules/jquery/dist/jquery.min.js public/js/lib/"
+    "postinstall": "mkdir -p uploads/email && mkdir -p uploads/files && mkdir -p public/js/lib/ && cp node_modules/jquery/dist/jquery.min.js public/js/lib/"
   },
   "version": "0.1.0",
   "devDependencies": {

@@ -1,0 +1,110 @@
+/* html,bodyタグの設定 */
+html, body{
+	margin: 0;	/* 余白の削除 */
+	padding: 0;	/* 余白の削除 */
+	height: 100%;	/* 縦の高さを100% */
+	width: 100%;	/* 横の幅を100% */
+}
+/* 全体を囲う大枠 */
+.container-fluid {
+	position: relative;		/* フッター部の配置用に定義 */
+	min-height: 100%;		/* 縦の表示領域を100% */
+}
+
+/* フッターの表示領域 */
+div#footer{
+	border: 5px solid #fff; /* 表示領域を白枠で囲う */
+	height: 100px;          /* 縦幅の指定100px */
+	width: 100%;           /* 横の幅970px */
+	margin: auto;           /* 中央揃え */
+}
+
+div.fadein {
+    animation: fadeIn 0.5s ease 0s 1 normal;
+    -webkit-animation: fadeIn 0.5s ease 0s 1 normal;
+}
+
+@keyframes fadeIn {
+    0% {
+        opacity: 0
+    }
+
+    100% {
+        opacity: 1
+    }
+}
+
+@-webkit-keyframes fadeIn {
+    0% {
+        opacity: 0
+    }
+
+    100% {
+        opacity: 1
+    }
+}
+
+/* fallback */
+@font-face {
+    font-family: 'Material Icons';
+    font-style: normal;
+    font-weight: 400;
+    src: url(/public/css/flUhRq6tzZclQEJ-Vdg-IuiaDsNcIhQ8tQ.woff2) format('woff2');
+}
+
+.material-icons {
+    font-family: 'Material Icons';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+    -webkit-font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+}
+
+#view {
+    height: calc(100% - 100px);
+    overflow: scroll;
+    padding: 10px;
+}
+
+#bms_send {
+    margin:0px;
+    padding:0px;
+
+}
+    #bms_send_message{
+        width: calc(100% - 75px);/*常に送信ボタンの横幅を引いたサイズに動的に計算*/
+        line-height: 16px;
+        height: 100%;
+        padding: 14px 6px 0px 6px;/*文字がテキストエリアの中心になる様に隙間調整*/
+        border: 1px solid #ccc;
+        border-radius: 4px;/*角丸*/
+        text-align: left;/*文字を左寄せ*/
+        box-shadow: 2px 2px 4px 0px rgba(0,0,0,0.2) inset;/*内側に影を入れてテキストエリアらしくした*/
+        box-sizing: border-box;/*paddingとborderの要素の高さと幅の影響をなくす（要素に高さと幅を含める）*/
+    }
+    #bms_send_btn {
+        width: 72px;
+        height: 48px;
+        font-size: 16px;
+        line-height: 3em;
+        float: right;/*bms_sendに対して右寄せ*/
+        color: #fff;
+        font-weight: bold;
+        background: #bcbcbc;
+        text-align: center;/*文字をボタン中央に表示*/
+        border: 1px solid #bbb;
+        border-radius: 4px;/*角丸*/
+        box-sizing: border-box;/*paddingとborderの要素の高さと幅の影響をなくす（要素に高さと幅を含める）*/
+    }
+    #bms_send_btn:hover {
+        background: #13178E; /*マウスポインタを当てた時にアクティブな色になる*/
+        cursor: pointer;/*マウスポインタを当てた時に、カーソルが指の形になる*/
+    }

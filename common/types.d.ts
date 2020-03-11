@@ -247,7 +247,12 @@ type UpdatePublicKeyParams = PostPublicKeyParams
 interface GetEmailsParams extends AuthedParams {
 }
 
-type GetEmailsResponse = { ok: boolean, data: { email_from: string }[] }
+type EmailClient = { from: string, subject: string, date: string, timestamp: number, message_id: string }
+type Email = { from: string, subject: string, timestamp: number, message_id: string }
+type GetEmailsResponse = { ok: boolean, data: Email[] }
+
+type EmailDetail = { from: string, subject: string, timestamp: number, message_id: string, text: string }
+type GetEmailResponse = { ok: boolean, data: EmailDetail }
 
 interface GetSessionsOfParams extends AuthedParams {
     of_members: string,

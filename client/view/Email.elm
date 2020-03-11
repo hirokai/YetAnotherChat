@@ -1,4 +1,4 @@
-port module Email exposing (Flags, init, main, subscriptions, update, view)
+port module Email exposing (init, main, subscriptions, update, view)
 
 import Browser
 import Decoders exposing (..)
@@ -26,22 +26,23 @@ import UserPageView exposing (..)
 import Workspace exposing (..)
 
 
-port feedEmails : ({ subject : String, from : String } -> msg) -> Sub msg
+port feedEmail : (EmailDetailClient -> msg) -> Sub msg
 
 
 type alias Model =
-    { loaded : Bool, email : Email }
+    { loaded : Bool, email : EmailDetailClient }
 
 
-type alias Email =
+type alias EmailDetailClient =
     { subject : String
     , from : String
+    , text: String
     }
 
 
 init : Flags -> ( Model, Cmd MsgMail )
 init {} =
-    ( { loaded = False, email = { subject = "N/A", from = "N/A" } }
+    ( { loaded = False, email = { subject = "N/A", from = "N/A", text = "" } }
     , Cmd.none
     )
 
@@ -58,7 +59,7 @@ main =
 
 type MsgMail
     = NoOp1
-    | FeedEmail Email
+    | FeedEmail EmailDetailClient
 
 
 update : MsgMail -> Model -> ( Model, Cmd MsgMail )
@@ -75,14 +76,14 @@ view : Model -> Browser.Document MsgMail
 view model =
     { title = "Mail view"
     , body =
-        [ div [ class "container-fluid" ]
-            [ div [ class "col-12" ]
-                [ div [ classList [ ( "row", True ), ( "fadein", model.loaded ) ] ] <|
+        [ div [  ]
+            [ div [  ]
+                [ div [ id "view", classList [  ( "fadein", model.loaded ) ] ] <|
                     if model.loaded then
                         [ div
-                            [ id "view" ]
+                            [  ]
                             [ h1 []
-                                [ text
+                                [ a [href "/emails"] [text "[<]"], text
                                     (if model.email.subject == "" then
                                         "\u{3000}"
 
@@ -91,11 +92,15 @@ view model =
                                     )
                                 ]
                             , p [] [ text "From: ", text model.email.from ]
+                            , pre [] [text model.email.text]
+                            
                             ]
+                            
                         ]
 
                     else
                         []
+                    , div [id "footer"] [div [id "bms_send"] [textarea [id "bms_send_message"] [],div [id "bms_send_btn"] [text "送信"]]]
                 ]
             ]
         ]
@@ -104,7 +109,7 @@ view model =
 
 subscriptions : Model -> Sub MsgMail
 subscriptions _ =
-    Sub.batch [ feedEmails FeedEmail ]
+    Sub.batch [ feedEmail FeedEmail ]
 
 
 type alias Flags =

@@ -34,6 +34,35 @@ router.post('/aws_ses', (req, res, next) => {
     })().catch(next);
 });
 
+router.get('/aws_ses/debug/parse_all', (req, res, next) => {
+    (async () => {
+        try {
+            const files = fs.readdirSync('uploads/email');
+            log.debug(files);
+            var messageIds: string[] = [];
+            for (let id of files) {
+                try {
+                    const data = fs.readFileSync('uploads/email/' + id, "utf8");
+                    const parsed = await model.email.parseEmail(data);
+                    fs.writeFile('uploads/email/parsed/' + id + '.json', JSON.stringify(parsed, null, 2), (err) => { if (err) log.debug(err) });
+                    log.info('Parsed email: ' + id);
+                    await model.email.add(parsed);
+                    if (parsed.messageId) {
+                        messageIds.push(parsed.messageId);
+                    }
+                } catch (e) {
+                    log.debug(e);
+                }
+            }
+            res.json({ ok: true, messageIds: messageIds });
+        } catch (e) {
+            log.debug(e);
+            res.json({ ok: false });
+        }
+    })().catch(next);
+});
+
+
 router.get('/aws_ses/debug/:email_id', (req, res, next) => {
     (async () => {
         try {
@@ -49,7 +78,6 @@ router.get('/aws_ses/debug/:email_id', (req, res, next) => {
         }
     })().catch(next);
 });
-
 
 
 

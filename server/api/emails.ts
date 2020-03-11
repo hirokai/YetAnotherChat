@@ -17,7 +17,7 @@ router.get('/:id', (req: GetAuthRequest, res, next) => {
     })().catch(next);
 });
 
-router.get('/', (req: GetAuthRequest, res, next) => {
+router.get('/', (req: GetAuthRequest, res: JsonResponse<GetEmailsResponse>, next) => {
     (async () => {
         const limit = req.query.limit ? parseInt(req.query.limit) : undefined;
         const offset = req.query.offset ? parseInt(req.query.offset) : undefined;

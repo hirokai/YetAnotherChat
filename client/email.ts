@@ -25,14 +25,21 @@ const password: string = localStorage['yacht.db_password'] || "";
 
 axios.defaults.headers.common['x-access-token'] = token;
 
-const app: ElmMail = Elm.Email.init({});
+const app: any = Elm.Email.init({});
 
 const params: GetEmailsParams = {};
-const message_id = "<5a9ac130-e0a9-8aa5-cd16-3828805f020d@tohoku.ac.jp>";
+const paths = new URL(location.href).pathname.split('/');
+const message_id = paths[paths.length - 1];
 
-axios.get('/api/emails/' + message_id, { params }).then(({ data }: AxiosResponse<GetEmailsResponse>) => {
-    console.log(data.data);
-    app.ports.feedEmails.send(data.data);
+const formatData = (d) => {
+    return { from: d.from, text: d.text || "", subject: d.subject };
+}
+
+axios.get('/api/emails/' + message_id, { params }).then(({ data }: AxiosResponse<GetEmailResponse>) => {
+    const d = formatData(data.data);
+    console.log(d);
+    app.ports.feedEmail.send(d);
+    document.title = d.subject;
 }).catch((e) => {
     console.log(e);
 });

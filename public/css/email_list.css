@@ -1,0 +1,42 @@
+.entry {
+    border: 1px solid black;
+    border-radius: 4px;
+    margin: 8px;
+    padding: 4px;
+}
+
+.subject {
+    font-weight: bold;
+    color: #555;
+    font-size: 18px;
+}
+
+.date {
+    font-weight: bold;
+    font-size: 12px;
+}
+
+div.fadein {
+    animation: fadeIn 0.5s ease 0s 1 normal;
+    -webkit-animation: fadeIn 0.5s ease 0s 1 normal;
+  }
+
+  @keyframes fadeIn {
+    0% {
+      opacity: 0
+    }
+
+    100% {
+      opacity: 1
+    }
+  }
+
+  @-webkit-keyframes fadeIn {
+    0% {
+      opacity: 0
+    }
+
+    100% {
+      opacity: 1
+    }
+  }

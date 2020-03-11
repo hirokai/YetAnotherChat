@@ -1,4 +1,4 @@
-port module EmailList exposing (Flags, init, main, subscriptions, update, view)
+port module EmailList exposing (init, main, subscriptions, update, view)
 
 import Browser
 import Decoders exposing (..)
@@ -26,16 +26,22 @@ import UserPageView exposing (..)
 import Workspace exposing (..)
 
 
-port feedEmails : (List String -> msg) -> Sub msg
+port feedEmails : (List Email -> msg) -> Sub msg
 
 
 type alias Model =
-    { titles : List String }
+    { loaded: Bool, emails : List Email }
 
+type alias Email = {
+    from: String,
+    subject: String,
+    date: String,
+    message_id: String
+    }
 
 init : Flags -> ( Model, Cmd MsgMail )
 init {} =
-    ( { titles = [] }
+    ( { loaded = False, emails = [] }
     , Cmd.none
     )
 
@@ -52,7 +58,7 @@ main =
 
 type MsgMail
     = NoOp1
-    | FeedEmail (List String)
+    | FeedEmail (List Email)
 
 
 update : MsgMail -> Model -> ( Model, Cmd MsgMail )
@@ -62,7 +68,7 @@ update msg model =
             ( model, Cmd.none )
 
         FeedEmail emails ->
-            ( { model | titles = emails }, Cmd.none )
+            ( { model | loaded = True, emails = emails }, Cmd.none )
 
 
 view : Model -> Browser.Document MsgMail
@@ -71,13 +77,20 @@ view model =
     , body =
         [ div [ class "container-fluid" ]
             [ div [ class "col-12" ]
-                [ div [ class "row" ]
-                    [ div
+                [ div [ classList [ ( "row", True ), ( "fadein", model.loaded ) ] ] <|
+                    if model.loaded then
+                         [ div
                         [ id "view" ]
                         (h1 [] [ text "メール一覧" ]
-                            :: List.map (\t -> div [] [ text t ]) model.titles
+                            :: List.map (\e -> div [class "entry"] [ 
+                                div [class "subject"] [a [href <| "/emails/" ++ e.message_id] [text e.subject]]
+                               , div [class "date"] [text e.date] 
+                                 ]) model.emails
                         )
                     ]
+
+                    else
+                        []
                 ]
             ]
         ]
