@@ -39,21 +39,25 @@ router.get('/aws_ses/debug/parse_all', (req, res, next) => {
         try {
             const files = fs.readdirSync('uploads/email');
             log.debug(files);
-            var messageIds: string[] = [];
-            for (let id of files) {
-                try {
-                    const data = fs.readFileSync('uploads/email/' + id, "utf8");
-                    const parsed = await model.email.parseEmail(data);
-                    fs.writeFile('uploads/email/parsed/' + id + '.json', JSON.stringify(parsed, null, 2), (err) => { if (err) log.debug(err) });
-                    log.info('Parsed email: ' + id);
-                    await model.email.add(parsed);
-                    if (parsed.messageId) {
-                        messageIds.push(parsed.messageId);
+            const parsed_all: any[] = await Promise.all(files.map((id) => {
+                return new Promise((resolve) => {
+                    try {
+                        const data = fs.readFileSync('uploads/email/' + id, "utf8");
+                        model.email.parseEmail(data).then((parsed) => {
+                            resolve({ ...parsed, id });
+                        });
+                    } catch (e) {
+                        log.debug(e);
+                        resolve(null);
                     }
-                } catch (e) {
-                    log.debug(e);
-                }
-            }
+                });
+            }));
+            var messageIds: string[] = parsed_all.filter((p) => p).map(p => {
+                fs.writeFile('uploads/email/parsed/' + p.id + '.json', JSON.stringify(p, null, 2), (err) => { if (err) log.debug(err) });
+                log.info('Parsed email: ' + p.id);
+                model.email.add(p).then(() => { });
+                return p.messageId;
+            });
             res.json({ ok: true, messageIds: messageIds });
         } catch (e) {
             log.debug(e);

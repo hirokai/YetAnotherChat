@@ -13,7 +13,20 @@ router.get('/:id', (req: GetAuthRequest, res, next) => {
     (async () => {
         log.debug('/api/emails/id');
         const data = await model.email.get({ user_id: req.decoded.user_id, message_id: req.params.id });
-        res.json({ ok: true, data });
+        if (data) {
+            res.json({ ok: true, data });
+        } else {
+            res.status(404).send('Not found');
+        }
+    })().catch(next);
+});
+
+router.post('/:id/replies', (req: MyPostRequest<PostEmailReplyData>, res: JsonResponse<any>, next) => {
+    (async () => {
+        const message = req.body.message;
+        const reply_to = req.params.id;
+        const r = await model.email.reply({ user_id: req.decoded.user_id, message, reply_to });
+        res.json({ ok: r.ok });
     })().catch(next);
 });
 

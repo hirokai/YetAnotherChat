@@ -289,6 +289,9 @@ type GetCommentsResponse = { ok: boolean, data?: ChatEntry[] }
 type DeleteCommentResponse = { ok: boolean, data?: DeleteCommentData, error?: string }
 type DeleteCommentData = { comment_id: string, encrypt_group: string, session_id: string }
 
+
+type PostEmailReplyData = { message: string }
+
 type PostFileResponse = { ok: boolean, data?: PostFileResponseData }
 type PostFileResponseData = {
     user_id: string,

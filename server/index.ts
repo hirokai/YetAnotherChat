@@ -110,6 +110,24 @@ app.use('/m', express.static(path.join(__dirname, '../client/mobile/html')))
 app.get('/', (req, res) => {
     res.redirect('/main#/');
 });
+
+app.get('/reply/:id', (req, res, next) => {
+    (async () => {
+        const email = await model.email.get({ user_id: 'stub', message_id: req.params.id });
+        if (email) {
+            res.render(path.join(__dirname, 'view', './email_reply.ejs'), {
+                email
+            });
+        } else {
+            log.debug('Not found email');
+            res.status(404).send();
+        }
+    })().catch((e) => {
+        log.debug(e);
+        next()
+    });
+});
+
 app.get('/public_keys', (req, res, next) => {
     try {
         const net = credential.ethereum;
@@ -196,6 +214,11 @@ app.use(function (req, res, next) {
         }
     })().catch(next);
 });
+
+//
+// Authorized pages
+//
+
 
 //
 // Authorized APIs

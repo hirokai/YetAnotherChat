@@ -23,13 +23,20 @@ const token: string = localStorage.getItem('yacht.token') || "";
 const user_id: string = localStorage['yacht.user_id'] || "";
 const password: string = localStorage['yacht.db_password'] || "";
 
+const paths = new URL(location.href).pathname.split('/');
+const message_id = paths[paths.length - 1];
+
 axios.defaults.headers.common['x-access-token'] = token;
 
 const app: any = Elm.Email.init({});
 
+app.ports.sendMessage.subscribe((s: string) => {
+    axios.post('/api/emails/' + message_id + '/replies', { message: s }).then((r) => {
+        console.log(r);
+    });
+});
+
 const params: GetEmailsParams = {};
-const paths = new URL(location.href).pathname.split('/');
-const message_id = paths[paths.length - 1];
 
 const formatData = (d) => {
     return { from: d.from, text: d.text || "", subject: d.subject };
