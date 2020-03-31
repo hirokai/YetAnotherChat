@@ -30,14 +30,16 @@ port feedEmails : (List Email -> msg) -> Sub msg
 
 
 type alias Model =
-    { loaded: Bool, emails : List Email }
+    { loaded : Bool, emails : List Email }
 
-type alias Email = {
-    from: String,
-    subject: String,
-    date: String,
-    message_id: String
+
+type alias Email =
+    { from : String
+    , subject : String
+    , date : String
+    , message_id : String
     }
+
 
 init : Flags -> ( Model, Cmd MsgMail )
 init {} =
@@ -79,15 +81,19 @@ view model =
             [ div [ class "col-12" ]
                 [ div [ classList [ ( "row", True ), ( "fadein", model.loaded ) ] ] <|
                     if model.loaded then
-                         [ div
-                        [ id "view" ]
-                        (h1 [] [ text "メール一覧" ]
-                            :: List.map (\e -> div [class "entry"] [ 
-                                div [class "subject"] [a [href <| "/emails/" ++ e.message_id] [text e.subject]]
-                               , div [class "date"] [text e.date] 
-                                 ]) model.emails
-                        )
-                    ]
+                        [ div
+                            [ id "view" ]
+                            (h1 [] [ text "メール一覧" ]
+                                :: List.map
+                                    (\e ->
+                                        div [ class "entry" ]
+                                            [ div [ class "subject" ] [ a [ href <| "/emails/" ++ e.message_id ] [ text e.subject ] ]
+                                            , div [ class "date" ] [ text e.date ]
+                                            ]
+                                    )
+                                    model.emails
+                            )
+                        ]
 
                     else
                         []

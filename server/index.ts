@@ -234,9 +234,9 @@ setInterval(async () => {
     await model.keys.remove_old_temporary_private_key();
 }, 10 * 1000);
 
-log.info('Connecting to DB...')
+log.info('Connecting to DB.....')
 utils.connectToDB().then(() => {
-    log.info('Connected to DB.');
+    log.info('Connected to DB..');
     model.delete_all_connections().then(() => {
         http.listen(port, () => {
             log.info("HTTP server is running at port " + port);
