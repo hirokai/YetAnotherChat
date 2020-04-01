@@ -30,7 +30,7 @@ port feedEmails : (List Email -> msg) -> Sub msg
 
 
 type alias Model =
-    { loaded : Bool, emails : List Email }
+    { loaded : Bool, emails : List Email, search : String }
 
 
 type alias Email =
@@ -43,7 +43,7 @@ type alias Email =
 
 init : Flags -> ( Model, Cmd MsgMail )
 init {} =
-    ( { loaded = False, emails = [] }
+    ( { loaded = False, emails = [], search = "" }
     , Cmd.none
     )
 
@@ -61,6 +61,7 @@ main =
 type MsgMail
     = NoOp1
     | FeedEmail (List Email)
+    | InputSearch String
 
 
 update : MsgMail -> Model -> ( Model, Cmd MsgMail )
@@ -72,11 +73,21 @@ update msg model =
         FeedEmail emails ->
             ( { model | loaded = True, emails = emails }, Cmd.none )
 
+        InputSearch s ->
+            ( { model | search = s }, Cmd.none )
+
 
 view : Model -> Browser.Document MsgMail
 view model =
     { title = "Mail view"
     , body =
+        let
+            filterFunc e =
+                String.contains model.search e.subject
+
+            filtered =
+                List.filter filterFunc model.emails
+        in
         [ div [ class "container-fluid" ]
             [ div [ class "col-12" ]
                 [ div [ classList [ ( "row", True ), ( "fadein", model.loaded ) ] ] <|
@@ -84,6 +95,7 @@ view model =
                         [ div
                             [ id "view" ]
                             (h1 [] [ text "メール一覧" ]
+                                :: div [] [ span [] [ text "検索" ], input [ placeholder "検索キーワード", value model.search, onInput InputSearch ] [], text (String.fromInt (List.length filtered)) ]
                                 :: List.map
                                     (\e ->
                                         div [ class "entry" ]
@@ -91,7 +103,7 @@ view model =
                                             , div [ class "date" ] [ text e.date ]
                                             ]
                                     )
-                                    model.emails
+                                    filtered
                             )
                         ]
 
