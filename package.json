@@ -22,7 +22,7 @@
     "glob": "^7.1.6",
     "googleapis": "47",
     "helmet": "^3.21.3",
-    "jquery": "^3.4.1",
+    "jquery": "^3.5.0",
     "jsonwebtoken": "^8.5.1",
     "lodash": "^4.17.15",
     "mailgun-js": "^0.22.0",
